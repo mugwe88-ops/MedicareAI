@@ -1,13 +1,13 @@
 {
-  "name": "medicare",
+  "name": "medicare-ai",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "latest",
     "axios": "latest",
-    "dotenv": "latest"
+    "dotenv": "latest",
+    "express": "latest"
   }
 }
