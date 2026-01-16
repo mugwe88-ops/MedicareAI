@@ -1,6 +1,7 @@
 {
   "name": "medicare-ai",
   "version": "1.0.0",
+  "description": "WhatsApp Cloud API Backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
