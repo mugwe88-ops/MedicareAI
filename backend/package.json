@@ -8,6 +8,8 @@
   "dependencies": {
     "axios": "latest",
     "dotenv": "latest",
-    "express": "latest"
+    "express": "latest",
+    "helmet": "latest",
+    "express-rate-limit": "latest"
   }
 }
