@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MedicareAI | Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f0f2f5; }
+        .card { background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 300px; }
+        h1 { color: #075e54; margin-bottom: 10px; }
+        .btn { background: #25d366; color: white; padding: 12px 24px; border-radius: 50px; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>MedicareAI</h1>
+        <p>Your intelligent healthcare companion is now active on WhatsApp.</p>
+        <a href="https://wa.me/YOUR_BOT_NUMBER" class="btn">Chat on WhatsApp</a>
+    </div>
+</body>
+</html>
