@@ -1,6 +1,11 @@
 import dotenv from "dotenv";
 import express from "express";
+import adminRoutes from "./routes/admin/onboard.js";
 
+// ... other imports and app setup
+
+app.use(express.json()); // Essential to read the data you send!
+app.use("/api/admin/onboard", adminRoutes);
 dotenv.config();
 
 

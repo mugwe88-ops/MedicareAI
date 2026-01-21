@@ -1,93 +1,57 @@
 import express from "express";
 import axios from "axios";
+import pool from "../../db.js"; // Import our new database connection
 
 const router = express.Router();
-
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "medicare_secret_2026";
-const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
-const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-/**
- * 1. Webhook Verification (GET)
- * This handles Meta's handshake to keep the connection alive.
- */
+/** 1. Handshake (GET) **/
 router.get("/", (req, res) => {
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
-
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("✅ Webhook verified by Meta");
-    return res.status(200).send(challenge);
+  if (req.query["hub.mode"] === "subscribe" && req.query["hub.verify_token"] === VERIFY_TOKEN) {
+    return res.status(200).send(req.query["hub.challenge"]);
   }
-  return res.sendStatus(403);
+  res.sendStatus(403);
 });
 
-/**
- * 2. Message Handling (POST)
- * This handles actual incoming text messages from patients.
- */
+/** 2. Incoming Messages (POST) **/
 router.post("/", async (req, res) => {
   try {
-    const body = req.body;
+    const value = req.body.entry?.[0]?.changes?.[0]?.value;
+    const metadata = value?.metadata; // Contains Phone ID
+    const message = value?.messages?.[0];
 
-    // Check if this is a WhatsApp message event
-    if (body.object === "whatsapp_business_account") {
-      const entry = body.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
-      const message = value?.messages?.[0];
+    if (message && metadata) {
+      const phoneId = metadata.phone_number_id;
 
-      if (message && message.type === "text") {
-        const patientNumber = message.from; // Patient's WhatsApp ID
-        const patientText = message.text.body;
+      // LOOKUP: Find the specific consultant in Postgres
+      const result = await pool.query(
+        'SELECT * FROM consultants WHERE whatsapp_phone_id = $1', 
+        [phoneId]
+      );
+      const consultant = result.rows[0];
 
-        console.log(`📩 Message from ${patientNumber}: ${patientText}`);
-
-        // --- CONSULTANT LOGIC ---
-        // For now, we simulate that the consultant is always busy.
-        // Later, you can link this to a real database or Google Calendar.
-        const isConsultantBusy = true; 
-
-        if (isConsultantBusy) {
-          const aiReply = "Hello! I am the Medicare AI Assistant. The consultant is currently in a session. Would you like me to send you a booking link so you can schedule a time to speak later?";
-          
-          await sendWhatsAppMessage(patientNumber, aiReply);
-        }
+      if (!consultant) {
+        console.error(`Unknown consultant: ${phoneId}`);
+        return res.sendStatus(200);
       }
-      return res.status(200).send("EVENT_RECEIVED");
-    } else {
-      return res.sendStatus(404);
+
+      const patientNumber = message.from;
+
+      // If patient clicked "Book Appointment"
+      if (message.type === "interactive" && message.interactive?.button_reply?.id === "book_now") {
+        await sendTextMessage(phoneId, consultant.whatsapp_access_token, patientNumber, 
+          `Great! You can book with ${consultant.name} here: ${consultant.booking_url}`);
+      } 
+      // If patient sent a regular text
+      else if (message.type === "text") {
+        await sendBookingButton(phoneId, consultant.whatsapp_access_token, patientNumber, consultant.name);
+      }
     }
-  } catch (error) {
-    console.error("❌ Error processing webhook:", error.message);
+    res.status(200).send("EVENT_RECEIVED");
+  } catch (err) {
+    console.error("Webhook Error:", err);
     res.sendStatus(500);
   }
 });
 
-/**
- * Helper function to send messages back to WhatsApp
- */
-async function sendWhatsAppMessage(to, text) {
-  try {
-    await axios({
-      method: "POST",
-      url: `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
-      headers: {
-        Authorization: `Bearer ${ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      data: {
-        messaging_product: "whatsapp",
-        to: to,
-        type: "text",
-        text: { body: text },
-      },
-    });
-    console.log("📤 Reply sent to patient!");
-  } catch (error) {
-    console.error("❌ Failed to send WhatsApp message:", error.response?.data || error.message);
-  }
-}
-
-export default router;
+// Helpers (sendBookingButton & sendTextMessage) remain the same as previous step...
