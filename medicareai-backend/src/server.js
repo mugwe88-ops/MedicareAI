@@ -1,32 +1,37 @@
-import app from './app.js'; // This already creates the app
-import 'dotenv/config';
-import './jobs/reconciliation.js'; 
-import webhookRoutes from "./routes/webhook/routes.js";
+require("dotenv").config();
+const express = require("express");
 
-// DO NOT WRITE "const app = express();" HERE - it is already imported above
+const app = express();
+app.use(express.json());
 
-// This "creates" the virtual path for Meta
-app.use("/api/webhook", webhookRoutes); 
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
-const PORT = process.env.PORT || 10000;
+/**
+ * WEBHOOK VERIFICATION (Meta)
+ */
+app.get("/api/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
 
-const startServer = () => {
-  // We use the imported 'app' to listen
-  const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`---`);
-    console.log(`🟢 MedicareAI Server is Live!`);
-    console.log(`🔄 Reconciliation Job: ACTIVE`);
-    console.log(`📍 Port: ${PORT}`);
-    console.log(`🔗 Webhook Path: /api/webhook`);
-    console.log(`---`);
-  });
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    console.log("✅ Webhook verified");
+    return res.status(200).send(challenge);
+  } else {
+    console.error("❌ Webhook verification failed");
+    return res.sendStatus(403);
+  }
+});
 
-  server.on('error', (e) => {
-    if (e.code === 'EADDRINUSE') {
-      console.error(`❌ Port ${PORT} busy.`);
-      process.exit(1);
-    }
-  });
-};
+/**
+ * WEBHOOK EVENTS
+ */
+app.post("/api/webhook", (req, res) => {
+  console.log("📩 Incoming webhook:", JSON.stringify(req.body, null, 2));
+  res.sendStatus(200);
+});
 
-startServer();
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
