@@ -1,24 +1,24 @@
 import express from "express";
-
 const router = express.Router();
 
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "medicare_secret_2026";
-
-/**
- * Webhook verification (Meta / WhatsApp)
- */
-router.get("/webhook", (req, res) => {
+router.get("/", (req, res) => { // Using "/" to keep it simple
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("✅ Webhook verified by Meta");
-    return res.status(200).send(challenge); // MUST be plain text
+  // This log is your best friend right now
+  console.log("--- Webhook Attempt ---");
+  console.log("Mode:", mode);
+  console.log("Token Received:", token);
+  console.log("Token Expected:", process.env.VERIFY_TOKEN || "medicare_secret_2026");
+
+  if (mode === "subscribe" && token === (process.env.VERIFY_TOKEN || "medicare_secret_2026")) {
+    console.log("✅ Webhook verified!");
+    return res.status(200).send(challenge);
   }
 
-  console.log("❌ Webhook verification failed");
-  return res.sendStatus(403);
+  console.log("❌ Verification failed");
+  res.sendStatus(403);
 });
 
 export default router;
