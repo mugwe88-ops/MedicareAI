@@ -10,6 +10,10 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 10000;
 
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
 // ENV VARIABLES
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;

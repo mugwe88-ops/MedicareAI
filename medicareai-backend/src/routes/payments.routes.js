@@ -1,5 +1,8 @@
-import { Router } from 'express';
-import { handleSTKPush, handleMpesaCallback } from '../controllers/payments.controller.js';
+import {
+  handleSTKPush,
+  handleMpesaCallback
+} from '../controllers/payments.controller.js';
+
 
 const router = Router();
 
