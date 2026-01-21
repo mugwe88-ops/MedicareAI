@@ -3,7 +3,7 @@ import 'dotenv/config';
 import './jobs/reconciliation.js'; // 👈 Add this line to start the background worker
 import webhookRoutes from "./routes/webhook/routes.js";
 
-app.use("/api", webhookRoutes);
+app.use("/api/webhook", webhookRoutes);
 
 const PORT = process.env.PORT || 3000;
 

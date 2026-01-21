@@ -1,7 +1,7 @@
 import express from "express";
 const router = express.Router();
 
-router.get("/", (req, res) => { // Using "/" to keep it simple
+router.get("/", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
