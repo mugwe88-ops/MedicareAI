@@ -1,11 +1,8 @@
-import {
-  handleSTKPush,
-  handleMpesaCallback
-} from '../controllers/payments.controller.js';
-
-
+import { Router } from 'express';
 const router = Router();
-
+import { prisma } from '../lib/prisma.js';
+import { handleSTKPush, handleMpesaCallback } from '../controllers/payments.controller.js';
+import axios from 'axios';
 // Route: POST /api/payments/stkpush
 router.post('/stkpush', handleSTKPush);
 
