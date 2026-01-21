@@ -1,4 +1,4 @@
-import prisma from '../lib/prisma.js';
+import { prisma } from '../lib/prisma.js';
 import * as mpesaService from '../services/mpesa.service.js';
 
 /**
