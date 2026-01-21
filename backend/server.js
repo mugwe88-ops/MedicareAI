@@ -1,89 +1,86 @@
-const express = require("express");
-const axios = require("axios");
-const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
-require("dotenv").config();
+import 'dotenv/config'; // Loads .env immediately at the top
+import express from 'express';
+import axios from 'axios';
+
+// IMPORTANT: Once we integrate the database, you will add this line:
+// import { prisma } from '../src/lib/prisma.js'; 
 
 const app = express();
-const path = require('path');
-
-app.use(express.static(path.join(__dirname, 'public')));
-
-
-// --- 🛡️ SECURITY ---
-app.use(helmet()); 
 app.use(express.json());
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: "Too many requests, please try again later."
-});
-app.use("/webhook", limiter);
+const PORT = process.env.PORT || 10000;
 
-// --- ⚙️ CONFIG ---
-const PORT = process.env.PORT || 3000;
-const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
-const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+// ENV VARIABLES
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-// --- 🏠 ROUTES ---
+// ---- STARTUP LOGS ----
+console.log("🚀 MedicareAI starting (ESM Mode)...");
+console.log("VERIFY_TOKEN loaded:", VERIFY_TOKEN ? "✅ YES" : "❌ NO");
+console.log("WHATSAPP_TOKEN loaded:", WHATSAPP_TOKEN ? "✅ YES" : "❌ NO");
+console.log("PHONE_NUMBER_ID loaded:", PHONE_NUMBER_ID ? "✅ YES" : "❌ NO");
 
-// Health Check
-app.get("/", (req, res) => {
-  res.status(200).send({ status: "Online", service: "MedicareAI", time: new Date() });
-});
-
-// WhatsApp Webhook Verification
+// ---- WEBHOOK VERIFICATION ----
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("✅ Webhook Verified!");
+    console.log("✅ Webhook verified successfully");
     return res.status(200).send(challenge);
   }
-  res.sendStatus(403);
+
+  console.log("❌ Webhook verification failed");
+  return res.sendStatus(403);
 });
 
-// Main Message Handler
+// ---- RECEIVE WHATSAPP MESSAGES ----
 app.post("/webhook", async (req, res) => {
   try {
-    const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const entry = req.body.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const value = changes?.value;
+    const message = value?.messages?.[0];
 
-    if (message?.text?.body) {
-      const from = message.from;
-      const userText = message.text.body;
-
-      console.log(`📩 Message from ${from}: ${userText}`);
-
-      // NEXT STEP: This is where we will call Gemini AI
-      const aiResponse = `MedicareAI Bot: I received "${userText}". How can I help you today?`;
-      
-      await sendWhatsApp(from, aiResponse);
+    if (!message) {
+      return res.sendStatus(200);
     }
+
+    const from = message.from;
+    const text = message.text?.body;
+
+    console.log("📩 Incoming message:", text, "from", from);
+
+    // ---- SEND REPLY ----
+    await axios.post(
+      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to: from,
+        text: { body: "👋 Hello! MedicareAI is online and standardized." },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("✅ Reply sent");
     res.sendStatus(200);
-  } catch (err) {
-    console.error("🔥 Error:", err.message);
+  } catch (error) {
+    console.error(
+      "❌ Error:",
+      error.response?.data || error.message
+    );
     res.sendStatus(500);
   }
 });
 
-// --- 📨 SEND FUNCTION ---
-async function sendWhatsApp(to, text) {
-  try {
-    await axios.post(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
-      messaging_product: "whatsapp",
-      to: to,
-      text: { body: text },
-    }, {
-      headers: { Authorization: `Bearer ${ACCESS_TOKEN}` }
-    });
-    console.log(`📤 Reply sent to ${to}`);
-  } catch (e) {
-    console.error("❌ Send Fail:", e.response?.data || e.message);
-  }
-}
-
-app.listen(PORT, () => console.log(`🚀 MedicareAI Active on Port ${PORT}`));
+// ---- START SERVER ----
+app.listen(PORT, () => {
+  console.log(`🟢 MedicareAI active on port ${PORT}`);
+});

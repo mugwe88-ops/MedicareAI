@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Note: We leave 'url' out because Prisma 7 gets it from prisma.config.js
+}
+/* =========================
+   ENUMS
+========================= */
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+}
+
+/* =========================
+   MODELS
+========================= */
+
+model Patient {
+  id               String        @id @default(cuid())
+  name             String
+  phone            String        @unique // This is the field we'll use for M-Pesa
+  reliabilityScore Int           @default(0) // <--- ADD THIS LINE
+  appointments     Appointment[]
+  createdAt        DateTime      @default(now())
+}
+
+model Doctor {
+  id           String        @id @default(cuid())
+  name         String
+  specialty    String?
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  doctorId    String
+  doctor      Doctor            @relation(fields: [doctorId], references: [id])
+  patientId   String
+  patient     Patient           @relation(fields: [patientId], references: [id])
+  startTime   DateTime
+  endTime     DateTime
+  status      AppointmentStatus @default(PENDING)
+  // type     String?           <--- Optional: Add this if you want to categorize visits
+  payment     Payment?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([doctorId, startTime, endTime])
+}
+
+model Payment {
+  id                  String        @id @default(cuid())
+  appointmentId       String        @unique
+  appointment         Appointment   @relation(fields: [appointmentId], references: [id])
+  phoneNumber         String        
+  amount              Int           
+  checkoutRequestId   String        @unique
+  merchantRequestId   String?
+  mpesaReceiptNumber  String?       @unique
+  status              PaymentStatus @default(PENDING)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+}
