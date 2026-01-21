@@ -1,90 +1,42 @@
-import 'dotenv/config'; // Loads .env immediately at the top
 import express from 'express';
-import axios from 'axios';
-
-// IMPORTANT: Once we integrate the database, you will add this line:
-// import { prisma } from '../src/lib/prisma.js'; 
+import 'dotenv/config';
+import webhookRoutes from './routes/webhook/routes.js'; // Fixed path
+import paymentRoutes from './routes/payments.routes.js'; 
+import './jobs/reconciliation.js'; 
 
 const app = express();
+
+// Middlewares
 app.use(express.json());
+
+// Routes
+// This makes your Meta URL: https://medicare-ai.onrender.com/api/webhook
+app.use('/api', webhookRoutes); 
+app.use('/api/payments', paymentRoutes);
+
+// Root health check (Useful for Render)
+app.get('/', (req, res) => {
+  res.send('🟢 MedicareAI API is Running');
+});
 
 const PORT = process.env.PORT || 10000;
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+const startServer = () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`---`);
+    console.log(`🟢 MedicareAI Server is Live!`);
+    console.log(`🔄 Reconciliation Job: ACTIVE`);
+    console.log(`📍 Port: ${PORT}`);
+    console.log(`🔗 Webhook URL: /api/webhook`);
+    console.log(`---`);
+  });
 
-// ENV VARIABLES
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
-
-// ---- STARTUP LOGS ----
-console.log("🚀 MedicareAI starting (ESM Mode)...");
-console.log("VERIFY_TOKEN loaded:", VERIFY_TOKEN ? "✅ YES" : "❌ NO");
-console.log("WHATSAPP_TOKEN loaded:", WHATSAPP_TOKEN ? "✅ YES" : "❌ NO");
-console.log("PHONE_NUMBER_ID loaded:", PHONE_NUMBER_ID ? "✅ YES" : "❌ NO");
-
-// ---- WEBHOOK VERIFICATION ----
-app.get("/webhook", (req, res) => {
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
-
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("✅ Webhook verified successfully");
-    return res.status(200).send(challenge);
-  }
-
-  console.log("❌ Webhook verification failed");
-  return res.sendStatus(403);
-});
-
-// ---- RECEIVE WHATSAPP MESSAGES ----
-app.post("/webhook", async (req, res) => {
-  try {
-    const entry = req.body.entry?.[0];
-    const changes = entry?.changes?.[0];
-    const value = changes?.value;
-    const message = value?.messages?.[0];
-
-    if (!message) {
-      return res.sendStatus(200);
+  server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      console.error(`❌ Port ${PORT} busy. Exiting...`);
+      process.exit(1);
     }
+  });
+};
 
-    const from = message.from;
-    const text = message.text?.body;
-
-    console.log("📩 Incoming message:", text, "from", from);
-
-    // ---- SEND REPLY ----
-    await axios.post(
-      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
-      {
-        messaging_product: "whatsapp",
-        to: from,
-        text: { body: "👋 Hello! MedicareAI is online and standardized." },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    console.log("✅ Reply sent");
-    res.sendStatus(200);
-  } catch (error) {
-    console.error(
-      "❌ Error:",
-      error.response?.data || error.message
-    );
-    res.sendStatus(500);
-  }
-});
-
-// ---- START SERVER ----
-app.listen(PORT, () => {
-  console.log(`🟢 MedicareAI active on port ${PORT}`);
-});
+startServer();
