@@ -1,13 +1,17 @@
-require("dotenv").config();
-const express = require("express");
+import dotenv from "dotenv";
+import express from "express";
+
+dotenv.config();
+
 
 const app = express();
 app.use(express.json());
 
+const PORT = process.env.PORT || 10000;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
 /**
- * WEBHOOK VERIFICATION (Meta)
+ * Webhook verification (Meta)
  */
 app.get("/api/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -17,21 +21,22 @@ app.get("/api/webhook", (req, res) => {
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
     console.log("✅ Webhook verified");
     return res.status(200).send(challenge);
-  } else {
-    console.error("❌ Webhook verification failed");
-    return res.sendStatus(403);
   }
+
+  console.error("❌ Webhook verification failed");
+  return res.sendStatus(403);
 });
 
 /**
- * WEBHOOK EVENTS
+ * Webhook events
  */
 app.post("/api/webhook", (req, res) => {
   console.log("📩 Incoming webhook:", JSON.stringify(req.body, null, 2));
   res.sendStatus(200);
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log("🟢 MedicareAI Server is Live!");
+  console.log(`📍 Port: ${PORT}`);
+  console.log("🔗 Webhook Path: /api/webhook");
 });
