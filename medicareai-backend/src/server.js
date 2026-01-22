@@ -1,7 +1,15 @@
-require('dotenv').config();
-const express = require('express');
-const axios = require('axios');
-const { Pool } = require('pg');
+import dotenv from "dotenv";
+dotenv.config();
+
+import express from "express";
+import axios from "axios";
+import { Pool } from 'pg';
+import { fileURLToPath } from "url";
+import path from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const { encrypt, decrypt } = require('./encryption');
 
 const app = express();
