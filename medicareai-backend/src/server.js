@@ -3,7 +3,7 @@ import express from 'express';
 import axios from 'axios';
 import pkg from 'pg';
 const { Pool } = pkg;
-import { encrypt, decrypt } from './encryption.js';
+import { encrypt, decrypt } from '../encryption.js';
 
 const app = express();
 
