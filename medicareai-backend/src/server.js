@@ -103,4 +103,13 @@ async function sendReply(phoneId, to, token, text, isButton) {
 }
 
 const PORT = process.env.PORT || 10000;
+// 4. DATA VERIFICATION (Development Only)
+app.get('/api/admin/consultants', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, name, whatsapp_phone_id, created_at FROM consultants');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 app.listen(PORT, () => console.log(`🟢 MedicareAI Live!`));

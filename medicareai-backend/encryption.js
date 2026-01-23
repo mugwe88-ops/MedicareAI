@@ -1,7 +1,11 @@
 import crypto from 'crypto';
 
-const ENCRYPTION_KEY = process.env.MASTER_ENCRYPTION_KEY; 
-const IV_LENGTH = 16; 
+const ENCRYPTION_KEY = process.env.MASTER_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY; 
+
+if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) {
+    console.error("❌ ENCRYPTION ERROR: Key is missing or not 32 characters!");
+    // This will show up in your Render Logs to tell you exactly what is wrong
+}
 
 export function encrypt(text) {
     if (!text) return null;
