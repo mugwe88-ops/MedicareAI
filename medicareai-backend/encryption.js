@@ -1,10 +1,10 @@
 import crypto from 'crypto';
 
 const ENCRYPTION_KEY = process.env.MASTER_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY; 
+const IV_LENGTH = 16; // This is the line your server is missing!
 
 if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) {
     console.error("❌ ENCRYPTION ERROR: Key is missing or not 32 characters!");
-    // This will show up in your Render Logs to tell you exactly what is wrong
 }
 
 export function encrypt(text) {
