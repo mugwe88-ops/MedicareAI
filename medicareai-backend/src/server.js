@@ -115,6 +115,35 @@ app.get('/api/admin/consultants', async (req, res) => {
 
 // 4. START SERVER (ONLY CALL THIS ONCE)
 const PORT = process.env.PORT || 10000;
+
+// EMERGENCY RESET ROUTE (Using your .env token)
+app.get('/api/debug/reset', async (req, res) => {
+    try {
+        // 1. Clear the old, unreadable data
+        await pool.query('DELETE FROM consultants');
+        
+        // 2. Grab the token and phone ID from your environment variables
+        const name = "Dr. House";
+        const phoneId = "1013054165213912"; 
+        const token = process.env.WHATSAPP_ACCESS_TOKEN; // This pulls from your Render Env settings
+        
+        if (!token) {
+            return res.status(500).send("❌ Error: WHATSAPP_ACCESS_TOKEN not found in Environment Variables.");
+        }
+
+        // 3. Encrypt it using your NEW 32-character key
+        const encryptedToken = encrypt(token);
+        
+        await pool.query(
+            'INSERT INTO consultants (name, whatsapp_phone_id, whatsapp_access_token, booking_url) VALUES ($1, $2, $3, $4)',
+            [name, phoneId, encryptedToken, "https://calendly.com/test"]
+        );
+
+        res.send("✅ Database cleared and Dr. House re-added using the Token from your Environment Settings!");
+    } catch (err) {
+        res.status(500).send("❌ Error: " + err.message);
+    }
+});
 app.listen(PORT, () => {
     console.log(`🟢 MedicareAI Live on port ${PORT}`);
 });
