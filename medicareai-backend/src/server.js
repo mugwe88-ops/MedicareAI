@@ -31,20 +31,26 @@ async function initDatabase() {
 initDatabase();
 
 // 1. ONBOARDING API
-app.post('/api/admin/onboard', async (req, res) => {
+app.post('/api/webhook', async (req, res) => {
+    res.sendStatus(200); // Always tell Meta we got it!
+
+    const body = req.body;
+    // Log everything so we can see it later
+    console.log("📩 Received Webhook:", JSON.stringify(body, null, 2));
+
+    if (!body.entry?.[0]?.changes?.[0]?.value?.messages) return;
+
+    const message = body.entry[0].changes[0].value.messages[0];
+    const phoneId = body.entry[0].changes[0].value.metadata.phone_number_id;
+    const patientPhone = message.from;
+
+    // FORCING A REPLY TO TEST CONNECTION (Bypasses DB)
     try {
-        const { whatsapp_phone_id, whatsapp_access_token, name, booking_url, calendar_id } = req.body;
-        const secureToken = encrypt(whatsapp_access_token);
-        const query = `
-            INSERT INTO consultants (whatsapp_phone_id, whatsapp_access_token, name, booking_url, calendar_id)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (whatsapp_phone_id) DO UPDATE SET whatsapp_access_token = EXCLUDED.whatsapp_access_token, name = EXCLUDED.name
-            RETURNING id, name;
-        `;
-        const result = await pool.query(query, [whatsapp_phone_id, secureToken, name, booking_url, calendar_id]);
-        res.status(201).json({ message: "Consultant saved securely", data: result.rows[0] });
+        const testToken = "PASTE_YOUR_META_TOKEN_HERE"; // Use your fresh token
+        await sendReply(phoneId, patientPhone, testToken, "Connection Success! Dr. House is listening.", false);
+        console.log("✅ Test reply sent to:", patientPhone);
     } catch (err) {
-        res.status(500).json({ error: "Internal Server Error", details: err.message });
+        console.error("❌ Test Reply Failed:", err.response?.data || err.message);
     }
 });
 
