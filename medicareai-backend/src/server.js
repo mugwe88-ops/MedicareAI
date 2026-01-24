@@ -122,7 +122,6 @@ async function sendReply(phoneId, to, token, text, isButton) {
     await axios.post(url, data, { headers: { Authorization: `Bearer ${token}` } });
 }
 
-const PORT = process.env.PORT || 10000;
 // 4. DATA VERIFICATION (Development Only)
 app.get('/api/admin/consultants', async (req, res) => {
     try {
