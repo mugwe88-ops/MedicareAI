@@ -88,19 +88,25 @@ app.post('/api/webhook', async (req, res) => {
 });
 
 // Helper Function: Send WhatsApp Messages
-async function sendReply(phoneId, to, token, text, isButton) {
+async function sendReply(phoneId, to, token, text) {
     const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
-    const data = isButton ? {
-        messaging_product: "whatsapp", to, type: "interactive",
-        interactive: {
-            type: "button", body: { text },
-            action: { buttons: [{ type: "reply", reply: { id: "book_now", title: "Book Now" } }] }
-        }
-    } : {
-        messaging_product: "whatsapp", to, type: "text", text: { body: text }
+    
+    const data = {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: to,
+        type: "text",
+        text: { body: text }
     };
 
-    await axios.post(url, data, { headers: { Authorization: `Bearer ${token}` } });
+    console.log("🚀 Attempting to send message to:", to);
+
+    await axios.post(url, data, { 
+        headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        } 
+    });
 }
 
 // 3. ADMIN API (Verification Only)
