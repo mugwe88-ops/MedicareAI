@@ -66,6 +66,7 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log(`🟢 MedicareAI Live on port ${PORT}`);
 });
+
 // 3. DYNAMIC WEBHOOK PROCESSING
 app.post('/api/webhook', async (req, res) => {
     // Acknowledge Meta quickly
