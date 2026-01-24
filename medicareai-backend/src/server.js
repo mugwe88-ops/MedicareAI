@@ -53,6 +53,9 @@ app.get('/api/webhook', (req, res) => {
     const token = req.query['hub.verify_token'];
     if (token === process.env.VERIFY_TOKEN) return res.send(req.query['hub.challenge']);
     res.sendStatus(403);
+app.post('/api/webhook', (req, res) => {
+    console.log("📩 Incoming Webhook Data:", JSON.stringify(req.body, null, 2));
+    res.sendStatus(200);    
 });
 
 // 3. DYNAMIC WEBHOOK PROCESSING
