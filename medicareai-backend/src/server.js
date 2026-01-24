@@ -14,23 +14,32 @@ const pool = new Pool({
 });
 
 // Database Initialization
-async function initDatabase() {
-    const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS consultants (
-            id SERIAL PRIMARY KEY,
-            whatsapp_phone_id VARCHAR(255) UNIQUE NOT NULL,
-            whatsapp_access_token TEXT NOT NULL,
-            name VARCHAR(255) NOT NULL,
-            booking_url TEXT NOT NULL,
-            calendar_id VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    `;
+async function sendReply(phoneId, to, token, text) {
+    // Updated to v22.0 to match your dashboard
+    const url = `https://graph.facebook.com/v22.0/${phoneId}/messages`;
+    
+    const data = {
+        messaging_product: "whatsapp",
+        to: to,
+        type: "text",
+        text: { 
+            preview_url: false,
+            body: text 
+        }
+    };
+
     try {
-        await pool.query(createTableQuery);
-        console.log("✅ Database initialized successfully.");
+        await axios.post(url, data, { 
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            } 
+        });
+        console.log(`✅ Message sent successfully to ${to}`);
     } catch (err) {
-        console.error("❌ Database Init Error:", err.message);
+        // This will print the EXACT reason Meta is rejecting the message
+        console.error("❌ Meta API Error Detail:", err.response?.data || err.message);
+        throw err;
     }
 }
 initDatabase();
@@ -79,7 +88,7 @@ app.post('/api/webhook', async (req, res) => {
 
         if (message.type === 'text') {
             const replyText = `Hello! You are messaging ${consultant.name}. How can I help you today?`;
-            await sendReply(phoneId, patientPhone, rawToken, replyText, false);
+            await sendReply(phoneId, patientPhone, rawToken, replyText);
             console.log(`✅ Replied to ${patientPhone}`);
         }
     } catch (err) {
