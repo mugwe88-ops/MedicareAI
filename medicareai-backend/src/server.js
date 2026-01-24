@@ -26,56 +26,29 @@ async function initDatabase() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `;
-    await pool.query(createTableQuery);
+    try {
+        await pool.query(createTableQuery);
+        console.log("✅ Database initialized successfully.");
+    } catch (err) {
+        console.error("❌ Database Init Error:", err.message);
+    }
 }
 initDatabase();
 
-// 1. ONBOARDING API
-app.post('/api/webhook', async (req, res) => {
-    res.sendStatus(200); // Always tell Meta we got it!
-
-    const body = req.body;
-    // Log everything so we can see it later
-    console.log("📩 Received Webhook:", JSON.stringify(body, null, 2));
-
-    if (!body.entry?.[0]?.changes?.[0]?.value?.messages) return;
-
-    const message = body.entry[0].changes[0].value.messages[0];
-    const phoneId = body.entry[0].changes[0].value.metadata.phone_number_id;
-    const patientPhone = message.from;
-
-    // FORCING A REPLY TO TEST CONNECTION (Bypasses DB)
-    try {
-        const testToken = "PASTE_YOUR_META_TOKEN_HERE"; // Use your fresh token
-        await sendReply(phoneId, patientPhone, testToken, "Connection Success! Dr. House is listening.", false);
-        console.log("✅ Test reply sent to:", patientPhone);
-    } catch (err) {
-        console.error("❌ Test Reply Failed:", err.response?.data || err.message);
-    }
-});
-
-// 2. WEBHOOK VERIFICATION
+// 1. WEBHOOK VERIFICATION (GET)
 app.get('/api/webhook', (req, res) => {
     const token = req.query['hub.verify_token'];
-    if (token === process.env.VERIFY_TOKEN) return res.send(req.query['hub.challenge']);
+    if (token === process.env.VERIFY_TOKEN) {
+        return res.send(req.query['hub.challenge']);
+    }
     res.sendStatus(403);
 });
 
-// 3. RECEIVING MESSAGES
-app.post('/api/webhook', (req, res) => {
-    console.log("📩 Incoming Webhook Data:", JSON.stringify(req.body, null, 2));
-    res.sendStatus(200);    
-});
-
-// 4. START SERVER
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-    console.log(`🟢 MedicareAI Live on port ${PORT}`);
-});
-
-// 3. DYNAMIC WEBHOOK PROCESSING
+// 2. MAIN WEBHOOK PROCESSING (POST)
 app.post('/api/webhook', async (req, res) => {
-    res.sendStatus(200);
+    // Always tell Meta we received the message immediately
+    res.sendStatus(200); 
+
     const body = req.body;
     if (!body.entry?.[0]?.changes?.[0]?.value?.messages) return;
 
@@ -83,26 +56,34 @@ app.post('/api/webhook', async (req, res) => {
     const phoneId = body.entry[0].changes[0].value.metadata.phone_number_id;
     const patientPhone = message.from;
 
-    // 🟢 ADD THIS TEMPORARY LOG TO BYPASS DB CHECK FOR TESTING
-    console.log("Incoming message from:", patientPhone, "via PhoneID:", phoneId);
+    console.log(`📩 Incoming message from ${patientPhone} via PhoneID: ${phoneId}`);
     
     try {
         const result = await pool.query('SELECT * FROM consultants WHERE whatsapp_phone_id = $1', [phoneId]);
         
-        // If Database is empty, send a generic reply so we know it works!
+        // If Database is empty or consultant not found
         if (result.rows.length === 0) {
-            console.log("DB lookup failed, sending fallback reply.");
-            return await sendReply(phoneId, patientPhone, "YOUR_TEMPORARY_TOKEN_HERE", "Dr. House is online! (Database lookup skipped)", false);
+            console.log("⚠️ DB lookup failed for this PhoneID.");
+            return; 
         }
 
         const consultant = result.rows[0];
-        const rawToken = decrypt(consultant.whatsapp_access_token);
+        let rawToken;
+        
+        try {
+            rawToken = decrypt(consultant.whatsapp_access_token);
+        } catch (decErr) {
+            console.error("❌ Decryption failed. Check your ENCRYPTION_KEY length (must be 32).");
+            return;
+        }
 
         if (message.type === 'text') {
-            await sendReply(phoneId, patientPhone, rawToken, `Hello! You are messaging ${consultant.name}.`, true);
+            const replyText = `Hello! You are messaging ${consultant.name}. How can I help you today?`;
+            await sendReply(phoneId, patientPhone, rawToken, replyText, true);
+            console.log(`✅ Replied to ${patientPhone}`);
         }
     } catch (err) {
-        console.error("Webhook Logic Error:", err.message);
+        console.error("❌ Webhook Logic Error:", err.message);
     }
 });
 
@@ -122,7 +103,7 @@ async function sendReply(phoneId, to, token, text, isButton) {
     await axios.post(url, data, { headers: { Authorization: `Bearer ${token}` } });
 }
 
-// 4. DATA VERIFICATION (Development Only)
+// 3. ADMIN API (Verification Only)
 app.get('/api/admin/consultants', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, name, whatsapp_phone_id, created_at FROM consultants');
@@ -131,4 +112,9 @@ app.get('/api/admin/consultants', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-app.listen(PORT, () => console.log(`🟢 MedicareAI Live!`));
+
+// 4. START SERVER (ONLY CALL THIS ONCE)
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+    console.log(`🟢 MedicareAI Live on port ${PORT}`);
+});
