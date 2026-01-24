@@ -79,7 +79,7 @@ app.post('/api/webhook', async (req, res) => {
 
         if (message.type === 'text') {
             const replyText = `Hello! You are messaging ${consultant.name}. How can I help you today?`;
-            await sendReply(phoneId, patientPhone, rawToken, replyText, true);
+            await sendReply(phoneId, patientPhone, rawToken, replyText, false);
             console.log(`✅ Replied to ${patientPhone}`);
         }
     } catch (err) {
