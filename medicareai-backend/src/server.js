@@ -13,19 +13,16 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// Database Initialization
+// 1. Helper Function: Send WhatsApp Messages (v22.0)
 async function sendReply(phoneId, to, token, text) {
-    // Updated to v22.0 to match your dashboard
+    const cleanTo = to.replace('+', ''); // Ensure no '+' sign
     const url = `https://graph.facebook.com/v22.0/${phoneId}/messages`;
     
     const data = {
         messaging_product: "whatsapp",
-        to: to,
+        to: cleanTo,
         type: "text",
-        text: { 
-            preview_url: false,
-            body: text 
-        }
+        text: { body: text }
     };
 
     try {
@@ -35,16 +32,14 @@ async function sendReply(phoneId, to, token, text) {
                 'Content-Type': 'application/json'
             } 
         });
-        console.log(`✅ Message sent successfully to ${to}`);
+        console.log(`✅ Message sent successfully to ${cleanTo}`);
     } catch (err) {
-        // This will print the EXACT reason Meta is rejecting the message
         console.error("❌ Meta API Error Detail:", err.response?.data || err.message);
         throw err;
     }
 }
-initDatabase();
 
-// 1. WEBHOOK VERIFICATION (GET)
+// 2. WEBHOOK VERIFICATION (GET)
 app.get('/api/webhook', (req, res) => {
     const token = req.query['hub.verify_token'];
     if (token === process.env.VERIFY_TOKEN) {
@@ -53,9 +48,8 @@ app.get('/api/webhook', (req, res) => {
     res.sendStatus(403);
 });
 
-// 2. MAIN WEBHOOK PROCESSING (POST)
+// 3. MAIN WEBHOOK PROCESSING (POST)
 app.post('/api/webhook', async (req, res) => {
-    // Always tell Meta we received the message immediately
     res.sendStatus(200); 
 
     const body = req.body;
@@ -70,7 +64,6 @@ app.post('/api/webhook', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM consultants WHERE whatsapp_phone_id = $1', [phoneId]);
         
-        // If Database is empty or consultant not found
         if (result.rows.length === 0) {
             console.log("⚠️ DB lookup failed for this PhoneID.");
             return; 
@@ -82,43 +75,20 @@ app.post('/api/webhook', async (req, res) => {
         try {
             rawToken = decrypt(consultant.whatsapp_access_token);
         } catch (decErr) {
-            console.error("❌ Decryption failed. Check your ENCRYPTION_KEY length (must be 32).");
+            console.error("❌ Decryption failed. Check your ENCRYPTION_KEY length (32 chars).");
             return;
         }
 
         if (message.type === 'text') {
             const replyText = `Hello! You are messaging ${consultant.name}. How can I help you today?`;
             await sendReply(phoneId, patientPhone, rawToken, replyText);
-            console.log(`✅ Replied to ${patientPhone}`);
         }
     } catch (err) {
         console.error("❌ Webhook Logic Error:", err.message);
     }
 });
 
-// Helper Function: Send WhatsApp Messages
-async function sendReply(phoneId, to, token, text) {
-    const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
-    
-    const data = {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: to,
-        type: "text",
-        text: { body: text }
-    };
-
-    console.log("🚀 Attempting to send message to:", to);
-
-    await axios.post(url, data, { 
-        headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        } 
-    });
-}
-
-// 3. ADMIN API (Verification Only)
+// 4. ADMIN API
 app.get('/api/admin/consultants', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, name, whatsapp_phone_id, created_at FROM consultants');
@@ -128,37 +98,27 @@ app.get('/api/admin/consultants', async (req, res) => {
     }
 });
 
-// 4. START SERVER (ONLY CALL THIS ONCE)
-const PORT = process.env.PORT || 10000;
-
-// EMERGENCY RESET ROUTE (Using your .env token)
+// 5. EMERGENCY RESET ROUTE
 app.get('/api/debug/reset', async (req, res) => {
     try {
-        // 1. Clear the old, unreadable data
         await pool.query('DELETE FROM consultants');
+        const token = process.env.WHATSAPP_ACCESS_TOKEN;
         
-        // 2. Grab the token and phone ID from your environment variables
-        const name = "Dr. House";
-        const phoneId = "1013054165213912"; 
-        const token = process.env.WHATSAPP_ACCESS_TOKEN; // This pulls from your Render Env settings
-        
-        if (!token) {
-            return res.status(500).send("❌ Error: WHATSAPP_ACCESS_TOKEN not found in Environment Variables.");
-        }
+        if (!token) return res.status(500).send("❌ Error: WHATSAPP_ACCESS_TOKEN missing in Render.");
 
-        // 3. Encrypt it using your NEW 32-character key
         const encryptedToken = encrypt(token);
-        
         await pool.query(
             'INSERT INTO consultants (name, whatsapp_phone_id, whatsapp_access_token, booking_url) VALUES ($1, $2, $3, $4)',
-            [name, phoneId, encryptedToken, "https://calendly.com/test"]
+            ["Dr. House", "1013054165213912", encryptedToken, "https://calendly.com/test"]
         );
 
-        res.send("✅ Database cleared and Dr. House re-added using the Token from your Environment Settings!");
+        res.send("✅ Database cleared and Dr. House re-added!");
     } catch (err) {
         res.status(500).send("❌ Error: " + err.message);
     }
 });
+
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log(`🟢 MedicareAI Live on port ${PORT}`);
 });
