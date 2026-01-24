@@ -69,9 +69,7 @@ app.listen(PORT, () => {
 
 // 3. DYNAMIC WEBHOOK PROCESSING
 app.post('/api/webhook', async (req, res) => {
-    // Acknowledge Meta quickly
     res.sendStatus(200);
-
     const body = req.body;
     if (!body.entry?.[0]?.changes?.[0]?.value?.messages) return;
 
@@ -79,19 +77,23 @@ app.post('/api/webhook', async (req, res) => {
     const phoneId = body.entry[0].changes[0].value.metadata.phone_number_id;
     const patientPhone = message.from;
 
+    // 🟢 ADD THIS TEMPORARY LOG TO BYPASS DB CHECK FOR TESTING
+    console.log("Incoming message from:", patientPhone, "via PhoneID:", phoneId);
+    
     try {
-        // Find consultant by phoneId
         const result = await pool.query('SELECT * FROM consultants WHERE whatsapp_phone_id = $1', [phoneId]);
-        if (result.rows.length === 0) return console.log("Unknown Phone ID:", phoneId);
+        
+        // If Database is empty, send a generic reply so we know it works!
+        if (result.rows.length === 0) {
+            console.log("DB lookup failed, sending fallback reply.");
+            return await sendReply(phoneId, patientPhone, "YOUR_TEMPORARY_TOKEN_HERE", "Dr. House is online! (Database lookup skipped)", false);
+        }
 
         const consultant = result.rows[0];
         const rawToken = decrypt(consultant.whatsapp_access_token);
 
-        // Logic: Send reply based on interaction
         if (message.type === 'text') {
-            await sendReply(phoneId, patientPhone, rawToken, `Hello! You are messaging ${consultant.name}. Click below to schedule.`, true);
-        } else if (message.type === 'interactive' && message.interactive.button_reply.id === 'book_now') {
-            await sendReply(phoneId, patientPhone, rawToken, `Great! Book here: ${consultant.booking_url}`, false);
+            await sendReply(phoneId, patientPhone, rawToken, `Hello! You are messaging ${consultant.name}.`, true);
         }
     } catch (err) {
         console.error("Webhook Logic Error:", err.message);
