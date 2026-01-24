@@ -13,7 +13,7 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// 1. SELF-HEALING DATABASE (Runs every time Render restarts)
+// 1. SELF-HEALING DATABASE
 async function initDatabase() {
     try {
         await pool.query(`
@@ -27,11 +27,11 @@ async function initDatabase() {
             );
         `);
 
-        // Grab values directly from your Render Environment Variables
+        // Grab values from Render Environment Variables
         const token = process.env.WHATSAPP_ACCESS_TOKEN;
-        const phoneId = "1013054165213912";
+        const phoneId = process.env.PHONE_NUMBER_ID; // Now pulled from Env
 
-        if (token) {
+        if (token && phoneId) {
             const encryptedToken = encrypt(token);
             await pool.query(`
                 INSERT INTO consultants (name, whatsapp_phone_id, whatsapp_access_token, booking_url)
@@ -46,7 +46,7 @@ async function initDatabase() {
     }
 }
 
-// 2. SEND REPLY (v22.0)
+// 2. SEND REPLY (Using v22.0)
 async function sendReply(phoneId, to, token, text) {
     const cleanTo = to.replace('+', ''); 
     const url = `https://graph.facebook.com/v22.0/${phoneId}/messages`;
@@ -67,43 +67,60 @@ async function sendReply(phoneId, to, token, text) {
         });
         console.log(`✅ Message sent successfully to ${cleanTo}`);
     } catch (err) {
-        // Detailed error logging to catch any Meta permission issues
         console.error("❌ Meta API Error:", err.response?.data || err.message);
     }
 }
 
 // 3. WEBHOOKS
+// GET: Used by Meta to verify your endpoint
 app.get('/api/webhook', (req, res) => {
-    if (req.query['hub.verify_token'] === process.env.VERIFY_TOKEN) {
-        return res.send(req.query['hub.challenge']);
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
+        console.log("✅ Webhook Verified by Meta");
+        return res.status(200).send(challenge);
     }
     res.sendStatus(403);
 });
 
+// POST: Receives the actual messages
 app.post('/api/webhook', async (req, res) => {
+    // Always acknowledge the webhook immediately
     res.sendStatus(200); 
+
     const body = req.body;
-    if (!body.entry?.[0]?.changes?.[0]?.value?.messages) return;
-
-    const message = body.entry[0].changes[0].value.messages[0];
-    const phoneId = body.entry[0].changes[0].value.metadata.phone_number_id;
-    const patientPhone = message.from;
-
-    console.log(`📩 Incoming message from ${patientPhone}`);
     
-    try {
-        const result = await pool.query('SELECT * FROM consultants WHERE whatsapp_phone_id = $1', [phoneId]);
-        if (result.rows.length === 0) return console.log("⚠️ Consultant not found in DB.");
+    // Check if this is a message event
+    if (body.object === 'whatsapp_business_account') {
+        if (body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
+            const entry = body.entry[0].changes[0].value;
+            const message = entry.messages[0];
+            const phoneId = entry.metadata.phone_number_id;
+            const patientPhone = message.from;
 
-        const consultant = result.rows[0];
-        const rawToken = decrypt(consultant.whatsapp_access_token);
+            console.log(`📩 Incoming message from ${patientPhone}`);
+            
+            try {
+                // Find the consultant associated with this phone number ID
+                const result = await pool.query('SELECT * FROM consultants WHERE whatsapp_phone_id = $1', [phoneId]);
+                
+                if (result.rows.length > 0) {
+                    const consultant = result.rows[0];
+                    const rawToken = decrypt(consultant.whatsapp_access_token);
 
-        if (message.type === 'text') {
-            const replyText = `Hello! You are messaging ${consultant.name}. How can I help you today?`;
-            await sendReply(phoneId, patientPhone, rawToken, replyText);
+                    if (message.type === 'text') {
+                        const replyText = `Hello! You are messaging ${consultant.name}. How can I help you today?`;
+                        await sendReply(phoneId, patientPhone, rawToken, replyText);
+                    }
+                } else {
+                    console.log(`⚠️ No consultant found in DB for Phone ID: ${phoneId}`);
+                }
+            } catch (err) {
+                console.error("❌ Webhook Logic Error:", err.message);
+            }
         }
-    } catch (err) {
-        console.error("❌ Webhook Logic Error:", err.message);
     }
 });
 
