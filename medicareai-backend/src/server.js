@@ -53,11 +53,19 @@ app.get('/api/webhook', (req, res) => {
     const token = req.query['hub.verify_token'];
     if (token === process.env.VERIFY_TOKEN) return res.send(req.query['hub.challenge']);
     res.sendStatus(403);
+});
+
+// 3. RECEIVING MESSAGES
 app.post('/api/webhook', (req, res) => {
     console.log("📩 Incoming Webhook Data:", JSON.stringify(req.body, null, 2));
     res.sendStatus(200);    
 });
 
+// 4. START SERVER
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+    console.log(`🟢 MedicareAI Live on port ${PORT}`);
+});
 // 3. DYNAMIC WEBHOOK PROCESSING
 app.post('/api/webhook', async (req, res) => {
     // Acknowledge Meta quickly
