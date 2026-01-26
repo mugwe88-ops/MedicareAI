@@ -3,14 +3,18 @@ import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
 
-import pkg from 'pg';
-const { Pool } = pkg;
+// 1. Prisma 7 & Postgres Adapter Imports
+import pkgPg from 'pg';
+const { Pool } = pkgPg;
+import pkgPrisma from '@prisma/client';
+const { PrismaClient } = pkgPrisma;
+import { PrismaPg } from '@prisma/adapter-pg';
 
-import { PrismaClient } from '@prisma/client';
+// 2. Local Imports (Ensure path & .js extension are correct)
 import { encrypt, decrypt } from './encryption.js';
 
 const app = express();
-
+const PORT = process.env.PORT || 3000;
 /* =========================
    MIDDLEWARE
 ========================= */
