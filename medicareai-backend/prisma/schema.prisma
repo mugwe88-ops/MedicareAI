@@ -1,7 +1,7 @@
 generator client {
-  provider = "prisma-client" // Standard in v7
-  
+  provider = "prisma-client-js"
 }
+
 
 datasource db {
   provider = "postgresql"
