@@ -6,8 +6,7 @@ import cors from 'cors';
 // This bypasses the node_modules error by pointing directly to the generated files
 import { PrismaClient } from './generated/client/index.js';
 import { PrismaPg } from '@prisma/adapter-pg';
-import pkgPg from 'pg';
-const { Pool } = pkgPg;
+
 
 // 2. Encryption Import (One level up from /src)
 import { encrypt, decrypt } from '../encryption.js';
