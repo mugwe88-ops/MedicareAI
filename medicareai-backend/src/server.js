@@ -1,16 +1,14 @@
-import 'dotenv/config'; 
+import 'dotenv/config';
 import express from 'express';
-import axios from 'axios';
 import cors from 'cors';
-import pkgPg from 'pg'; 
-const { Pool } = pkgPg;
+import axios from 'axios';
 
-// Prisma 7 ESM Requirements
-import pkgPrisma from '@prisma/client';
-const { PrismaClient } = pkgPrisma;
-import { PrismaPg } from '@prisma/adapter-pg';
+import pkg from 'pg';
+const { Pool } = pkg;
 
-import { encrypt, decrypt } from '../encryption.js'; 
+import { PrismaClient } from '@prisma/client';
+
+import { encrypt, decrypt } from './encryption.js';
 
 const app = express();
 app.use(cors());
