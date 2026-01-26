@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import 'dotenv/config'; // Must be the very first line
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 import express from 'express';
 import axios from 'axios';
 import pkg from 'pg';
