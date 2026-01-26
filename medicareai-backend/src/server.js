@@ -5,12 +5,20 @@ import pkgPg from 'pg';
 const { Pool } = pkgPg;
 
 // FIX 1: ESM Compatible Import for Prisma 7
-import pkgPrisma from '@prisma/client';
-const { PrismaClient } = pkgPrisma;
+import pkg from '../prisma/generated/client/index.js'; // Adjust path based on your folder structure
+const { PrismaClient } = pkg;
+
 import { PrismaPg } from '@prisma/adapter-pg';
+import pkgPg from 'pg';
+const { Pool } = pkgPg;
 
-import { encrypt, decrypt } from '../encryption.js'; 
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
 
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 const app = express();
 app.use(express.json());
 
