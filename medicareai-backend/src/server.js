@@ -1,20 +1,37 @@
-import 'dotenv/config'; // Must be the very first line
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import 'dotenv/config'; 
 import express from 'express';
 import axios from 'axios';
-import pkg from 'pg';
-const { Pool } = pkg;
-import { encrypt, decrypt } from '../encryption.js'; // Ensure this path is correct in GitHub
+import pkgPg from 'pg';
+const { Pool } = pkgPg;
+
+// FIX 1: ESM Compatible Import for Prisma 7
+import pkgPrisma from '@prisma/client';
+const { PrismaClient } = pkgPrisma;
+import { PrismaPg } from '@prisma/adapter-pg';
+
+import { encrypt, decrypt } from '../encryption.js'; 
 
 const app = express();
 app.use(express.json());
 
+// FIX 2: Explicitly set up the Pool and Adapter
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
+// Optional: Test DB Connection on Startup
+try {
+    await prisma.$connect();
+    console.log("💎 Database Synced: Dr. House is active.");
+} catch (err) {
+    console.error("❌ DB Init Error:", err.message);
+}
+
+// ... rest of your routes
 // --- 1. DIAGNOSTIC HOME ROUTE ---
 // Open your Render URL in a browser. If you see this, the server is ALIVE.
 app.get('/', (req, res) => {
