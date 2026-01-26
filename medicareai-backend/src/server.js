@@ -1,36 +1,32 @@
 import 'dotenv/config'; 
 import express from 'express';
 import axios from 'axios';
-import pkgPg from 'pg';
+import cors from 'cors';
+import pkgPg from 'pg'; 
 const { Pool } = pkgPg;
 
-// FIX 1: ESM Compatible Import for Prisma 7
-import pkg from '../prisma/generated/client/index.js'; // Adjust path based on your folder structure
-const { PrismaClient } = pkg;
-
+// Prisma 7 ESM Requirements
+import pkgPrisma from '@prisma/client';
+const { PrismaClient } = pkgPrisma;
 import { PrismaPg } from '@prisma/adapter-pg';
-import pkgPg from 'pg';
-const { Pool } = pkgPg;
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
+import { encrypt, decrypt } from '../encryption.js'; 
 
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
 const app = express();
+app.use(cors());
 app.use(express.json());
 
-// FIX 2: Explicitly set up the Pool and Adapter
+// Set up the Pool with the External URL for Cross-Region
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false } 
 });
 
+// Pass the adapter to Prisma 7
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+// --- KEEP ALL YOUR 1,500 LINES OF ROUTES/LOGIC BELOW THIS LINE ---
 // Optional: Test DB Connection on Startup
 try {
     await prisma.$connect();
