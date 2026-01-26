@@ -6,7 +6,7 @@ import axios from 'axios';
 // 1. Prisma 7 & Postgres Adapter Imports
 import pkgPg from 'pg';
 const { Pool } = pkgPg;
-import pkgPrisma from '@prisma/client';
+import pkgPrisma from '@prisma/client/index.js';
 const { PrismaClient } = pkgPrisma;
 import { PrismaPg } from '@prisma/adapter-pg';
 
