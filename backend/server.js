@@ -1,16 +1,28 @@
-import express from 'express';
 import 'dotenv/config';
-// The import below is updated to match your actual folder: src/routes/webhook/routes.js
-import webhookRoutes from './routes/webhook/routes.js'; 
-import paymentRoutes from './routes/payments.routes.js'; 
-import './jobs/reconciliation.js'; 
+import express from 'express';
+import cors from 'cors';
+
+// Standard import now works because of our explicit schema output
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pkgPg from 'pg';
+const { Pool } = pkgPg;
+
+// Path to encryption.js (located in /medicareai-backend/src/encryption.js)
+// If encryption.js is actually in the root of medicareai-backend, use '../encryption.js'
+import { encrypt, decrypt } from './encryption.js'; 
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Middleware to parse JSON bodies
-app.use(express.json());
+app.use(cors(), express.json());
 
-// 1. Health Check for Render (Prevents "No open ports detected" error)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 app.get('/', (req, res) => {
   res.status(200).send('MedicareAI API is Live');
 });
