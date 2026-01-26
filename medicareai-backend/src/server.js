@@ -1,28 +1,26 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import axios from 'axios';
 
-// 1. Prisma 7 & Postgres Adapter Imports
+// 1. Prisma 7 Custom Path Import
+// This bypasses the node_modules error by pointing directly to the generated files
+import { PrismaClient } from './generated/client/index.js';
+import { PrismaPg } from '@prisma/adapter-pg';
 import pkgPg from 'pg';
 const { Pool } = pkgPg;
-import pkgPrisma from '@prisma/client/index.js';
-const { PrismaClient } = pkgPrisma;
-import { PrismaPg } from '@prisma/adapter-pg';
 
-// 2. Local Import (Matches your GitHub structure)
+// 2. Encryption Import (One level up from /src)
 import { encrypt, decrypt } from '../encryption.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 3. Middleware
 app.use(cors());
 app.use(express.json());
 
-// 4. Database Connection Setup (Fixed for Cross-Region)
+// 3. Database Connection (SSL enabled for cross-region)
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL, // Ensure this is the EXTERNAL URL on Render
+    connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false } 
 });
 
@@ -30,7 +28,7 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 /* ===========================================================
-   HEALTH CHECKS
+   HEALTH & STATUS ROUTES
    =========================================================== */
 
 app.get('/', (req, res) => {
@@ -41,27 +39,24 @@ app.get('/health', async (req, res) => {
     try {
         await prisma.$connect();
         res.json({ 
-            status: "Connected", 
-            database: "Prisma 7 Active",
-            region: "Cross-Region Verified"
+            status: "Success", 
+            database: "Connected via Prisma 7 Custom Path",
+            time: new Date().toISOString()
         });
     } catch (err) {
-        res.status(500).json({ status: "Error", message: err.message });
+        res.status(500).json({ status: "DB Error", message: err.message });
     }
 });
 
 /* ===========================================================
-   API ROUTES (Sample logic for your 152 lines)
+   CORE BUSINESS LOGIC (Appointments & Payments)
    =========================================================== */
 
-// Example: Create an Appointment with Encryption
+// Create Appointment & Initiate Payment
 app.post('/api/appointments', async (req, res) => {
+    const { patientName, phone, doctorId, startTime } = req.body;
+    
     try {
-        const { patientName, phone, doctorId, startTime } = req.body;
-        
-        // Use your encryption utility for sensitive data
-        const encryptedPhone = encrypt(phone);
-
         const appointment = await prisma.appointment.create({
             data: {
                 patient: {
@@ -72,15 +67,23 @@ app.post('/api/appointments', async (req, res) => {
                 },
                 doctor: { connect: { id: doctorId } },
                 startTime: new Date(startTime),
-                endTime: new Date(new Date(startTime).getTime() + 30 * 60000), // +30 mins
+                endTime: new Date(new Date(startTime).getTime() + 30 * 60000), // Default 30 mins
+                status: 'PENDING'
             }
         });
 
-        res.status(201).json({ success: true, appointment });
+        // Trigger your M-Pesa logic here using 'phone' and 'appointment.id'
+        res.status(201).json({ success: true, appointmentId: appointment.id });
     } catch (error) {
-        console.error("Appointment Error:", error);
-        res.status(500).json({ error: error.message });
+        console.error("Appointment creation failed:", error);
+        res.status(500).json({ error: "Could not create appointment" });
     }
+});
+
+// M-Pesa Callback (Placeholder for your webhook logic)
+app.post('/api/payments/callback', async (req, res) => {
+    // Logic for processing M-Pesa STK Push results
+    res.json({ ResultCode: 0, ResultDesc: "Accepted" });
 });
 
 /* ===========================================================
@@ -88,4 +91,5 @@ app.post('/api/appointments', async (req, res) => {
    =========================================================== */
 app.listen(PORT, () => {
     console.log(`🚀 MedicareAI live on port ${PORT}`);
+    console.log(`📡 Database linked via Prisma 7 Adapter`);
 });
