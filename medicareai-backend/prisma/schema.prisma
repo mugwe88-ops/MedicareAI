@@ -1,3 +1,5 @@
+import pkgPrisma from '../prisma/generated/client/index.js'; 
+const { PrismaClient } = pkgPrisma;
 generator client {
   provider = "prisma-client" // Standard in v7
   output   = "./generated/client" // Generate into a local folder, not node_modules
