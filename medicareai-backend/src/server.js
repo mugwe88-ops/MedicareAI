@@ -10,26 +10,30 @@ import pkgPrisma from '@prisma/client';
 const { PrismaClient } = pkgPrisma;
 import { PrismaPg } from '@prisma/adapter-pg';
 
-// 2. Local Imports (Ensure path & .js extension are correct)
+// 2. Local Import (Matches your GitHub screenshot)
+// Since both are in the root of medicareai-backend, use './'
 import { encrypt, decrypt } from './encryption.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-/* =========================
-   MIDDLEWARE
-========================= */
+
+// 3. Middleware
 app.use(cors());
 app.use(express.json());
 
-/* =========================
-   DATABASE
-========================= */
+// 4. Database Connection Setup (Required for Cross-Region)
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false } 
 });
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
+/* ===========================================================
+   CORE LOGIC & ROUTES 
+   (Paste your ~130 lines of M-Pesa/WhatsApp logic below)
+   =========================================================== */
 
 /* =========================
    HEALTH CHECK
