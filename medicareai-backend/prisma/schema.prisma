@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client" // Standard in v7
-  output   = "./generated/client" // Generate into a local folder, not node_modules
+  output   = "../src/generated/client" // Generate into a local folder, not node_modules
 }
 
 datasource db {
