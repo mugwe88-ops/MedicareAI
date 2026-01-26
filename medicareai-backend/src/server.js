@@ -11,7 +11,7 @@ const { PrismaClient } = pkgPrisma;
 import { PrismaPg } from '@prisma/adapter-pg';
 
 // 2. Local Import (Matches your GitHub structure)
-import { encrypt, decrypt } from './encryption.js';
+import { encrypt, decrypt } from '../encryption.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
