@@ -1,17 +1,13 @@
-import "dotenv/config"; 
+import 'dotenv/config'; 
 import { defineConfig } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
-  datasource: {
-    url: env("DATABASE_URL"),
+  migrations: {
+    path: "prisma/migrations",
   },
-  // Move the extensions here if you are using the 'prisma-client' provider
-  // However, with 'prisma-client-js', these are often handled automatically
-  generator: {
-    client: {
-      provider: "prisma-client-js",
-      output: "src/generated/prisma",
-    },
+  datasource: {
+    // Use process.env with a fallback to avoid build-time crashes
+    url: process.env.DATABASE_URL || "postgresql://placeholder:placeholder@localhost:5432/db",
   },
 });
