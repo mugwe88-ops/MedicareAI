@@ -1,12 +1,14 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../node_modules/.prisma/client"
+  provider = "prisma-client" // Standard in v7
+  output   = "./generated/client" // Generate into a local folder, not node_modules
 }
 
 datasource db {
   provider = "postgresql"
-  // Note: We leave 'url' out because Prisma 7 gets it from prisma.config.js
+  // Note: url is intentionally omitted here as v7 reads it from prisma.config.ts
 }
+
+// ... your AppointmentStatus, PaymentStatus, Patient, Doctor, etc. models follow
 /* =========================
    ENUMS
 ========================= */
