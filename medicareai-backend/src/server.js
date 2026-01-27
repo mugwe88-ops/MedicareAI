@@ -1,94 +1,139 @@
+import { pool } from './db.js';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-
-// 1. Prisma 7 Custom Path Import
-// This bypasses the node_modules error by pointing directly to the generated files
-import { PrismaClient } from './generated/client/index.js';
-import { PrismaPg } from '@prisma/adapter-pg';
-
-
-// 2. Encryption Import (One level up from /src)
-import { encrypt, decrypt } from '../encryption.js';
+import crypto from 'crypto';
+import axios from 'axios';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+/**
+ * IMPORTANT:
+ * We must capture RAW body for Meta signature verification
+ */
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
+
 app.use(cors());
-app.use(express.json());
 
-// 3. Database Connection (SSL enabled for cross-region)
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false } 
-});
-
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
-
-/* ===========================================================
-   HEALTH & STATUS ROUTES
-   =========================================================== */
-
-app.get('/', (req, res) => {
-    res.send("🟢 MedicareAI Backend is Online");
-});
-
+/**
+ * HEALTH CHECK
+ */
 app.get('/health', async (req, res) => {
-    try {
-        await prisma.$connect();
-        res.json({ 
-            status: "Success", 
-            database: "Connected via Prisma 7 Custom Path",
-            time: new Date().toISOString()
-        });
-    } catch (err) {
-        res.status(500).json({ status: "DB Error", message: err.message });
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', db: 'connected' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * ROOT
+ */
+app.get('/', (req, res) => {
+  res.send('SWIFT MD backend running');
+});
+
+/**
+ * META WEBHOOK VERIFICATION (GET)
+ */
+app.get('/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode === 'subscribe' && token === process.env.META_VERIFY_TOKEN) {
+    console.log('✅ Meta webhook verified');
+    return res.status(200).send(challenge);
+  }
+
+  console.log('❌ Meta webhook verification failed');
+  return res.sendStatus(403);
+});
+
+/**
+ * META SIGNATURE VERIFICATION
+ */
+function verifyMetaSignature(req) {
+  const signature = req.headers['x-hub-signature-256'];
+  if (!signature || !req.rawBody) return false;
+
+  const expected =
+    'sha256=' +
+    crypto
+      .createHmac('sha256', process.env.META_APP_SECRET)
+      .update(req.rawBody)
+      .digest('hex');
+
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected)
+  );
+}
+
+/**
+ * META WEBHOOK EVENTS (POST)
+ */
+app.post('/webhook', async (req, res) => {
+  if (!verifyMetaSignature(req)) {
+    console.log('❌ Invalid Meta signature');
+    return res.sendStatus(403);
+  }
+
+  const entry = req.body.entry?.[0];
+  const change = entry?.changes?.[0];
+  const value = change?.value;
+  const message = value?.messages?.[0];
+
+  if (!message || message.type !== 'text') {
+    return res.sendStatus(200);
+  }
+
+  const from = message.from;
+  const incomingText = message.text.body;
+  const phoneNumberId = value.metadata.phone_number_id;
+
+  console.log('📩 WhatsApp message:', from, incomingText);
+
+  await sendWhatsAppReply(phoneNumberId, from, incomingText);
+
+  res.sendStatus(200);
+});
+
+/**
+ * SEND WHATSAPP AUTO-REPLY
+ */
+async function sendWhatsAppReply(phoneNumberId, to, incomingText) {
+  const reply = incomingText.toLowerCase().includes('hello')
+    ? '👋 Hi! Welcome to SWIFT MD. How can we help you today?'
+    : 'Thanks for contacting SWIFT MD. A team member will respond shortly.';
+
+  await axios.post(
+    `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
+    {
+      messaging_product: 'whatsapp',
+      to,
+      text: { body: reply },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
     }
-});
+  );
+}
 
-/* ===========================================================
-   CORE BUSINESS LOGIC (Appointments & Payments)
-   =========================================================== */
-
-// Create Appointment & Initiate Payment
-app.post('/api/appointments', async (req, res) => {
-    const { patientName, phone, doctorId, startTime } = req.body;
-    
-    try {
-        const appointment = await prisma.appointment.create({
-            data: {
-                patient: {
-                    connectOrCreate: {
-                        where: { phone: phone },
-                        create: { name: patientName, phone: phone }
-                    }
-                },
-                doctor: { connect: { id: doctorId } },
-                startTime: new Date(startTime),
-                endTime: new Date(new Date(startTime).getTime() + 30 * 60000), // Default 30 mins
-                status: 'PENDING'
-            }
-        });
-
-        // Trigger your M-Pesa logic here using 'phone' and 'appointment.id'
-        res.status(201).json({ success: true, appointmentId: appointment.id });
-    } catch (error) {
-        console.error("Appointment creation failed:", error);
-        res.status(500).json({ error: "Could not create appointment" });
-    }
-});
-
-// M-Pesa Callback (Placeholder for your webhook logic)
-app.post('/api/payments/callback', async (req, res) => {
-    // Logic for processing M-Pesa STK Push results
-    res.json({ ResultCode: 0, ResultDesc: "Accepted" });
-});
-
-/* ===========================================================
-   START SERVER
-   =========================================================== */
+/**
+ * START SERVER
+ */
 app.listen(PORT, () => {
-    console.log(`🚀 MedicareAI live on port ${PORT}`);
-    console.log(`📡 Database linked via Prisma 7 Adapter`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });

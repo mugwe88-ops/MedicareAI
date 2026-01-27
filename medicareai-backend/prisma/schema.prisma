@@ -1,17 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "binary"
 }
-
 
 datasource db {
   provider = "postgresql"
-  // Note: url is intentionally omitted here as v7 reads it from prisma.config.ts
 }
 
-// ... your AppointmentStatus, PaymentStatus, Patient, Doctor, etc. models follow
-/* =========================
-   ENUMS
-========================= */
+/* ========= ENUMS ========= */
 
 enum AppointmentStatus {
   PENDING
