@@ -1,18 +1,12 @@
-/* ============================
-   ENV & CORE IMPORTS
-============================ */
+import pool from './db.js';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
-import { pool } from './db.js';
 
 /* ============================
    
 ============================ */
-import pkgPg from 'pg';
-const { Pool } = pkgPg;
-
 
 /* ============================
    APP INIT
@@ -29,11 +23,6 @@ app.use(express.json());
 /* ============================
    DATABASE CONNECTION
 ============================ */
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
-
 
 /* ============================
    HEALTH CHECK
