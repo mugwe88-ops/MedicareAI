@@ -1,139 +1,95 @@
-import { pool } from './db.js';
+/* ============================
+   ENV & CORE IMPORTS
+============================ */
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import crypto from 'crypto';
 import axios from 'axios';
 
+/* ============================
+   DATABASE (PostgreSQL + Prisma)
+============================ */
+import pkgPg from 'pg';
+const { Pool } = pkgPg;
+
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+
+/* ============================
+   APP INIT
+============================ */
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-/**
- * IMPORTANT:
- * We must capture RAW body for Meta signature verification
- */
-app.use(
-  express.json({
-    verify: (req, res, buf) => {
-      req.rawBody = buf;
-    },
-  })
-);
-
+/* ============================
+   MIDDLEWARE
+============================ */
 app.use(cors());
+app.use(express.json());
 
-/**
- * HEALTH CHECK
- */
+/* ============================
+   DATABASE CONNECTION
+============================ */
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
+/* ============================
+   HEALTH CHECK
+============================ */
+app.get('/', (req, res) => {
+  res.status(200).send('🟢 MedicareAI API is Live');
+});
+
 app.get('/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
-    res.json({ status: 'ok', db: 'connected' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.json({ status: 'ok', database: 'connected' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-/**
- * ROOT
- */
-app.get('/', (req, res) => {
-  res.send('SWIFT MD backend running');
-});
-
-/**
- * META WEBHOOK VERIFICATION (GET)
- */
-app.get('/webhook', (req, res) => {
+/* ============================
+   META WEBHOOK VERIFY (GET)
+   ✅ STEP 4 — FIXED
+============================ */
+// Webhook verification (Meta GET)
+app.get('/api/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  if (mode === 'subscribe' && token === process.env.META_VERIFY_TOKEN) {
-    console.log('✅ Meta webhook verified');
+  if (mode === 'subscribe' && token === process.env.WEBHOOK_VERIFY_TOKEN) {
+    console.log('✅ Webhook verified');
     return res.status(200).send(challenge);
   }
 
-  console.log('❌ Meta webhook verification failed');
+  console.log('❌ Webhook verification failed');
   return res.sendStatus(403);
 });
 
-/**
- * META SIGNATURE VERIFICATION
- */
-function verifyMetaSignature(req) {
-  const signature = req.headers['x-hub-signature-256'];
-  if (!signature || !req.rawBody) return false;
-
-  const expected =
-    'sha256=' +
-    crypto
-      .createHmac('sha256', process.env.META_APP_SECRET)
-      .update(req.rawBody)
-      .digest('hex');
-
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expected)
-  );
-}
-
-/**
- * META WEBHOOK EVENTS (POST)
- */
-app.post('/webhook', async (req, res) => {
-  if (!verifyMetaSignature(req)) {
-    console.log('❌ Invalid Meta signature');
-    return res.sendStatus(403);
-  }
-
-  const entry = req.body.entry?.[0];
-  const change = entry?.changes?.[0];
-  const value = change?.value;
-  const message = value?.messages?.[0];
-
-  if (!message || message.type !== 'text') {
-    return res.sendStatus(200);
-  }
-
-  const from = message.from;
-  const incomingText = message.text.body;
-  const phoneNumberId = value.metadata.phone_number_id;
-
-  console.log('📩 WhatsApp message:', from, incomingText);
-
-  await sendWhatsAppReply(phoneNumberId, from, incomingText);
-
+/* ============================
+   META WEBHOOK RECEIVE (POST)
+============================ */
+app.post('/api/webhook', (req, res) => {
+  console.log('📩 INCOMING WHATSAPP EVENT');
+  console.log(JSON.stringify(req.body, null, 2));
   res.sendStatus(200);
 });
 
-/**
- * SEND WHATSAPP AUTO-REPLY
- */
-async function sendWhatsAppReply(phoneNumberId, to, incomingText) {
-  const reply = incomingText.toLowerCase().includes('hello')
-    ? '👋 Hi! Welcome to SWIFT MD. How can we help you today?'
-    : 'Thanks for contacting SWIFT MD. A team member will respond shortly.';
-
-  await axios.post(
-    `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
-    {
-      messaging_product: 'whatsapp',
-      to,
-      text: { body: reply },
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-}
-
-/**
- * START SERVER
- */
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+/* ============================
+   START SERVER (RENDER SAFE)
+============================ */
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('--------------------------------');
+  console.log('🟢 MedicareAI Server is LIVE');
+  console.log(`📍 Port: ${PORT}`);
+  console.log('🔔 Webhooks: ENABLED');
+  console.log('--------------------------------');
 });
+
