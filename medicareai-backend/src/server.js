@@ -5,15 +5,14 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
+import { pool } from './db.js';
 
 /* ============================
-   DATABASE (PostgreSQL + Prisma)
+   
 ============================ */
 import pkgPg from 'pg';
 const { Pool } = pkgPg;
 
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
 
 /* ============================
    APP INIT
@@ -35,8 +34,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
 
 /* ============================
    HEALTH CHECK

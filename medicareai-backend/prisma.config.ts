@@ -1,13 +1,9 @@
 import { defineConfig } from "prisma/config";
 
 export default defineConfig({
-  client: {
-    engineType: "binary",
-  },
-  datasources: {
+  datasource: {
     db: {
       url: process.env.DATABASE_URL,
     },
   },
 });
-
