@@ -1,81 +1,120 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Doctor Portal</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedicareAI | Doctor Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-blue-50 p-10">
-    <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg">
-        <h1 class="text-2xl font-bold text-blue-700 mb-6 text-center">MedicareAI Dashboard</h1>
-        
-        <div id="login-form">
-            <input id="email" type="email" placeholder="Email" class="w-full border p-2 mb-4 rounded">
-            <input id="password" type="password" placeholder="Password" class="w-full border p-2 mb-4 rounded">
-            <button onclick="login()" class="w-full bg-blue-600 text-white p-2 rounded">Sign In</button>
+<body class="bg-slate-50 min-h-screen p-4 md:p-10 font-sans">
+    <div id="app" class="max-w-md mx-auto bg-white shadow-2xl rounded-3xl p-8 border border-slate-100">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-black text-indigo-600">🏥 MedicareAI</h1>
+            <p id="view-title" class="text-slate-400 font-medium">Doctor Access</p>
         </div>
 
-        <div id="queue" class="hidden">
-            <h2 id="welcome" class="font-bold mb-4"></h2>
-            <div id="patient-list" class="space-y-2"></div>
-            <button onclick="location.reload()" class="mt-4 text-xs text-gray-400">Logout</button>
+        <div id="auth-view">
+            <div class="flex mb-6 bg-slate-100 p-1 rounded-xl">
+                <button onclick="toggleAuth('login')" id="btn-login" class="flex-1 py-2 rounded-lg font-bold text-sm bg-white shadow text-indigo-600">Login</button>
+                <button onclick="toggleAuth('register')" id="btn-register" class="flex-1 py-2 rounded-lg font-bold text-sm text-slate-500">Sign Up</button>
+            </div>
+
+            <form id="auth-form" class="space-y-4">
+                <div id="reg-fields" class="hidden space-y-4">
+                    <input id="name" type="text" placeholder="Full Name (e.g. Dr. Smith)" class="w-full p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400">
+                    <input id="specialty" type="text" placeholder="Specialty (e.g. Dentist)" class="w-full p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400">
+                    <input id="fee" type="number" placeholder="Consultation Fee (KES)" class="w-full p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400">
+                    <input id="phone" type="text" placeholder="WhatsApp Phone (254...)" class="w-full p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <input id="email" type="email" placeholder="Email Address" class="w-full p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400">
+                <input id="password" type="password" placeholder="Password" class="w-full p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400">
+                <button type="button" onclick="handleAuth()" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition">Continue</button>
+            </form>
+        </div>
+
+        <div id="queue-view" class="hidden space-y-6">
+            <div class="flex justify-between items-center border-b pb-4">
+                <h2 id="doc-name" class="font-bold text-slate-700"></h2>
+                <button onclick="logout()" class="text-xs font-bold text-red-500 uppercase tracking-widest">Logout</button>
+            </div>
+            <div id="patient-list" class="space-y-3">
+                </div>
         </div>
     </div>
 
-   <script>
-    const API = "https://your-app-name.onrender.com"; // Your Render URL
+    <script>
+        const API = "https://your-render-app.onrender.com"; // UPDATE THIS
+        let mode = 'login';
 
-    // 1. Login Logic
-    async function login() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const res = await fetch(`${API}/api/doctors/login`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({email, password})
-        });
-        const data = await res.json();
-        if (data.token) {
-            localStorage.setItem('token', data.token);
-            renderUI();
-        } else { alert("Login failed!"); }
-    }
-
-    // 2. Fetch the Queue
-    async function loadPatients() {
-        const res = await fetch(`${API}/api/doctor/dashboard`, {
-            headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`}
-        });
-        const queue = await res.json();
-        const list = document.getElementById('patient-list');
-        list.innerHTML = queue.map(appt => `
-            <div class="p-4 border-b flex justify-between items-center">
-                <span>${appt.start_time} - ${appt.patient_phone}</span>
-                <button onclick="markDone(${appt.id})" class="bg-green-500 text-white px-3 py-1 rounded">Done</button>
-            </div>
-        `).join('') || "No patients today.";
-    }
-
-    // 3. Remove Patient from Queue
-    async function markDone(appointmentId) {
-        await fetch(`${API}/api/appointments/complete`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({ appointmentId })
-        });
-        loadPatients(); // Refresh list
-    }
-
-    function renderUI() {
-        if (localStorage.getItem('token')) {
-            document.getElementById('login-form').classList.add('hidden');
-            document.getElementById('queue').classList.remove('hidden');
-            loadPatients();
+        function toggleAuth(m) {
+            mode = m;
+            document.getElementById('reg-fields').classList.toggle('hidden', m === 'login');
+            document.getElementById('btn-login').className = m === 'login' ? 'flex-1 py-2 rounded-lg font-bold text-sm bg-white shadow text-indigo-600' : 'flex-1 py-2 rounded-lg font-bold text-sm text-slate-500';
+            document.getElementById('btn-register').className = m === 'register' ? 'flex-1 py-2 rounded-lg font-bold text-sm bg-white shadow text-indigo-600' : 'flex-1 py-2 rounded-lg font-bold text-sm text-slate-500';
         }
-    }
-    renderUI();
-</script>
+
+        async function handleAuth() {
+            const endpoint = mode === 'login' ? '/api/doctors/login' : '/api/doctors/register';
+            const body = {
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+                name: document.getElementById('name').value,
+                specialty: document.getElementById('specialty').value,
+                phone_number: document.getElementById('phone').value,
+                fee: document.getElementById('fee').value
+            };
+
+            const res = await fetch(`${API}${endpoint}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+
+            const data = await res.json();
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('name', data.doctor.name);
+                showDashboard();
+            } else if (mode === 'register' && res.ok) {
+                alert("Registration successful! Please login.");
+                toggleAuth('login');
+            } else {
+                alert(data.error || "Something went wrong.");
+            }
+        }
+
+        function showDashboard() {
+            document.getElementById('auth-view').classList.add('hidden');
+            document.getElementById('queue-view').classList.remove('hidden');
+            document.getElementById('doc-name').innerText = "Dr. " + localStorage.getItem('name');
+            loadQueue();
+        }
+
+        async function loadQueue() {
+            const res = await fetch(`${API}/api/doctor/dashboard`, {
+                headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`}
+            });
+            const queue = await res.json();
+            const container = document.getElementById('patient-list');
+            container.innerHTML = queue.length ? queue.map(a => `
+                <div class="p-4 bg-slate-50 border rounded-2xl flex justify-between items-center">
+                    <div><p class="font-bold text-slate-700">${a.start_time}</p><p class="text-xs text-slate-400">${a.patient_phone}</p></div>
+                    <button onclick="markDone(${a.id})" class="bg-emerald-500 text-white text-[10px] font-black px-3 py-2 rounded-lg">DONE</button>
+                </div>
+            `).join('') : "<p class='text-center text-slate-300 py-10'>No patients waiting.</p>";
+        }
+
+        async function markDone(id) {
+            await fetch(`${API}/api/appointments/complete`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}`},
+                body: JSON.stringify({ appointmentId: id })
+            });
+            loadQueue();
+        }
+
+        function logout() { localStorage.clear(); location.reload(); }
+        if (localStorage.getItem('token')) showDashboard();
+    </script>
 </body>
 </html>
