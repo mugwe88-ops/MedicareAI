@@ -83,6 +83,32 @@ app.get('/api/doctor/dashboard', authenticateDoctor, async (req, res) => {
     res.status(500).json({ error: "Queue fetch failed." });
   }
 });
+app.post('/api/appointments/no-show', authenticateDoctor, async (req, res) => {
+  const { appointmentId } = req.body;
+  try {
+    await pool.query(
+      "UPDATE appointments SET status = 'NO_SHOW' WHERE id = $1 AND doctor_id = $2", 
+      [appointmentId, req.doctorId]
+    );
+    res.json({ message: "Recorded as No-Show." });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update status." });
+  }
+});
+
+//'complete' route to also ensure doctor security
+app.post('/api/appointments/complete', authenticateDoctor, async (req, res) => {
+  const { appointmentId } = req.body;
+  try {
+    await pool.query(
+      "UPDATE appointments SET status = 'COMPLETED' WHERE id = $1 AND doctor_id = $2", 
+      [appointmentId, req.doctorId]
+    );
+    res.json({ message: "Patient seen and cleared." });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update status." });
+  }
+});
 
 /* ============================
    2. WHATSAPP WEBHOOK
