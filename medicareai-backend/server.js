@@ -7,6 +7,7 @@ import { sendMessage } from './services/whatsappService.js';
 import { logMessageToDb } from './lib/messageLogger.js';
 import { getDoctors, getAvailableSlots, updateSession, getSession } from './services/bookingService.js';
 import * as mpesaService from './services/mpesa.service.js';
+import bcrypt from 'bcrypt';
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -29,6 +30,42 @@ app.get('/webhook', (req, res) => {
 /* ============================
    WEBHOOK RECEIVE (POST)
 ============================ */
+import bcrypt from 'bcrypt';
+
+// ... other routes ...
+
+/**
+ * DOCTOR REGISTRATION API
+ * This is called by your Web Frontend when a doctor signs up
+ */
+app.post('/api/doctors/register', async (req, res) => {
+  const { name, specialty, phone_number, email, password, fee } = req.body;
+
+  try {
+    // 1. Hash the password for security
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // 2. Insert into PostgreSQL
+    const result = await pool.query(
+      `INSERT INTO doctors (name, specialty, phone_number, email, password_hash, consultation_fee) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name`,
+      [name, specialty, phone_number, email, passwordHash, fee]
+    );
+
+    res.status(201).json({
+      message: "Doctor profile created successfully!",
+      doctor: result.rows[0]
+    });
+  } catch (err) {
+    console.error("Registration Error:", err.message);
+    if (err.code === '23505') { // Unique violation
+      return res.status(400).json({ error: "Email or Phone Number already registered." });
+    }
+    res.status(500).json({ error: "Server error during registration." });
+  }
+});
+
 app.post('/webhook', verifyWhatsAppSignature, async (req, res) => {
   try {
     const entry = req.body.entry?.[0];
