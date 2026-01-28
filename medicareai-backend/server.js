@@ -56,31 +56,39 @@ app.post('/webhook', verifyWhatsAppSignature, async (req, res) => {
       });
       await updateSession(from, 'SELECTING_DOCTOR');
 
-    } else if (session?.current_step === 'SELECTING_DOCTOR') {
-      const doctorId = parseInt(text);
-      const slots = await getAvailableSlots(doctorId);
-      
-      if (slots.length > 0) {
-        replyText = `📅 *Slots for Dr. ${slots[0].doctor_name}:*\nReply with Slot ID:\n\n`;
-        slots.forEach(s => {
-          replyText += `*${s.id}*: ${new Date(s.available_date).toLocaleDateString()} at ${s.start_time}\n`;
-        });
-        await updateSession(from, 'SELECTING_SLOT', { selectedDoctorId: doctorId });
-      } else {
-        replyText = "❌ No slots found. Type 'book' to try again.";
-      }
-
     } else if (session?.current_step === 'SELECTING_SLOT') {
       const slotId = parseInt(text);
-      replyText = `💸 *Payment Required*\nPlease wait for the M-Pesa prompt on your phone to book Slot #${slotId}.`;
-      
-      // Future: Trigger initiateStkPush here
-      await updateSession(from, 'AWAITING_PAYMENT', { selectedSlotId: slotId });
+      const doctorId = session.metadata.selectedDoctorId;
 
-    } else {
-      replyText = "Welcome! Type *'book'* to see available doctors and schedules.";
-    }
+      // 1. Fetch doctor details to get the fee
+      const drRes = await pool.query('SELECT name, consultation_fee FROM doctors WHERE id = $1', [doctorId]);
+      const doctor = drRes.rows[0];
 
+      if (!doctor) {
+        await sendMessage(from, "❌ Error finding doctor details. Please type 'book' to restart.");
+        return;
+      }
+
+      // 2. Trigger M-Pesa STK Push
+      try {
+        const mpesaResponse = await mpesaService.initiateSTKPush(from, doctor.consultation_fee, `Slot-${slotId}`);
+        
+        if (mpesaResponse.ResponseCode === "0") {
+          // 3. SUCCESS: Save Pending Appointment with CheckoutRequestID
+          await pool.query(`
+            INSERT INTO appointments (patient_phone, doctor_id, slot_id, checkout_request_id, payment_status)
+            VALUES ($1, $2, $3, $4, 'PENDING')
+          `, [from, doctorId, slotId, mpesaResponse.CheckoutRequestID]);
+
+          replyText = `💸 *M-Pesa Prompt Sent*\nPlease enter your PIN on your phone to pay KES ${doctor.consultation_fee} and confirm your booking with Dr. ${doctor.name}.`;
+          await updateSession(from, 'AWAITING_PAYMENT', { checkoutRequestId: mpesaResponse.CheckoutRequestID });
+        } else {
+          throw new Error("M-Pesa initiation failed");
+        }
+      } catch (mpesaErr) {
+        console.error("STK Push Error:", mpesaErr);
+        replyText = "❌ Sorry, we couldn't initiate the payment prompt. Please try again later or check your phone number.";
+      }
     // 4. Send Message & Log
     await sendMessage(from, replyText);
     await logMessageToDb({
