@@ -19,3 +19,4 @@ export function buildAutoReply(messageText) {
 
   return 'Thanks for contacting MedicareAI. Please describe how I can help.';
 }
+    return null;

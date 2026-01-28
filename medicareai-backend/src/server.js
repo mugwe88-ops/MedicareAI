@@ -57,13 +57,27 @@ app.get('/api/webhook', (req, res) => {
 
 /* ============================
    META WEBHOOK RECEIVE (POST)
-   DRY-RUN AUTO-REPLY ENGINE
+   DRY-RUN MODE
 ============================ */
 app.post('/api/webhook', (req, res) => {
   console.log('📩 INCOMING WHATSAPP EVENT');
 
+  try {
+    const entry = req.body.entry?.[0];
+    const change = entry?.changes?.[0];
+    const message = change?.value?.messages?.[0];
 
-    // DRY-RUN AUTO-REPLY (NO META SEND)
+    if (!message) {
+      console.log('ℹ️ No message found (status update)');
+      return res.sendStatus(200);
+    }
+
+    const from = message.from;
+    const text = message.text?.body;
+
+    console.log('👤 From:', from);
+    console.log('💬 Message:', text);
+
     const reply = buildAutoReply(text);
 
     if (reply) {
@@ -76,7 +90,6 @@ app.post('/api/webhook', (req, res) => {
     console.error('❌ Webhook parse error:', err.message);
   }
 
-  // Always ACK Meta
   res.sendStatus(200);
 });
 
