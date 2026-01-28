@@ -85,11 +85,12 @@ app.post('/api/webhook', (req, res) => {
 /* ============================
    START SERVER (RENDER SAFE)
 ============================ */
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
+  await initDb(); // This triggers the table creation
   console.log('--------------------------------');
   console.log('🟢 MedicareAI Server is LIVE');
   console.log(`📍 Port: ${PORT}`);
+  console.log('🛡️ Webhook Hardening: ACTIVE');
   console.log('🔔 Webhooks: ENABLED');
   console.log('--------------------------------');
 });
-
