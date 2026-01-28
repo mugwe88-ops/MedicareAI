@@ -16,7 +16,27 @@ cron.schedule('0 * * * *', async () => {
   `);
 
   for (let appt of upcoming.rows) {
-    const reminderMsg = `🔔 *Reminder:* You have an appointment with Dr. ${appt.doctor_name} tomorrow at ${appt.start_time}. We look forward to seeing you!`;
-    await sendMessage(appt.patient_phone, reminderMsg);
+    // Inside your reminder loop in src/services/reminderService.js
+
+const reminderMsg = 
+`🔔 *APPOINTMENT REMINDER*
+----------------------------------
+Hello! This is a friendly reminder of your upcoming medical consultation.
+
+📅 *When:* Tomorrow, ${new Date(appt.available_date).toLocaleDateString('en-GB')}
+⏰ *Time:* ${appt.start_time}
+👨‍⚕️ *Doctor:* Dr. ${appt.doctor_name}
+📍 *Location:* [Insert Clinic Name/Link]
+
+*Please Remember:*
+• Arrive 15 minutes early for registration.
+• Carry your previous medical reports (if any).
+• Show your M-Pesa receipt: *${appt.mpesa_receipt}*
+
+Need to reschedule? Please contact us at [Insert Support Number].
+----------------------------------
+_MedicareAI: Your health, our priority._`;
+
+await sendMessage(appt.patient_phone, reminderMsg);
   }
 });
