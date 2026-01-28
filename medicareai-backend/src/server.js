@@ -62,22 +62,6 @@ app.get('/api/webhook', (req, res) => {
 app.post('/api/webhook', (req, res) => {
   console.log('📩 INCOMING WHATSAPP EVENT');
 
-  try {
-    const entry = req.body.entry?.[0];
-    const change = entry?.changes?.[0];
-    const message = change?.value?.messages?.[0];
-
-    // Ignore non-message events (delivery receipts, etc.)
-    if (!message) {
-      console.log('ℹ️ No message found (status update)');
-      return res.sendStatus(200);
-    }
-
-    const from = message.from;
-    const text = message.text?.body;
-
-    console.log('👤 From:', from);
-    console.log('💬 Message:', text);
 
     // DRY-RUN AUTO-REPLY (NO META SEND)
     const reply = buildAutoReply(text);
