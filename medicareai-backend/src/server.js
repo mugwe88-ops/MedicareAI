@@ -1,33 +1,16 @@
-import { buildAutoReply } from './services/autoReply.js';
-import pool from './db.js';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
 
-/* ============================
-   
-============================ */
+import pool from './db.js';
+import { buildAutoReply } from './services/autoReply.js';
 
 /* ============================
    APP INIT
 ============================ */
 const app = express();
 const PORT = process.env.PORT || 10000;
-const entry = req.body.entry?.[0];
-const change = entry?.changes?.[0];
-const message = change?.value?.messages?.[0];
-
-if (!message) {
-  console.log('ℹ️ No message found (probably a status update)');
-  return res.sendStatus(200);
-}
-
-const from = message.from;
-const text = message.text?.body;
-
-console.log('👤 From:', from);
-console.log('💬 Message:', text);
 
 /* ============================
    MIDDLEWARE
@@ -38,11 +21,6 @@ app.use(express.json({
     req.rawBody = buf;
   }
 }));
-
-
-/* ============================
-   DATABASE CONNECTION
-============================ */
 
 /* ============================
    HEALTH CHECK
@@ -62,9 +40,7 @@ app.get('/health', async (req, res) => {
 
 /* ============================
    META WEBHOOK VERIFY (GET)
-   ✅ STEP 4 — FIXED
 ============================ */
-// Webhook verification (Meta GET)
 app.get('/api/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -81,6 +57,7 @@ app.get('/api/webhook', (req, res) => {
 
 /* ============================
    META WEBHOOK RECEIVE (POST)
+   DRY-RUN AUTO-REPLY ENGINE
 ============================ */
 app.post('/api/webhook', (req, res) => {
   console.log('📩 INCOMING WHATSAPP EVENT');
@@ -90,10 +67,19 @@ app.post('/api/webhook', (req, res) => {
     const change = entry?.changes?.[0];
     const message = change?.value?.messages?.[0];
 
-    const text = message?.text?.body;
+    // Ignore non-message events (delivery receipts, etc.)
+    if (!message) {
+      console.log('ℹ️ No message found (status update)');
+      return res.sendStatus(200);
+    }
 
-    console.log('📝 Message text:', text);
+    const from = message.from;
+    const text = message.text?.body;
 
+    console.log('👤 From:', from);
+    console.log('💬 Message:', text);
+
+    // DRY-RUN AUTO-REPLY (NO META SEND)
     const reply = buildAutoReply(text);
 
     if (reply) {
@@ -101,35 +87,14 @@ app.post('/api/webhook', (req, res) => {
     } else {
       console.log('ℹ️ No reply generated');
     }
+
   } catch (err) {
     console.error('❌ Webhook parse error:', err.message);
   }
 
-  app.post('/api/webhook', (req, res) => {
-  console.log('📩 INCOMING WHATSAPP EVENT');
-
-  const entry = req.body.entry?.[0];
-  const change = entry?.changes?.[0];
-  const message = change?.value?.messages?.[0];
-
-  if (!message) {
-    console.log('ℹ️ No message found (probably a status update)');
-    return res.sendStatus(200);
-  }
-
-  const from = message.from;
-  const text = message.text?.body;
-
-  console.log('👤 From:', from);
-  console.log('💬 Message:', text);
-
-  // DRY-RUN MODE (no reply yet)
+  // Always ACK Meta
   res.sendStatus(200);
 });
-
-  res.sendStatus(200);
-});
-
 
 /* ============================
    START SERVER (RENDER SAFE)
@@ -141,4 +106,3 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('🔔 Webhooks: ENABLED');
   console.log('--------------------------------');
 });
-
