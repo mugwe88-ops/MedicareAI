@@ -48,6 +48,22 @@ export const initDb = async () => {
   }
 };
 
+    CREATE TABLE IF NOT EXISTS doctors (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    specialty TEXT,
+    phone_number TEXT UNIQUE,
+    email TEXT UNIQUE,
+    password_hash TEXT, -- For web login
+    consultation_fee DECIMAL DEFAULT 0.00,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Queue Management Status
+-- Adding 'COMPLETED' and 'NO_SHOW' to your appointment statuses
+ALTER TABLE appointments 
+ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'PENDING'; -- PENDING, CONFIRMED, COMPLETED, NO_SHOW
     CREATE TABLE IF NOT EXISTS availability (
         id SERIAL PRIMARY KEY,
         doctor_id INTEGER REFERENCES doctors(id),
@@ -64,7 +80,7 @@ export const initDb = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
-
+  
   try {
     await pool.query(query);
     console.log('✅ [DB] Tables initialized.');
