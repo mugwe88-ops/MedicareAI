@@ -3,11 +3,13 @@ import * as mpesaService from '../services/mpesa.service.js';
 import { sendMessage } from '../services/whatsappService.js';
 
 /**
- * Handle STK Push initiation
+ * Handle STK Push initiation from the bot flow
  */
 export async function handleSTKPush(req, res) {
   try {
-    const response = await mpesaService.initiateSTKPush(req.body);
+    const { phoneNumber, amount, reference } = req.body;
+    // We pass these individually to match your updated mpesa.service.js
+    const response = await mpesaService.initiateSTKPush(phoneNumber, amount, reference);
     return res.status(200).json(response);
   } catch (error) {
     console.error('STK Push error:', error);
@@ -22,12 +24,11 @@ export async function handleMpesaCallback(req, res) {
   try {
     const stkCallback = req.body?.Body?.stkCallback;
 
-    // 1. Always acknowledge Safaricom immediately
+    // 1. Acknowledge Safaricom immediately (Crucial to avoid retries)
     res.status(200).json({ ResultCode: 0, ResultDesc: 'Accepted' });
 
-    // 2. Filter failures
     if (!stkCallback || stkCallback.ResultCode !== 0) {
-      console.log('❌ M-Pesa transaction failed or cancelled by user');
+      console.log('❌ M-Pesa transaction failed or cancelled.');
       return;
     }
 
@@ -39,23 +40,19 @@ export async function handleMpesaCallback(req, res) {
 
     if (!receipt) return;
 
-    // 3. PURE SQL: Idempotency & Booking Update
-    // We use a TRANSACTION to ensure both the payment is logged AND the slot is locked
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
 
-      // Check if already processed
+      // 2. Idempotency Check
       const checkRes = await client.query('SELECT id FROM appointments WHERE mpesa_receipt = $1', [receipt]);
       if (checkRes.rowCount > 0) {
-        console.log(`⚠️ Duplicate callback ignored: ${receipt}`);
         client.release();
         return;
       }
 
-      // 4. Update the Appointment and the Availability Slot
-      // We look for the appointment that matches this CheckoutRequestID
+      // 3. Link Payment to Appointment & Lock Slot
       const updateAppt = await client.query(`
         UPDATE appointments 
         SET payment_status = 'COMPLETED', mpesa_receipt = $1 
@@ -64,21 +61,30 @@ export async function handleMpesaCallback(req, res) {
       `, [receipt, checkoutID]);
 
       if (updateAppt.rowCount > 0) {
-        const slotId = updateAppt.rows[0].slot_id;
-        const patientPhone = updateAppt.rows[0].patient_phone;
+        const { slot_id, patient_phone } = updateAppt.rows[0];
 
-        // Mark the doctor's slot as officially booked
-        await client.query('UPDATE availability SET is_booked = TRUE WHERE id = $1', [slotId]);
+        // Mark doctor slot as unavailable
+        await client.query('UPDATE availability SET is_booked = TRUE WHERE id = $1', [slot_id]);
 
         await client.query('COMMIT');
-        console.log(`✅ Appointment Confirmed! Receipt: ${receipt}`);
+        
+        // 4. Professional Receipt Generation
+        const receiptMsg = 
+`🏥 *MEDICARE AI - PAYMENT RECEIPT*
+----------------------------------
+*Status:* ✅ CONFIRMED
+*Receipt:* ${receipt}
+*Amount:* KES ${amount}
+*Phone:* ${phone}
 
-        // 5. Send Receipt to WhatsApp immediately
-        const successMsg = `✅ *Booking Confirmed!*\n\nReceipt: ${receipt}\nAmount: KES ${amount}\n\nYour appointment is officially scheduled. The doctor has been notified.`;
-        await sendMessage(patientPhone, successMsg);
+Your appointment is now officially scheduled. Please arrive 15 minutes early.
+----------------------------------`;
+
+        await sendMessage(patient_phone, receiptMsg);
+        console.log(`✅ Success: ${receipt} processed.`);
       } else {
         await client.query('ROLLBACK');
-        console.log("⚠️ Payment received but no matching appointment found in DB.");
+        console.log("⚠️ CheckoutID not found in appointments table.");
       }
     } catch (dbErr) {
       await client.query('ROLLBACK');
@@ -86,7 +92,6 @@ export async function handleMpesaCallback(req, res) {
     } finally {
       client.release();
     }
-
   } catch (error) {
     console.error('M-Pesa callback error:', error);
   }
