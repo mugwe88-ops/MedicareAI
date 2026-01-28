@@ -1,119 +1,165 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import pool from './db.js';
-import { autoReplyDryRun } from './services/autoReply.js';
-import { verifyWhatsAppSignature } from "./verifyWhatsAppSignature.js"; 
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import pool, { initDb } from './db.js';
+import { verifyWhatsAppSignature } from "./verifyWhatsAppSignature.js";
+import { sendMessage } from './services/whatsappService.js';
+import { logMessageToDb } from './lib/messageLogger.js';
+import { getDoctors, getAvailableSlots, updateSession, getSession } from './services/bookingService.js';
+import * as mpesaService from './services/mpesa.service.js';
 
 const app = express();
 const PORT = process.env.PORT || 10000;
+const JWT_SECRET = process.env.JWT_SECRET || 'medicare_super_secret_key_2024';
 
-// Simple memory cache to prevent duplicate processing from Meta retries
-const processedMessageIds = new Set();
-const CACHE_LIMIT = 500;
-
-/* ============================
-   MIDDLEWARE
-============================ */
 app.use(cors());
-// Crucial: This rawBody parsing is required for signature verification
-app.use(express.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf;
-  }
-}));
+app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 
-/* ============================
-   HEALTH CHECKS
-============================ */
-app.get('/', (req, res) => {
-  res.status(200).send('🟢 MedicareAI API is Live');
-});
-
-app.get('/health', async (req, res) => {
+// Middleware to protect Doctor routes
+const authenticateDoctor = (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) return res.status(403).json({ error: "No token provided." });
   try {
-    await pool.query('SELECT 1');
-    res.json({ status: 'ok', database: 'connected' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.doctorId = decoded.doctorId;
+    next();
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(401).json({ error: "Unauthorized access." });
+  }
+};
+
+/* ============================
+   1. DOCTOR AUTH & DASHBOARD
+============================ */
+
+// Register a new Doctor Profile
+app.post('/api/doctors/register', async (req, res) => {
+  const { name, specialty, phone_number, email, password, fee } = req.body;
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      `INSERT INTO doctors (name, specialty, phone_number, email, password_hash, consultation_fee) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name`,
+      [name, specialty, phone_number, email, passwordHash, fee]
+    );
+    res.status(201).json({ message: "Doctor profile created!", doctor: result.rows[0] });
+  } catch (err) {
+    res.status(400).json({ error: "Email or Phone already exists." });
+  }
+});
+
+// Login for Doctors
+app.post('/api/doctors/login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const result = await pool.query('SELECT * FROM doctors WHERE email = $1', [email]);
+    if (result.rowCount === 0) return res.status(401).json({ error: "Invalid credentials." });
+    
+    const doctor = result.rows[0];
+    const isMatch = await bcrypt.compare(password, doctor.password_hash);
+    if (!isMatch) return res.status(401).json({ error: "Invalid credentials." });
+
+    const token = jwt.sign({ doctorId: doctor.id, name: doctor.name }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ token, doctor: { id: doctor.id, name: doctor.name } });
+  } catch (err) {
+    res.status(500).json({ error: "Login failed." });
+  }
+});
+
+// Get Doctor Queue
+app.get('/api/doctor/dashboard', authenticateDoctor, async (req, res) => {
+  try {
+    const queue = await pool.query(`
+      SELECT a.id, a.patient_phone, v.start_time, a.status
+      FROM appointments a
+      JOIN availability v ON a.slot_id = v.id
+      WHERE a.doctor_id = $1 AND v.available_date = CURRENT_DATE AND a.payment_status = 'COMPLETED'
+      ORDER BY v.start_time ASC
+    `, [req.doctorId]);
+    res.json(queue.rows);
+  } catch (err) {
+    res.status(500).json({ error: "Queue fetch failed." });
   }
 });
 
 /* ============================
-   META WEBHOOK VERIFY (GET)
+   2. WHATSAPP WEBHOOK
 ============================ */
-app.get('/webhook', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
 
-  if (mode === 'subscribe' && token === process.env.WEBHOOK_VERIFY_TOKEN) {
-    console.log('✅ Webhook verified');
-    return res.status(200).send(challenge);
-  }
-  return res.sendStatus(403);
-});
-
-/* ============================
-   META WEBHOOK RECEIVE (POST)
-   AGENDA 1 HARDENING APPLIED
-============================ */
 app.post('/webhook', verifyWhatsAppSignature, async (req, res) => {
   try {
-    const entry = req.body.entry?.[0];
-    const change = entry?.changes?.[0];
-    const value = change?.value;
-    const message = value?.messages?.[0];
-
-    // 1. Immediate ACK (Stops Meta from retrying unnecessarily)
+    const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
     res.sendStatus(200);
+    if (!message || message.type !== 'text') return;
 
-    // 2. FILTER: Ignore status updates (delivered/read receipts)
-    if (value?.statuses) return;
-
-    // 3. FILTER: Only process text messages
-    if (!message || message.type !== 'text') {
-      console.log(`[Webhook] Ignored non-text type: ${message?.type || 'unknown'}`);
-      return;
-    }
-
-    // 4. IDEMPOTENCY: Prevent double-processing
-    if (processedMessageIds.has(message.id)) {
-      console.log(`[Webhook] Duplicate message ID detected: ${message.id}. Skipping.`);
-      return;
-    }
-
-    // Add to cache and prune if too large
-    processedMessageIds.add(message.id);
-    if (processedMessageIds.size > CACHE_LIMIT) {
-      const oldestId = processedMessageIds.values().next().value;
-      processedMessageIds.delete(oldestId);
-    }
-
-    // 5. DRY-RUN AUTO REPLY ENGINE
     const from = message.from;
-    const text = message.text?.body || '';
+    const text = message.text.body.trim().toLowerCase();
+    let session = await getSession(from);
+    let replyText = "";
 
-    const reply = autoReplyDryRun({
-      from,
-      message: text
-    });
+    if (text.includes('book') || text === 'hi') {
+      const doctors = await getDoctors();
+      replyText = "🏥 *MedicareAI Booking*\nSelect a doctor by replying with their ID:\n\n";
+      doctors.forEach(dr => replyText += `*${dr.id}*: ${dr.name} (${dr.specialty})\nFee: KES ${dr.consultation_fee}\n\n`);
+      await updateSession(from, 'SELECTING_DOCTOR');
 
-    console.log(`[Dry-Run] From: ${from} | Text: "${text}" | Result:`, reply);
+    } else if (session?.current_step === 'SELECTING_DOCTOR') {
+      const doctorId = parseInt(text);
+      const slots = await getAvailableSlots(doctorId);
+      if (slots.length > 0) {
+        replyText = `📅 *Slots for Dr. ${slots[0].doctor_name}:*\nReply with Slot ID:\n\n`;
+        slots.forEach(s => replyText += `*${s.id}*: ${s.available_date} at ${s.start_time}\n`);
+        await updateSession(from, 'SELECTING_SLOT', { selectedDoctorId: doctorId });
+      } else {
+        replyText = "❌ No slots found. Type 'book' to restart.";
+      }
 
-  } catch (err) {
-    console.error('Webhook error:', err);
-    // Already sent 200, so we just log the error here
-  }
+    } else if (session?.current_step === 'SELECTING_SLOT') {
+      const slotId = parseInt(text);
+      const drRes = await pool.query('SELECT name, consultation_fee FROM doctors WHERE id = $1', [session.metadata.selectedDoctorId]);
+      const doctor = drRes.rows[0];
+
+      const mpesa = await mpesaService.initiateSTKPush(from, doctor.consultation_fee, `Slot-${slotId}`);
+      if (mpesa.ResponseCode === "0") {
+        await pool.query('INSERT INTO appointments (patient_phone, doctor_id, slot_id, checkout_request_id) VALUES ($1,$2,$3,$4)', 
+          [from, session.metadata.selectedDoctorId, slotId, mpesa.CheckoutRequestID]);
+        replyText = `💸 *M-Pesa Prompt Sent*\nEnter PIN to pay KES ${doctor.consultation_fee} for Dr. ${doctor.name}.`;
+        await updateSession(from, 'AWAITING_PAYMENT');
+      } else {
+        replyText = "❌ Payment failed to initiate.";
+      }
+    }
+    if (replyText) await sendMessage(from, replyText);
+  } catch (err) { console.error('Webhook Error:', err); }
 });
 
 /* ============================
-   START SERVER
+   3. MPESA CALLBACK
 ============================ */
-app.listen(PORT, '0.0.0.0', () => {
-  console.log('--------------------------------');
-  console.log('🟢 MedicareAI Server is LIVE');
-  console.log(`📍 Port: ${PORT}`);
-  console.log('🛡️ Webhook Hardening: ACTIVE');
-  console.log('--------------------------------');
+
+app.post('/mpesa-callback', async (req, res) => {
+  const stkCallback = req.body?.Body?.stkCallback;
+  res.status(200).json({ ResultCode: 0, ResultDesc: 'Accepted' });
+  if (!stkCallback || stkCallback.ResultCode !== 0) return;
+
+  const receipt = stkCallback.CallbackMetadata.Item.find(i => i.Name === 'MpesaReceiptNumber')?.Value;
+  const checkoutID = stkCallback.CheckoutRequestID;
+
+  const update = await pool.query(`
+    UPDATE appointments SET payment_status = 'COMPLETED', mpesa_receipt = $1 
+    WHERE checkout_request_id = $2 RETURNING slot_id, patient_phone
+  `, [receipt, checkoutID]);
+
+  if (update.rowCount > 0) {
+    await pool.query('UPDATE availability SET is_booked = TRUE WHERE id = $1', [update.rows[0].slot_id]);
+    await sendMessage(update.rows[0].patient_phone, `✅ *Booking Confirmed!*\nReceipt: ${receipt}\nSee you soon!`);
+  }
+});
+
+// Start Server
+app.listen(PORT, '0.0.0.0', async () => {
+  await initDb();
+  console.log('🟢 MedicareAI System Online');
 });
