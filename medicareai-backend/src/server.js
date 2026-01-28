@@ -4,7 +4,7 @@ import cors from 'cors';
 import axios from 'axios';
 
 import pool from './db.js';
-import { buildAutoReply } from './services/autoReply.js';
+import { autoReplyDryRun } from './services/autoReply.js';
 
 /* ============================
    APP INIT
