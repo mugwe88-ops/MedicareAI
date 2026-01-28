@@ -102,7 +102,7 @@ app.post('/webhook', verifyWhatsAppSignature, async (req, res) => {
     // 3. BOOKING FLOW LOGIC
     if (text.includes('book') || text === 'hi' || text === 'hello') {
       const doctors = await getDoctors();
-      replyText = "🏥 *MedicareAI Booking*\nSelect a doctor by replying with their ID:\n\n";
+      replyText = "🏥 *Swift MD Booking*\nSelect a doctor by replying with their ID:\n\n";
       doctors.forEach(dr => {
         replyText += `*${dr.id}*: ${dr.name} (${dr.specialty})\nFee: KES ${dr.consultation_fee}\n\n`;
       });
@@ -160,7 +160,5 @@ app.post('/webhook', verifyWhatsAppSignature, async (req, res) => {
 app.listen(PORT, '0.0.0.0', async () => {
   await initDb();
    startReminderCron(); // <--- Initialize the auto-reminder engine
-  console.log('🟢 MedicareAI Multi-Doctor System is LIVE');
-});
-  console.log('🟢 MedicareAI Server Live');
+  console.log('🟢 Swift MD System Online & Ready');
 });
