@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Doctor Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-blue-50 p-10">
+    <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg">
+        <h1 class="text-2xl font-bold text-blue-700 mb-6 text-center">MedicareAI Dashboard</h1>
+        
+        <div id="login-form">
+            <input id="email" type="email" placeholder="Email" class="w-full border p-2 mb-4 rounded">
+            <input id="password" type="password" placeholder="Password" class="w-full border p-2 mb-4 rounded">
+            <button onclick="login()" class="w-full bg-blue-600 text-white p-2 rounded">Sign In</button>
+        </div>
+
+        <div id="queue" class="hidden">
+            <h2 id="welcome" class="font-bold mb-4"></h2>
+            <div id="patient-list" class="space-y-2"></div>
+            <button onclick="location.reload()" class="mt-4 text-xs text-gray-400">Logout</button>
+        </div>
+    </div>
+
+    <script>
+        const API = "https://medicareai-4av2.onrender.com";
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const res = await fetch(`${API}/api/doctors/login`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({email, password})
+            });
+            const data = await res.json();
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('queue').classList.remove('hidden');
+                document.getElementById('welcome').innerText = "Dr. " + data.doctor.name;
+                loadPatients();
+            }
+        }
+
+        async function loadPatients() {
+            // Fetch and display active appointments...
+        }
+    </script>
+</body>
+</html>
