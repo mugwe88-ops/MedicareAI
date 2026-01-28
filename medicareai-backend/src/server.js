@@ -1,3 +1,4 @@
+import { buildAutoReply } from './services/autoReply.js';
 import pool from './db.js';
 import 'dotenv/config';
 import express from 'express';
@@ -13,12 +14,31 @@ import axios from 'axios';
 ============================ */
 const app = express();
 const PORT = process.env.PORT || 10000;
+const entry = req.body.entry?.[0];
+const change = entry?.changes?.[0];
+const message = change?.value?.messages?.[0];
+
+if (!message) {
+  console.log('ℹ️ No message found (probably a status update)');
+  return res.sendStatus(200);
+}
+
+const from = message.from;
+const text = message.text?.body;
+
+console.log('👤 From:', from);
+console.log('💬 Message:', text);
 
 /* ============================
    MIDDLEWARE
 ============================ */
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+
 
 /* ============================
    DATABASE CONNECTION
@@ -64,9 +84,52 @@ app.get('/api/webhook', (req, res) => {
 ============================ */
 app.post('/api/webhook', (req, res) => {
   console.log('📩 INCOMING WHATSAPP EVENT');
-  console.log(JSON.stringify(req.body, null, 2));
+
+  try {
+    const entry = req.body.entry?.[0];
+    const change = entry?.changes?.[0];
+    const message = change?.value?.messages?.[0];
+
+    const text = message?.text?.body;
+
+    console.log('📝 Message text:', text);
+
+    const reply = buildAutoReply(text);
+
+    if (reply) {
+      console.log('🤖 AUTO-REPLY (DRY RUN):', reply);
+    } else {
+      console.log('ℹ️ No reply generated');
+    }
+  } catch (err) {
+    console.error('❌ Webhook parse error:', err.message);
+  }
+
+  app.post('/api/webhook', (req, res) => {
+  console.log('📩 INCOMING WHATSAPP EVENT');
+
+  const entry = req.body.entry?.[0];
+  const change = entry?.changes?.[0];
+  const message = change?.value?.messages?.[0];
+
+  if (!message) {
+    console.log('ℹ️ No message found (probably a status update)');
+    return res.sendStatus(200);
+  }
+
+  const from = message.from;
+  const text = message.text?.body;
+
+  console.log('👤 From:', from);
+  console.log('💬 Message:', text);
+
+  // DRY-RUN MODE (no reply yet)
   res.sendStatus(200);
 });
+
+  res.sendStatus(200);
+});
+
 
 /* ============================
    START SERVER (RENDER SAFE)
