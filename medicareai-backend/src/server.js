@@ -2,9 +2,11 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
+import { verifyWhatsAppSignature } from './verifyWhatsAppSignature.js';
 
 import pool from './db.js';
 import { autoReplyDryRun } from './services/autoReply.js';
+import { verifyWhatsAppSignature } from "./middleware/verifyWhatsAppSignature.js";
 
 function buildAutoReply(message) {
   return autoReplyDryRun({
@@ -68,33 +70,39 @@ app.get('/api/webhook', (req, res) => {
    META WEBHOOK RECEIVE (POST)
    DRY-RUN MODE
 ============================ */
-app.post('/webhook', (req, res) => {
-  try {
-    const entry = req.body.entry?.[0];
-    const change = entry?.changes?.[0];
-    const value = change?.value;
-    const message = value?.messages?.[0];
+app.post(
+  '/webhook',
+  express.raw({ type: 'application/json' }),
+  verifyWhatsAppSignature,
+  async (req, res) => {
+    try {
+      const entry = req.body.entry?.[0];
+      const change = entry?.changes?.[0];
+      const value = change?.value;
+      const message = value?.messages?.[0];
 
-    if (!message) {
-      return res.sendStatus(200);
+      if (!message) {
+        return res.sendStatus(200);
+      }
+
+      const from = message.from;
+      const text = message.text?.body || '';
+
+      const reply = autoReplyDryRun({
+        from,
+        message: text
+      });
+
+      console.log('AUTO REPLY RESULT:', reply);
+
+      res.sendStatus(200);
+    } catch (err) {
+      console.error('Webhook error:', err);
+      res.sendStatus(200);
     }
-
-    const from = message.from;
-    const text = message.text?.body || '';
-
-    const reply = autoReplyDryRun({
-      from,
-      message: text
-    });
-
-    console.log('AUTO REPLY RESULT:', reply);
-
-    res.sendStatus(200);
-  } catch (err) {
-    console.error('Webhook error:', err);
-    res.sendStatus(200);
   }
-});
+);
+
 
 /* ============================
    START SERVER (RENDER SAFE)
