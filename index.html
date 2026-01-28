@@ -21,30 +21,61 @@
         </div>
     </div>
 
-    <script>
-        const API = "https://medicareai-4av2.onrender.com";
+   <script>
+    const API = "https://your-app-name.onrender.com"; // Your Render URL
 
-        async function login() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const res = await fetch(`${API}/api/doctors/login`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email, password})
-            });
-            const data = await res.json();
-            if (data.token) {
-                localStorage.setItem('token', data.token);
-                document.getElementById('login-form').classList.add('hidden');
-                document.getElementById('queue').classList.remove('hidden');
-                document.getElementById('welcome').innerText = "Dr. " + data.doctor.name;
-                loadPatients();
-            }
-        }
+    // 1. Login Logic
+    async function login() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const res = await fetch(`${API}/api/doctors/login`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email, password})
+        });
+        const data = await res.json();
+        if (data.token) {
+            localStorage.setItem('token', data.token);
+            renderUI();
+        } else { alert("Login failed!"); }
+    }
 
-        async function loadPatients() {
-            // Fetch and display active appointments...
+    // 2. Fetch the Queue
+    async function loadPatients() {
+        const res = await fetch(`${API}/api/doctor/dashboard`, {
+            headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`}
+        });
+        const queue = await res.json();
+        const list = document.getElementById('patient-list');
+        list.innerHTML = queue.map(appt => `
+            <div class="p-4 border-b flex justify-between items-center">
+                <span>${appt.start_time} - ${appt.patient_phone}</span>
+                <button onclick="markDone(${appt.id})" class="bg-green-500 text-white px-3 py-1 rounded">Done</button>
+            </div>
+        `).join('') || "No patients today.";
+    }
+
+    // 3. Remove Patient from Queue
+    async function markDone(appointmentId) {
+        await fetch(`${API}/api/appointments/complete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({ appointmentId })
+        });
+        loadPatients(); // Refresh list
+    }
+
+    function renderUI() {
+        if (localStorage.getItem('token')) {
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('queue').classList.remove('hidden');
+            loadPatients();
         }
-    </script>
+    }
+    renderUI();
+</script>
 </body>
 </html>
