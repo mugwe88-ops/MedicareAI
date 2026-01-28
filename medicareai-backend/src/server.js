@@ -5,10 +5,7 @@ import axios from 'axios';
 
 import pool from './db.js';
 import { autoReplyDryRun } from './services/autoReply.js';
-const reply = autoReplyDryRun({
-  from,
-  message: text
-});
+
 function buildAutoReply(message) {
   return autoReplyDryRun({
     from: 'dry-run-number',
