@@ -6,6 +6,7 @@ import { verifyWhatsAppSignature } from "./verifyWhatsAppSignature.js";
 import { sendMessage } from './services/whatsappService.js';
 import { logMessageToDb } from './lib/messageLogger.js';
 import { getDoctors, getAvailableSlots, updateSession, getSession } from './services/bookingService.js';
+import * as mpesaService from './services/mpesa.service.js';
 
 const app = express();
 const PORT = process.env.PORT || 10000;
