@@ -3,12 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import pool from './db.js';
 import { autoReplyDryRun } from './services/autoReply.js';
-// FIXED: Only one import, using the correct middleware path
-import { verifyWhatsAppSignature } from "./middleware/verifyWhatsAppSignature.js";
+import { verifyWhatsAppSignature } from "./verifyWhatsAppSignature.js"; 
 
-/* ============================
-   CONFIG & IDEMPOTENCY
-============================ */
 const app = express();
 const PORT = process.env.PORT || 10000;
 
