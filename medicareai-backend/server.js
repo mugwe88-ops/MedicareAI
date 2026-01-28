@@ -8,6 +8,7 @@ import { logMessageToDb } from './lib/messageLogger.js';
 import { getDoctors, getAvailableSlots, updateSession, getSession } from './services/bookingService.js';
 import * as mpesaService from './services/mpesa.service.js';
 import bcrypt from 'bcrypt';
+import { startReminderCron } from './services/reminderService.js';
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -155,7 +156,11 @@ app.post('/webhook', verifyWhatsAppSignature, async (req, res) => {
   }
 });
 
+
 app.listen(PORT, '0.0.0.0', async () => {
   await initDb();
+   startReminderCron(); // <--- Initialize the auto-reminder engine
+  console.log('🟢 MedicareAI Multi-Doctor System is LIVE');
+});
   console.log('🟢 MedicareAI Server Live');
 });
