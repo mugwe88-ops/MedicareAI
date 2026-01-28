@@ -36,6 +36,19 @@ Hello! This is a friendly reminder of your upcoming medical consultation.
 Need to reschedule? Please contact us at [Insert Support Number].
 ----------------------------------
 _MedicareAI: Your health, our priority._`;
+    // Run every hour to catch appointments exactly 24 hours away
+cron.schedule('0 * * * *', async () => {
+    const tomorrow = await pool.query(`
+        SELECT a.*, d.name as doctor_name, v.start_time, v.available_date 
+        FROM appointments a
+        JOIN doctors d ON a.doctor_id = d.id
+        JOIN availability v ON a.slot_id = v.id
+        WHERE v.available_date = CURRENT_DATE + INTERVAL '1 day'
+        AND a.payment_status = 'COMPLETED'
+        AND a.reminder_sent = FALSE -- We should add this column!
+    `);
+    // ... loop and send ...
+});
 
 await sendMessage(appt.patient_phone, reminderMsg);
   }
