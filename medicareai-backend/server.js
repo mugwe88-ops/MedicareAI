@@ -66,6 +66,19 @@ app.post('/api/doctors/register', async (req, res) => {
   }
 });
 
+app.post('/api/appointments/complete', async (req, res) => {
+  const { appointmentId } = req.body;
+  try {
+    await pool.query(
+      "UPDATE appointments SET status = 'COMPLETED' WHERE id = $1", 
+      [appointmentId]
+    );
+    res.json({ message: "Patient removed from queue." });
+  } catch (err) {
+    res.status(500).json({ error: "Could not update appointment." });
+  }
+});
+
 app.post('/webhook', verifyWhatsAppSignature, async (req, res) => {
   try {
     const entry = req.body.entry?.[0];
