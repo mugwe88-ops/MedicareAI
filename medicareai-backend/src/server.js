@@ -71,38 +71,32 @@ app.get('/api/webhook', (req, res) => {
    META WEBHOOK RECEIVE (POST)
    DRY-RUN MODE
 ============================ */
-app.post('/api/webhook', (req, res) => {
-  console.log('📩 INCOMING WHATSAPP EVENT');
-
+app.post('/webhook', (req, res) => {
   try {
     const entry = req.body.entry?.[0];
     const change = entry?.changes?.[0];
-    const message = change?.value?.messages?.[0];
+    const value = change?.value;
+    const message = value?.messages?.[0];
 
     if (!message) {
-      console.log('ℹ️ No message found (status update)');
       return res.sendStatus(200);
     }
 
     const from = message.from;
-    const text = message.text?.body;
+    const text = message.text?.body || '';
 
-    console.log('👤 From:', from);
-    console.log('💬 Message:', text);
+    const reply = autoReplyDryRun({
+      from,
+      message: text
+    });
 
-    const reply = buildAutoReply(text);
+    console.log('AUTO REPLY RESULT:', reply);
 
-    if (reply) {
-      console.log('🤖 AUTO-REPLY (DRY RUN):', reply);
-    } else {
-      console.log('ℹ️ No reply generated');
-    }
-
+    res.sendStatus(200);
   } catch (err) {
-    console.error('❌ Webhook parse error:', err.message);
+    console.error('Webhook error:', err);
+    res.sendStatus(200);
   }
-
-  res.sendStatus(200);
 });
 
 /* ============================
