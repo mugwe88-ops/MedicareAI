@@ -27,12 +27,26 @@ export const initDb = async () => {
     );
 export const initDb = async () => {
   const query = `
-    CREATE TABLE IF NOT EXISTS doctors (
+    -- [Other tables: doctors, availability, sessions remain the same]
+
+    CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        specialty TEXT,
-        consultation_fee DECIMAL DEFAULT 0.00
+        patient_phone TEXT NOT NULL,
+        doctor_id INTEGER REFERENCES doctors(id),
+        slot_id INTEGER REFERENCES availability(id),
+        checkout_request_id TEXT UNIQUE, -- The glue for M-Pesa
+        payment_status TEXT DEFAULT 'PENDING',
+        mpesa_receipt TEXT UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `;
+  try {
+    await pool.query(query);
+    console.log('✅ [DB] Appointments table synchronized for M-Pesa.');
+  } catch (err) {
+    console.error('❌ [DB] Sync Error:', err.message);
+  }
+};
 
     CREATE TABLE IF NOT EXISTS availability (
         id SERIAL PRIMARY KEY,
