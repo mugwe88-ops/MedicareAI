@@ -47,6 +47,11 @@ export const initDb = async () => {
     );
   `;
 
+  ALTER TABLE doctors 
+ADD COLUMN IF NOT EXISTS email_otp TEXT,
+ADD COLUMN IF NOT EXISTS phone_otp TEXT,
+ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+
   try {
     await pool.query(query);
     console.log('✅ [DB] Swift MD Tables initialized.');
