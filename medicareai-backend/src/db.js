@@ -18,7 +18,7 @@ export const initDb = async () => {
         consultation_fee DECIMAL DEFAULT 0.00,
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
+    ); 
 
     CREATE TABLE IF NOT EXISTS availability (
         id SERIAL PRIMARY KEY,
