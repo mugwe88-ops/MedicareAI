@@ -264,6 +264,31 @@ app.post('/mpesa-callback', async (req, res) => {
   }
 });
 
+// 1. Make sure runMigrations is imported from your db.js
+import { initDb, runMigrations } from './db.js'; 
+
+// ... other imports and app.use code ...
+
+// 2. The Startup Sequence
+const startServer = async () => {
+    try {
+        // First, create the basic tables if they don't exist
+        await initDb(); 
+        
+        // Second, run the workaround to add the OTP columns
+        await runMigrations(); 
+
+        app.listen(PORT, () => {
+            console.log(`🟢 MedicareAI API is Live on port ${PORT}`);
+        });
+    } catch (err) {
+        console.error('❌ Failed to start server:', err);
+        process.exit(1);
+    }
+};
+
+startServer();
+
 // Start Server
 app.listen(PORT, '0.0.0.0', async () => {
   await initDb();
