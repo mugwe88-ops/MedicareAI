@@ -149,5 +149,14 @@
         function logout() { localStorage.clear(); location.reload(); }
         if (localStorage.getItem('token')) showDashboard();
     </script>
+
+    <div id="otpModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center;">
+    <div style="background:white; padding:30px; border-radius:15px; text-align:center; width:90%; max-width:400px;">
+        <h3>Verify Your Identity</h3>
+        <p>A 6-digit code has been sent to your email and phone.</p>
+        <input type="text" id="otpInput" placeholder="Enter 6-digit OTP" maxlength="6" style="width:100%; padding:10px; margin:15px 0; border:1px solid #ccc; border-radius:8px; text-align:center; font-size:1.2rem;">
+        <button id="verifyBtn" style="background:#5D5FEF; color:white; border:none; padding:12px 25px; border-radius:8px; cursor:pointer; width:100%;">Verify & Complete Signup</button>
+    </div>
+</div>
 </body>
 </html>
