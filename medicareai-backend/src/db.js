@@ -1,3 +1,11 @@
+import pkg from 'pg';
+const { Pool } = pkg;
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
 export const initDb = async () => {
   const query = `
     -- 1. Doctors Table
@@ -5,10 +13,15 @@ export const initDb = async () => {
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         specialty TEXT,
-        consultation_fee DECIMAL DEFAULT 0.00
+        phone_number TEXT UNIQUE,
+        email TEXT UNIQUE,
+        password_hash TEXT,
+        consultation_fee DECIMAL DEFAULT 0.00,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- 2. Availability Table (Doctor's Schedule)
+    -- 2. Availability Table
     CREATE TABLE IF NOT EXISTS availability (
         id SERIAL PRIMARY KEY,
         doctor_id INTEGER REFERENCES doctors(id),
@@ -18,106 +31,28 @@ export const initDb = async () => {
         is_booked BOOLEAN DEFAULT FALSE
     );
 
-    -- 3. Sessions Table (Memory)
+    -- 3. Sessions Table
     CREATE TABLE IF NOT EXISTS sessions (
         phone_number TEXT PRIMARY KEY,
         current_step TEXT DEFAULT 'START',
         metadata JSONB DEFAULT '{}',
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-export const initDb = async () => {
-  const query = `
-    -- [Other tables: doctors, availability, sessions remain the same]
 
+    -- 4. Appointments Table
     CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
         patient_phone TEXT NOT NULL,
         doctor_id INTEGER REFERENCES doctors(id),
         slot_id INTEGER REFERENCES availability(id),
-        checkout_request_id TEXT UNIQUE, -- The glue for M-Pesa
+        checkout_request_id TEXT UNIQUE,
         payment_status TEXT DEFAULT 'PENDING',
+        status TEXT DEFAULT 'PENDING',
         mpesa_receipt TEXT UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-  `;
-  try {
-    await pool.query(query);
-    console.log('✅ [DB] Appointments table synchronized for M-Pesa.');
-  } catch (err) {
-    console.error('❌ [DB] Sync Error:', err.message);
-  }
-};
 
-    CREATE TABLE IF NOT EXISTS doctors (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    specialty TEXT,
-    phone_number TEXT UNIQUE,
-    email TEXT UNIQUE,
-    password_hash TEXT, -- For web login
-    consultation_fee DECIMAL DEFAULT 0.00,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Queue Management Status
--- Adding 'COMPLETED' and 'NO_SHOW' to your appointment statuses
-ALTER TABLE appointments 
-ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'PENDING'; -- PENDING, CONFIRMED, COMPLETED, NO_SHOW
-    CREATE TABLE IF NOT EXISTS availability (
-        id SERIAL PRIMARY KEY,
-        doctor_id INTEGER REFERENCES doctors(id),
-        available_date DATE NOT NULL,
-        start_time TIME NOT NULL,
-        end_time TIME NOT NULL,
-        is_booked BOOLEAN DEFAULT FALSE
-    );
-
-    CREATE TABLE IF NOT EXISTS sessions (
-        phone_number TEXT PRIMARY KEY,
-        current_step TEXT DEFAULT 'START',
-        metadata JSONB DEFAULT '{}',
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
-  
-  try {
-    await pool.query(query);
-    console.log('✅ [DB] Tables initialized.');
-
-    // --- AUTO-SEEDING START ---
-    const doctorCheck = await pool.query('SELECT id FROM doctors LIMIT 1');
-    
-    if (doctorCheck.rowCount === 0) {
-      console.log('🌱 [DB] No doctors found. Planting test data...');
-      
-      // 1. Insert Doctors
-      const drResult = await pool.query(`
-        INSERT INTO doctors (name, specialty, consultation_fee) 
-        VALUES ('Dr. M. Smith', 'Cardiologist', 2500), ('Dr. Sarah Jane', 'Pediatrician', 1500)
-        RETURNING id
-      `);
-
-      const dr1Id = drResult.rows[0].id;
-      const dr2Id = drResult.rows[1].id;
-
-      // 2. Insert Slots for those Doctors
-      await pool.query(`
-        INSERT INTO availability (doctor_id, available_date, start_time, end_time) 
-        VALUES 
-        (${dr1Id}, '2026-03-01', '09:00', '10:00'),
-        (${dr1Id}, '2026-03-01', '11:00', '12:00'),
-        (${dr2Id}, '2026-03-02', '14:00', '15:00')
-      `);
-      console.log('✅ [DB] Test data planted successfully.');
-    }
-    // --- AUTO-SEEDING END ---
-
-  } catch (err) {
-    console.error('❌ [DB] Init Error:', err.message);
-  }
-};
-    -- 4. Message Logs
+    -- 5. Message Logs
     CREATE TABLE IF NOT EXISTS message_logs (
         id SERIAL PRIMARY KEY,
         wamid TEXT UNIQUE,
@@ -128,10 +63,34 @@ ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'PENDING'; -- PENDING, CONFIRMED, C
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
+
   try {
     await pool.query(query);
-    console.log('✅ [DB] All tables initialized.');
+    console.log('✅ [DB] Swift MD Tables initialized.');
+
+    // --- AUTO-SEEDING ---
+    const doctorCheck = await pool.query('SELECT id FROM doctors LIMIT 1');
+    if (doctorCheck.rowCount === 0) {
+      console.log('🌱 [DB] No doctors found. Planting test data...');
+      const drResult = await pool.query(`
+        INSERT INTO doctors (name, specialty, consultation_fee) 
+        VALUES ('Dr. M. Smith', 'Cardiologist', 2500), ('Dr. Sarah Jane', 'Pediatrician', 1500)
+        RETURNING id
+      `);
+      const dr1Id = drResult.rows[0].id;
+      const dr2Id = drResult.rows[1].id;
+
+      await pool.query(`
+        INSERT INTO availability (doctor_id, available_date, start_time, end_time) 
+        VALUES 
+        (${dr1Id}, '2026-03-01', '09:00', '10:00'),
+        (${dr2Id}, '2026-03-02', '14:00', '15:00')
+      `);
+      console.log('✅ [DB] Test data planted.');
+    }
   } catch (err) {
     console.error('❌ [DB] Init Error:', err.message);
   }
 };
+
+export default pool;
