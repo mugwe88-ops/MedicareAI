@@ -1,39 +1,38 @@
-import { prisma } from '../lib/prisma.js';
-import { addMinutes, isWithinInterval } from 'date-fns';
+import pool from '../db.js';
 
-export const createBookingWithBuffer = async (doctorId, patientId, startTime, durationMinutes) => {
-  const buffer = 10; // 10-minute buffer
-  const endTime = addMinutes(new Date(startTime), durationMinutes);
-  const bufferedEndTime = addMinutes(endTime, buffer);
+export const getDoctors = async () => {
+    const res = await pool.query('SELECT * FROM doctors WHERE is_active = true');
+    return res.rows;
+};
 
-  // Check for conflicts
-  const conflict = await prisma.appointment.findFirst({
-    where: {
-      doctorId,
-      OR: [
-        {
-          // Check if new start time falls inside an existing appointment
-          startTime: { lte: startTime },
-          endTime: { gte: startTime }
-        },
-        {
-          // Check if new end time (+ buffer) overlaps a future appointment
-          startTime: { lte: bufferedEndTime },
-          endTime: { gte: bufferedEndTime }
-        }
-      ]
+export const getAvailableSlots = async (doctorId) => {
+    const res = await pool.query(
+        'SELECT * FROM availability WHERE doctor_id = $1 AND is_booked = false AND available_date >= CURRENT_DATE',
+        [doctorId]
+    );
+    return res.rows;
+};
+
+export const bookSlot = async (patientPhone, doctorId, slotId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 1. Mark slot as booked
+        await client.query('UPDATE availability SET is_booked = true WHERE id = $1', [slotId]);
+        
+        // 2. Create appointment
+        const res = await client.query(
+            'INSERT INTO appointments (patient_phone, doctor_id, slot_id, status) VALUES ($1, $2, $3, $4) RETURNING id',
+            [patientPhone, doctorId, slotId, 'CONFIRMED']
+        );
+        
+        await client.query('COMMIT');
+        return res.rows[0];
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
     }
-  });
-
-  if (conflict) throw new Error("This slot (plus required buffer) is unavailable.");
-
-  return await prisma.appointment.create({
-    data: {
-      doctorId,
-      patientId,
-      startTime: new Date(startTime),
-      endTime, // True medical time
-      status: 'CONFIRMED'
-    }
-  });
 };
