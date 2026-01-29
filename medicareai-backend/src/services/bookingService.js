@@ -5,6 +5,21 @@ export const getDoctors = async () => {
     return res.rows;
 };
 
+export const getSession = async (phoneNumber) => {
+    const res = await pool.query('SELECT * FROM sessions WHERE phone_number = $1', [phoneNumber]);
+    return res.rows[0];
+};
+
+export const updateSession = async (phoneNumber, step, metadata = {}) => {
+    const query = `
+        INSERT INTO sessions (phone_number, current_step, metadata, updated_at)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+        ON CONFLICT (phone_number) 
+        DO UPDATE SET current_step = $2, metadata = $3, updated_at = CURRENT_TIMESTAMP
+    `;
+    await pool.query(query, [phoneNumber, step, JSON.stringify(metadata)]);
+};
+
 export const getAvailableSlots = async (doctorId) => {
     const res = await pool.query(
         'SELECT * FROM availability WHERE doctor_id = $1 AND is_booked = false AND available_date >= CURRENT_DATE',
