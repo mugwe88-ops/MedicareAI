@@ -63,6 +63,26 @@ const authenticateDoctor = (req, res, next) => {
   }
 };
 
+app.post('/api/auth/verify', async (req, res) => {
+    const { email, otp } = req.body;
+    
+    try {
+        const result = await pool.query(
+            'SELECT * FROM doctors WHERE email = $1 AND email_otp = $2',
+            [email, otp]
+        );
+
+        if (result.rows.length > 0) {
+            await pool.query('UPDATE doctors SET is_verified = TRUE, is_active = TRUE WHERE email = $1', [email]);
+            res.status(200).json({ message: "Verification successful!" });
+        } else {
+            res.status(400).json({ error: "Invalid OTP code." });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 /* ============================
    1. DOCTOR AUTH & DASHBOARD
 ============================ */
