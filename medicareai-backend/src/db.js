@@ -6,6 +6,28 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+export const runMigrations = async () => {
+    const client = await pool.connect();
+    try {
+        console.log("🛠️ Checking for database updates...");
+        // Add otp_code column
+        await client.query(`
+            ALTER TABLE doctors 
+            ADD COLUMN IF NOT EXISTS otp_code VARCHAR(6);
+        `);
+        // Add is_verified column
+        await client.query(`
+            ALTER TABLE doctors 
+            ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+        `);
+        console.log("✅ Database columns are up to date.");
+    } catch (err) {
+        console.error("❌ Migration failed:", err.message);
+    } finally {
+        client.release();
+    }
+};
+
 export const initDb = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS doctors (
