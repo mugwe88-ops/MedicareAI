@@ -11,17 +11,29 @@ import { getDoctors, getAvailableSlots, updateSession, getSession } from './serv
 import * as mpesaService from './services/mpesa.service.js';
 import { sendOTP } from './services/emailService.js';
 
+// New Signup Route with OTP
 app.post('/api/auth/signup', async (req, res) => {
-    const { email, phone } = req.body;
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const { name, specialty, fee, phone, email, password } = req.body;
+    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate 6-digit OTP
 
     try {
-        // Save doctor with 'is_verified = false' and the 'otp'
-        // Then send the email:
-        await sendOTP(email, otp);
-        res.status(200).json({ message: 'OTP sent to email' });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to send verification email' });
+        // 1. Hash the password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // 2. Insert doctor as "Unverified"
+        const result = await pool.query(
+            'INSERT INTO doctors (name, specialty, fee, phone, email, password, otp_code, is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+            [name, specialty, fee, phone, email, hashedPassword, otp, false]
+        );
+
+        // 3. Trigger Email (We will set this service up next)
+        // await sendOTP(email, otp); 
+
+        res.status(201).json({ message: "OTP sent! Please verify your email.", doctorId: result.rows[0].id });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: "Signup failed. Email or phone might already exist." });
     }
 });
 
