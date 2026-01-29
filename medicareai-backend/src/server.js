@@ -15,6 +15,38 @@ const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || 'medicare_super_secret_key_2024';
 const API_URL = 'https://medicareai-4av2.onrender.com';
 
+const API_URL = 'https://medicareai-backend.onrender.com'; // Use your actual Render URL
+
+document.querySelector('.continue-btn').addEventListener('click', async (e) => {
+    e.preventDefault();
+    
+    const doctorData = {
+        name: document.querySelector('input[placeholder="Willy Weyru"]').value,
+        specialty: document.querySelector('input[placeholder="lab"]').value,
+        fee: document.querySelector('input[placeholder="1500"]').value,
+        phone: document.querySelector('input[placeholder="+254723503988"]').value,
+        email: document.querySelector('input[placeholder="mugwe88@gmail.com"]').value,
+        password: document.querySelector('input[type="password"]').value
+    };
+
+    try {
+        // 1. Initial Signup (Status: PENDING)
+        const response = await fetch(`${API_URL}/api/auth/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(doctorData)
+        });
+
+        if (response.ok) {
+            // 2. Show OTP Modal
+            document.getElementById('otpModal').style.display = 'flex';
+        } else {
+            alert("Signup failed. Check if email/phone already exists.");
+        }
+    } catch (err) {
+        console.error("Error connecting to server:", err);
+    }
+});
 app.use(cors());
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 
