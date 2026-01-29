@@ -9,6 +9,21 @@ import { sendMessage } from './services/whatsappService.js';
 import { logMessageToDb } from './lib/messageLogger.js';
 import { getDoctors, getAvailableSlots, updateSession, getSession } from './services/bookingService.js';
 import * as mpesaService from './services/mpesa.service.js';
+import { sendOTP } from './services/emailService.js';
+
+app.post('/api/auth/signup', async (req, res) => {
+    const { email, phone } = req.body;
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    try {
+        // Save doctor with 'is_verified = false' and the 'otp'
+        // Then send the email:
+        await sendOTP(email, otp);
+        res.status(200).json({ message: 'OTP sent to email' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to send verification email' });
+    }
+});
 
 const app = express();
 const PORT = process.env.PORT || 10000;
