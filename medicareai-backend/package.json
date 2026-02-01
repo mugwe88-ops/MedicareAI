@@ -13,6 +13,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
+    "express-session": "^1.19.0",
     "node-cron": "^4.2.1",
     "pg": "^8.17.1"
   }
