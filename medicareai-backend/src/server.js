@@ -4,6 +4,7 @@ import axios from 'axios';
 import pkg from 'pg';
 const { Pool } = pkg;
 import { encrypt, decrypt } from '../encryption.js';
+import session from 'express-session';
 
 const app = express();
 app.use(express.json());
