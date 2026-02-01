@@ -1,54 +1,63 @@
 import cron from 'node-cron';
-import { prisma } from '../lib/prisma.js';
+import pg from 'pg';
 import axios from 'axios';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const { Pool } = pg;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
 // Runs every hour
 cron.schedule('0 * * * *', async () => {
+  console.log('⏰ Running Appointment Reminders...');
+
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const upcoming = await prisma.appointment.findMany({
-    where: {
-      startTime: {
-        gte: new Date(tomorrow.setHours(0,0,0,0)),
-        lte: new Date(tomorrow.setHours(23,59,59,999))
-      },
-      reminderSent: false
-    },
-    include: { patient: true, doctor: true }
-  });
-
-  for (const appt of upcoming) {
-    try {
-      // Example using WhatsApp Business API / Twilio
-      await axios.post(process.env.WHATSAPP_API_URL, {
-        to: appt.patient.phoneNumber,
-        message: `Hi ${appt.patient.name}, reminder of your appointment with Dr. ${appt.doctor.name} tomorrow at ${appt.startTime.toLocaleTimeString()}. Reply YES to confirm.`
-      }, { headers: { Authorization: `Bearer ${process.env.WA_TOKEN}` }});
-
-      await prisma.appointment.update({
-        where: { id: appt.id },
-        data: { reminderSent: true }
-      });
-    } catch (e) {
-      console.error(`Reminder failed for ${appt.id}`);
-    }
-  }
-});
-router.get('/doctor/next-patient', async (req, res) => {
-  const next = await prisma.appointment.findFirst({
-    where: { 
-      doctorId: req.user.id,
-      startTime: { gte: new Date() },
-      status: 'CONFIRMED'
-    },
-    include: { 
-      patient: { 
-        select: { name: true, medicalHistorySummary: true, lastVisitDate: true } 
-      } 
-    },
-    orderBy: { startTime: 'asc' }
-  });
   
-  res.json(next);
+  const startOfTomorrow = new Date(tomorrow.setHours(0, 0, 0, 0)).toISOString();
+  const endOfTomorrow = new Date(tomorrow.setHours(23, 59, 59, 999)).toISOString();
+
+  try {
+    // 1. Fetch upcoming appointments (replaces prisma.appointment.findMany)
+    // We use a JOIN to get patient and doctor details in one query
+    const query = `
+      SELECT a.*, p.phone_number, p.name as patient_name
+      FROM "Appointment" a
+      JOIN "Patient" p ON a.patient_id = p.id
+      WHERE a.start_time >= $1 
+        AND a.start_time <= $2 
+        AND a.reminder_sent = false
+    `;
+    
+    const result = await pool.query(query, [startOfTomorrow, endOfTomorrow]);
+    const upcoming = result.rows;
+
+    for (const appt of upcoming) {
+      try {
+        // 2. Send WhatsApp Notification
+        await axios.post(process.env.WHATSAPP_API_URL, {
+          to: appt.phone_number,
+          message: `Hi ${appt.patient_name}, reminder of your appointment tomorrow at ${new Date(appt.start_time).toLocaleTimeString()}.`
+        }, {
+          headers: { Authorization: `Bearer ${process.env.WA_TOKEN}` }
+        });
+
+        // 3. Mark reminder as sent (replaces prisma.appointment.update)
+        await pool.query(
+          'UPDATE "Appointment" SET reminder_sent = true WHERE id = $1',
+          [appt.id]
+        );
+
+        console.log(`✅ Reminder sent to ${appt.patient_name}`);
+      } catch (err) {
+        console.error(`❌ Failed to send reminder for ID ${appt.id}:`, err.message);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Database error in reminders job:', error);
+  }
 });
