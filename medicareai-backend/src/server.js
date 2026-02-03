@@ -4,7 +4,7 @@ import axios from 'axios';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
-import { encrypt, decrypt } from './encryption.js';
+import { encrypt, decrypt } from '../encryption.js';
 import { pool } from './db.js'; 
 import authRoutes from './routes/auth.js'; 
 import appointmentRoutes from './routes/appointments.js';
