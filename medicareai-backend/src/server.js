@@ -1,19 +1,38 @@
 import 'dotenv/config';
 import express from 'express';
 import axios from 'axios';
-import pkg from 'pg';
-const { Pool } = pkg;
-import { encrypt, decrypt } from '../encryption.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import session from 'express-session';
+import { encrypt, decrypt } from '../encryption.js';
+import { pool } from '../db.js'; // Modular DB
+import authRoutes from './routes/auth.js'; // Modular Routes
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+
+// Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
+// Session Configuration (Must be before routes)
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'medicare_secret_key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { 
+        secure: process.env.NODE_ENV === 'production', 
+        maxAge: 24 * 60 * 60 * 1000 
+    }
+}));
 
+// Serve Static Files from the public folder (going up one level from src)
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Use Modular Auth Routes
+app.use('/api', authRoutes);
+
+// --- YOUR EXISTING WHATSAPP LOGIC ---
 // Database Initialization
 async function initDatabase() {
     const createTableQuery = `
@@ -31,36 +50,31 @@ async function initDatabase() {
 }
 initDatabase();
 
-// 1. ONBOARDING API
 app.post('/api/admin/onboard', async (req, res) => {
     try {
         const { whatsapp_phone_id, whatsapp_access_token, name, booking_url, calendar_id } = req.body;
         const secureToken = encrypt(whatsapp_access_token);
-        const query = `
-            INSERT INTO consultants (whatsapp_phone_id, whatsapp_access_token, name, booking_url, calendar_id)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (whatsapp_phone_id) DO UPDATE SET whatsapp_access_token = EXCLUDED.whatsapp_access_token, name = EXCLUDED.name
-            RETURNING id, name;
-        `;
-        const result = await pool.query(query, [whatsapp_phone_id, secureToken, name, booking_url, calendar_id]);
+        const result = await pool.query(
+            `INSERT INTO consultants (whatsapp_phone_id, whatsapp_access_token, name, booking_url, calendar_id)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (whatsapp_phone_id) DO UPDATE SET whatsapp_access_token = EXCLUDED.whatsapp_access_token, name = EXCLUDED.name
+             RETURNING id, name`,
+            [whatsapp_phone_id, secureToken, name, booking_url, calendar_id]
+        );
         res.status(201).json({ message: "Consultant saved securely", data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ error: "Internal Server Error", details: err.message });
     }
 });
 
-// 2. WEBHOOK VERIFICATION
 app.get('/api/webhook', (req, res) => {
     const token = req.query['hub.verify_token'];
     if (token === process.env.VERIFY_TOKEN) return res.send(req.query['hub.challenge']);
     res.sendStatus(403);
 });
 
-// 3. DYNAMIC WEBHOOK PROCESSING
 app.post('/api/webhook', async (req, res) => {
-    // Acknowledge Meta quickly
     res.sendStatus(200);
-
     const body = req.body;
     if (!body.entry?.[0]?.changes?.[0]?.value?.messages) return;
 
@@ -69,25 +83,20 @@ app.post('/api/webhook', async (req, res) => {
     const patientPhone = message.from;
 
     try {
-        // Find consultant by phoneId
         const result = await pool.query('SELECT * FROM consultants WHERE whatsapp_phone_id = $1', [phoneId]);
-        if (result.rows.length === 0) return console.log("Unknown Phone ID:", phoneId);
+        if (result.rows.length === 0) return;
 
         const consultant = result.rows[0];
         const rawToken = decrypt(consultant.whatsapp_access_token);
 
-        // Logic: Send reply based on interaction
         if (message.type === 'text') {
-            await sendReply(phoneId, patientPhone, rawToken, `Hello! You are messaging ${consultant.name}. Click below to schedule.`, true);
-        } else if (message.type === 'interactive' && message.interactive.button_reply.id === 'book_now') {
-            await sendReply(phoneId, patientPhone, rawToken, `Great! Book here: ${consultant.booking_url}`, false);
+            await sendReply(phoneId, patientPhone, rawToken, `Hello! You are messaging ${consultant.name}.`, true);
         }
     } catch (err) {
         console.error("Webhook Logic Error:", err.message);
     }
 });
 
-// Helper Function: Send WhatsApp Messages
 async function sendReply(phoneId, to, token, text, isButton) {
     const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
     const data = isButton ? {
@@ -99,18 +108,9 @@ async function sendReply(phoneId, to, token, text, isButton) {
     } : {
         messaging_product: "whatsapp", to, type: "text", text: { body: text }
     };
-
     await axios.post(url, data, { headers: { Authorization: `Bearer ${token}` } });
 }
 
+// Ensure the server starts correctly
 const PORT = process.env.PORT || 10000;
-// 4. DATA VERIFICATION (Development Only)
-app.get('/api/admin/consultants', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT id, name, whatsapp_phone_id, created_at FROM consultants');
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-app.listen(PORT, () => console.log(`🟢 MedicareAI Live!`));
+app.listen(PORT, () => console.log(`🟢 MedicareAI Live on port ${PORT}!`));

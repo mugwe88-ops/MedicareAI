@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | Swift MD</title>
+    <link rel="stylesheet" href="style.css"> </head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h2>Create Account</h2>
+            <form action="/api/signup" method="POST">
+                <input type="text" name="name" placeholder="Full Name" required>
+                <input type="email" name="email" placeholder="Email Address" required>
+                <input type="password" name="password" placeholder="Create Password" required>
+                
+                <label for="role">I am a:</label>
+                <select name="role" id="roleSelector" required>
+                    <option value="patient">Patient</option>
+                    <option value="doctor">Doctor / Consultant</option>
+                </select>
+
+                <div id="doctorFields" style="display:none;">
+                    <input type="text" name="license_number" placeholder="Medical License Number">
+                </div>
+
+                <button type="submit">Sign Up</button>
+            </form>
+            <p>Already have an account? <a href="login.html">Login here</a></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('roleSelector').addEventListener('change', function() {
+            const doctorFields = document.getElementById('doctorFields');
+            doctorFields.style.display = this.value === 'doctor' ? 'block' : 'none';
+        });
+    </script>
+</body>
+</html>

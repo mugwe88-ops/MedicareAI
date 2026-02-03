@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login | Swift MD</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h2>Welcome Back</h2>
+            <form id="loginForm">
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+            <p>New here? <a href="signup.html">Create Account</a></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                // Redirect to dashboard on success
+                window.location.href = '/dashboard.html';
+            } else {
+                const error = await response.text();
+                alert(error); // Shows "Please verify email" or "Invalid password"
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,10 +1,8 @@
 import pkg from 'pg';
 const { Pool } = pkg;
+import 'dotenv/config';
 
-// Use your Render PostgreSQL connection string here
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Required for Render/Cloud DBs
+export const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
 });
-
-export default pool;
