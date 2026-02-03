@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Book Appointment | MedicareAI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav style="background: white; padding: 1rem 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <a href="dashboard.html" style="text-decoration: none; color: var(--primary); font-weight: bold;">← Back to Dashboard</a>
+    </nav>
+
+    <div class="auth-container" style="min-height: 80vh;">
+        <div class="auth-card" style="max-width: 500px;">
+            <h2>Schedule Appointment</h2>
+            <form id="bookingForm">
+                <label>Select Department</label>
+                <select name="department" required>
+                    <option value="general">General Consultation</option>
+                    <option value="cardiology">Cardiology</option>
+                    <option value="pediatrics">Pediatrics</option>
+                    <option value="dental">Dental</option>
+                </select>
+
+                <label>Preferred Date</label>
+                <input type="date" name="appointment_date" required>
+
+                <label>Preferred Time</label>
+                <input type="time" name="appointment_time" required>
+
+                <label>Reason for Visit</label>
+                <textarea name="reason" rows="4" style="width: 100%; border-radius: 8px; border: 1px solid #e2e8f0; padding: 10px;" placeholder="Briefly describe your symptoms..."></textarea>
+
+                <button type="submit" style="margin-top: 20px;">Confirm Booking</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('bookingForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+
+            const response = await fetch('/api/appointments/book', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                alert("Appointment requested successfully!");
+                window.location.href = '/dashboard.html';
+            } else {
+                alert("Error booking appointment. Please try again.");
+            }
+        };
+    </script>
+</body>
+</html>

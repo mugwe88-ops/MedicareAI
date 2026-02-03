@@ -7,6 +7,7 @@ import session from 'express-session';
 import { encrypt, decrypt } from '../encryption.js';
 import { pool } from '../db.js'; // Modular DB
 import authRoutes from './routes/auth.js'; // Modular Routes
+import appointmentRoutes from './routes/appointments.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -14,6 +15,7 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/api/appointments', appointmentRoutes);
 
 // Session Configuration (Must be before routes)
 app.use(session({
@@ -59,6 +61,19 @@ async function initDatabase() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `;
+    const createAppointmentsTable = `
+    CREATE TABLE IF NOT EXISTS appointments (
+        id SERIAL PRIMARY KEY,
+        patient_id INTEGER REFERENCES users(id),
+        department VARCHAR(100),
+        appointment_date DATE,
+        appointment_time TIME,
+        reason TEXT,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+`;
+await pool.query(createAppointmentsTable);
 
     try {
         await pool.query(createUsersTable);
