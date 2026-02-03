@@ -71,9 +71,7 @@ export const PaymentStatus: typeof $Enums.PaymentStatus
  * Type-safe database client for TypeScript & Node.js
  * @example
  * ```
- * const prisma = new PrismaClient()
  * // Fetch zero or more Patients
- * const patients = await prisma.patient.findMany()
  * ```
  *
  *
@@ -92,9 +90,7 @@ export class PrismaClient<
    * Type-safe database client for TypeScript & Node.js
    * @example
    * ```
-   * const prisma = new PrismaClient()
    * // Fetch zero or more Patients
-   * const patients = await prisma.patient.findMany()
    * ```
    *
    *
@@ -118,7 +114,6 @@ export class PrismaClient<
    * Executes a prepared raw query and returns the number of affected rows.
    * @example
    * ```
-   * const result = await prisma.$executeRaw`UPDATE User SET cool = ${true} WHERE email = ${'user@email.com'};`
    * ```
    *
    * Read more in our [docs](https://pris.ly/d/raw-queries).
@@ -130,7 +125,6 @@ export class PrismaClient<
    * Susceptible to SQL injections, see documentation.
    * @example
    * ```
-   * const result = await prisma.$executeRawUnsafe('UPDATE User SET cool = $1 WHERE email = $2 ;', true, 'user@email.com')
    * ```
    *
    * Read more in our [docs](https://pris.ly/d/raw-queries).
@@ -141,7 +135,6 @@ export class PrismaClient<
    * Performs a prepared raw query and returns the `SELECT` data.
    * @example
    * ```
-   * const result = await prisma.$queryRaw`SELECT * FROM User WHERE id = ${1} OR email = ${'user@email.com'};`
    * ```
    *
    * Read more in our [docs](https://pris.ly/d/raw-queries).
@@ -153,7 +146,6 @@ export class PrismaClient<
    * Susceptible to SQL injections, see documentation.
    * @example
    * ```
-   * const result = await prisma.$queryRawUnsafe('SELECT * FROM User WHERE id = $1 OR email = $2;', 1, 'user@email.com')
    * ```
    *
    * Read more in our [docs](https://pris.ly/d/raw-queries).
@@ -165,59 +157,45 @@ export class PrismaClient<
    * Allows the running of a sequence of read/write operations that are guaranteed to either succeed or fail as a whole.
    * @example
    * ```
-   * const [george, bob, alice] = await prisma.$transaction([
-   *   prisma.user.create({ data: { name: 'George' } }),
-   *   prisma.user.create({ data: { name: 'Bob' } }),
-   *   prisma.user.create({ data: { name: 'Alice' } }),
    * ])
    * ```
    * 
-   * Read more in our [docs](https://www.prisma.io/docs/concepts/components/prisma-client/transactions).
    */
   $transaction<P extends Prisma.PrismaPromise<any>[]>(arg: [...P], options?: { isolationLevel?: Prisma.TransactionIsolationLevel }): $Utils.JsPromise<runtime.Types.Utils.UnwrapTuple<P>>
 
-  $transaction<R>(fn: (prisma: Omit<PrismaClient, runtime.ITXClientDenyList>) => $Utils.JsPromise<R>, options?: { maxWait?: number, timeout?: number, isolationLevel?: Prisma.TransactionIsolationLevel }): $Utils.JsPromise<R>
 
   $extends: $Extensions.ExtendsHook<"extends", Prisma.TypeMapCb<ClientOptions>, ExtArgs, $Utils.Call<Prisma.TypeMapCb<ClientOptions>, {
     extArgs: ExtArgs
   }>>
 
       /**
-   * `prisma.patient`: Exposes CRUD operations for the **Patient** model.
     * Example usage:
     * ```ts
     * // Fetch zero or more Patients
-    * const patients = await prisma.patient.findMany()
     * ```
     */
   get patient(): Prisma.PatientDelegate<ExtArgs, ClientOptions>;
 
   /**
-   * `prisma.doctor`: Exposes CRUD operations for the **Doctor** model.
     * Example usage:
     * ```ts
     * // Fetch zero or more Doctors
-    * const doctors = await prisma.doctor.findMany()
     * ```
     */
   get doctor(): Prisma.DoctorDelegate<ExtArgs, ClientOptions>;
 
   /**
-   * `prisma.appointment`: Exposes CRUD operations for the **Appointment** model.
     * Example usage:
     * ```ts
     * // Fetch zero or more Appointments
-    * const appointments = await prisma.appointment.findMany()
     * ```
     */
   get appointment(): Prisma.AppointmentDelegate<ExtArgs, ClientOptions>;
 
   /**
-   * `prisma.payment`: Exposes CRUD operations for the **Payment** model.
     * Example usage:
     * ```ts
     * // Fetch zero or more Payments
-    * const payments = await prisma.payment.findMany()
     * ```
     */
   get payment(): Prisma.PaymentDelegate<ExtArgs, ClientOptions>;
@@ -279,7 +257,6 @@ export namespace Prisma {
     engine: string
   }
 
-  export const prismaVersion: PrismaVersion
 
   /**
    * Utility Types
@@ -297,7 +274,6 @@ export namespace Prisma {
   /**
    * Types of the values used to represent different kinds of `null` values when working with JSON fields.
    *
-   * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-on-a-json-field
    */
   namespace NullTypes {
     /**
@@ -305,7 +281,6 @@ export namespace Prisma {
     *
     * You cannot use other instances of this class. Please use the `Prisma.DbNull` value.
     *
-    * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-on-a-json-field
     */
     class DbNull {
       private DbNull: never
@@ -317,7 +292,6 @@ export namespace Prisma {
     *
     * You cannot use other instances of this class. Please use the `Prisma.JsonNull` value.
     *
-    * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-on-a-json-field
     */
     class JsonNull {
       private JsonNull: never
@@ -329,7 +303,6 @@ export namespace Prisma {
     *
     * You cannot use other instances of this class. Please use the `Prisma.AnyNull` value.
     *
-    * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-on-a-json-field
     */
     class AnyNull {
       private AnyNull: never
@@ -340,21 +313,18 @@ export namespace Prisma {
   /**
    * Helper for filtering JSON entries that have `null` on the database (empty on the db)
    *
-   * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-on-a-json-field
    */
   export const DbNull: NullTypes.DbNull
 
   /**
    * Helper for filtering JSON entries that have JSON `null` values (not empty on the db)
    *
-   * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-on-a-json-field
    */
   export const JsonNull: NullTypes.JsonNull
 
   /**
    * Helper for filtering JSON entries that are `Prisma.DbNull` or `Prisma.JsonNull`
    *
-   * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-on-a-json-field
    */
   export const AnyNull: NullTypes.AnyNull
 
@@ -1042,7 +1012,6 @@ export namespace Prisma {
       isolationLevel?: Prisma.TransactionIsolationLevel
     }
     /**
-     * Instance of a Driver Adapter, e.g., like one provided by `@prisma/adapter-planetscale`
      */
     adapter?: runtime.SqlDriverAdapterFactory
     /**
@@ -1054,7 +1023,6 @@ export namespace Prisma {
      * 
      * @example
      * ```
-     * const prisma = new PrismaClient({
      *   omit: {
      *     user: {
      *       password: true
@@ -1070,7 +1038,6 @@ export namespace Prisma {
      * 
      * @example
      * ```
-     * const prisma = new PrismaClient({
      *   adapter,
      *   comments: [
      *     traceContext(),
@@ -1288,43 +1255,36 @@ export namespace Prisma {
      */
     where?: PatientWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Patients to fetch.
      */
     orderBy?: PatientOrderByWithRelationInput | PatientOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the start position
      */
     cursor?: PatientWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Patients from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Patients.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Count returned Patients
     **/
     _count?: true | PatientCountAggregateInputType
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to find the minimum value
     **/
     _min?: PatientMinAggregateInputType
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to find the maximum value
     **/
@@ -1444,7 +1404,6 @@ export namespace Prisma {
      * @param {PatientFindUniqueArgs} args - Arguments to find a Patient
      * @example
      * // Get one Patient
-     * const patient = await prisma.patient.findUnique({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -1458,7 +1417,6 @@ export namespace Prisma {
      * @param {PatientFindUniqueOrThrowArgs} args - Arguments to find a Patient
      * @example
      * // Get one Patient
-     * const patient = await prisma.patient.findUniqueOrThrow({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -1473,7 +1431,6 @@ export namespace Prisma {
      * @param {PatientFindFirstArgs} args - Arguments to find a Patient
      * @example
      * // Get one Patient
-     * const patient = await prisma.patient.findFirst({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -1489,7 +1446,6 @@ export namespace Prisma {
      * @param {PatientFindFirstOrThrowArgs} args - Arguments to find a Patient
      * @example
      * // Get one Patient
-     * const patient = await prisma.patient.findFirstOrThrow({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -1504,13 +1460,10 @@ export namespace Prisma {
      * @param {PatientFindManyArgs} args - Arguments to filter and select certain fields only.
      * @example
      * // Get all Patients
-     * const patients = await prisma.patient.findMany()
      * 
      * // Get first 10 Patients
-     * const patients = await prisma.patient.findMany({ take: 10 })
      * 
      * // Only select the `id`
-     * const patientWithIdOnly = await prisma.patient.findMany({ select: { id: true } })
      * 
      */
     findMany<T extends PatientFindManyArgs>(args?: SelectSubset<T, PatientFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PatientPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
@@ -1520,7 +1473,6 @@ export namespace Prisma {
      * @param {PatientCreateArgs} args - Arguments to create a Patient.
      * @example
      * // Create one Patient
-     * const Patient = await prisma.patient.create({
      *   data: {
      *     // ... data to create a Patient
      *   }
@@ -1534,7 +1486,6 @@ export namespace Prisma {
      * @param {PatientCreateManyArgs} args - Arguments to create many Patients.
      * @example
      * // Create many Patients
-     * const patient = await prisma.patient.createMany({
      *   data: [
      *     // ... provide data here
      *   ]
@@ -1548,14 +1499,12 @@ export namespace Prisma {
      * @param {PatientCreateManyAndReturnArgs} args - Arguments to create many Patients.
      * @example
      * // Create many Patients
-     * const patient = await prisma.patient.createManyAndReturn({
      *   data: [
      *     // ... provide data here
      *   ]
      * })
      * 
      * // Create many Patients and only return the `id`
-     * const patientWithIdOnly = await prisma.patient.createManyAndReturn({
      *   select: { id: true },
      *   data: [
      *     // ... provide data here
@@ -1572,7 +1521,6 @@ export namespace Prisma {
      * @param {PatientDeleteArgs} args - Arguments to delete one Patient.
      * @example
      * // Delete one Patient
-     * const Patient = await prisma.patient.delete({
      *   where: {
      *     // ... filter to delete one Patient
      *   }
@@ -1586,7 +1534,6 @@ export namespace Prisma {
      * @param {PatientUpdateArgs} args - Arguments to update one Patient.
      * @example
      * // Update one Patient
-     * const patient = await prisma.patient.update({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -1603,7 +1550,6 @@ export namespace Prisma {
      * @param {PatientDeleteManyArgs} args - Arguments to filter Patients to delete.
      * @example
      * // Delete a few Patients
-     * const { count } = await prisma.patient.deleteMany({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -1619,7 +1565,6 @@ export namespace Prisma {
      * @param {PatientUpdateManyArgs} args - Arguments to update one or more rows.
      * @example
      * // Update many Patients
-     * const patient = await prisma.patient.updateMany({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -1636,7 +1581,6 @@ export namespace Prisma {
      * @param {PatientUpdateManyAndReturnArgs} args - Arguments to update many Patients.
      * @example
      * // Update many Patients
-     * const patient = await prisma.patient.updateManyAndReturn({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -1646,7 +1590,6 @@ export namespace Prisma {
      * })
      * 
      * // Update zero or more Patients and only return the `id`
-     * const patientWithIdOnly = await prisma.patient.updateManyAndReturn({
      *   select: { id: true },
      *   where: {
      *     // ... provide filter here
@@ -1666,7 +1609,6 @@ export namespace Prisma {
      * @param {PatientUpsertArgs} args - Arguments to update or create a Patient.
      * @example
      * // Update or create a Patient
-     * const patient = await prisma.patient.upsert({
      *   create: {
      *     // ... data to create a Patient
      *   },
@@ -1688,7 +1630,6 @@ export namespace Prisma {
      * @param {PatientCountArgs} args - Arguments to filter Patients to count.
      * @example
      * // Count the number of Patients
-     * const count = await prisma.patient.count({
      *   where: {
      *     // ... the filter for the Patients we want to count
      *   }
@@ -1711,15 +1652,12 @@ export namespace Prisma {
      * @param {PatientAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
      * @example
      * // Ordered by age ascending
-     * // Where email contains prisma.io
      * // Limited to the 10 users
-     * const aggregations = await prisma.user.aggregate({
      *   _avg: {
      *     age: true,
      *   },
      *   where: {
      *     email: {
-     *       contains: "prisma.io",
      *     },
      *   },
      *   orderBy: {
@@ -1737,7 +1675,6 @@ export namespace Prisma {
      * @param {PatientGroupByArgs} args - Group by arguments.
      * @example
      * // Group by city, order by createdAt, get count
-     * const result = await prisma.user.groupBy({
      *   by: ['city', 'createdAt'],
      *   orderBy: {
      *     createdAt: true
@@ -1816,7 +1753,6 @@ export namespace Prisma {
    * The delegate class that acts as a "Promise-like" for Patient.
    * Why is this prefixed with `Prisma__`?
    * Because we want to prevent naming conflicts as mentioned in
-   * https://github.com/prisma/prisma-client-js/issues/707
    */
   export interface Prisma__PatientClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
@@ -1923,31 +1859,26 @@ export namespace Prisma {
      */
     where?: PatientWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Patients to fetch.
      */
     orderBy?: PatientOrderByWithRelationInput | PatientOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for searching for Patients.
      */
     cursor?: PatientWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Patients from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Patients.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
      * 
      * Filter by unique combinations of Patients.
      */
@@ -1975,31 +1906,26 @@ export namespace Prisma {
      */
     where?: PatientWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Patients to fetch.
      */
     orderBy?: PatientOrderByWithRelationInput | PatientOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for searching for Patients.
      */
     cursor?: PatientWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Patients from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Patients.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
      * 
      * Filter by unique combinations of Patients.
      */
@@ -2027,25 +1953,21 @@ export namespace Prisma {
      */
     where?: PatientWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Patients to fetch.
      */
     orderBy?: PatientOrderByWithRelationInput | PatientOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for listing Patients.
      */
     cursor?: PatientWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Patients from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Patients.
      */
@@ -2345,43 +2267,36 @@ export namespace Prisma {
      */
     where?: DoctorWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Doctors to fetch.
      */
     orderBy?: DoctorOrderByWithRelationInput | DoctorOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the start position
      */
     cursor?: DoctorWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Doctors from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Doctors.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Count returned Doctors
     **/
     _count?: true | DoctorCountAggregateInputType
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to find the minimum value
     **/
     _min?: DoctorMinAggregateInputType
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to find the maximum value
     **/
@@ -2501,7 +2416,6 @@ export namespace Prisma {
      * @param {DoctorFindUniqueArgs} args - Arguments to find a Doctor
      * @example
      * // Get one Doctor
-     * const doctor = await prisma.doctor.findUnique({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -2515,7 +2429,6 @@ export namespace Prisma {
      * @param {DoctorFindUniqueOrThrowArgs} args - Arguments to find a Doctor
      * @example
      * // Get one Doctor
-     * const doctor = await prisma.doctor.findUniqueOrThrow({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -2530,7 +2443,6 @@ export namespace Prisma {
      * @param {DoctorFindFirstArgs} args - Arguments to find a Doctor
      * @example
      * // Get one Doctor
-     * const doctor = await prisma.doctor.findFirst({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -2546,7 +2458,6 @@ export namespace Prisma {
      * @param {DoctorFindFirstOrThrowArgs} args - Arguments to find a Doctor
      * @example
      * // Get one Doctor
-     * const doctor = await prisma.doctor.findFirstOrThrow({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -2561,13 +2472,10 @@ export namespace Prisma {
      * @param {DoctorFindManyArgs} args - Arguments to filter and select certain fields only.
      * @example
      * // Get all Doctors
-     * const doctors = await prisma.doctor.findMany()
      * 
      * // Get first 10 Doctors
-     * const doctors = await prisma.doctor.findMany({ take: 10 })
      * 
      * // Only select the `id`
-     * const doctorWithIdOnly = await prisma.doctor.findMany({ select: { id: true } })
      * 
      */
     findMany<T extends DoctorFindManyArgs>(args?: SelectSubset<T, DoctorFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DoctorPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
@@ -2577,7 +2485,6 @@ export namespace Prisma {
      * @param {DoctorCreateArgs} args - Arguments to create a Doctor.
      * @example
      * // Create one Doctor
-     * const Doctor = await prisma.doctor.create({
      *   data: {
      *     // ... data to create a Doctor
      *   }
@@ -2591,7 +2498,6 @@ export namespace Prisma {
      * @param {DoctorCreateManyArgs} args - Arguments to create many Doctors.
      * @example
      * // Create many Doctors
-     * const doctor = await prisma.doctor.createMany({
      *   data: [
      *     // ... provide data here
      *   ]
@@ -2605,14 +2511,12 @@ export namespace Prisma {
      * @param {DoctorCreateManyAndReturnArgs} args - Arguments to create many Doctors.
      * @example
      * // Create many Doctors
-     * const doctor = await prisma.doctor.createManyAndReturn({
      *   data: [
      *     // ... provide data here
      *   ]
      * })
      * 
      * // Create many Doctors and only return the `id`
-     * const doctorWithIdOnly = await prisma.doctor.createManyAndReturn({
      *   select: { id: true },
      *   data: [
      *     // ... provide data here
@@ -2629,7 +2533,6 @@ export namespace Prisma {
      * @param {DoctorDeleteArgs} args - Arguments to delete one Doctor.
      * @example
      * // Delete one Doctor
-     * const Doctor = await prisma.doctor.delete({
      *   where: {
      *     // ... filter to delete one Doctor
      *   }
@@ -2643,7 +2546,6 @@ export namespace Prisma {
      * @param {DoctorUpdateArgs} args - Arguments to update one Doctor.
      * @example
      * // Update one Doctor
-     * const doctor = await prisma.doctor.update({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -2660,7 +2562,6 @@ export namespace Prisma {
      * @param {DoctorDeleteManyArgs} args - Arguments to filter Doctors to delete.
      * @example
      * // Delete a few Doctors
-     * const { count } = await prisma.doctor.deleteMany({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -2676,7 +2577,6 @@ export namespace Prisma {
      * @param {DoctorUpdateManyArgs} args - Arguments to update one or more rows.
      * @example
      * // Update many Doctors
-     * const doctor = await prisma.doctor.updateMany({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -2693,7 +2593,6 @@ export namespace Prisma {
      * @param {DoctorUpdateManyAndReturnArgs} args - Arguments to update many Doctors.
      * @example
      * // Update many Doctors
-     * const doctor = await prisma.doctor.updateManyAndReturn({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -2703,7 +2602,6 @@ export namespace Prisma {
      * })
      * 
      * // Update zero or more Doctors and only return the `id`
-     * const doctorWithIdOnly = await prisma.doctor.updateManyAndReturn({
      *   select: { id: true },
      *   where: {
      *     // ... provide filter here
@@ -2723,7 +2621,6 @@ export namespace Prisma {
      * @param {DoctorUpsertArgs} args - Arguments to update or create a Doctor.
      * @example
      * // Update or create a Doctor
-     * const doctor = await prisma.doctor.upsert({
      *   create: {
      *     // ... data to create a Doctor
      *   },
@@ -2745,7 +2642,6 @@ export namespace Prisma {
      * @param {DoctorCountArgs} args - Arguments to filter Doctors to count.
      * @example
      * // Count the number of Doctors
-     * const count = await prisma.doctor.count({
      *   where: {
      *     // ... the filter for the Doctors we want to count
      *   }
@@ -2768,15 +2664,12 @@ export namespace Prisma {
      * @param {DoctorAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
      * @example
      * // Ordered by age ascending
-     * // Where email contains prisma.io
      * // Limited to the 10 users
-     * const aggregations = await prisma.user.aggregate({
      *   _avg: {
      *     age: true,
      *   },
      *   where: {
      *     email: {
-     *       contains: "prisma.io",
      *     },
      *   },
      *   orderBy: {
@@ -2794,7 +2687,6 @@ export namespace Prisma {
      * @param {DoctorGroupByArgs} args - Group by arguments.
      * @example
      * // Group by city, order by createdAt, get count
-     * const result = await prisma.user.groupBy({
      *   by: ['city', 'createdAt'],
      *   orderBy: {
      *     createdAt: true
@@ -2873,7 +2765,6 @@ export namespace Prisma {
    * The delegate class that acts as a "Promise-like" for Doctor.
    * Why is this prefixed with `Prisma__`?
    * Because we want to prevent naming conflicts as mentioned in
-   * https://github.com/prisma/prisma-client-js/issues/707
    */
   export interface Prisma__DoctorClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
@@ -2980,31 +2871,26 @@ export namespace Prisma {
      */
     where?: DoctorWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Doctors to fetch.
      */
     orderBy?: DoctorOrderByWithRelationInput | DoctorOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for searching for Doctors.
      */
     cursor?: DoctorWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Doctors from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Doctors.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
      * 
      * Filter by unique combinations of Doctors.
      */
@@ -3032,31 +2918,26 @@ export namespace Prisma {
      */
     where?: DoctorWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Doctors to fetch.
      */
     orderBy?: DoctorOrderByWithRelationInput | DoctorOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for searching for Doctors.
      */
     cursor?: DoctorWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Doctors from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Doctors.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
      * 
      * Filter by unique combinations of Doctors.
      */
@@ -3084,25 +2965,21 @@ export namespace Prisma {
      */
     where?: DoctorWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Doctors to fetch.
      */
     orderBy?: DoctorOrderByWithRelationInput | DoctorOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for listing Doctors.
      */
     cursor?: DoctorWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Doctors from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Doctors.
      */
@@ -3426,43 +3303,36 @@ export namespace Prisma {
      */
     where?: AppointmentWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Appointments to fetch.
      */
     orderBy?: AppointmentOrderByWithRelationInput | AppointmentOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the start position
      */
     cursor?: AppointmentWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Appointments from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Appointments.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Count returned Appointments
     **/
     _count?: true | AppointmentCountAggregateInputType
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to find the minimum value
     **/
     _min?: AppointmentMinAggregateInputType
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to find the maximum value
     **/
@@ -3620,7 +3490,6 @@ export namespace Prisma {
      * @param {AppointmentFindUniqueArgs} args - Arguments to find a Appointment
      * @example
      * // Get one Appointment
-     * const appointment = await prisma.appointment.findUnique({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -3634,7 +3503,6 @@ export namespace Prisma {
      * @param {AppointmentFindUniqueOrThrowArgs} args - Arguments to find a Appointment
      * @example
      * // Get one Appointment
-     * const appointment = await prisma.appointment.findUniqueOrThrow({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -3649,7 +3517,6 @@ export namespace Prisma {
      * @param {AppointmentFindFirstArgs} args - Arguments to find a Appointment
      * @example
      * // Get one Appointment
-     * const appointment = await prisma.appointment.findFirst({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -3665,7 +3532,6 @@ export namespace Prisma {
      * @param {AppointmentFindFirstOrThrowArgs} args - Arguments to find a Appointment
      * @example
      * // Get one Appointment
-     * const appointment = await prisma.appointment.findFirstOrThrow({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -3680,13 +3546,10 @@ export namespace Prisma {
      * @param {AppointmentFindManyArgs} args - Arguments to filter and select certain fields only.
      * @example
      * // Get all Appointments
-     * const appointments = await prisma.appointment.findMany()
      * 
      * // Get first 10 Appointments
-     * const appointments = await prisma.appointment.findMany({ take: 10 })
      * 
      * // Only select the `id`
-     * const appointmentWithIdOnly = await prisma.appointment.findMany({ select: { id: true } })
      * 
      */
     findMany<T extends AppointmentFindManyArgs>(args?: SelectSubset<T, AppointmentFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AppointmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
@@ -3696,7 +3559,6 @@ export namespace Prisma {
      * @param {AppointmentCreateArgs} args - Arguments to create a Appointment.
      * @example
      * // Create one Appointment
-     * const Appointment = await prisma.appointment.create({
      *   data: {
      *     // ... data to create a Appointment
      *   }
@@ -3710,7 +3572,6 @@ export namespace Prisma {
      * @param {AppointmentCreateManyArgs} args - Arguments to create many Appointments.
      * @example
      * // Create many Appointments
-     * const appointment = await prisma.appointment.createMany({
      *   data: [
      *     // ... provide data here
      *   ]
@@ -3724,14 +3585,12 @@ export namespace Prisma {
      * @param {AppointmentCreateManyAndReturnArgs} args - Arguments to create many Appointments.
      * @example
      * // Create many Appointments
-     * const appointment = await prisma.appointment.createManyAndReturn({
      *   data: [
      *     // ... provide data here
      *   ]
      * })
      * 
      * // Create many Appointments and only return the `id`
-     * const appointmentWithIdOnly = await prisma.appointment.createManyAndReturn({
      *   select: { id: true },
      *   data: [
      *     // ... provide data here
@@ -3748,7 +3607,6 @@ export namespace Prisma {
      * @param {AppointmentDeleteArgs} args - Arguments to delete one Appointment.
      * @example
      * // Delete one Appointment
-     * const Appointment = await prisma.appointment.delete({
      *   where: {
      *     // ... filter to delete one Appointment
      *   }
@@ -3762,7 +3620,6 @@ export namespace Prisma {
      * @param {AppointmentUpdateArgs} args - Arguments to update one Appointment.
      * @example
      * // Update one Appointment
-     * const appointment = await prisma.appointment.update({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -3779,7 +3636,6 @@ export namespace Prisma {
      * @param {AppointmentDeleteManyArgs} args - Arguments to filter Appointments to delete.
      * @example
      * // Delete a few Appointments
-     * const { count } = await prisma.appointment.deleteMany({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -3795,7 +3651,6 @@ export namespace Prisma {
      * @param {AppointmentUpdateManyArgs} args - Arguments to update one or more rows.
      * @example
      * // Update many Appointments
-     * const appointment = await prisma.appointment.updateMany({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -3812,7 +3667,6 @@ export namespace Prisma {
      * @param {AppointmentUpdateManyAndReturnArgs} args - Arguments to update many Appointments.
      * @example
      * // Update many Appointments
-     * const appointment = await prisma.appointment.updateManyAndReturn({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -3822,7 +3676,6 @@ export namespace Prisma {
      * })
      * 
      * // Update zero or more Appointments and only return the `id`
-     * const appointmentWithIdOnly = await prisma.appointment.updateManyAndReturn({
      *   select: { id: true },
      *   where: {
      *     // ... provide filter here
@@ -3842,7 +3695,6 @@ export namespace Prisma {
      * @param {AppointmentUpsertArgs} args - Arguments to update or create a Appointment.
      * @example
      * // Update or create a Appointment
-     * const appointment = await prisma.appointment.upsert({
      *   create: {
      *     // ... data to create a Appointment
      *   },
@@ -3864,7 +3716,6 @@ export namespace Prisma {
      * @param {AppointmentCountArgs} args - Arguments to filter Appointments to count.
      * @example
      * // Count the number of Appointments
-     * const count = await prisma.appointment.count({
      *   where: {
      *     // ... the filter for the Appointments we want to count
      *   }
@@ -3887,15 +3738,12 @@ export namespace Prisma {
      * @param {AppointmentAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
      * @example
      * // Ordered by age ascending
-     * // Where email contains prisma.io
      * // Limited to the 10 users
-     * const aggregations = await prisma.user.aggregate({
      *   _avg: {
      *     age: true,
      *   },
      *   where: {
      *     email: {
-     *       contains: "prisma.io",
      *     },
      *   },
      *   orderBy: {
@@ -3913,7 +3761,6 @@ export namespace Prisma {
      * @param {AppointmentGroupByArgs} args - Group by arguments.
      * @example
      * // Group by city, order by createdAt, get count
-     * const result = await prisma.user.groupBy({
      *   by: ['city', 'createdAt'],
      *   orderBy: {
      *     createdAt: true
@@ -3992,7 +3839,6 @@ export namespace Prisma {
    * The delegate class that acts as a "Promise-like" for Appointment.
    * Why is this prefixed with `Prisma__`?
    * Because we want to prevent naming conflicts as mentioned in
-   * https://github.com/prisma/prisma-client-js/issues/707
    */
   export interface Prisma__AppointmentClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
@@ -4105,31 +3951,26 @@ export namespace Prisma {
      */
     where?: AppointmentWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Appointments to fetch.
      */
     orderBy?: AppointmentOrderByWithRelationInput | AppointmentOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for searching for Appointments.
      */
     cursor?: AppointmentWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Appointments from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Appointments.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
      * 
      * Filter by unique combinations of Appointments.
      */
@@ -4157,31 +3998,26 @@ export namespace Prisma {
      */
     where?: AppointmentWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Appointments to fetch.
      */
     orderBy?: AppointmentOrderByWithRelationInput | AppointmentOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for searching for Appointments.
      */
     cursor?: AppointmentWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Appointments from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Appointments.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
      * 
      * Filter by unique combinations of Appointments.
      */
@@ -4209,25 +4045,21 @@ export namespace Prisma {
      */
     where?: AppointmentWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Appointments to fetch.
      */
     orderBy?: AppointmentOrderByWithRelationInput | AppointmentOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for listing Appointments.
      */
     cursor?: AppointmentWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Appointments from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Appointments.
      */
@@ -4584,55 +4416,46 @@ export namespace Prisma {
      */
     where?: PaymentWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Payments to fetch.
      */
     orderBy?: PaymentOrderByWithRelationInput | PaymentOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the start position
      */
     cursor?: PaymentWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Payments from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Payments.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Count returned Payments
     **/
     _count?: true | PaymentCountAggregateInputType
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to average
     **/
     _avg?: PaymentAvgAggregateInputType
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to sum
     **/
     _sum?: PaymentSumAggregateInputType
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to find the minimum value
     **/
     _min?: PaymentMinAggregateInputType
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
      * Select which fields to find the maximum value
     **/
@@ -4796,7 +4619,6 @@ export namespace Prisma {
      * @param {PaymentFindUniqueArgs} args - Arguments to find a Payment
      * @example
      * // Get one Payment
-     * const payment = await prisma.payment.findUnique({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -4810,7 +4632,6 @@ export namespace Prisma {
      * @param {PaymentFindUniqueOrThrowArgs} args - Arguments to find a Payment
      * @example
      * // Get one Payment
-     * const payment = await prisma.payment.findUniqueOrThrow({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -4825,7 +4646,6 @@ export namespace Prisma {
      * @param {PaymentFindFirstArgs} args - Arguments to find a Payment
      * @example
      * // Get one Payment
-     * const payment = await prisma.payment.findFirst({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -4841,7 +4661,6 @@ export namespace Prisma {
      * @param {PaymentFindFirstOrThrowArgs} args - Arguments to find a Payment
      * @example
      * // Get one Payment
-     * const payment = await prisma.payment.findFirstOrThrow({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -4856,13 +4675,10 @@ export namespace Prisma {
      * @param {PaymentFindManyArgs} args - Arguments to filter and select certain fields only.
      * @example
      * // Get all Payments
-     * const payments = await prisma.payment.findMany()
      * 
      * // Get first 10 Payments
-     * const payments = await prisma.payment.findMany({ take: 10 })
      * 
      * // Only select the `id`
-     * const paymentWithIdOnly = await prisma.payment.findMany({ select: { id: true } })
      * 
      */
     findMany<T extends PaymentFindManyArgs>(args?: SelectSubset<T, PaymentFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
@@ -4872,7 +4688,6 @@ export namespace Prisma {
      * @param {PaymentCreateArgs} args - Arguments to create a Payment.
      * @example
      * // Create one Payment
-     * const Payment = await prisma.payment.create({
      *   data: {
      *     // ... data to create a Payment
      *   }
@@ -4886,7 +4701,6 @@ export namespace Prisma {
      * @param {PaymentCreateManyArgs} args - Arguments to create many Payments.
      * @example
      * // Create many Payments
-     * const payment = await prisma.payment.createMany({
      *   data: [
      *     // ... provide data here
      *   ]
@@ -4900,14 +4714,12 @@ export namespace Prisma {
      * @param {PaymentCreateManyAndReturnArgs} args - Arguments to create many Payments.
      * @example
      * // Create many Payments
-     * const payment = await prisma.payment.createManyAndReturn({
      *   data: [
      *     // ... provide data here
      *   ]
      * })
      * 
      * // Create many Payments and only return the `id`
-     * const paymentWithIdOnly = await prisma.payment.createManyAndReturn({
      *   select: { id: true },
      *   data: [
      *     // ... provide data here
@@ -4924,7 +4736,6 @@ export namespace Prisma {
      * @param {PaymentDeleteArgs} args - Arguments to delete one Payment.
      * @example
      * // Delete one Payment
-     * const Payment = await prisma.payment.delete({
      *   where: {
      *     // ... filter to delete one Payment
      *   }
@@ -4938,7 +4749,6 @@ export namespace Prisma {
      * @param {PaymentUpdateArgs} args - Arguments to update one Payment.
      * @example
      * // Update one Payment
-     * const payment = await prisma.payment.update({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -4955,7 +4765,6 @@ export namespace Prisma {
      * @param {PaymentDeleteManyArgs} args - Arguments to filter Payments to delete.
      * @example
      * // Delete a few Payments
-     * const { count } = await prisma.payment.deleteMany({
      *   where: {
      *     // ... provide filter here
      *   }
@@ -4971,7 +4780,6 @@ export namespace Prisma {
      * @param {PaymentUpdateManyArgs} args - Arguments to update one or more rows.
      * @example
      * // Update many Payments
-     * const payment = await prisma.payment.updateMany({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -4988,7 +4796,6 @@ export namespace Prisma {
      * @param {PaymentUpdateManyAndReturnArgs} args - Arguments to update many Payments.
      * @example
      * // Update many Payments
-     * const payment = await prisma.payment.updateManyAndReturn({
      *   where: {
      *     // ... provide filter here
      *   },
@@ -4998,7 +4805,6 @@ export namespace Prisma {
      * })
      * 
      * // Update zero or more Payments and only return the `id`
-     * const paymentWithIdOnly = await prisma.payment.updateManyAndReturn({
      *   select: { id: true },
      *   where: {
      *     // ... provide filter here
@@ -5018,7 +4824,6 @@ export namespace Prisma {
      * @param {PaymentUpsertArgs} args - Arguments to update or create a Payment.
      * @example
      * // Update or create a Payment
-     * const payment = await prisma.payment.upsert({
      *   create: {
      *     // ... data to create a Payment
      *   },
@@ -5040,7 +4845,6 @@ export namespace Prisma {
      * @param {PaymentCountArgs} args - Arguments to filter Payments to count.
      * @example
      * // Count the number of Payments
-     * const count = await prisma.payment.count({
      *   where: {
      *     // ... the filter for the Payments we want to count
      *   }
@@ -5063,15 +4867,12 @@ export namespace Prisma {
      * @param {PaymentAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
      * @example
      * // Ordered by age ascending
-     * // Where email contains prisma.io
      * // Limited to the 10 users
-     * const aggregations = await prisma.user.aggregate({
      *   _avg: {
      *     age: true,
      *   },
      *   where: {
      *     email: {
-     *       contains: "prisma.io",
      *     },
      *   },
      *   orderBy: {
@@ -5089,7 +4890,6 @@ export namespace Prisma {
      * @param {PaymentGroupByArgs} args - Group by arguments.
      * @example
      * // Group by city, order by createdAt, get count
-     * const result = await prisma.user.groupBy({
      *   by: ['city', 'createdAt'],
      *   orderBy: {
      *     createdAt: true
@@ -5168,7 +4968,6 @@ export namespace Prisma {
    * The delegate class that acts as a "Promise-like" for Payment.
    * Why is this prefixed with `Prisma__`?
    * Because we want to prevent naming conflicts as mentioned in
-   * https://github.com/prisma/prisma-client-js/issues/707
    */
   export interface Prisma__PaymentClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
@@ -5281,31 +5080,26 @@ export namespace Prisma {
      */
     where?: PaymentWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Payments to fetch.
      */
     orderBy?: PaymentOrderByWithRelationInput | PaymentOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for searching for Payments.
      */
     cursor?: PaymentWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Payments from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Payments.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
      * 
      * Filter by unique combinations of Payments.
      */
@@ -5333,31 +5127,26 @@ export namespace Prisma {
      */
     where?: PaymentWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Payments to fetch.
      */
     orderBy?: PaymentOrderByWithRelationInput | PaymentOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for searching for Payments.
      */
     cursor?: PaymentWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Payments from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Payments.
      */
     skip?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
      * 
      * Filter by unique combinations of Payments.
      */
@@ -5385,25 +5174,21 @@ export namespace Prisma {
      */
     where?: PaymentWhereInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
      * 
      * Determine the order of Payments to fetch.
      */
     orderBy?: PaymentOrderByWithRelationInput | PaymentOrderByWithRelationInput[]
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
      * 
      * Sets the position for listing Payments.
      */
     cursor?: PaymentWhereUniqueInput
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Take `±n` Payments from the position of the cursor.
      */
     take?: number
     /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
      * 
      * Skip the first `n` Payments.
      */

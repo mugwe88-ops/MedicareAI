@@ -41,7 +41,6 @@ export const createAppointment = async (data) => {
   const { doctorId, patientId, appointmentDate, reason } = data;
   
   try {
-    // Replaces prisma.appointment.create
     const query = `
       INSERT INTO "Appointment" (doctor_id, patient_id, appointment_date, reason, status)
       VALUES ($1, $2, $3, $4, 'PENDING')

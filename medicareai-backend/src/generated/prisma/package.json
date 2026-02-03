@@ -1,5 +1,4 @@
 {
-  "name": "prisma-client-77889812bfeecff06938adf728e531c2409ec3c33d4289f27df4f37adfa84f67",
   "main": "index.js",
   "types": "index.d.ts",
   "browser": "default.js",
@@ -112,7 +111,6 @@
   "version": "7.2.0",
   "sideEffects": false,
   "dependencies": {
-    "@prisma/client-runtime-utils": "7.2.0"
   },
   "imports": {
     "#wasm-compiler-loader": {

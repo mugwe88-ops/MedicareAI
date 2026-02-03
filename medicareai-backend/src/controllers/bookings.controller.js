@@ -1,4 +1,3 @@
-import { prisma } from "../lib/prisma.js";
 
 /**
  * Creates a new booking and saves it to the database
@@ -12,7 +11,6 @@ export const createBooking = async (req, res) => {
       return res.status(400).json({ error: "Missing required booking fields" });
     }
 
-    const booking = await prisma.booking.create({
       data: {
         patientId,
         doctorId,
@@ -35,7 +33,6 @@ export const createBooking = async (req, res) => {
  */
 export const getAllBookings = async (req, res) => {
   try {
-    const bookings = await prisma.booking.findMany({
       include: {
         doctor: true,
         patient: true,

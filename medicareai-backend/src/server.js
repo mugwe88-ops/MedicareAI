@@ -4,9 +4,7 @@ import axios from 'axios';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
-import cron from 'node-cron'; // Added missing import
-
-// Internal Imports (Paths fixed for /src directory)
+import cron from 'node-cron'; 
 import { encrypt, decrypt } from './encryption.js';
 import { pool } from './db.js'; 
 import authRoutes from './routes/auth.js';

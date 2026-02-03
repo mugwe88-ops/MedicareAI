@@ -1,51 +1,56 @@
-import pg from 'pg';
+import axios from 'axios';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const { Pool } = pg;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Required for Render/Neon
-});
+// Helper to get M-Pesa Access Token
+const getAccessToken = async () => {
+  const consumerKey = process.env.MPESA_CONSUMER_KEY;
+  const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
+  const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
 
-/**
- * Updates a patient's reliability score based on their appointment outcome.
- * @param {string} patientId - The ID of the patient.
- * @param {string} outcome - 'COMPLETED', 'LATE_CANCEL', or 'NO_SHOW'.
- */
-export const updateReliabilityScore = async (patientId, outcome) => {
-  // 1. Define the points for each outcome
-  const pointsMap = {
-    'COMPLETED': 5,
-    'LATE_CANCEL': -10,
-    'NO_SHOW': -25
+  try {
+    const response = await axios.get(
+      'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
+      { headers: { Authorization: `Basic ${auth}` } }
+    );
+    return response.data.access_token;
+  } catch (error) {
+    console.error('M-Pesa Token Error:', error.response?.data || error.message);
+    throw new Error('Failed to generate M-Pesa token');
+  }
+};
+
+export const initiateSTKPush = async ({ amount, phone, accountReference }) => {
+  const token = await getAccessToken();
+  const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+  const password = Buffer.from(
+    `${process.env.MPESA_SHORTCODE}${process.env.MPESA_PASSKEY}${timestamp}`
+  ).toString('base64');
+
+  const data = {
+    BusinessShortCode: process.env.MPESA_SHORTCODE,
+    Password: password,
+    Timestamp: timestamp,
+    TransactionType: 'CustomerPayBillOnline',
+    Amount: amount,
+    PartyA: phone, // e.g., 254712345678
+    PartyB: process.env.MPESA_SHORTCODE,
+    PhoneNumber: phone,
+    CallBackURL: `${process.env.BACKEND_URL}/api/payments/callback`,
+    AccountReference: accountReference || 'MedicareAI',
+    TransactionDesc: 'Payment for Medical Consultation'
   };
 
-  const pointsToAdd = pointsMap[outcome] || 0;
-
-  // 2. Update the database using raw SQL
   try {
-    // We use "increment" logic directly in the SET clause
-    // Table and column names are double-quoted to match Prisma's case-sensitive schema
-    const query = `
-      UPDATE "Patient"
-      SET "reliabilityScore" = "reliabilityScore" + $1
-      WHERE id = $2
-      RETURNING id, "reliabilityScore";
-    `;
-
-    const result = await pool.query(query, [pointsToAdd, patientId]);
-
-    if (result.rows.length === 0) {
-      throw new Error("Patient not found");
-    }
-
-    console.log(`✅ Updated reliability for Patient ${patientId}: ${pointsToAdd} points.`);
-    return result.rows[0]; // Returns the updated patient record
-
+    const response = await axios.post(
+      'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
+      data,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
   } catch (error) {
-    console.error('❌ Error updating reliability score:', error.message);
+    console.error('STK Push Request Error:', error.response?.data || error.message);
     throw error;
   }
 };

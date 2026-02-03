@@ -22,7 +22,6 @@ cron.schedule('0 * * * *', async () => {
   const endOfTomorrow = new Date(tomorrow.setHours(23, 59, 59, 999)).toISOString();
 
   try {
-    // 1. Fetch upcoming appointments (replaces prisma.appointment.findMany)
     // We use a JOIN to get patient and doctor details in one query
     const query = `
       SELECT a.*, p.phone_number, p.name as patient_name
@@ -46,7 +45,6 @@ cron.schedule('0 * * * *', async () => {
           headers: { Authorization: `Bearer ${process.env.WA_TOKEN}` }
         });
 
-        // 3. Mark reminder as sent (replaces prisma.appointment.update)
         await pool.query(
           'UPDATE "Appointment" SET reminder_sent = true WHERE id = $1',
           [appt.id]

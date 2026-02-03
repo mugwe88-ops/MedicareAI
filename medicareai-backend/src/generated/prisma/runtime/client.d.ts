@@ -1,27 +1,3 @@
-import { AnyNull } from '@prisma/client-runtime-utils';
-import { AnyNullClass } from '@prisma/client-runtime-utils';
-import { DbNull } from '@prisma/client-runtime-utils';
-import { DbNullClass } from '@prisma/client-runtime-utils';
-import { Decimal } from '@prisma/client-runtime-utils';
-import { empty } from '@prisma/client-runtime-utils';
-import { isAnyNull } from '@prisma/client-runtime-utils';
-import { isDbNull } from '@prisma/client-runtime-utils';
-import { isJsonNull } from '@prisma/client-runtime-utils';
-import { join } from '@prisma/client-runtime-utils';
-import { JsonNull } from '@prisma/client-runtime-utils';
-import { JsonNullClass } from '@prisma/client-runtime-utils';
-import { NullTypes } from '@prisma/client-runtime-utils';
-import { ObjectEnumValue } from '@prisma/client-runtime-utils';
-import { PrismaClientInitializationError } from '@prisma/client-runtime-utils';
-import { PrismaClientKnownRequestError } from '@prisma/client-runtime-utils';
-import { PrismaClientRustPanicError } from '@prisma/client-runtime-utils';
-import { PrismaClientUnknownRequestError } from '@prisma/client-runtime-utils';
-import { PrismaClientValidationError } from '@prisma/client-runtime-utils';
-import { raw } from '@prisma/client-runtime-utils';
-import { RawValue } from '@prisma/client-runtime-utils';
-import { Sql } from '@prisma/client-runtime-utils';
-import { sql as sqltag } from '@prisma/client-runtime-utils';
-import { Value } from '@prisma/client-runtime-utils';
 
 /**
  * @param this
@@ -29,13 +5,10 @@ import { Value } from '@prisma/client-runtime-utils';
 declare function $extends(this: Client, extension: ExtensionArgs | ((client: Client) => Client)): Client;
 
 /**
- * Used by `@prisma/extension-accelerate` until we migrate it to a better API.
  */
 declare interface AccelerateEngineConfig extends EngineConfig {
     /**
      * Allows Accelerate to use runtime utilities from the client. These are
-     * necessary for `@prisma/extension-accelerate` to function correctly.
-     * See <https://github.com/prisma/prisma-extension-accelerate/blob/b6ffa853f038780f5ab2fc01bff584ca251f645b/src/extension.ts#L518>
      */
     accelerateUtils: {
         resolveDatasourceUrl: () => string;
@@ -43,7 +16,6 @@ declare interface AccelerateEngineConfig extends EngineConfig {
 }
 
 /**
- * A stripped down interface of `fetch` that `@prisma/extension-accelerate`
  * relies on. It must be in sync with the corresponding definition in the
  * Accelerate extension.
  *
@@ -67,7 +39,6 @@ declare type AccelerateExtensionFetchDecorator = (fetch: AccelerateExtensionFetc
 
 export declare type Action = keyof typeof DMMF_2.ModelAction | 'executeRaw' | 'queryRaw' | 'runCommandRaw';
 
-declare type ActiveConnectorType = Exclude<ConnectorType, 'postgres' | 'prisma+postgres'>;
 
 /**
  * An interface that exposes some basic information about the
@@ -302,7 +273,6 @@ declare type ConnectionInfo = {
     supportsRelationJoins: boolean;
 };
 
-declare type ConnectorType = 'mysql' | 'mongodb' | 'sqlite' | 'postgresql' | 'postgres' | 'prisma+postgres' | 'sqlserver' | 'cockroachdb';
 
 declare interface Context {
     /**
@@ -426,8 +396,6 @@ export declare const Debug: typeof debugCreate & {
  *
  * @example
  * ```ts
- * import Debug from '@prisma/debug'
- * const debug = Debug('prisma:client')
  * debug('Hello World')
  * ```
  */
@@ -773,7 +741,6 @@ declare interface Engine<InteractiveTransactionPayload = unknown> {
 
 declare interface EngineConfig {
     enableDebugLogs?: boolean;
-    prismaPath?: string;
     logQueries?: boolean;
     logLevel?: 'info' | 'warn';
     clientVersion: string;
@@ -782,7 +749,6 @@ declare interface EngineConfig {
     logEmitter: LogEmitter;
     transactionOptions: Transaction_2.Options;
     /**
-     * Instance of a Driver Adapter, e.g., like one provided by `@prisma/adapter-pg`.
      */
     adapter?: SqlDriverAdapterFactory;
     /**
@@ -795,7 +761,6 @@ declare interface EngineConfig {
     inlineSchema: string;
     /**
      * The helper for interaction with OTEL tracing
-     * @remarks enabling is determined by the client and @prisma/instrumentation package
      */
     tracingHelper: TracingHelper;
     /**
@@ -1025,7 +990,6 @@ declare type FieldKind = 'scalar' | 'object' | 'enum' | 'unsupported';
 
 declare type FieldLocation = 'scalar' | 'inputObjectTypes' | 'outputObjectTypes' | 'enumTypes' | 'fieldRefTypes';
 
-declare type FieldNamespace = 'model' | 'prisma';
 
 declare type FieldOperation = {
     type: 'set';
@@ -1192,7 +1156,6 @@ export declare function getPrismaClient(config: GetPrismaClientConfig): {
         $executeRawInternal(transaction: PrismaPromiseTransaction | undefined, clientMethod: string, args: RawQueryArgs, middlewareArgsMapper?: MiddlewareArgsMapper<unknown, unknown>): Promise<number>;
         /**
          * Executes a raw query provided through a safe tag function
-         * @see https://github.com/prisma/prisma/issues/7142
          *
          * @param query
          * @param values
@@ -1201,7 +1164,6 @@ export declare function getPrismaClient(config: GetPrismaClientConfig): {
         $executeRaw(query: TemplateStringsArray | Sql, ...values: any[]): PrismaPromise_2<unknown, any>;
         /**
          * Unsafe counterpart of `$executeRaw` that is susceptible to SQL injections
-         * @see https://github.com/prisma/prisma/issues/7142
          *
          * @param query
          * @param values
@@ -1221,7 +1183,6 @@ export declare function getPrismaClient(config: GetPrismaClientConfig): {
         $queryRawInternal(transaction: PrismaPromiseTransaction | undefined, clientMethod: string, args: RawQueryArgs, middlewareArgsMapper?: MiddlewareArgsMapper<unknown, unknown>): Promise<any>;
         /**
          * Executes a raw query provided through a safe tag function
-         * @see https://github.com/prisma/prisma/issues/7142
          *
          * @param query
          * @param values
@@ -1235,7 +1196,6 @@ export declare function getPrismaClient(config: GetPrismaClientConfig): {
         $queryRawTyped(typedSql: UnknownTypedSql): PrismaPromise_2<unknown, any>;
         /**
          * Unsafe counterpart of `$queryRaw` that is susceptible to SQL injections
-         * @see https://github.com/prisma/prisma/issues/7142
          *
          * @param query
          * @param values
@@ -1434,7 +1394,6 @@ export declare type InputJsonObject = {
  * \`Prisma.DbNull\` to clear the JSON value and set the field to the database
  * NULL value instead.
  *
- * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-by-null-values
  */
 export declare type InputJsonValue = string | number | boolean | InputJsonObject | InputJsonArray | {
     toJSON(): unknown;
@@ -1859,7 +1818,6 @@ export { NullTypes }
 
 export { ObjectEnumValue }
 
-declare const officialPrismaAdapters: readonly ["@prisma/adapter-planetscale", "@prisma/adapter-neon", "@prisma/adapter-libsql", "@prisma/adapter-better-sqlite3", "@prisma/adapter-d1", "@prisma/adapter-pg", "@prisma/adapter-mssql", "@prisma/adapter-mariadb"];
 
 export declare type Omission = Record<string, boolean | Skip>;
 
@@ -1984,7 +1942,6 @@ export { PrismaClientKnownRequestError }
  */
 declare type PrismaClientMutuallyExclusiveOptions = {
     /**
-     * Instance of a Driver Adapter, e.g., like one provided by `@prisma/adapter-pg`.
      */
     adapter: SqlDriverAdapterFactory;
     accelerateUrl?: never;
@@ -2132,16 +2089,12 @@ declare type PrismaPromiseTransaction<PayloadType = unknown> = PrismaPromiseBatc
 declare type PrismaValue = string | boolean | number | PrismaValue[] | null | Record<string, unknown> | PrismaValuePlaceholder | PrismaValueGenerator;
 
 declare type PrismaValueGenerator = {
-    prisma__type: 'generatorCall';
-    prisma__value: {
         name: string;
         args: PrismaValue[];
     };
 };
 
 declare type PrismaValuePlaceholder = {
-    prisma__type: 'param';
-    prisma__value: {
         name: string;
         type: string;
     };
@@ -2383,7 +2336,6 @@ declare type QueryPlanNode = {
 export { raw }
 
 export declare type RawParameters = {
-    __prismaRawParameters__: true;
     values: string;
 };
 
@@ -2565,18 +2517,14 @@ declare type Schema = ReadonlyDeep_2<{
     rootMutationType?: string;
     inputObjectTypes: {
         model?: InputType[];
-        prisma?: InputType[];
     };
     outputObjectTypes: {
         model: OutputType[];
-        prisma: OutputType[];
     };
     enumTypes: {
         model?: DatamodelSchemaEnum[];
-        prisma: DatamodelSchemaEnum[];
     };
     fieldRefTypes: {
-        prisma?: FieldRefType[];
     };
 }>;
 

@@ -1,11 +1,8 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  // Note: We leave 'url' out because Prisma 7 gets it from prisma.config.js
 }
 
 /**

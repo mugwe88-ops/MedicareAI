@@ -18,7 +18,6 @@ async function reconcileData() {
   const client = await pool.connect();
 
   try {
-    // 2. Fetch data from your database (replaces prisma.user.findMany())
     const dbResult = await client.query('SELECT id, email, status FROM "User"');
     const dbUsers = dbResult.rows;
 
@@ -34,7 +33,6 @@ async function reconcileData() {
       if (user.status !== newStatus) {
         console.log(`Updating user ${user.id}...`);
 
-        // 4. Update the record (replaces prisma.user.update())
         await client.query(
           'UPDATE "User" SET status = $1, "updatedAt" = NOW() WHERE id = $2',
           [newStatus, user.id]
