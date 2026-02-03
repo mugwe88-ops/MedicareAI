@@ -72,6 +72,8 @@ async function initDatabase() {
         status VARCHAR(20) DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
 `;
 await pool.query(createAppointmentsTable);
 

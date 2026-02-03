@@ -31,17 +31,19 @@ router.post('/signup', async (req, res) => {
 });
 
 router.post('/signup', async (req, res) => {
-    const { name, email, password, role } = req.body; // 'role' is captured here
+    const { name, email, password, role, phone } = req.body; 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         await pool.query(
-            'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)',
-            [name, email, hashedPassword, role || 'patient']
+            'INSERT INTO users (name, email, password, role, phone) VALUES ($1, $2, $3, $4, $5)',
+            [name, email, hashedPassword, role || 'patient', phone]
         );
         res.redirect('/login.html?signup=success');
     } catch (err) {
-        res.status(500).send("Signup failed. Email might already exist.");
+        res.status(500).send("Signup failed. Check if email is already taken.");
     }
 });
+
+
 
 export default router;

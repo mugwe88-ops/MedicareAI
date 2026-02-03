@@ -31,23 +31,26 @@ router.post('/update-status', async (req, res) => {
         );
 
         // 2. If confirmed, send WhatsApp notification
-        if (status === 'confirmed' && result.rows.length > 0) {
-            const patientId = result.rows[0].patient_id;
-            
-            // Get patient phone and consultant details
-            const patientData = await pool.query('SELECT name FROM users WHERE id = $1', [patientId]);
-            
-            // Note: You'll need to store/fetch the patient's phone number here
-            // console.log(`Triggering WhatsApp to Patient ${patientData.rows[0].name}: Appointment Confirmed!`);
-            
-            // Here you would call your sendReply function from server.js
-        }
+        // Inside update-status route
+if (status === 'confirmed') {
+    const appointment = await pool.query(
+        `SELECT u.phone, u.name as patient_name, a.appointment_date, c.name as doc_name, c.whatsapp_phone_id, c.whatsapp_access_token 
+         FROM appointments a 
+         JOIN users u ON a.patient_id = u.id 
+         JOIN consultants c ON a.department = c.calendar_id 
+         WHERE a.id = $1`, [appointment_id]
+    );
 
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: "Update failed" });
+    if (appointment.rows.length > 0) {
+        const { phone, patient_name, doc_name, whatsapp_phone_id, whatsapp_access_token } = appointment.rows[0];
+        const decryptedToken = decrypt(whatsapp_access_token);
+        
+        const message = `Hello ${patient_name}! Your appointment with ${doc_name} has been CONFIRMED for ${appointment.rows[0].appointment_date}.`;
+        
+        // Call your WhatsApp sender
+        await sendReply(whatsapp_phone_id, phone, decryptedToken, message, false);
     }
-});
+}
 
 // Get all appointments for the logged-in user
 router.get('/my-appointments', async (req, res) => {
