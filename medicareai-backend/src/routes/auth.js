@@ -30,20 +30,17 @@ router.post('/signup', async (req, res) => {
     }
 });
 
-router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+router.post('/signup', async (req, res) => {
+    const { name, email, password, role } = req.body; // 'role' is captured here
     try {
-        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-        if (result.rows.length === 0) return res.status(400).send("User not found.");
-        
-        const user = result.rows[0];
-        const match = await bcrypt.compare(password, user.password);
-        if (!match) return res.status(400).send("Wrong password.");
-
-        req.session.userId = user.id; // Store in session
-        res.json({ success: true, role: user.role });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await pool.query(
+            'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)',
+            [name, email, hashedPassword, role || 'patient']
+        );
+        res.redirect('/login.html?signup=success');
     } catch (err) {
-        res.status(500).send("Login error.");
+        res.status(500).send("Signup failed. Email might already exist.");
     }
 });
 

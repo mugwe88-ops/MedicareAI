@@ -1,29 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Join MedicareAI</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="auth-container">
-        <div class="auth-card">
-            <h2>Create Account</h2>
-            <form action="/api/signup" method="POST">
-                <input type="text" name="name" placeholder="Full Name" required>
-                <input type="email" name="email" placeholder="Email Address" required>
-                <input type="password" name="password" placeholder="Password" required>
-                
-                <label style="font-size: 0.9rem; color: var(--text);">Register as:</label>
-                <select name="role">
-                    <option value="patient">Patient</option>
-                    <option value="doctor">Healthcare Consultant</option>
-                </select>
-
-                <button type="submit">Sign Up</button>
-            </form>
-            <p class="link-text">Already have an account? <a href="login.html">Login</a></p>
+<div class="auth-card">
+    <h2>Create Account</h2>
+    <form action="/api/signup" method="POST">
+        <input type="text" name="name" placeholder="Full Name" required>
+        <input type="email" name="email" placeholder="Email Address" required>
+        <input type="password" name="password" placeholder="Password" required>
+        
+        <div style="margin: 15px 0; text-align: left;">
+            <label style="font-weight: bold; display: block; margin-bottom: 5px;">I am a:</label>
+            <div style="display: flex; gap: 20px;">
+                <label><input type="radio" name="role" value="patient" checked> Patient</label>
+                <label><input type="radio" name="role" value="doctor"> Consultant Doctor</label>
+            </div>
         </div>
-    </div>
-</body>
-</html>
+
+        <button type="submit">Get Started</button>
+    </form>
+</div>
