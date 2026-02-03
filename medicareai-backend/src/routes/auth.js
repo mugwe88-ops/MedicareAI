@@ -5,14 +5,6 @@ import { sendReply } from '../server.js'; // Ensure you export sendReply from se
 
 const router = express.Router();
 const newUser = await pool.query(
-    'INSERT INTO users (...) VALUES (...) RETURNING id',
-    [...]
-);
-
-// Save the new user's ID in the session
-req.session.userId = newUser.rows[0].id; 
-
-res.redirect('/verify-otp.html');
 
 // New /api/me route for your dashboard script
 router.get('/me', async (req, res) => {
@@ -152,5 +144,7 @@ router.post('/resend-otp', async (req, res) => {
     }
 });
 
-
-export default router;
+// At the bottom of src/server.js
+export async function sendReply(phoneId, to, token, message) {
+    // ... your WhatsApp API logic ...
+}
