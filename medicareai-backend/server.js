@@ -5,10 +5,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
 import { encrypt, decrypt } from './encryption.js';
-import { pool } from './db.js'; 
-import authRoutes from './routes/auth.js'; 
-import appointmentRoutes from './routes/appointments.js';
-import directoryRoutes from './routes/directory.js';
+import { pool } from './db.js'; // Removed /src/
+import authRoutes from './routes/auth.js'; // Removed /src/
+import appointmentRoutes from './routes/appointments.js'; // Removed /src/
+import directoryRoutes from './routes/directory.js'; // Removed /src/
 import cron from 'node-cron';
 
 
