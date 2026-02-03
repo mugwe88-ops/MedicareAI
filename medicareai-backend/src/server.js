@@ -19,7 +19,7 @@ const app = express();
 // ---- MIDDLEWARE ----
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '../public'))); // Adjusted for /src move
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(session({
     secret: process.env.SESSION_SECRET || 'medicare_secret_key',
@@ -175,6 +175,31 @@ cron.schedule('0 9 * * 0', async () => {
     } catch (err) {
         console.error("Error sending weekly reports:", err);
     }
+});
+
+// --- CATCH-ALL STATIC ROUTE ---
+// This handles any .html file in your public folder automatically
+// This route handles any page name entered in the URL
+app.get('/:page', (req, res) => {
+    const page = req.params.page;
+    
+    // If the request doesn't have an extension, assume it's an .html file
+    let filePath = path.join(__dirname, 'public', page);
+    if (!page.includes('.')) {
+        filePath += '.html';
+    }
+
+    res.sendFile(filePath, (err) => {
+        if (err) {
+            // If the file doesn't exist, send them back to the home page
+            res.sendFile(path.join(__dirname, 'public', 'index.html'));
+        }
+    });
+});
+
+// Remove the res.send('<h1>Server is running!</h1>...') line and replace with:
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 10000;

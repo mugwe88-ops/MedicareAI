@@ -6,70 +6,71 @@
     <title>Swift MD | Healthcare Management System</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        :root { --primary: #2563eb; --dark: #1e3a8a; --text: #4b5563; }
-        body { font-family: 'Inter', sans-serif; margin: 0; color: var(--text); line-height: 1.6; }
+        :root { --primary: #2563eb; --dark: #1e3a8a; --text: #4b5563; --success: #25D366; }
+        body { font-family: 'Inter', sans-serif; margin: 0; color: var(--text); line-height: 1.6; background-color: #f8fafc; }
         
         /* Hero Section */
         .hero {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            height: 70vh; text-align: center; background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+            height: 60vh; text-align: center; background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
             padding: 0 20px;
         }
         .hero h1 { font-size: 3.5rem; color: var(--dark); margin-bottom: 1rem; }
         .hero p { font-size: 1.25rem; max-width: 700px; margin-bottom: 2rem; }
 
-        /* Features Section */
-        .features { padding: 80px 20px; background: white; text-align: center; }
-        .features h2 { font-size: 2.5rem; color: var(--dark); margin-bottom: 3rem; }
+        /* Feature Cards */
         .feature-grid {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 30px; max-width: 1100px; margin: 0 auto;
+            gap: 30px; max-width: 1100px; margin: 0 auto; padding: 40px 20px;
         }
         .feature-card {
-            padding: 40px; border-radius: 12px; background: #f8faff;
-            border: 1px solid #e5e7eb; transition: transform 0.3s ease;
+            padding: 30px; border-radius: 12px; background: white;
+            border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease; text-align: center;
         }
-        .feature-card:hover { transform: translateY(-10px); }
-        .feature-card i { font-size: 2rem; color: var(--primary); margin-bottom: 15px; display: block; }
-        .feature-card h3 { color: var(--dark); margin-bottom: 10px; }
+        .feature-card:hover { transform: translateY(-5px); }
+
+        /* Doctor Cards */
+        .doctor-card {
+            width: 280px; background: white; padding: 25px; border-radius: 15px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;
+            transition: all 0.3s ease;
+        }
+        .doctor-card:hover { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); transform: scale(1.02); }
 
         /* Buttons */
         .btn-primary { 
-            padding: 1rem 2rem; background: var(--primary); color: white; 
-            text-decoration: none; border-radius: 8px; font-weight: bold; 
+            padding: 0.8rem 1.5rem; background: var(--primary); color: white; 
+            text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;
         }
-        .btn-secondary { color: var(--primary); text-decoration: none; font-weight: bold; }
+        .btn-whatsapp {
+            background-color: var(--success); color: white; text-decoration: none;
+            padding: 10px 15px; border-radius: 8px; display: flex; align-items: center;
+            justify-content: center; gap: 8px; font-weight: 600; margin-top: 10px;
+        }
     </style>
 </head>
 <body>
-    <header style="padding: 20px; text-align: center; background: white; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; gap: 12px;">
-    <img src="/logo.png" alt="Swift MD Logo" style="height: 45px; width: auto; object-fit: contain;">
-    
-    <h1 style="margin: 0; font-family: sans-serif; font-size: 1.75rem; color: #0f172a; letter-spacing: -0.5px;">
-        Swift <span style="color: #3b82f6;">MD</span>
-    </h1>
-</header>
-    <nav style="padding: 20px 50px; display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-weight: bold; font-size: 1.5rem; color: var(--primary);">Swift MD</div>
-        <div>
-            <a href="login.html" style="text-decoration: none; color: var(--text); margin-right: 20px;">Login</a>
-            <a href="signup.html" class="btn-primary">Get Started</a>
-        </div>
-    </nav>
 
-    <section class="hero">
-        <h1>Smart Healthcare <span style="color: var(--primary);">Simplified.</span></h1>
-        <p>A unified platform for patients and doctors to manage appointments and records through intelligent automation.</p>
-        <div style="display: flex; gap: 20px;">
-            <a href="signup.html" class="btn-primary">Create Your Account</a>
-            <a href="#features" class="btn-secondary" style="padding: 1rem;">View Features ↓</a>
-        </div>
-    </section>
-    <div style="max-width: 800px; margin: 0 auto 30px; display: flex; gap: 10px;">
-    <input type="text" id="searchInput" placeholder="Search by Doctor Name..." 
-           style="flex: 2; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;">
-    
-    <select id="specialtyFilter" style="flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;">
+<header style="padding: 15px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 10px 50px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <img src="/logo.png" alt="Logo" style="height: 40px;">
+        <h1 style="margin: 0; font-size: 1.5rem; color: #0f172a;">Swift <span style="color: #3b82f6;">MD</span></h1>
+    </div>
+    <nav>
+        <a href="login.html" style="text-decoration: none; color: var(--text); margin-right: 20px;">Login</a>
+        <a href="signup.html" class="btn-primary">Get Started</a>
+    </nav>
+</header>
+
+<section class="hero">
+    <h1>Smart Healthcare <span style="color: var(--primary);">Simplified.</span></h1>
+    <p>Connect with expert doctors instantly through intelligent automation.</p>
+</section>
+
+<div style="max-width: 800px; margin: -40px auto 40px; display: flex; gap: 10px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); position: relative; z-index: 10;">
+    <input type="text" id="searchInput" placeholder="Search by Doctor Name..." style="flex: 2; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; outline: none;">
+    <select id="specialtyFilter" style="flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; outline: none;">
         <option value="">All Specialties</option>
         <option value="General Medicine">General Medicine</option>
         <option value="Cardiology">Cardiology</option>
@@ -78,107 +79,80 @@
     </select>
 </div>
 
-    <section id="features" class="features">
-        <h2>Why Swift MD?</h2>
-        <div class="feature-grid">
-            <div class="feature-card">
-                <h3>💬 WhatsApp Booking</h3>
-                <p>Book appointments directly via WhatsApp using our intelligent chatbot integration.</p>
-            </div>
-            <div class="feature-card">
-                <h3>🔒 Secure Records</h3>
-                <p>Your data is protected with industry-standard encryption for maximum privacy.</p>
-            </div>
-            <div class="feature-card">
-                <h3>📅 Smart Dashboard</h3>
-                <p>Manage your medical history and upcoming visits through a clean, intuitive interface.</p>
-            </div>
-        </div>
-    </section>
-    <section id="consultants" style="padding: 50px 20px; background: #f8fafc;">
-    <h2 style="text-align: center; color: var(--primary);">Our Expert Consultants</h2>
-    <div id="consultantList" style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-top: 30px;">
+<section id="consultants" style="padding: 50px 20px;">
+    <h2 style="text-align: center; color: var(--dark); margin-bottom: 40px;">Our Expert Consultants</h2>
+    <div id="consultantList" style="display: flex; flex-wrap: wrap; gap: 25px; justify-content: center;">
         </div>
 </section>
 
 <script>
-    let allDoctors = []; // Store the full list locally for fast filtering
+    let allDoctors = [];
 
-async function loadConsultants() {
-    const response = await fetch('/api/directory/consultants');
-    allDoctors = await response.json();
-    displayDoctors(allDoctors);
-}
-
-function displayDoctors(doctors) {
-    const container = document.getElementById('consultantList');
-    container.innerHTML = doctors.map(doc => {
-        // Clean the phone number (remove +, spaces, etc.) for the URL
-        const cleanPhone = doc.phone ? doc.phone.replace(/\D/g, '') : '';
-        const waLink = `https://wa.me/${cleanPhone}?text=Hello%20Dr.%20${encodeURIComponent(doc.name)},%20I%20would%20like%20to%20book%20a%20consultation%20via%20Swift%20MD.`;
-
-        return `
-        <div class="auth-card" style="width: 250px; text-align: center; border: 1px solid #e2e8f0; position: relative;">
-            <h3 style="margin-bottom: 5px;">Dr. ${doc.name}</h3>
-            <p style="color: #3b82f6; font-weight: bold; margin-bottom: 15px;">
-                ${doc.specialty || 'General Consultant'}
-            </p>
-            
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <a href="${waLink}" target="_blank" class="btn" style="background-color: #25D366; border: none; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="16" alt="WA"> Book via WhatsApp
-                </a>
-                <a href="signup.html" style="font-size: 0.8rem; color: #64748b; text-decoration: none;">Or use Web Form</a>
-            </div>
-        </div>
-    `}).join('');
-
-    // Inside your mapping function in index.html
-const trackingLink = `/api/directory/track-click/${doc.id}?phone=${doc.phone}&name=${encodeURIComponent(doc.name)}`;
-
-return `
-    <div class="auth-card">
-        <h3>Dr. ${doc.name}</h3>
-        <a href="${trackingLink}" target="_blank" class="btn" style="background-color: #25D366;">
-            Book via WhatsApp
-        </a>
-    </div>
-`;
-}
-
-// Event Listeners for Filtering
-document.getElementById('searchInput').addEventListener('input', filterResults);
-document.getElementById('specialtyFilter').addEventListener('change', filterResults);
-
-function filterResults() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const specialtyTerm = document.getElementById('specialtyFilter').value;
-
-    const filtered = allDoctors.filter(doc => {
-        const matchesName = doc.name.toLowerCase().includes(searchTerm);
-        const matchesSpecialty = specialtyTerm === "" || doc.specialty === specialtyTerm;
-        return matchesName && matchesSpecialty;
-    });
-
-    displayDoctors(filtered);
-}
-
-loadConsultants();
-
-        // Inside the map function for doctors
-container.innerHTML = doctors.map(doc => `
-    <div class="auth-card" style="width: 250px; text-align: center;">
-        <h3>Dr. ${doc.name}</h3>
-        <p style="color: #3b82f6; font-weight: bold;">${doc.specialty || 'General Consultant'}</p>
-        <a href="signup.html" class="btn">Book Appointment</a>
-    </div>
-`).join('');
+    async function loadConsultants() {
+        try {
+            const response = await fetch('/api/directory/consultants');
+            allDoctors = await response.json();
+            displayDoctors(allDoctors);
+        } catch (error) {
+            console.error("Error loading doctors:", error);
+            document.getElementById('consultantList').innerHTML = "<p>Unable to load consultants at this time.</p>";
+        }
     }
+
+    function displayDoctors(doctors) {
+        const container = document.getElementById('consultantList');
+        if (doctors.length === 0) {
+            container.innerHTML = "<p>No doctors found matching your criteria.</p>";
+            return;
+        }
+
+        container.innerHTML = doctors.map(doc => {
+            // Clean phone number for WhatsApp
+            const cleanPhone = doc.phone ? doc.phone.toString().replace(/\D/g, '') : '';
+            const waLink = `https://wa.me/${cleanPhone}?text=Hello%20Dr.%20${encodeURIComponent(doc.name)},%20I%20found%20you%20on%20Swift%20MD.`;
+
+            return `
+                <div class="doctor-card">
+                    <h3 style="margin: 0 0 5px 0; color: var(--dark);">Dr. ${doc.name}</h3>
+                    <p style="color: var(--primary); font-weight: bold; margin-bottom: 20px;">
+                        ${doc.specialty || 'General Consultant'}
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <a href="${waLink}" target="_blank" class="btn-whatsapp">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="18"> Book via WhatsApp
+                        </a>
+                        <a href="signup.html" style="font-size: 0.85rem; color: #64748b; text-decoration: none; text-align: center;">View Full Profile</a>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function filterResults() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const specialtyTerm = document.getElementById('specialtyFilter').value;
+
+        const filtered = allDoctors.filter(doc => {
+            const matchesName = doc.name.toLowerCase().includes(searchTerm);
+            const matchesSpecialty = specialtyTerm === "" || doc.specialty === specialtyTerm;
+            return matchesName && matchesSpecialty;
+            
+        });
+
+        displayDoctors(filtered);
+    }
+
+    // Listeners
+    document.getElementById('searchInput').addEventListener('input', filterResults);
+    document.getElementById('specialtyFilter').addEventListener('change', filterResults);
+
+    // Initial Load
     loadConsultants();
 </script>
 
-    <footer style="text-align: center; padding: 40px; background: #f9fafb;">
-        <p>&copy; 2026 Swift MD. All rights reserved.</p>
-    </footer>
+<footer style="text-align: center; padding: 40px; background: white; border-top: 1px solid #e2e8f0; margin-top: 50px;">
+    <p>&copy; 2026 Swift MD. Smart Healthcare Solutions.</p>
+</footer>
+
 </body>
 </html>
