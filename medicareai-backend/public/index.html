@@ -1,20 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>MedicareAI | Assistant</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedicareAI | Intelligent Healthcare</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f0f2f5; }
-        .card { background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 300px; }
-        h1 { color: #075e54; margin-bottom: 10px; }
-        .btn { background: #25d366; color: white; padding: 12px 24px; border-radius: 50px; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 20px; }
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 80vh;
+            text-align: center;
+            background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+        }
+        .hero h1 { font-size: 3.5rem; color: #1e3a8a; margin-bottom: 1rem; }
+        .hero p { font-size: 1.25rem; color: #4b5563; max-width: 600px; margin-bottom: 2rem; }
+        .cta-buttons { display: flex; gap: 1rem; }
+        .btn-primary { 
+            padding: 1rem 2rem; background: #2563eb; color: white; 
+            text-decoration: none; border-radius: 8px; font-weight: bold; 
+            transition: background 0.3s;
+        }
+        .btn-secondary { 
+            padding: 1rem 2rem; border: 2px solid #2563eb; color: #2563eb; 
+            text-decoration: none; border-radius: 8px; font-weight: bold; 
+        }
+        .btn-primary:hover { background: #1d4ed8; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>MedicareAI</h1>
-        <p>Your intelligent healthcare companion is now active on WhatsApp.</p>
-        <a href="https://wa.me/YOUR_BOT_NUMBER" class="btn">Chat on WhatsApp</a>
-    </div>
+    <nav style="padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-weight: bold; font-size: 1.5rem; color: #2563eb;">MedicareAI</div>
+        <div>
+            <a href="login.html" style="text-decoration: none; color: #4b5563; margin-right: 1.5rem;">Login</a>
+            <a href="signup.html" class="btn-primary" style="padding: 0.5rem 1rem;">Get Started</a>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <h1>Your Health, <span style="color: #2563eb;">Simplified.</span></h1>
+        <p>Experience the next generation of healthcare management. Book appointments, message consultants, and manage your medical records all in one place.</p>
+        <div class="cta-buttons">
+            <a href="signup.html" class="btn-primary">Get Started for Free</a>
+            <a href="#features" class="btn-secondary">Learn More</a>
+        </div>
+    </header>
 </body>
 </html>
