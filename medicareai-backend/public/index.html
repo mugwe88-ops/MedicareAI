@@ -58,6 +58,18 @@
             <a href="#features" class="btn-secondary" style="padding: 1rem;">View Features ↓</a>
         </div>
     </section>
+    <div style="max-width: 800px; margin: 0 auto 30px; display: flex; gap: 10px;">
+    <input type="text" id="searchInput" placeholder="Search by Doctor Name..." 
+           style="flex: 2; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;">
+    
+    <select id="specialtyFilter" style="flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;">
+        <option value="">All Specialties</option>
+        <option value="General Medicine">General Medicine</option>
+        <option value="Cardiology">Cardiology</option>
+        <option value="Pediatrics">Pediatrics</option>
+        <option value="Psychiatry">Psychiatry</option>
+    </select>
+</div>
 
     <section id="features" class="features">
         <h2>Why Swift MD?</h2>
@@ -83,15 +95,68 @@
 </section>
 
 <script>
-    async function loadConsultants() {
-        const response = await fetch('/api/directory/consultants');
-        const doctors = await response.json();
-        const container = document.getElementById('consultantList');
-        
-        if (doctors.length === 0) {
-            container.innerHTML = "<p>No consultants available at the moment.</p>";
-            return;
-        }
+    let allDoctors = []; // Store the full list locally for fast filtering
+
+async function loadConsultants() {
+    const response = await fetch('/api/directory/consultants');
+    allDoctors = await response.json();
+    displayDoctors(allDoctors);
+}
+
+function displayDoctors(doctors) {
+    const container = document.getElementById('consultantList');
+    container.innerHTML = doctors.map(doc => {
+        // Clean the phone number (remove +, spaces, etc.) for the URL
+        const cleanPhone = doc.phone ? doc.phone.replace(/\D/g, '') : '';
+        const waLink = `https://wa.me/${cleanPhone}?text=Hello%20Dr.%20${encodeURIComponent(doc.name)},%20I%20would%20like%20to%20book%20a%20consultation%20via%20Swift%20MD.`;
+
+        return `
+        <div class="auth-card" style="width: 250px; text-align: center; border: 1px solid #e2e8f0; position: relative;">
+            <h3 style="margin-bottom: 5px;">Dr. ${doc.name}</h3>
+            <p style="color: #3b82f6; font-weight: bold; margin-bottom: 15px;">
+                ${doc.specialty || 'General Consultant'}
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <a href="${waLink}" target="_blank" class="btn" style="background-color: #25D366; border: none; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" width="16" alt="WA"> Book via WhatsApp
+                </a>
+                <a href="signup.html" style="font-size: 0.8rem; color: #64748b; text-decoration: none;">Or use Web Form</a>
+            </div>
+        </div>
+    `}).join('');
+
+    // Inside your mapping function in index.html
+const trackingLink = `/api/directory/track-click/${doc.id}?phone=${doc.phone}&name=${encodeURIComponent(doc.name)}`;
+
+return `
+    <div class="auth-card">
+        <h3>Dr. ${doc.name}</h3>
+        <a href="${trackingLink}" target="_blank" class="btn" style="background-color: #25D366;">
+            Book via WhatsApp
+        </a>
+    </div>
+`;
+}
+
+// Event Listeners for Filtering
+document.getElementById('searchInput').addEventListener('input', filterResults);
+document.getElementById('specialtyFilter').addEventListener('change', filterResults);
+
+function filterResults() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const specialtyTerm = document.getElementById('specialtyFilter').value;
+
+    const filtered = allDoctors.filter(doc => {
+        const matchesName = doc.name.toLowerCase().includes(searchTerm);
+        const matchesSpecialty = specialtyTerm === "" || doc.specialty === specialtyTerm;
+        return matchesName && matchesSpecialty;
+    });
+
+    displayDoctors(filtered);
+}
+
+loadConsultants();
 
         // Inside the map function for doctors
 container.innerHTML = doctors.map(doc => `

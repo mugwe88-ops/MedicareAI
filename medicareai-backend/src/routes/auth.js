@@ -27,6 +27,20 @@ router.get('/profile', async (req, res) => {
     }
 });
 
+router.get('/doctor-stats', async (req, res) => {
+    if (req.session.role !== 'doctor') return res.status(403).send("Unauthorized");
+    
+    try {
+        const result = await pool.query(
+            'SELECT COUNT(*) as total_clicks FROM analytics WHERE doctor_id = $1', 
+            [req.session.userId]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: "Stats error" });
+    }
+});
+
 // Update profile data
 router.post('/profile/update', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: "Unauthorized" });

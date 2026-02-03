@@ -9,6 +9,8 @@ import { pool } from '../db.js'; // Modular DB
 import authRoutes from './routes/auth.js'; // Modular Routes
 import appointmentRoutes from './routes/appointments.js';
 import directoryRoutes from './routes/directory.js';
+import cron from 'node-cron';
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -74,6 +76,13 @@ async function initDatabase() {
         status VARCHAR(20) DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS analytics (
+    id SERIAL PRIMARY KEY,
+    doctor_id INT REFERENCES users(id),
+    event_type VARCHAR(50), -- e.g., 'whatsapp_click'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS specialty VARCHAR(100);
@@ -149,6 +158,30 @@ async function sendReply(phoneId, to, token, text, isButton) {
     };
     await axios.post(url, data, { headers: { Authorization: `Bearer ${token}` } });
 }
+
+// Schedule to run every Sunday at 9:00 AM
+cron.schedule('0 9 * * 0', async () => {
+    try {
+        // Get all doctors and their WhatsApp click counts for the week
+        const doctors = await pool.query(`
+            SELECT u.id, u.name, u.phone, COUNT(a.id) as clicks 
+            FROM users u 
+            LEFT JOIN analytics a ON u.id = a.doctor_id 
+            WHERE u.role = 'doctor' AND a.created_at > NOW() - INTERVAL '7 days'
+            GROUP BY u.id
+        `);
+
+        for (const doc of doctors.rows) {
+            const reportMsg = `*Swift MD Weekly Report* 📈\n\nHello Dr. ${doc.name}!\n\nThis week, your profile received *${doc.clicks}* WhatsApp booking inquiries.\n\nKeep up the great work!`;
+            
+            // Send via your WhatsApp function
+            await sendReply(process.env.WHATSAPP_PHONE_ID, doc.phone, process.env.WHATSAPP_ACCESS_TOKEN, reportMsg);
+        }
+        console.log("Weekly reports sent successfully.");
+    } catch (err) {
+        console.error("Error sending weekly reports:", err);
+    }
+});
 
 // Ensure the server starts correctly
 const PORT = process.env.PORT || 10000;
