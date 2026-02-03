@@ -1,5 +1,5 @@
 import { Router } from 'express';
-// Ensure you are importing from the CONTROLLER, not the service
+// Mandatory .js extension for ESM
 import { getDoctorAppointments, handleCreateAppointment } from '../controllers/appointment.controller.js';
 
 const router = Router();

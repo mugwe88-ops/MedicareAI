@@ -1,9 +1,9 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
-import { pool } from '../db.js';
-import { sendReply } from '../server.js';
+import { pool } from '../db.js'; // This remains ../ because it's in src/, while this is in src/routes/
+import { sendReply } from '../server.js'; // This remains ../ because it's in src/, while this is in src/routes/
+
 const router = express.Router();
-const newUser = await pool.query(
 
 // New /api/me route for your dashboard script
 router.get('/me', async (req, res) => {
@@ -56,7 +56,6 @@ router.post('/profile/update', async (req, res) => {
 router.post('/signup', async (req, res) => {
     const { name, email, password, role, phone } = req.body;
     const otp = Math.floor(100000 + Math.random() * 900000);
-    // Set expiry to 10 minutes from now
     const expiry = new Date(Date.now() + 10 * 60000); 
 
     try {
@@ -75,15 +74,13 @@ router.post('/signup', async (req, res) => {
     }
 });
 
-
-
 // Secure Logout
 router.post('/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
             return res.status(500).json({ error: "Could not log out" });
         }
-        res.clearCookie('connect.sid'); // Clears the session cookie in the browser
+        res.clearCookie('connect.sid'); 
         res.json({ success: true, message: "Logged out successfully" });
     });
 });
@@ -99,7 +96,6 @@ router.post('/verify-otp', async (req, res) => {
         if (result.rows.length > 0) {
             const { id, otp_expiry } = result.rows[0];
 
-            // Check if code is expired
             if (new Date() > new Date(otp_expiry)) {
                 return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
             }
@@ -115,7 +111,6 @@ router.post('/verify-otp', async (req, res) => {
 });
 
 router.post('/resend-otp', async (req, res) => {
-    // Assuming you store userId in session during the initial signup
     const userId = req.session.userId; 
 
     if (!userId) {
@@ -143,7 +138,4 @@ router.post('/resend-otp', async (req, res) => {
     }
 });
 
-// At the bottom of src/server.js
-export async function sendReply(phoneId, to, token, message) {
-    // ... your WhatsApp API logic ...
-}
+export default router;
