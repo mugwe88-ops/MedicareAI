@@ -21,22 +21,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/directory', directoryRoutes);
 
-// Add this once, before app.use('/api/appointments'...)
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'swift_md_secret_key',
+    secret: process.env.SESSION_SECRET || 'medicare_secret_key',
     resave: false,
-    saveUninitialized: false, // Changed to false for better security
+    saveUninitialized: false,
     cookie: { 
         secure: process.env.NODE_ENV === 'production', 
-        maxAge: 24 * 60 * 60 * 1000 // 1 day
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
-
-// Serve Static Files from the public folder (going up one level from src)
-app.use(express.static(path.join(__dirname, '../public')));
-
-// Use Modular Auth Routes
-app.use('/api', authRoutes);
 
 // --- YOUR EXISTING WHATSAPP LOGIC ---
 // Database Initialization
