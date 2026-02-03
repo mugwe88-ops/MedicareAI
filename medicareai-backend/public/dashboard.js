@@ -73,4 +73,14 @@ async function fetchAppointments() {
 
 fetchAppointments();
 
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+    const response = await fetch('/api/logout', { method: 'POST' });
+    if (response.ok) {
+        // Redirect to landing page after session is destroyed
+        window.location.href = '/index.html';
+    } else {
+        alert("Logout failed");
+    }
+});
+
 loadDashboard();

@@ -67,6 +67,17 @@ router.post('/signup', async (req, res) => {
     }
 });
 
+// Secure Logout
+router.post('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).json({ error: "Could not log out" });
+        }
+        res.clearCookie('connect.sid'); // Clears the session cookie in the browser
+        res.json({ success: true, message: "Logged out successfully" });
+    });
+});
+
 
 
 export default router;
