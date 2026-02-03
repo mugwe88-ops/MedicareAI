@@ -4,23 +4,24 @@ import axios from 'axios';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
-import { encrypt, decrypt } from './encryption.js';
-import { pool } from './db.js'; // Removed /src/
-import authRoutes from './routes/auth.js'; // Removed /src/
-import appointmentRoutes from './routes/appointments.js'; // Removed /src/
-import directoryRoutes from './routes/directory.js'; // Removed /src/
-import cron from 'node-cron';
+import cron from 'node-cron'; // Added missing import
 
+// Internal Imports (Paths fixed for /src directory)
+import { encrypt, decrypt } from './encryption.js';
+import { pool } from './db.js'; 
+import authRoutes from './routes/auth.js';
+import appointmentRoutes from './routes/appointments.js';
+import directoryRoutes from './routes/directory.js';
+import paymentRoutes from './routes/payments.routes.js';
+import bookingRoutes from './routes/bookings.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
-// Middleware
+// ---- MIDDLEWARE ----
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/directory', directoryRoutes);
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, '../public'))); // Adjusted for /src move
 
 app.use(session({
     secret: process.env.SESSION_SECRET || 'medicare_secret_key',
@@ -28,14 +29,25 @@ app.use(session({
     saveUninitialized: false,
     cookie: { 
         secure: process.env.NODE_ENV === 'production', 
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 24 * 60 * 60 * 1000 
     }
 }));
 
-// --- YOUR EXISTING WHATSAPP LOGIC ---
-// Database Initialization
+// ---- ROUTES ----
+app.use('/api/auth', authRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/directory', directoryRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/bookings', bookingRoutes);
+
+// Health Check
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'OK', message: 'MedicareAI Backend is running' });
+});
+
+// ---- DATABASE INIT ----
 async function initDatabase() {
-    const createUsersTable = `
+    const createTablesQuery = `
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
@@ -44,11 +56,11 @@ async function initDatabase() {
             role VARCHAR(50) DEFAULT 'patient',
             email_otp VARCHAR(6),
             is_verified BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            otp_expiry TIMESTAMP,
+            specialty VARCHAR(100),
+            phone VARCHAR(20)
         );
-    `;
-
-    const createConsultantsTable = `
         CREATE TABLE IF NOT EXISTS consultants (
             id SERIAL PRIMARY KEY,
             whatsapp_phone_id VARCHAR(255) UNIQUE NOT NULL,
@@ -58,40 +70,33 @@ async function initDatabase() {
             calendar_id VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS appointments (
+            id SERIAL PRIMARY KEY,
+            patient_id INTEGER REFERENCES users(id),
+            department VARCHAR(100),
+            appointment_date DATE,
+            appointment_time TIME,
+            reason TEXT,
+            status VARCHAR(20) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS analytics (
+            id SERIAL PRIMARY KEY,
+            doctor_id INT REFERENCES users(id),
+            event_type VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     `;
-    const createAppointmentsTable = `
-    CREATE TABLE IF NOT EXISTS appointments (
-        id SERIAL PRIMARY KEY,
-        patient_id INTEGER REFERENCES users(id),
-        department VARCHAR(100),
-        appointment_date DATE,
-        appointment_time TIME,
-        reason TEXT,
-        status VARCHAR(20) DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS analytics (
-    id SERIAL PRIMARY KEY,
-    doctor_id INT REFERENCES users(id),
-    event_type VARCHAR(50), -- e.g., 'whatsapp_click'
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS specialty VARCHAR(100);
-`;
-await pool.query(createAppointmentsTable);
-
     try {
-        await pool.query(createUsersTable);
-        await pool.query(createConsultantsTable);
+        await pool.query(createTablesQuery);
         console.log("✅ Database Tables Initialized");
     } catch (err) {
         console.error("❌ Database Init Error:", err.message);
     }
 }
+initDatabase();
 
+// ---- WHATSAPP / WEBHOOK LOGIC ----
 app.post('/api/admin/onboard', async (req, res) => {
     try {
         const { whatsapp_phone_id, whatsapp_access_token, name, booking_url, calendar_id } = req.body;
@@ -139,7 +144,7 @@ app.post('/api/webhook', async (req, res) => {
     }
 });
 
-async function sendReply(phoneId, to, token, text, isButton) {
+export async function sendReply(phoneId, to, token, text, isButton) {
     const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
     const data = isButton ? {
         messaging_product: "whatsapp", to, type: "interactive",
@@ -153,10 +158,9 @@ async function sendReply(phoneId, to, token, text, isButton) {
     await axios.post(url, data, { headers: { Authorization: `Bearer ${token}` } });
 }
 
-// Schedule to run every Sunday at 9:00 AM
+// ---- CRON JOB ----
 cron.schedule('0 9 * * 0', async () => {
     try {
-        // Get all doctors and their WhatsApp click counts for the week
         const doctors = await pool.query(`
             SELECT u.id, u.name, u.phone, COUNT(a.id) as clicks 
             FROM users u 
@@ -167,9 +171,7 @@ cron.schedule('0 9 * * 0', async () => {
 
         for (const doc of doctors.rows) {
             const reportMsg = `*Swift MD Weekly Report* 📈\n\nHello Dr. ${doc.name}!\n\nThis week, your profile received *${doc.clicks}* WhatsApp booking inquiries.\n\nKeep up the great work!`;
-            
-            // Send via your WhatsApp function
-            await sendReply(process.env.WHATSAPP_PHONE_ID, doc.phone, process.env.WHATSAPP_ACCESS_TOKEN, reportMsg);
+            await sendReply(process.env.WHATSAPP_PHONE_ID, doc.phone, process.env.WHATSAPP_ACCESS_TOKEN, reportMsg, false);
         }
         console.log("Weekly reports sent successfully.");
     } catch (err) {
@@ -177,7 +179,6 @@ cron.schedule('0 9 * * 0', async () => {
     }
 });
 
-// Ensure the server starts correctly
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Swift MD is live on port ${PORT}`);
