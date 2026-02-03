@@ -19,29 +19,41 @@
                 <button type="submit">Verify Account</button>
             </form>
             <p class="link-text"><a href="#" id="resendBtn">Resend Code</a></p>
-        </div>
-    </div>
-
+        <div style="margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+    <p style="font-size: 0.8rem; color: #64748b;">Having trouble?</p>
+    <a href="https://wa.me/YOUR_PHONE_NUMBER?text=Hi%20Swift%20MD%20Support,%20I'm%20having%20trouble%20receiving%20my%20OTP." 
+       target="_blank" 
+       style="color: #3b82f6; font-size: 0.9rem; text-decoration: none; font-weight: bold;">
+       💬 Chat with Support
+    </a>
+</div>
     <script>
-        document.getElementById('otpForm').onsubmit = async (e) => {
-            e.preventDefault();
-            const otp = document.getElementById('otpInput').value;
+        document.getElementById('resendBtn').onclick = async (e) => {
+    e.preventDefault();
+    const resendBtn = e.target;
+    resendBtn.innerText = "Sending...";
+    resendBtn.style.pointerEvents = "none";
 
-            const response = await fetch('/api/verify-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ otp })
-            });
+    try {
+        const response = await fetch('/api/resend-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
 
-            const result = await response.json();
-
-            if (response.ok && result.success) {
-                alert("Account verified! You can now log in.");
-                window.location.href = '/login.html';
-            } else {
-                alert(result.message || "Invalid code. Please try again.");
-            }
-        };
+        const result = await response.json();
+        alert(result.message);
+        
+        // Simple cooldown timer (30 seconds)
+        setTimeout(() => {
+            resendBtn.innerText = "Resend Code";
+            resendBtn.style.pointerEvents = "auto";
+        }, 30000);
+    } catch (err) {
+        alert("Error resending code. Please try again.");
+        resendBtn.innerText = "Resend Code";
+        resendBtn.style.pointerEvents = "auto";
+    }
+};
     </script>
 </body>
 </html>

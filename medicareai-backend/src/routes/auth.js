@@ -4,6 +4,15 @@ import { pool } from '../db.js';
 import { sendReply } from '../server.js'; // Ensure you export sendReply from server.js
 
 const router = express.Router();
+const newUser = await pool.query(
+    'INSERT INTO users (...) VALUES (...) RETURNING id',
+    [...]
+);
+
+// Save the new user's ID in the session
+req.session.userId = newUser.rows[0].id; 
+
+res.redirect('/verify-otp.html');
 
 // New /api/me route for your dashboard script
 router.get('/me', async (req, res) => {
@@ -111,6 +120,35 @@ router.post('/verify-otp', async (req, res) => {
         }
     } catch (err) {
         res.status(500).json({ error: "Server error" });
+    }
+});
+
+router.post('/resend-otp', async (req, res) => {
+    // Assuming you store userId in session during the initial signup
+    const userId = req.session.userId; 
+
+    if (!userId) {
+        return res.status(400).json({ message: "Session expired. Please sign up again." });
+    }
+
+    try {
+        const otp = Math.floor(100000 + Math.random() * 900000);
+        const expiry = new Date(Date.now() + 10 * 60000);
+
+        const result = await pool.query(
+            'UPDATE users SET email_otp = $1, otp_expiry = $2 WHERE id = $3 RETURNING phone, name',
+            [otp, expiry, userId]
+        );
+
+        if (result.rows.length > 0) {
+            const { phone, name } = result.rows[0];
+            const message = `*Swift MD* 🏥\n\nYour new verification code is: *${otp}*\n\nThis expires in 10 minutes.`;
+            
+            await sendReply(process.env.WHATSAPP_PHONE_ID, phone, process.env.WHATSAPP_ACCESS_TOKEN, message);
+            res.json({ message: "New code sent to your WhatsApp!" });
+        }
+    } catch (err) {
+        res.status(500).json({ message: "Server error" });
     }
 });
 

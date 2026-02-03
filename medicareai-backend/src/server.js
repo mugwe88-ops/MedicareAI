@@ -21,14 +21,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/directory', directoryRoutes);
 
-// Session Configuration (Must be before routes)
+// Add this once, before app.use('/api/appointments'...)
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'medicare_secret_key',
+    secret: process.env.SESSION_SECRET || 'swift_md_secret_key',
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: false, // Changed to false for better security
     cookie: { 
         secure: process.env.NODE_ENV === 'production', 
-        maxAge: 24 * 60 * 60 * 1000 
+        maxAge: 24 * 60 * 60 * 1000 // 1 day
     }
 }));
 
