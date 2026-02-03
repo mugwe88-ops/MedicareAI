@@ -4,11 +4,11 @@ import axios from 'axios';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
-import { encrypt, decrypt } from '../encryption.js';
-import { pool } from './db.js'; 
-import authRoutes from './routes/auth.js'; 
-import appointmentRoutes from './routes/appointments.js';
-import directoryRoutes from './routes/directory.js';
+import { encrypt, decrypt } from './encryption.js';
+import { pool } from './src/db.js'; 
+import authRoutes from './src/routes/auth.js'; 
+import appointmentRoutes from './src/routes/appointments.js';
+import directoryRoutes from './src/routes/directory.js';
 import cron from 'node-cron';
 
 
