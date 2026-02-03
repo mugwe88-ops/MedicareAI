@@ -3,49 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MedicareAI | Intelligent Healthcare</title>
+    <title>MedicareAI | Healthcare Management</title>
     <link rel="stylesheet" href="style.css">
     <style>
+        :root { --primary: #2563eb; --dark: #1e3a8a; --text: #4b5563; }
+        body { font-family: 'Inter', sans-serif; margin: 0; color: var(--text); line-height: 1.6; }
+        
+        /* Hero Section */
         .hero {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 80vh;
-            text-align: center;
-            background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 70vh; text-align: center; background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+            padding: 0 20px;
         }
-        .hero h1 { font-size: 3.5rem; color: #1e3a8a; margin-bottom: 1rem; }
-        .hero p { font-size: 1.25rem; color: #4b5563; max-width: 600px; margin-bottom: 2rem; }
-        .cta-buttons { display: flex; gap: 1rem; }
+        .hero h1 { font-size: 3.5rem; color: var(--dark); margin-bottom: 1rem; }
+        .hero p { font-size: 1.25rem; max-width: 700px; margin-bottom: 2rem; }
+
+        /* Features Section */
+        .features { padding: 80px 20px; background: white; text-align: center; }
+        .features h2 { font-size: 2.5rem; color: var(--dark); margin-bottom: 3rem; }
+        .feature-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px; max-width: 1100px; margin: 0 auto;
+        }
+        .feature-card {
+            padding: 40px; border-radius: 12px; background: #f8faff;
+            border: 1px solid #e5e7eb; transition: transform 0.3s ease;
+        }
+        .feature-card:hover { transform: translateY(-10px); }
+        .feature-card i { font-size: 2rem; color: var(--primary); margin-bottom: 15px; display: block; }
+        .feature-card h3 { color: var(--dark); margin-bottom: 10px; }
+
+        /* Buttons */
         .btn-primary { 
-            padding: 1rem 2rem; background: #2563eb; color: white; 
-            text-decoration: none; border-radius: 8px; font-weight: bold; 
-            transition: background 0.3s;
-        }
-        .btn-secondary { 
-            padding: 1rem 2rem; border: 2px solid #2563eb; color: #2563eb; 
+            padding: 1rem 2rem; background: var(--primary); color: white; 
             text-decoration: none; border-radius: 8px; font-weight: bold; 
         }
-        .btn-primary:hover { background: #1d4ed8; }
+        .btn-secondary { color: var(--primary); text-decoration: none; font-weight: bold; }
     </style>
 </head>
 <body>
-    <nav style="padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-weight: bold; font-size: 1.5rem; color: #2563eb;">MedicareAI</div>
+    <nav style="padding: 20px 50px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-weight: bold; font-size: 1.5rem; color: var(--primary);">MedicareAI</div>
         <div>
-            <a href="login.html" style="text-decoration: none; color: #4b5563; margin-right: 1.5rem;">Login</a>
-            <a href="signup.html" class="btn-primary" style="padding: 0.5rem 1rem;">Get Started</a>
+            <a href="login.html" style="text-decoration: none; color: var(--text); margin-right: 20px;">Login</a>
+            <a href="signup.html" class="btn-primary">Get Started</a>
         </div>
     </nav>
 
-    <header class="hero">
-        <h1>Your Health, <span style="color: #2563eb;">Simplified.</span></h1>
-        <p>Experience the next generation of healthcare management. Book appointments, message consultants, and manage your medical records all in one place.</p>
-        <div class="cta-buttons">
-            <a href="signup.html" class="btn-primary">Get Started for Free</a>
-            <a href="#features" class="btn-secondary">Learn More</a>
+    <section class="hero">
+        <h1>Smart Healthcare <span style="color: var(--primary);">Simplified.</span></h1>
+        <p>A unified platform for patients and doctors to manage appointments and records through intelligent automation.</p>
+        <div style="display: flex; gap: 20px;">
+            <a href="signup.html" class="btn-primary">Create Your Account</a>
+            <a href="#features" class="btn-secondary" style="padding: 1rem;">View Features ↓</a>
         </div>
-    </header>
+    </section>
+
+    <section id="features" class="features">
+        <h2>Why MedicareAI?</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>💬 WhatsApp Booking</h3>
+                <p>Book appointments directly via WhatsApp using our intelligent chatbot integration.</p>
+            </div>
+            <div class="feature-card">
+                <h3>🔒 Secure Records</h3>
+                <p>Your data is protected with industry-standard encryption for maximum privacy.</p>
+            </div>
+            <div class="feature-card">
+                <h3>📅 Smart Dashboard</h3>
+                <p>Manage your medical history and upcoming visits through a clean, intuitive interface.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer style="text-align: center; padding: 40px; background: #f9fafb;">
+        <p>&copy; 2026 MedicareAI. All rights reserved.</p>
+    </footer>
 </body>
 </html>

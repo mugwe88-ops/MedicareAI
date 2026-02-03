@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard | MedicareAI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body style="background: #f1f5f9;">
+    <nav style="background: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <div style="font-weight: bold; color: var(--primary); font-size: 1.2rem;">MedicareAI</div>
+        <div id="userInfo">Loading user...</div>
+    </nav>
+
+    <main style="max-width: 1000px; margin: 2rem auto; padding: 0 1rem;">
+        <h1 id="welcomeText">Welcome back!</h1>
+        
+        <div id="roleContent" class="auth-card" style="max-width: 100%; text-align: left;">
+            <p>Fetching your specific tools...</p>
+        </div>
+    </main>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
