@@ -35,7 +35,20 @@ app.use('/api', authRoutes);
 // --- YOUR EXISTING WHATSAPP LOGIC ---
 // Database Initialization
 async function initDatabase() {
-    const createTableQuery = `
+    const createUsersTable = `
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role VARCHAR(50) DEFAULT 'patient',
+            email_otp VARCHAR(6),
+            is_verified BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    const createConsultantsTable = `
         CREATE TABLE IF NOT EXISTS consultants (
             id SERIAL PRIMARY KEY,
             whatsapp_phone_id VARCHAR(255) UNIQUE NOT NULL,
@@ -46,9 +59,15 @@ async function initDatabase() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `;
-    await pool.query(createTableQuery);
+
+    try {
+        await pool.query(createUsersTable);
+        await pool.query(createConsultantsTable);
+        console.log("✅ Database Tables Initialized");
+    } catch (err) {
+        console.error("❌ Database Init Error:", err.message);
+    }
 }
-initDatabase();
 
 app.post('/api/admin/onboard', async (req, res) => {
     try {
