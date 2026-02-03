@@ -18,3 +18,22 @@
         <button type="submit">Get Started</button>
     </form>
 </div>
+<div id="specialtySection" style="display: none; margin-top: 10px;">
+    <label>Your Specialty</label>
+    <select name="specialty">
+        <option value="General Medicine">General Medicine</option>
+        <option value="Cardiology">Cardiology</option>
+        <option value="Pediatrics">Pediatrics</option>
+        <option value="Psychiatry">Psychiatry</option>
+    </select>
+</div>
+
+<script>
+    // Show specialty field only if "doctor" is selected
+    document.querySelectorAll('input[name="role"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            document.getElementById('specialtySection').style.display = 
+                e.target.value === 'doctor' ? 'block' : 'none';
+        });
+    });
+</script>

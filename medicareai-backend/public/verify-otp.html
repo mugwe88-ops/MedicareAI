@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Your Account | MedicareAI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h2>Verify Your Code</h2>
+            <p style="text-align: center; font-size: 0.9rem; color: #666;">
+                Please enter the 6-digit verification code sent to you.
+            </p>
+            <form id="otpForm">
+                <input type="text" id="otpInput" placeholder="Enter 6-digit code" 
+                       maxlength="6" required 
+                       style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
+                <button type="submit">Verify Account</button>
+            </form>
+            <p class="link-text"><a href="#" id="resendBtn">Resend Code</a></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('otpForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const otp = document.getElementById('otpInput').value;
+
+            const response = await fetch('/api/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ otp })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert("Account verified! You can now log in.");
+                window.location.href = '/login.html';
+            } else {
+                alert(result.message || "Invalid code. Please try again.");
+            }
+        };
+    </script>
+</body>
+</html>

@@ -8,6 +8,7 @@ import { encrypt, decrypt } from '../encryption.js';
 import { pool } from '../db.js'; // Modular DB
 import authRoutes from './routes/auth.js'; // Modular Routes
 import appointmentRoutes from './routes/appointments.js';
+import directoryRoutes from './routes/directory.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -16,6 +17,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/directory', directoryRoutes);
 
 // Session Configuration (Must be before routes)
 app.use(session({
@@ -73,7 +75,8 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS specialty VARCHAR(100);
 `;
 await pool.query(createAppointmentsTable);
 
@@ -149,4 +152,6 @@ async function sendReply(phoneId, to, token, text, isButton) {
 
 // Ensure the server starts correctly
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🟢 MedicareAI Live on port ${PORT}!`));
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Swift MD is live on port ${PORT}`);
+});

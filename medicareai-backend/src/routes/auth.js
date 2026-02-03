@@ -1,6 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import { pool } from '../db.js';
+import { sendReply } from '../server.js'; // Ensure you export sendReply from server.js
 
 const router = express.Router();
 
@@ -39,33 +40,28 @@ router.post('/profile/update', async (req, res) => {
 });
 
 router.post('/signup', async (req, res) => {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, phone } = req.body;
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    // Set expiry to 10 minutes from now
+    const expiry = new Date(Date.now() + 10 * 60000); 
+
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
         await pool.query(
-            'INSERT INTO users (name, email, password, role, email_otp) VALUES ($1, $2, $3, $4, $5)',
-            [name, email, hashedPassword, role || 'patient', otp]
+            'INSERT INTO users (name, email, password, role, phone, email_otp, otp_expiry) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+            [name, email, hashedPassword, role || 'patient', phone, otp, expiry]
         );
+
+        const message = `*Swift MD Verification* 🏥\n\nHello! Your verification code is: *${otp}*\n\nThis code expires in 10 minutes.`;
+        
+        await sendReply(process.env.WHATSAPP_PHONE_ID, phone, process.env.WHATSAPP_ACCESS_TOKEN, message);
         res.redirect('/verify-otp.html');
     } catch (err) {
-        res.status(500).send("Signup failed.");
+        res.status(500).send("Signup failed. Please try again.");
     }
 });
 
-router.post('/signup', async (req, res) => {
-    const { name, email, password, role, phone } = req.body; 
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await pool.query(
-            'INSERT INTO users (name, email, password, role, phone) VALUES ($1, $2, $3, $4, $5)',
-            [name, email, hashedPassword, role || 'patient', phone]
-        );
-        res.redirect('/login.html?signup=success');
-    } catch (err) {
-        res.status(500).send("Signup failed. Check if email is already taken.");
-    }
-});
+
 
 // Secure Logout
 router.post('/logout', (req, res) => {
@@ -78,6 +74,31 @@ router.post('/logout', (req, res) => {
     });
 });
 
+router.post('/verify-otp', async (req, res) => {
+    const { otp } = req.body;
+    try {
+        const result = await pool.query(
+            'SELECT id, otp_expiry FROM users WHERE email_otp = $1 AND is_verified = FALSE', 
+            [otp]
+        );
+
+        if (result.rows.length > 0) {
+            const { id, otp_expiry } = result.rows[0];
+
+            // Check if code is expired
+            if (new Date() > new Date(otp_expiry)) {
+                return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
+            }
+
+            await pool.query('UPDATE users SET is_verified = TRUE, email_otp = NULL, otp_expiry = NULL WHERE id = $1', [id]);
+            res.json({ success: true });
+        } else {
+            res.status(400).json({ success: false, message: "Invalid code." });
+        }
+    } catch (err) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
 
 
 export default router;

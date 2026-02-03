@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MedicareAI | Healthcare Management</title>
+    <title>Swift MD | Healthcare Management System</title>
     <link rel="stylesheet" href="style.css">
     <style>
         :root { --primary: #2563eb; --dark: #1e3a8a; --text: #4b5563; }
@@ -43,7 +43,7 @@
 </head>
 <body>
     <nav style="padding: 20px 50px; display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-weight: bold; font-size: 1.5rem; color: var(--primary);">MedicareAI</div>
+        <div style="font-weight: bold; font-size: 1.5rem; color: var(--primary);">Swift MD</div>
         <div>
             <a href="login.html" style="text-decoration: none; color: var(--text); margin-right: 20px;">Login</a>
             <a href="signup.html" class="btn-primary">Get Started</a>
@@ -60,7 +60,7 @@
     </section>
 
     <section id="features" class="features">
-        <h2>Why MedicareAI?</h2>
+        <h2>Why Swift MD?</h2>
         <div class="feature-grid">
             <div class="feature-card">
                 <h3>💬 WhatsApp Booking</h3>
@@ -76,9 +76,37 @@
             </div>
         </div>
     </section>
+    <section id="consultants" style="padding: 50px 20px; background: #f8fafc;">
+    <h2 style="text-align: center; color: var(--primary);">Our Expert Consultants</h2>
+    <div id="consultantList" style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-top: 30px;">
+        </div>
+</section>
+
+<script>
+    async function loadConsultants() {
+        const response = await fetch('/api/directory/consultants');
+        const doctors = await response.json();
+        const container = document.getElementById('consultantList');
+        
+        if (doctors.length === 0) {
+            container.innerHTML = "<p>No consultants available at the moment.</p>";
+            return;
+        }
+
+        // Inside the map function for doctors
+container.innerHTML = doctors.map(doc => `
+    <div class="auth-card" style="width: 250px; text-align: center;">
+        <h3>Dr. ${doc.name}</h3>
+        <p style="color: #3b82f6; font-weight: bold;">${doc.specialty || 'General Consultant'}</p>
+        <a href="signup.html" class="btn">Book Appointment</a>
+    </div>
+`).join('');
+    }
+    loadConsultants();
+</script>
 
     <footer style="text-align: center; padding: 40px; background: #f9fafb;">
-        <p>&copy; 2026 MedicareAI. All rights reserved.</p>
+        <p>&copy; 2026 Swift MD. All rights reserved.</p>
     </footer>
 </body>
 </html>
