@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma.js';
+import { pool } from '../db.js';
 import * as mpesaService from '../services/mpesa.service.js';
 
 /**
@@ -34,7 +34,6 @@ export async function handleMpesaCallback(req, res) {
     }
 
     const items = stkCallback.CallbackMetadata.Item;
-
     const receipt = items.find(i => i.Name === 'MpesaReceiptNumber')?.Value;
     const amount = items.find(i => i.Name === 'Amount')?.Value;
     const phone = items.find(i => i.Name === 'PhoneNumber')?.Value;
@@ -44,26 +43,22 @@ export async function handleMpesaCallback(req, res) {
       return;
     }
 
-    // 3. Idempotency check
-    const existing = await prisma.payment.findUnique({
-      where: { receiptNumber: receipt },
-    });
+    // 3. Idempotency check (Raw SQL replacement for Prisma)
+    const checkQuery = 'SELECT id FROM "Payment" WHERE "receiptNumber" = $1';
+    const existing = await pool.query(checkQuery, [receipt]);
 
-    if (existing) {
+    if (existing.rows.length > 0) {
       console.log(`⚠️ Duplicate callback ignored: ${receipt}`);
       return;
     }
 
-    // 4. Update payment record
-    await prisma.payment.update({
-      where: { checkoutRequestId: stkCallback.CheckoutRequestID },
-      data: {
-        status: 'COMPLETED',
-        receiptNumber: receipt,
-        amount,
-        phoneNumber: phone,
-      },
-    });
+    // 4. Update payment record (Raw SQL replacement for Prisma)
+    const updateQuery = `
+      UPDATE "Payment" 
+      SET status = $1, "receiptNumber" = $2, amount = $3, "phoneNumber" = $4, "updatedAt" = NOW()
+      WHERE "checkoutRequestId" = $5
+    `;
+    await pool.query(updateQuery, ['COMPLETED', receipt, amount, phone, stkCallback.CheckoutRequestID]);
 
     console.log(`✅ Payment verified: ${receipt}`);
   } catch (error) {
