@@ -20,4 +20,20 @@ router.post('/book', async (req, res) => {
     }
 });
 
+// Get all appointments for the logged-in user
+router.get('/my-appointments', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: "Unauthorized" });
+
+    try {
+        const result = await pool.query(
+            'SELECT id, department, appointment_date, appointment_time, status FROM appointments WHERE patient_id = $1 ORDER BY appointment_date DESC',
+            [req.session.userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
 export default router;
