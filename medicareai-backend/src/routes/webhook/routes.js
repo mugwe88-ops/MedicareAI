@@ -1,6 +1,6 @@
 import express from "express";
 import axios from "axios";
-import pool from "../../db.js"; // Import our new database connection
+import pool from "../../../db.js"; // Import our new database connection
 
 const router = express.Router();
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "medicare_secret_2026";

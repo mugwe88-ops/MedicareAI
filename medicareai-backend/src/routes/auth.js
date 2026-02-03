@@ -1,6 +1,6 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
-import { pool } from '../db.js';
+import { pool } from '../../db.js';
 import { sendReply } from '../../server.js'; // Ensure you export sendReply from server.js
 
 const router = express.Router();
