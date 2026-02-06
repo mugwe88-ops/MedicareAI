@@ -20,7 +20,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api/directory', directoryRouter);
 
 app.use(session({
     secret: process.env.SESSION_SECRET || 'medicare_secret_key',
@@ -44,7 +43,7 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', message: 'MedicareAI Backend is running' });
 });
 
-// ---- DATABASE INIT ----
+// ---- DATABASE INIT (Updated with your missing columns) ----
 async function initDatabase() {
     const createTablesQuery = `
         CREATE TABLE IF NOT EXISTS users (
@@ -58,8 +57,14 @@ async function initDatabase() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             otp_expiry TIMESTAMP,
             specialty VARCHAR(100),
-            phone VARCHAR(20)
+            phone VARCHAR(20),
+            kmpdc_number VARCHAR(255)
         );
+        -- Update existing users table if columns are missing
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS kmpdc_number VARCHAR(255);
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+
         CREATE TABLE IF NOT EXISTS consultants (
             id SERIAL PRIMARY KEY,
             whatsapp_phone_id VARCHAR(255) UNIQUE NOT NULL,
@@ -88,7 +93,7 @@ async function initDatabase() {
     `;
     try {
         await pool.query(createTablesQuery);
-        console.log("✅ Database Tables Initialized");
+        console.log("✅ Database Tables Initialized & Schema Verified");
     } catch (err) {
         console.error("❌ Database Init Error:", err.message);
     }
@@ -96,22 +101,23 @@ async function initDatabase() {
 initDatabase();
 
 // ---- WHATSAPP / WEBHOOK LOGIC ----
-app.post('/api/admin/onboard', async (req, res) => {
+export async function sendReply(phoneId, to, token, text, isButton = false) {
+    const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
+    const data = isButton ? {
+        messaging_product: "whatsapp", to, type: "interactive",
+        interactive: {
+            type: "button", body: { text },
+            action: { buttons: [{ type: "reply", reply: { id: "book_now", title: "Book Now" } }] }
+        }
+    } : {
+        messaging_product: "whatsapp", to, type: "text", text: { body: text }
+    };
     try {
-        const { whatsapp_phone_id, whatsapp_access_token, name, booking_url, calendar_id } = req.body;
-        const secureToken = encrypt(whatsapp_access_token);
-        const result = await pool.query(
-            `INSERT INTO consultants (whatsapp_phone_id, whatsapp_access_token, name, booking_url, calendar_id)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (whatsapp_phone_id) DO UPDATE SET whatsapp_access_token = EXCLUDED.whatsapp_access_token, name = EXCLUDED.name
-             RETURNING id, name`,
-            [whatsapp_phone_id, secureToken, name, booking_url, calendar_id]
-        );
-        res.status(201).json({ message: "Consultant saved securely", data: result.rows[0] });
-    } catch (err) {
-        res.status(500).json({ error: "Internal Server Error", details: err.message });
+        await axios.post(url, data, { headers: { Authorization: `Bearer ${token}` } });
+    } catch (error) {
+        console.error("WhatsApp Send Error:", error.response?.data || error.message);
     }
-});
+}
 
 app.get('/api/webhook', (req, res) => {
     const token = req.query['hub.verify_token'];
@@ -143,22 +149,9 @@ app.post('/api/webhook', async (req, res) => {
     }
 });
 
-export async function sendReply(phoneId, to, token, text, isButton) {
-    const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
-    const data = isButton ? {
-        messaging_product: "whatsapp", to, type: "interactive",
-        interactive: {
-            type: "button", body: { text },
-            action: { buttons: [{ type: "reply", reply: { id: "book_now", title: "Book Now" } }] }
-        }
-    } : {
-        messaging_product: "whatsapp", to, type: "text", text: { body: text }
-    };
-    await axios.post(url, data, { headers: { Authorization: `Bearer ${token}` } });
-}
-
-// ---- CRON JOB ----
-cron.schedule('0 9 * * 0', async () => {
+// ---- CONSOLIDATED WEEKLY REPORT CRON ----
+// Runs every Sunday at 8:00 PM
+cron.schedule('0 20 * * 0', async () => {
     try {
         const doctors = await pool.query(`
             SELECT u.id, u.name, u.phone, COUNT(a.id) as clicks 
@@ -178,49 +171,19 @@ cron.schedule('0 9 * * 0', async () => {
     }
 });
 
-// --- CATCH-ALL STATIC ROUTE ---
-// This handles any .html file in your public folder automatically
-// This route handles any page name entered in the URL
-app.get('/:page', (req, res) => {
-    const page = req.params.page;
-    
-    // If the request doesn't have an extension, assume it's an .html file
-    let filePath = path.join(__dirname, 'public', page);
-    if (!page.includes('.')) {
-        filePath += '.html';
-    }
-
-    res.sendFile(filePath, (err) => {
-        if (err) {
-            // If the file doesn't exist, send them back to the home page
-            res.sendFile(path.join(__dirname, 'public', 'index.html'));
-        }
-    });
-});
-
-import cron from 'node-cron';
-
-// Schedule: Every Sunday at 8:00 PM
-cron.schedule('0 20 * * 0', async () => {
-    // 1. Fetch all doctors
-    const doctors = await pool.query('SELECT id, name, phone FROM users WHERE role = $1', ['doctor']);
-
-    for (const doctor of doctors.rows) {
-        // 2. Get their lead count for the past 7 days
-        const stats = await pool.query(
-            'SELECT COUNT(*) FROM leads WHERE doctor_id = $1 AND clicked_at > NOW() - INTERVAL \'7 days\'', 
-            [doctor.id]
-        );
-
-        // 3. Send WhatsApp message via Meta API
-        const message = `Hello Dr. ${doctor.name}, you received ${stats.rows[0].count} new leads on Swift MD this week! 🚀`;
-        await sendReply(process.env.WHATSAPP_PHONE_ID, doctor.phone, process.env.WHATSAPP_ACCESS_TOKEN, message);
-    }
-});
-
-// Remove the res.send('<h1>Server is running!</h1>...') line and replace with:
+// --- ROUTES & STATIC FILES ---
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/:page', (req, res) => {
+    const page = req.params.page;
+    let filePath = path.join(__dirname, 'public', page);
+    if (!page.includes('.')) filePath += '.html';
+
+    res.sendFile(filePath, (err) => {
+        if (err) res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    });
 });
 
 const PORT = process.env.PORT || 10000;
