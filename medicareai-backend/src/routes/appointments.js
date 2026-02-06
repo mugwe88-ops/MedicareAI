@@ -1,74 +1,47 @@
 import express from 'express';
 import { pool } from '../db.js';
-import { decrypt } from '../encryption.js';
-import { sendReply } from '../server.js';
 
 const router = express.Router();
 
-// Book an appointment
-router.post('/book', async (req, res) => {
-    if (!req.session.userId) return res.status(401).send("Unauthorized");
-    const { department, appointment_date, appointment_time, reason } = req.body;
-    
+// Get all appointments for the logged-in doctor
+router.get('/doctor-queue', async (req, res) => {
+    // 1. Verify the user is logged in and is a doctor
+    if (!req.session?.userId || req.session.role !== 'doctor') {
+        return res.status(403).json({ error: 'Access denied. Doctor only.' });
+    }
+
     try {
-        await pool.query(
-            'INSERT INTO appointments (patient_id, department, appointment_date, appointment_time, reason) VALUES ($1, $2, $3, $4, $5)',
-            [req.session.userId, department, appointment_date, appointment_time, reason]
-        );
-        res.status(201).json({ message: "Booking saved" });
+        // 2. Fetch appointments from the database joined with patient names
+        const result = await pool.query(`
+            SELECT a.id, a.appointment_date, a.status, u.name as patient_name, u.phone as patient_phone
+            FROM appointments a
+            JOIN users u ON a.patient_id = u.id
+            WHERE a.doctor_id = $1
+            ORDER BY a.appointment_date ASC
+        `, [req.session.userId]);
+
+        res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).send("Server Error");
+        console.error("Queue Fetch Error:", err);
+        res.status(500).json({ error: "Could not load appointment queue" });
     }
 });
 
-// Update appointment status and notify via WhatsApp
-router.post('/update-status', async (req, res) => {
-    const { appointment_id, status } = req.body;
-    
-    try {
-        const result = await pool.query(
-            'UPDATE appointments SET status = $1 WHERE id = $2 RETURNING patient_id, department', 
-            [status, appointment_id]
-        );
-
-        if (status === 'confirmed') {
-            const appointment = await pool.query(
-                `SELECT u.phone, u.name as patient_name, a.appointment_date, c.name as doc_name, c.whatsapp_phone_id, c.whatsapp_access_token 
-                 FROM appointments a 
-                 JOIN users u ON a.patient_id = u.id 
-                 JOIN consultants c ON a.department = c.calendar_id 
-                 WHERE a.id = $1`, [appointment_id]
-            );
-
-            if (appointment.rows.length > 0) {
-                const { phone, patient_name, doc_name, whatsapp_phone_id, whatsapp_access_token, appointment_date } = appointment.rows[0];
-                const decryptedToken = decrypt(whatsapp_access_token);
-                const message = `Hello ${patient_name}! Your appointment with ${doc_name} has been CONFIRMED for ${appointment_date}.`;
-                
-                await sendReply(whatsapp_phone_id, phone, decryptedToken, message, false);
-            }
-        }
-        res.json({ success: true, message: "Status updated" });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Server error" });
+// Update appointment status (e.g., mark as completed)
+router.put('/:id/status', async (req, res) => {
+    if (!req.session?.userId || req.session.role !== 'doctor') {
+        return res.status(403).json({ error: 'Unauthorized' });
     }
-}); // Fixed missing closing brace here
 
-// Get all appointments for the logged-in user
-router.get('/my-appointments', async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: "Unauthorized" });
-
+    const { status } = req.body;
     try {
-        const result = await pool.query(
-            'SELECT id, department, appointment_date, appointment_time, status FROM appointments WHERE patient_id = $1 ORDER BY appointment_date DESC',
-            [req.session.userId]
+        await pool.query(
+            'UPDATE appointments SET status = $1 WHERE id = $2 AND doctor_id = $3',
+            [status, req.params.id, req.session.userId]
         );
-        res.json(result.rows);
+        res.json({ success: true });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Database error" });
+        res.status(500).json({ error: "Failed to update status" });
     }
 });
 
