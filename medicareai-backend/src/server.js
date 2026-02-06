@@ -90,6 +90,17 @@ async function initDatabase() {
             event_type VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS verified_kmpdc (
+    registration_number VARCHAR(50) PRIMARY KEY,
+    doctor_name VARCHAR(255)
+);
+
+-- Insert your Test Number and some real ones for your list
+INSERT INTO verified_kmpdc (registration_number, doctor_name) 
+VALUES 
+('TEST-999-MD', 'Troubleshooting Account'),
+('A1234', 'Dr. Real Doctor'); -- Replace with actual data
     `;
     try {
         await pool.query(createTablesQuery);

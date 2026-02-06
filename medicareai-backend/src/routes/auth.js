@@ -73,6 +73,23 @@ router.post('/signup', async (req, res) => {
         await sendReply(process.env.WHATSAPP_PHONE_ID, phone, process.env.WHATSAPP_ACCESS_TOKEN, message);
         
         res.status(200).json({ success: true, message: "OTP sent to WhatsApp" });
+
+        // Inside your registration/signup route
+const { kmpdc_number, email, password, name } = req.body;
+
+// 1. Check if the KMPDC number is in our "Verified" whitelist
+const kmpdcCheck = await pool.query(
+    'SELECT * FROM verified_kmpdc WHERE registration_number = $1',
+    [kmpdc_number]
+);
+
+if (kmpdcCheck.rows.length === 0) {
+    return res.status(403).json({ 
+        error: "Invalid KMPDC Number. You must be a registered practitioner to create a profile." 
+    });
+}
+
+// 2. If valid, proceed with existing signup logic...
         
     } catch (err) {
         console.error("Signup Error:", err);
