@@ -83,44 +83,26 @@
 
     <script src="dashboard.js"></script>
     <script>
-        // Analytics visibility logic
-        async function loadAnalytics() {
-            try {
-                // First, check if user is a doctor (can be done via dashboard.js or a separate call)
-                const userRes = await fetch('https://medicareai-4av2.onrender.com/api/auth/me');
-                const user = await userRes.json();
+        // --- START OF DASHBOARD CHECK ---
+async function loadAnalytics() {
+    try {
+        const userRes = await fetch('https://medicareai-4av2.onrender.com/api/auth/me', {
+            credentials: 'include' // <--- CRITICAL: This sends the session cookie back to the server
+        });
+        
+        const user = await userRes.json();
 
-                if (user.role === 'doctor') {
-                    document.getElementById('analyticsSection').style.display = 'block';
-                    
-                    const response = await fetch('https://medicareai-4av2.onrender.com/api/analytics/weekly-leads');
-                    const data = await response.json();
-                    
-                    const list = document.getElementById('leadsList');
-                    const totalSpan = document.getElementById('totalLeads');
-                    
-                    if (!data || data.length === 0) {
-                        list.innerHTML = "<p style='color: #64748b;'>No leads yet this week. Your WhatsApp clicks will appear here.</p>";
-                        return;
-                    }
-
-                    let total = 0;
-                    list.innerHTML = data.map(item => {
-                        total += parseInt(item.lead_count);
-                        return `
-                            <div class="lead-row">
-                                <span style="color: #475569;">${item.day_of_week.trim()}</span>
-                                <strong style="color: #0f172a;">${item.lead_count} clicks</strong>
-                            </div>
-                        `;
-                    }).join('');
-                    
-                    totalSpan.innerText = total;
-                }
-            } catch (err) {
-                console.error("Dashboard error:", err);
-            }
+        if (!userRes.ok || user.error) {
+            // If not logged in, kick back to login page
+            window.location.href = '/login.html';
+            return;
         }
+
+        // Proceed if user is a doctor...
+        if (user.role === 'doctor') {
+            // ... (rest of your analytics logic)
+        }
+// --- END OF DASHBOARD CHECK ---
 
         loadAnalytics();
     </script>

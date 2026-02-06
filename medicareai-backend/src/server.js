@@ -44,10 +44,13 @@ app.use(session({
     secret: process.env.SESSION_SECRET || 'medicare_secret_key',
     resave: false,
     saveUninitialized: false,
+    proxy: true, // Crucial for Render
     cookie: {
-        secure: true,        // REQUIRED on Render
+        // Only set 'secure' to true if we are on Render (production)
+        secure: process.env.NODE_ENV === 'production', 
         httpOnly: true,
-        sameSite: 'none',    // REQUIRED for cross-origin
+        // 'Lax' is better for standard logins; 'None' requires 'Secure'
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000
     }
 }));

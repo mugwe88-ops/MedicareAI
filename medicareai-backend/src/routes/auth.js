@@ -102,64 +102,48 @@ router.post('/signup', async (req, res) => {
     }
 });
 
-// --- LOGIN ---
+// --- START OF LOGIN ROUTE ---
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email and password are required'
-            });
-        }
-
-        const result = await pool.query(
-            'SELECT id, password, is_verified FROM users WHERE LOWER(email) = LOWER($1)'
-            [email]
-        );
-
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        
         if (result.rows.length === 0) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid email or password'
-            });
+            return res.status(401).json({ error: "No user found with this email." });
         }
 
         const user = result.rows[0];
 
-        const passwordMatch = await bcrypt.compare(password, user.password);
-        if (!passwordMatch) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid email or password'
-            });
+        // Verify the hashed password
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) {
+            return res.status(401).json({ error: "Incorrect password." });
         }
 
-        if (!user.is_verified) {
-            return res.status(403).json({
-                success: false,
-                message: 'Account not verified'
-            });
-        }
-
-        // Create session
+        // SAVE SESSION DATA
         req.session.userId = user.id;
-        req.session.authenticated = true;
+        req.session.role = user.role;
 
-        res.json({
-            success: true,
-            message: 'Login successful'
+        // Force the session to save before responding
+        req.session.save((err) => {
+            if (err) {
+                console.error("Session Save Error:", err);
+                return res.status(500).json({ error: "Internal server error" });
+            }
+            res.status(200).json({ 
+                success: true, 
+                role: user.role, 
+                message: "Login successful" 
+            });
         });
 
     } catch (err) {
-        console.error('Login Error:', err);
-        res.status(500).json({
-            success: false,
-            message: 'Server error during login'
-        });
+        console.error("Login Error:", err);
+        res.status(500).json({ error: "Server error during login" });
     }
 });
+// --- END OF LOGIN ROUTE ---
 
 // POST /api/logout
 router.post('/logout', (req, res) => {
