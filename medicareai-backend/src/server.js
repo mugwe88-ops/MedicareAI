@@ -16,6 +16,54 @@ import cors from 'cors';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+const PostgresStore = pgSession(session);
+
+// --- 1. SELF-HEALING DB SETUP ---
+const initDb = async () => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS "session" (
+              "sid" varchar NOT NULL COLLATE "default" PRIMARY KEY,
+              "sess" json NOT NULL,
+              "expire" timestamp(6) NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+        `);
+        console.log("✅ Database Session Table Verified");
+    } catch (err) {
+        console.error("❌ Database Init Error:", err);
+    }
+};
+initDb();
+
+/ --- 2. CORS & MIDDLEWARE ---
+app.use(cors({
+    origin: 'https://medicareai-4av2.onrender.com', 
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json());
+
+// --- 3. SESSION CONFIG ---
+app.use(session({
+    store: new PostgresStore({ pool, tableName: 'session' }),
+    secret: 'your_strong_secret', 
+    resave: false,
+    saveUninitialized: false,
+    proxy: true, 
+    cookie: {
+        maxAge: 24 * 60 * 60 * 1000,
+        secure: true,
+        sameSite: 'none',
+        httpOnly: true
+    }
+}));
+
+// --- 4. ROUTES ---
+app.use('/api/auth', authRoutes);
+app.use('/api/directory', directoryRoutes);
+app.use('/api/appointments', appointmentRoutes);
 
 /* =========================
    REQUIRED FOR RENDER HTTPS
