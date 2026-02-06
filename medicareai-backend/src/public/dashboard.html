@@ -3,108 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | MedicareAI</title>
+    <title>Dashboard | Swift MD</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .analytics-card {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            margin-top: 25px;
-            border: 1px solid #e2e8f0;
-        }
-        .total-badge {
-            margin-top: 20px;
-            padding: 10px;
-            background: #f1f5f9;
-            border-radius: 8px;
-            text-align: right;
-            font-weight: bold;
-            color: #2563eb;
-        }
-        .lead-row {
-            display: flex; 
-            justify-content: space-between; 
-            padding: 12px 0; 
-            border-bottom: 1px solid #f1f5f9;
-        }
-    </style>
 </head>
-<script>
-  document.getElementById('logoutBtn').onclick = async () => {
-    try {
-      const res = await fetch('https://medicareai-4av2.onrender.com/api/logout', {
-        method: 'POST',
-        credentials: 'include' // 🔑 REQUIRED for sessions
-      });
+<body>
+    <div class="dashboard-container">
+        <header>
+            <h1>Swift MD Dashboard</h1>
+            <p>Welcome, <span id="welcome-name">Loading...</span></p>
+            <button onclick="logout()" style="padding: 8px 15px; background: #ef4444; color: white; border: none; border-radius: 5px; cursor: pointer;">Logout</button>
+        </header>
 
-      const result = await res.json();
+        <main style="margin-top: 20px;">
+            <section id="analyticsSection" style="display: none; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                <h3>Weekly WhatsApp Leads</h3>
+                <p>Total Clicks: <span id="totalLeads" style="font-weight: bold; color: #2563eb;">0</span></p>
+                <div id="leadsList" style="margin-top: 15px;">
+                    </div>
+            </section>
 
-      if (res.ok && result.success) {
-        window.location.href = '/login.html';
-      } else {
-        alert('Logout failed');
-      }
-    } catch (err) {
-      alert('Network error during logout');
-    }
-  };
-</script>
+            <section id="generalInfo" style="margin-top: 20px;">
+                <p>Access your medical tools and profile settings here.</p>
+            </section>
+        </main>
+    </div>
 
-<body style="background: #f1f5f9;">
-    <nav style="background: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-        <div style="font-weight: bold; color: #2563eb; font-size: 1.2rem;">MedicareAI</div>
-        <div id="userInfo">Loading user...</div>
-    </nav>
-
-    <main style="max-width: 1000px; margin: 2rem auto; padding: 0 1rem;">
-        <h1 id="welcomeText" style="color: #0f172a;">Welcome back!</h1>
-        
-        <div id="roleContent" class="auth-card" style="max-width: 100%; text-align: left; background: white; padding: 20px; border-radius: 8px;">
-            <p>Fetching your specific tools...</p>
-        </div>
-
-        <div class="analytics-card" id="analyticsSection" style="display: none;">
-            <h3 style="margin-top: 0; color: #1e293b;">WhatsApp Leads (This Week)</h3>
-            <div id="leadsList">
-                <p style="color: #64748b;">Loading analytics...</p>
-            </div>
-            <div class="total-badge">
-                Weekly Total: <span id="totalLeads">0</span>
-            </div>
-        </div>
-
-        <div style="display: flex; gap: 15px; align-items: center; margin-top: 30px;">
-            <a href="profile.html" style="text-decoration: none; color: #64748b; font-weight: 500;">Profile Settings</a>
-            <button id="logoutBtn" style="background: #ef4444; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">Logout</button>
-        </div>
-    </main>
-
-    <script src="dashboard.js"></script>
     <script>
-        // --- START OF DASHBOARD CHECK ---
-async function loadAnalytics() {
-    try {
-        const userRes = await fetch('https://medicareai-4av2.onrender.com/api/auth/me', {
-            credentials: 'include' // <--- CRITICAL: This sends the session cookie back to the server
-        });
-        
-        const user = await userRes.json();
+        async function loadDashboard() {
+            try {
+                // Verify session with the backend
+                const userRes = await fetch('https://medicareai-4av2.onrender.com/api/auth/me', {
+                    method: 'GET',
+                    credentials: 'include' // CRITICAL: Sends the session cookie
+                });
 
-        if (!userRes.ok || user.error) {
-            // If not logged in, kick back to login page
+                if (!userRes.ok) {
+                    console.warn("Unauthorized access. Redirecting to login...");
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                const user = await userRes.json();
+                document.getElementById('welcome-name').innerText = user.name || 'User';
+
+                // If the user is a doctor, show analytics
+                if (user.role === 'doctor') {
+                    document.getElementById('analyticsSection').style.display = 'block';
+                    loadAnalytics();
+                }
+            } catch (err) {
+                console.error("Dashboard error:", err);
+                window.location.href = '/login.html';
+            }
+        }
+
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('https://medicareai-4av2.onrender.com/api/analytics/weekly-leads', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                const list = document.getElementById('leadsList');
+                const totalSpan = document.getElementById('totalLeads');
+                
+                if (!data || data.length === 0) {
+                    list.innerHTML = "<p style='color: #64748b;'>No leads yet this week.</p>";
+                    return;
+                }
+
+                let total = 0;
+                list.innerHTML = data.map(item => {
+                    total += parseInt(item.lead_count);
+                    return `
+                        <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #f1f5f9;">
+                            <span>${item.day_of_week}</span>
+                            <strong>${item.lead_count} clicks</strong>
+                        </div>
+                    `;
+                }).join('');
+                
+                totalSpan.innerText = total;
+            } catch (err) {
+                console.error("Analytics error:", err);
+            }
+        }
+
+        async function logout() {
+            await fetch('https://medicareai-4av2.onrender.com/api/auth/logout', { credentials: 'include' });
             window.location.href = '/login.html';
-            return;
         }
 
-        // Proceed if user is a doctor...
-        if (user.role === 'doctor') {
-            // ... (rest of your analytics logic)
-        }
-// --- END OF DASHBOARD CHECK ---
-
-        loadAnalytics();
+        // Initialize dashboard on load
+        loadDashboard();
     </script>
 </body>
 </html>

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | Swift MD</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -9,29 +10,23 @@
     <div class="auth-container">
         <div class="auth-card">
             <h2>Welcome Back</h2>
-
-            <form id="loginForm">
-                <input
-                    type="email"
-                    id="email"
-                    placeholder="Email"
-                    required
-                >
-
-                <input
-                    type="password"
-                    id="password"
-                    placeholder="Password"
-                    required
-                >
-
-                <button type="submit">Login</button>
-                <button type="button" id="logoutBtn">Logout</button>
+            <p style="text-align: center; color: #666; margin-bottom: 20px;">Login to your Swift MD account</p>
+            
+            <form id="loginForm" style="display: flex; flex-direction: column; gap: 15px;">
+                <input type="email" id="email" placeholder="Email Address" required 
+                       style="padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                
+                <input type="password" id="password" placeholder="Password" required 
+                       style="padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                
+                <button type="submit" id="loginBtn" 
+                        style="padding: 14px; background-color: #2563eb; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                    Login
+                </button>
             </form>
-
-            <p class="link-text">
-                New to Swift MD?
-                <a href="signup.html">Join now</a>
+            
+            <p style="text-align: center; margin-top: 15px; font-size: 0.9rem;">
+                Don't have an account? <a href="signup.html" style="color: #2563eb; text-decoration: none;">Sign Up</a>
             </p>
         </div>
     </div>
@@ -39,31 +34,37 @@
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-
-            const email = document.getElementById('email').value.trim();
+            const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+
+            loginBtn.disabled = true;
+            loginBtn.innerText = "Logging in...";
 
             try {
-// --- START OF FETCH BLOCK ---
-const response = await fetch('https://medicareai-4av2.onrender.com/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-    credentials: 'include' // <--- CRITICAL: This allows the browser to save the session cookie
-});
+                // FIXED URL: Added /api/auth/ prefix
+                const response = await fetch('https://medicareai-4av2.onrender.com/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                    credentials: 'include' // CRITICAL: Allows browser to save session cookie
+                });
 
-const data = await response.json();
+                const data = await response.json();
 
-if (response.ok) {
-    // Optional: Save name/role for UI
-    localStorage.setItem('userName', data.name);
-    window.location.href = '/dashboard.html';
-} else {
-    alert(data.error || 'Login failed. Please check your credentials.');
-}
-// --- END OF FETCH BLOCK ---
+                if (response.ok) {
+                    console.log("Login successful!");
+                    window.location.href = '/dashboard.html';
+                } else {
+                    alert(data.error || "Login failed. Check your email and password.");
+                    loginBtn.disabled = false;
+                    loginBtn.innerText = "Login";
+                }
             } catch (err) {
-                alert('Network error. Please try again later.');
+                console.error("Login Error:", err);
+                alert("Connection error. Please try again.");
+                loginBtn.disabled = false;
+                loginBtn.innerText = "Login";
             }
         });
     </script>

@@ -5,7 +5,8 @@ import { pool } from '../db.js';
 const router = express.Router();
 
 /* =========================
-   1. SESSION CHECK
+   1. SESSION CHECK (/me)
+   Used by Dashboard to verify login
 ========================= */
 router.get('/me', async (req, res) => {
     if (!req.session?.userId) {
@@ -17,9 +18,14 @@ router.get('/me', async (req, res) => {
             'SELECT name, role FROM users WHERE id = $1',
             [req.session.userId]
         );
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
         res.json(rows[0]);
     } catch (err) {
-        console.error(err);
+        console.error("Session Check Error:", err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -31,12 +37,11 @@ router.post('/signup', async (req, res) => {
     const { name, email, password, role, phone, kmpdc_number } = req.body;
 
     try {
-        /* ---- A. Basic validation ---- */
         if (!name || !email || !password || !phone) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        /* ---- B. Doctor vetting ---- */
+        // Doctor vetting
         if (role === 'doctor') {
             if (!kmpdc_number) {
                 return res.status(400).json({ error: 'KMPDC number required' });
@@ -52,20 +57,10 @@ router.post('/signup', async (req, res) => {
             }
         }
 
-        /* ---- C. Hash password ---- */
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        /* ---- D. Upsert user (SAFE) ---- */
         const query = `
-            INSERT INTO users (
-                name,
-                email,
-                password,
-                role,
-                phone,
-                kmpdc_number,
-                is_verified
-            )
+            INSERT INTO users (name, email, password, role, phone, kmpdc_number, is_verified)
             VALUES ($1, $2, $3, $4, $5, $6, TRUE)
             ON CONFLICT (email) DO UPDATE SET
                 name = EXCLUDED.name,
@@ -73,7 +68,7 @@ router.post('/signup', async (req, res) => {
                 role = EXCLUDED.role,
                 kmpdc_number = EXCLUDED.kmpdc_number,
                 is_verified = TRUE
-            RETURNING id
+            RETURNING id, role, name
         `;
 
         const values = [
@@ -87,13 +82,17 @@ router.post('/signup', async (req, res) => {
 
         const { rows } = await pool.query(query, values);
 
-        /* ---- E. Create session ---- */
+        // Auto-login after signup
         req.session.userId = rows[0].id;
-        req.session.authenticated = true;
+        req.session.role = rows[0].role;
 
-        return res.status(201).json({
-            success: true,
-            message: 'Account created successfully'
+        req.session.save((err) => {
+            if (err) return res.status(500).json({ error: 'Session save failed' });
+            res.status(201).json({
+                success: true,
+                message: 'Account created successfully',
+                role: rows[0].role
+            });
         });
 
     } catch (err) {
@@ -102,60 +101,51 @@ router.post('/signup', async (req, res) => {
     }
 });
 
-// --- START OF LOGIN ROUTE ---
+/* =========================
+   3. LOGIN
+========================= */
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     try {
         const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-        
-        if (result.rows.length === 0) {
-            return res.status(401).json({ error: "No user found with this email." });
-        }
-
         const user = result.rows[0];
 
-        // Verify the hashed password
-        const match = await bcrypt.compare(password, user.password);
-        if (!match) {
-            return res.status(401).json({ error: "Incorrect password." });
-        }
+        if (user && await bcrypt.compare(password, user.password)) {
+            // Assign session data
+            req.session.userId = user.id;
+            req.session.role = user.role;
 
-        // SAVE SESSION DATA
-        req.session.userId = user.id;
-        req.session.role = user.role;
-
-        // Force the session to save before responding
-        req.session.save((err) => {
-            if (err) {
-                console.error("Session Save Error:", err);
-                return res.status(500).json({ error: "Internal server error" });
-            }
-            res.status(200).json({ 
-                success: true, 
-                role: user.role, 
-                message: "Login successful" 
+            // EXPLICITLY save the session before responding
+            req.session.save((err) => {
+                if (err) {
+                    console.error("Session Save Error:", err);
+                    return res.status(500).json({ error: "Could not create session" });
+                }
+                res.status(200).json({ 
+                    success: true, 
+                    role: user.role, 
+                    name: user.name 
+                });
             });
-        });
-
+        } else {
+            res.status(401).json({ error: "Invalid email or password" });
+        }
     } catch (err) {
         console.error("Login Error:", err);
-        res.status(500).json({ error: "Server error during login" });
+        res.status(500).json({ error: "Internal server error" });
     }
 });
-// --- END OF LOGIN ROUTE ---
 
-// POST /api/logout
+/* =========================
+   4. LOGOUT
+========================= */
 router.post('/logout', (req, res) => {
-  req.session.destroy(err => {
-    if (err) {
-      return res.status(500).json({ success: false, message: 'Logout failed' });
-    }
-
-    res.clearCookie('connect.sid'); // important for Render + browser
-    res.json({ success: true });
-  });
+    req.session.destroy(err => {
+        if (err) return res.status(500).json({ error: 'Could not log out' });
+        res.clearCookie('medicareai.sid');
+        res.json({ message: 'Logged out' });
+    });
 });
-
 
 export default router;
