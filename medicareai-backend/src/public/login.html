@@ -5,30 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | Swift MD</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        body { background: #f1f5f9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; }
+        .auth-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 14px; background: #2563eb; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        button:disabled { background: #94a3b8; }
+    </style>
 </head>
 <body>
-    <div class="auth-container">
-        <div class="auth-card">
-            <h2>Welcome Back</h2>
-            <p style="text-align: center; color: #666; margin-bottom: 20px;">Login to your Swift MD account</p>
-            
-            <form id="loginForm" style="display: flex; flex-direction: column; gap: 15px;">
-                <input type="email" id="email" placeholder="Email Address" required 
-                       style="padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px;">
-                
-                <input type="password" id="password" placeholder="Password" required 
-                       style="padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px;">
-                
-                <button type="submit" id="loginBtn" 
-                        style="padding: 14px; background-color: #2563eb; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                    Login
-                </button>
-            </form>
-            
-            <p style="text-align: center; margin-top: 15px; font-size: 0.9rem;">
-                Don't have an account? <a href="signup.html" style="color: #2563eb; text-decoration: none;">Sign Up</a>
-            </p>
-        </div>
+    <div class="auth-card">
+        <h2 style="text-align: center; margin-bottom: 10px;">Welcome Back</h2>
+        <p style="text-align: center; color: #64748b; margin-bottom: 20px;">Login to your Swift MD account</p>
+        
+        <form id="loginForm">
+            <input type="email" id="email" placeholder="Email Address" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit" id="loginBtn">Login</button>
+        </form>
+        
+        <p style="text-align: center; margin-top: 20px; font-size: 0.9rem; color: #64748b;">
+            New to Swift MD? <a href="signup.html" style="color: #2563eb; text-decoration: none; font-weight: bold;">Join now</a>
+        </p>
     </div>
 
     <script>
@@ -36,35 +34,31 @@
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const loginBtn = document.getElementById('loginBtn');
+            const btn = document.getElementById('loginBtn');
 
-            loginBtn.disabled = true;
-            loginBtn.innerText = "Logging in...";
+            btn.disabled = true;
+            btn.innerText = "Checking credentials...";
 
             try {
-                // FIXED URL: Added /api/auth/ prefix
                 const response = await fetch('https://medicareai-4av2.onrender.com/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password }),
-                    credentials: 'include' // CRITICAL: Allows browser to save session cookie
+                    credentials: 'include'
                 });
 
-                const data = await response.json();
-
                 if (response.ok) {
-                    console.log("Login successful!");
                     window.location.href = '/dashboard.html';
                 } else {
-                    alert(data.error || "Login failed. Check your email and password.");
-                    loginBtn.disabled = false;
-                    loginBtn.innerText = "Login";
+                    const data = await response.json();
+                    alert(data.error || "Login failed");
+                    btn.disabled = false;
+                    btn.innerText = "Login";
                 }
             } catch (err) {
-                console.error("Login Error:", err);
-                alert("Connection error. Please try again.");
-                loginBtn.disabled = false;
-                loginBtn.innerText = "Login";
+                alert("Connection error. Try again.");
+                btn.disabled = false;
+                btn.innerText = "Login";
             }
         });
     </script>

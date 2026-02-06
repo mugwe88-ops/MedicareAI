@@ -3,57 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | Swift MD</title>
+    <title>Swift MD Dashboard</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Basic styling for the new patient section */
+        .patient-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-top: 20px;
+            border-left: 5px solid #2563eb;
+        }
+        .booking-btn {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 12px 24px;
+            background-color: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .booking-btn:hover {
+            background-color: #1d4ed8;
+        }
+    </style>
 </head>
-<body>
-    <div class="dashboard-container">
-        <header>
-            <h1>Swift MD Dashboard</h1>
-            <p>Welcome, <span id="welcome-name">Loading...</span></p>
-            <button onclick="logout()" style="padding: 8px 15px; background: #ef4444; color: white; border: none; border-radius: 5px; cursor: pointer;">Logout</button>
-        </header>
+<body style="background: #f1f5f9; font-family: sans-serif; padding: 20px;">
 
-        <main style="margin-top: 20px;">
-            <section id="analyticsSection" style="display: none; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                <h3>Weekly WhatsApp Leads</h3>
-                <p>Total Clicks: <span id="totalLeads" style="font-weight: bold; color: #2563eb;">0</span></p>
-                <div id="leadsList" style="margin-top: 15px;">
-                    </div>
-            </section>
+    <h1>Swift MD Dashboard</h1>
+    <p>Welcome, <span id="welcome-name" style="font-weight: bold;">Loading user...</span></p>
+    
+    <button onclick="logout()" style="padding: 8px 15px; background: #ef4444; color: white; border: none; border-radius: 5px; cursor: pointer;">Logout</button>
 
-            <section id="generalInfo" style="margin-top: 20px;">
-                <p>Access your medical tools and profile settings here.</p>
-            </section>
-        </main>
+    <div id="patientSection" style="display: none;" class="patient-card">
+        <h2 style="margin-top: 0;">Need Medical Assistance?</h2>
+        <p>You can browse our directory of verified healthcare professionals and book an appointment instantly via WhatsApp.</p>
+        <a href="directory.html" class="booking-btn">Book an Appointment Now</a>
     </div>
+
+    <section id="analyticsSection" style="display: none; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px;">
+        <h3>Weekly WhatsApp Leads</h3>
+        <p>Total Clicks: <span id="totalLeads" style="font-weight: bold; color: #2563eb;">0</span></p>
+        <div id="leadsList" style="margin-top: 15px;">
+            </div>
+    </section>
+
+    <p style="margin-top: 20px; color: #64748b;">Access your medical tools and profile settings here.</p>
 
     <script>
         async function loadDashboard() {
             try {
-                // Verify session with the backend
+                // Verify the user's session
                 const userRes = await fetch('https://medicareai-4av2.onrender.com/api/auth/me', {
-                    method: 'GET',
-                    credentials: 'include' // CRITICAL: Sends the session cookie
+                    credentials: 'include' // Sends the session cookie
                 });
 
                 if (!userRes.ok) {
-                    console.warn("Unauthorized access. Redirecting to login...");
+                    console.warn("Not authenticated, redirecting...");
                     window.location.href = '/login.html';
                     return;
                 }
 
                 const user = await userRes.json();
-                document.getElementById('welcome-name').innerText = user.name || 'User';
+                document.getElementById('welcome-name').innerText = user.name;
 
-                // If the user is a doctor, show analytics
+                // ROLE-BASED VISIBILITY LOGIC
                 if (user.role === 'doctor') {
+                    // Show doctor analytics
                     document.getElementById('analyticsSection').style.display = 'block';
                     loadAnalytics();
+                } else if (user.role === 'patient') {
+                    // Show patient booking link
+                    document.getElementById('patientSection').style.display = 'block';
                 }
+
             } catch (err) {
                 console.error("Dashboard error:", err);
-                window.location.href = '/login.html';
             }
         }
 
@@ -68,7 +96,7 @@
                 const totalSpan = document.getElementById('totalLeads');
                 
                 if (!data || data.length === 0) {
-                    list.innerHTML = "<p style='color: #64748b;'>No leads yet this week.</p>";
+                    list.innerHTML = "<p>No leads yet this week.</p>";
                     return;
                 }
 
@@ -77,7 +105,7 @@
                     total += parseInt(item.lead_count);
                     return `
                         <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #f1f5f9;">
-                            <span>${item.day_of_week}</span>
+                            <span>${item.day_of_week.trim()}</span>
                             <strong>${item.lead_count} clicks</strong>
                         </div>
                     `;
@@ -90,11 +118,11 @@
         }
 
         async function logout() {
-            await fetch('https://medicareai-4av2.onrender.com/api/auth/logout', { credentials: 'include' });
+            // Add a proper logout call to your backend if available
             window.location.href = '/login.html';
         }
 
-        // Initialize dashboard on load
+        // Run the initialization on page load
         loadDashboard();
     </script>
 </body>
