@@ -12,7 +12,6 @@ import appointmentRoutes from './routes/appointments.js';
 import directoryRoutes from './routes/directory.js';
 import paymentRoutes from './routes/payments.routes.js';
 import bookingRoutes from './routes/bookings.routes.js';
-import cron from 'node-cron';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
