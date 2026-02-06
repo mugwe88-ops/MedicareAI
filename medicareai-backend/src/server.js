@@ -12,6 +12,7 @@ import appointmentRoutes from './routes/appointments.js';
 import directoryRoutes from './routes/directory.js';
 import paymentRoutes from './routes/payments.routes.js';
 import bookingRoutes from './routes/bookings.routes.js';
+import cron from 'node-cron';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -20,6 +21,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/api/directory', directoryRouter);
 
 app.use(session({
     secret: process.env.SESSION_SECRET || 'medicare_secret_key',
@@ -195,6 +197,26 @@ app.get('/:page', (req, res) => {
             res.sendFile(path.join(__dirname, 'public', 'index.html'));
         }
     });
+});
+
+import cron from 'node-cron';
+
+// Schedule: Every Sunday at 8:00 PM
+cron.schedule('0 20 * * 0', async () => {
+    // 1. Fetch all doctors
+    const doctors = await pool.query('SELECT id, name, phone FROM users WHERE role = $1', ['doctor']);
+
+    for (const doctor of doctors.rows) {
+        // 2. Get their lead count for the past 7 days
+        const stats = await pool.query(
+            'SELECT COUNT(*) FROM leads WHERE doctor_id = $1 AND clicked_at > NOW() - INTERVAL \'7 days\'', 
+            [doctor.id]
+        );
+
+        // 3. Send WhatsApp message via Meta API
+        const message = `Hello Dr. ${doctor.name}, you received ${stats.rows[0].count} new leads on Swift MD this week! 🚀`;
+        await sendReply(process.env.WHATSAPP_PHONE_ID, doctor.phone, process.env.WHATSAPP_ACCESS_TOKEN, message);
+    }
 });
 
 // Remove the res.send('<h1>Server is running!</h1>...') line and replace with:

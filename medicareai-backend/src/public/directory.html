@@ -1,0 +1,12 @@
+async function messageDoctor(doctorId, phone, name) {
+    // 1. Log the lead in our DB
+    await fetch('/api/directory/track-click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doctorId })
+    });
+
+    // 2. Open WhatsApp with a pre-filled message
+    const message = encodeURIComponent(`Hello Dr. ${name}, I found you on Swift MD and would like to consult.`);
+    window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+}

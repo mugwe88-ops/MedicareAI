@@ -2,58 +2,125 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Verify Your Account | MedicareAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Account | Swift MD</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="auth-container">
         <div class="auth-card">
-            <h2>Verify Your Code</h2>
-            <p style="text-align: center; font-size: 0.9rem; color: #666;">
-                Please enter the 6-digit verification code sent to you.
+            <h2 style="text-align: center; color: #0f172a;">Verify Your Code</h2>
+            <p style="text-align: center; font-size: 0.9rem; color: #666; margin-bottom: 20px;">
+                Please enter the 6-digit verification code sent to your WhatsApp.
             </p>
-            <form id="otpForm">
-                <input type="text" id="otpInput" placeholder="Enter 6-digit code" 
+            
+            <form id="otpForm" style="display: flex; flex-direction: column; gap: 15px;">
+                <input type="text" id="otpInput" placeholder="000000" 
                        maxlength="6" required 
-                       style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
-                <button type="submit">Verify Account</button>
+                       style="text-align: center; font-size: 1.5rem; letter-spacing: 5px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                
+                <button type="submit" id="verifyBtn" style="width: 100%; border: none; cursor: pointer; padding: 14px; background-color: #2563eb; color: white; border-radius: 8px; font-weight: bold;">
+                    Verify Account
+                </button>
             </form>
-            <p class="link-text"><a href="#" id="resendBtn">Resend Code</a></p>
-        <div style="margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-    <p style="font-size: 0.8rem; color: #64748b;">Having trouble?</p>
-    <a href="https://wa.me/YOUR_PHONE_NUMBER?text=Hi%20Swift%20MD%20Support,%20I'm%20having%20trouble%20receiving%20my%20OTP." 
-       target="_blank" 
-       style="color: #3b82f6; font-size: 0.9rem; text-decoration: none; font-weight: bold;">
-       💬 Chat with Support
-    </a>
-</div>
-    <script>
-        document.getElementById('resendBtn').onclick = async (e) => {
-    e.preventDefault();
-    const resendBtn = e.target;
-    resendBtn.innerText = "Sending...";
-    resendBtn.style.pointerEvents = "none";
+            
+            <p class="link-text" style="text-align: center; margin-top: 15px;">
+                <a href="#" id="resendBtn" style="color: #2563eb; text-decoration: none; font-size: 0.9rem;">Resend Code</a>
+            </p>
 
-    try {
-        const response = await fetch('/api/resend-otp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            <div style="margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 15px; text-align: center;">
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Having trouble?</p>
+                <a href="https://wa.me/YOUR_PHONE_NUMBER?text=Hi%20Swift%20MD%20Support,%20I'm%20having%20trouble%20receiving%20my%20OTP." 
+                   target="_blank" 
+                   style="color: #3b82f6; font-size: 0.9rem; text-decoration: none; font-weight: bold;">
+                    💬 Chat with Support
+                </a>
+            </div>
+        </div> </div>
+
+    <script>
+        // Handle OTP Verification
+        document.getElementById('otpForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const verifyBtn = document.getElementById('verifyBtn');
+            const otp = document.getElementById('otpInput').value;
+            
+            // Retrieve the data we saved during the signup step
+            const pendingUserData = JSON.parse(localStorage.getItem('pendingUser'));
+
+            if (!pendingUserData) {
+                alert("No registration data found. Please sign up again.");
+                window.location.href = 'signup.html';
+                return;
+            }
+
+            verifyBtn.disabled = true;
+            verifyBtn.innerText = "Verifying...";
+
+            try {
+                const response = await fetch('/api/auth/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...pendingUserData,
+                        otp: otp
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert("Account verified successfully!");
+                    localStorage.removeItem('pendingUser'); // Clean up
+                    window.location.href = '/dashboard.html';
+                } else {
+                    alert("Verification failed: " + (result.error || "Invalid code."));
+                    verifyBtn.disabled = false;
+                    verifyBtn.innerText = "Verify Account";
+                }
+            } catch (err) {
+                alert("Connection error. Please try again.");
+                verifyBtn.disabled = false;
+                verifyBtn.innerText = "Verify Account";
+            }
         });
 
-        const result = await response.json();
-        alert(result.message);
-        
-        // Simple cooldown timer (30 seconds)
-        setTimeout(() => {
-            resendBtn.innerText = "Resend Code";
-            resendBtn.style.pointerEvents = "auto";
-        }, 30000);
-    } catch (err) {
-        alert("Error resending code. Please try again.");
-        resendBtn.innerText = "Resend Code";
-        resendBtn.style.pointerEvents = "auto";
-    }
-};
+        // Handle Resend Logic
+        document.getElementById('resendBtn').onclick = async (e) => {
+            e.preventDefault();
+            const resendBtn = e.target;
+            const pendingUserData = JSON.parse(localStorage.getItem('pendingUser'));
+
+            if (!pendingUserData) {
+                alert("Session expired. Please sign up again.");
+                window.location.href = 'signup.html';
+                return;
+            }
+
+            resendBtn.innerText = "Sending...";
+            resendBtn.style.pointerEvents = "none";
+
+            try {
+                const response = await fetch('/api/auth/send-otp', { // Re-using your send-otp endpoint
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pendingUserData)
+                });
+
+                const result = await response.json();
+                alert("A new code has been sent to your WhatsApp.");
+                
+                // 30-second cooldown
+                setTimeout(() => {
+                    resendBtn.innerText = "Resend Code";
+                    resendBtn.style.pointerEvents = "auto";
+                }, 30000);
+            } catch (err) {
+                alert("Error resending code. Please try again.");
+                resendBtn.innerText = "Resend Code";
+                resendBtn.style.pointerEvents = "auto";
+            }
+        };
     </script>
 </body>
 </html>

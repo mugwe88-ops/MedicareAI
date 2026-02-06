@@ -35,4 +35,28 @@ router.get('/track-click/:doctorId', async (req, res) => {
     }
 });
 
+// GET /api/analytics/weekly-leads
+router.get('/weekly-leads', async (req, res) => {
+    const doctorId = req.session.userId; // Ensure the user is a logged-in doctor
+
+    const query = `
+        SELECT 
+            TO_CHAR(clicked_at, 'Day') AS day_of_week,
+            COUNT(*) AS lead_count
+        FROM leads
+        WHERE doctor_id = $1 
+          AND clicked_at >= DATE_TRUNC('week', CURRENT_DATE)
+        GROUP BY day_of_week, DATE_TRUNC('day', clicked_at)
+        ORDER BY DATE_TRUNC('day', clicked_at);
+    `;
+
+    try {
+        const result = await pool.query(query, [doctorId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+});
+
 export default router;

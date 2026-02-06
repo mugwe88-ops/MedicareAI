@@ -48,8 +48,8 @@
 
                 <input type="text" id="phone" placeholder="WhatsApp (e.g., 254...)" required>
                 
-                <button type="submit" class="btn-primary" style="width: 100%; border: none; cursor: pointer; padding: 14px; margin-top: 10px; background-color: #2563eb; color: white; border-radius: 8px; font-weight: bold;">
-                    Get Started
+                <button type="submit" id="submitBtn" class="btn-primary" style="width: 100%; border: none; cursor: pointer; padding: 14px; margin-top: 10px; background-color: #2563eb; color: white; border-radius: 8px; font-weight: bold;">
+                    Send Verification Code
                 </button>
             </form>
 
@@ -79,6 +79,10 @@
         document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Sending...';
+
             const role = document.querySelector('input[name="role"]:checked').value;
             const formData = {
                 name: document.getElementById('name').value,
@@ -90,7 +94,8 @@
             };
 
             try {
-                const response = await fetch('/api/auth/signup', {
+                // Changed endpoint to /api/auth/send-otp to trigger verification flow
+                const response = await fetch('/api/auth/send-otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
@@ -99,14 +104,19 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    alert('Registration successful! Redirecting to login...');
-                    window.location.href = '/login.html';
+                    // Store formData temporarily so verify-otp.html can access phone/email
+                    localStorage.setItem('pendingUser', JSON.stringify(formData));
+                    window.location.href = '/verify-otp.html';
                 } else {
-                    alert('Signup failed: ' + (data.error || 'Please try again.'));
+                    alert('Verification failed: ' + (data.error || 'Please try again.'));
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Send Verification Code';
                 }
             } catch (err) {
                 console.error('Error:', err);
                 alert('Connection error. Is the server running?');
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Send Verification Code';
             }
         });
     </script>

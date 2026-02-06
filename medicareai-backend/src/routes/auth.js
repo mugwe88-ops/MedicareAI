@@ -5,7 +5,7 @@ import { sendReply } from '../server.js';
 
 const router = express.Router();
 
-// 1. Get current session user (for dashboard/header display)
+// 1. Get current session user
 router.get('/me', async (req, res) => {
     if (!req.session || !req.session.userId) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -34,21 +34,20 @@ router.get('/profile', async (req, res) => {
     }
 });
 
-// 3. SIGNUP - Handles Patients & Doctors with KMPDC logic
+// 3. SIGNUP - Corrected to match your frontend's call to /api/auth/signup
+// NOTE: Your signup.html was originally hitting /signup, but your route is in auth.js
 router.post('/signup', async (req, res) => {
     const { name, email, password, role, phone, kmpdc_number } = req.body;
     
-    // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
     const expiry = new Date(Date.now() + 10 * 60000); // 10 minute expiry
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // SQL query uses 8 placeholders to match your table columns
         const query = `
-            INSERT INTO users (name, email, password, role, phone, email_otp, otp_expiry, kmpdc_number) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO users (name, email, password, role, phone, email_otp, otp_expiry, kmpdc_number, is_verified) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE)
             RETURNING id
         `;
         
@@ -65,34 +64,45 @@ router.post('/signup', async (req, res) => {
 
         const result = await pool.query(query, values);
         
-        // Store user ID in session temporarily for the OTP verification step
+        // Store user ID in session for the verification step
         req.session.userId = result.rows[0].id;
 
-        // Send WhatsApp OTP
+        // Send WhatsApp OTP using your server.js utility
         const message = `*Swift MD Verification* 🏥\n\nHello ${name}! Your verification code is: *${otp}*\n\nThis code expires in 10 minutes.`;
         
         await sendReply(process.env.WHATSAPP_PHONE_ID, phone, process.env.WHATSAPP_ACCESS_TOKEN, message);
         
-        // Return JSON so the frontend fetch knows to redirect to verify-otp.html
         res.status(200).json({ success: true, message: "OTP sent to WhatsApp" });
         
     } catch (err) {
         console.error("Signup Error:", err);
-        res.status(500).json({ error: "Signup failed. Ensure kmpdc_number column exists in your database." });
+        res.status(500).json({ error: "Signup failed. Check if phone/email is already registered." });
     }
 });
 
-// 4. VERIFY OTP - Finalizes registration and logs user in
+// 4. VERIFY OTP - Finalizes registration
+// Updated to ensure it looks for the user currently in the session
 router.post('/verify-otp', async (req, res) => {
     const { otp } = req.body;
+    const userId = req.session.userId;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, message: "Session expired. Please sign up again." });
+    }
+
     try {
         const result = await pool.query(
-            'SELECT id, otp_expiry, role FROM users WHERE email_otp = $1 AND is_verified = FALSE', 
-            [otp]
+            'SELECT id, email_otp, otp_expiry, role FROM users WHERE id = $1 AND is_verified = FALSE', 
+            [userId]
         );
 
         if (result.rows.length > 0) {
             const user = result.rows[0];
+
+            // Verify OTP match and Expiry
+            if (user.email_otp !== otp) {
+                 return res.status(400).json({ success: false, message: "Invalid verification code." });
+            }
 
             if (new Date() > new Date(user.otp_expiry)) {
                 return res.status(400).json({ success: false, message: "OTP has expired." });
@@ -105,19 +115,20 @@ router.post('/verify-otp', async (req, res) => {
             );
 
             // Establish full session
-            req.session.userId = user.id;
+            req.session.authenticated = true;
             req.session.role = user.role;
 
             res.json({ success: true });
         } else {
-            res.status(400).json({ success: false, message: "Invalid verification code." });
+            res.status(400).json({ success: false, message: "User already verified or not found." });
         }
     } catch (err) {
+        console.error("Verification Error:", err);
         res.status(500).json({ error: "Server error during verification" });
     }
 });
 
-// 5. RESEND OTP
+// 5. RESEND OTP - Corrected endpoint to /resend-otp as per your verify-otp.html fetch
 router.post('/resend-otp', async (req, res) => {
     const userId = req.session.userId; 
     if (!userId) {

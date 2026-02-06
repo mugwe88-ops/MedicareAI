@@ -24,5 +24,49 @@
     </main>
 
     <script src="dashboard.js"></script>
+
+<div class="analytics-card">
+    <h3>WhatsApp Leads (This Week)</h3>
+    <div id="leadsList">
+        <p>Loading analytics...</p>
+    </div>
+    <div class="total-badge">
+        Total: <span id="totalLeads">0</span>
+    </div>
+</div>
+
+<script>
+async function loadAnalytics() {
+    try {
+        const response = await fetch('/api/analytics/weekly-leads');
+        const data = await response.json();
+        
+        const list = document.getElementById('leadsList');
+        const totalSpan = document.getElementById('totalLeads');
+        
+        if (data.length === 0) {
+            list.innerHTML = "<p>No leads yet this week. Keep your profile updated!</p>";
+            return;
+        }
+
+        let total = 0;
+        list.innerHTML = data.map(item => {
+            total += parseInt(item.lead_count);
+            return `
+                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
+                    <span>${item.day_of_week.trim()}</span>
+                    <strong>${item.lead_count} clicks</strong>
+                </div>
+            `;
+        }).join('');
+        
+        totalSpan.innerText = total;
+    } catch (err) {
+        console.error("Dashboard error:", err);
+    }
+}
+
+loadAnalytics();
+</script>
 </body>
 </html>
