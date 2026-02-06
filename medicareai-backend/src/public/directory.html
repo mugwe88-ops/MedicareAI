@@ -1,6 +1,6 @@
 async function messageDoctor(doctorId, phone, name) {
     // 1. Log the lead in our DB
-    await fetch('/api/directory/track-click', {
+    await fetch('https://medicareai-4av2.onrender.com/api/directory/track-click', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ doctorId })

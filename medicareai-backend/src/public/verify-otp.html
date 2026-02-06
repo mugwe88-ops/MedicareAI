@@ -58,7 +58,7 @@
             verifyBtn.innerText = "Verifying...";
 
             try {
-                const response = await fetch('/api/auth/verify-otp', {
+                const response = await fetch('https://medicareai-4av2.onrender.com/api/auth/verify-otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -101,7 +101,7 @@
             resendBtn.style.pointerEvents = "none";
 
             try {
-                const response = await fetch('/api/auth/send-otp', { // Re-using your send-otp endpoint
+                const response = await fetch('https://medicareai-4av2.onrender.com/api/auth/send-otp', { // Re-using your send-otp endpoint
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(pendingUserData)

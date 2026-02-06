@@ -1,6 +1,6 @@
 async function loadDashboard() {
     try {
-        const response = await fetch('/api/me');
+        const response = await fetch('https://medicareai-4av2.onrender.com/api/me');
         if (!response.ok) {
             window.location.href = '/login.html'; // Kick out if not logged in
             return;
@@ -32,7 +32,7 @@ async function loadDashboard() {
 
 // Add this inside your loadDashboard() function after user info is set
 async function fetchAppointments() {
-    const response = await fetch('/api/appointments/my-appointments');
+    const response = await fetch('https://medicareai-4av2.onrender.com/api/appointments/my-appointments');
     const appointments = await response.json();
     
     const content = document.getElementById('roleContent');
@@ -74,7 +74,7 @@ async function fetchAppointments() {
 fetchAppointments();
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-    const response = await fetch('/api/logout', { method: 'POST' });
+    const response = await fetch('https://medicareai-4av2.onrender.com/api/logout', { method: 'POST' });
     if (response.ok) {
         // Redirect to landing page after session is destroyed
         window.location.href = '/index.html';

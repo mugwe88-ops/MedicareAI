@@ -42,7 +42,7 @@
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
 
-            const response = await fetch('/api/appointments/book', {
+            const response = await fetch('https://medicareai-4av2.onrender.com/api/appointments/book', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)

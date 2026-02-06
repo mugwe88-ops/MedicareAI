@@ -12,6 +12,7 @@ import appointmentRoutes from './routes/appointments.js';
 import directoryRoutes from './routes/directory.js';
 import paymentRoutes from './routes/payments.routes.js';
 import bookingRoutes from './routes/bookings.routes.js';
+import cors from 'cors';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -20,7 +21,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-
+app.use(cors({ origin: '*' }));
 app.use(session({
     secret: process.env.SESSION_SECRET || 'medicare_secret_key',
     resave: false,

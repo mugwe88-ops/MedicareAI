@@ -35,7 +35,7 @@
 
     <script>
         async function loadProfile() {
-            const res = await fetch('/api/profile');
+            const res = await fetch('https://medicareai-4av2.onrender.com/api/profile');
             const user = await res.json();
             document.getElementById('profName').value = user.name;
             document.getElementById('profEmail').value = user.email;
@@ -47,7 +47,7 @@
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
 
-            const response = await fetch('/api/profile/update', {
+            const response = await fetch('https://medicareai-4av2.onrender.com/api/profile/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
