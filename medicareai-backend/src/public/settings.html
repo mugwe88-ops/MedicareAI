@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Settings | Swift MD</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { background: #f8fafc; font-family: sans-serif; padding: 20px; }
+        .card { max-width: 500px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input, select { width: 100%; padding: 12px; margin: 10px 0 20px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; }
+        .save-btn { width: 100%; padding: 14px; background: #2563eb; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .back-link { display: block; text-align: center; margin-top: 20px; color: #64748b; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Profile Settings</h2>
+        <form id="settingsForm">
+            <label>Full Name</label>
+            <input type="text" id="name" required>
+
+            <label>WhatsApp Phone Number (with country code)</label>
+            <input type="text" id="phone" placeholder="e.g. 254..." required>
+
+            <div id="doctorOnly" style="display: none;">
+                <label>Specialty</label>
+                <input type="text" id="specialty" placeholder="e.g. Cardiologist">
+            </div>
+
+            <button type="submit" class="save-btn">Save Changes</button>
+        </form>
+        <a href="dashboard.html" class="back-link">← Back to Dashboard</a>
+    </div>
+
+    <script>
+        async function loadProfile() {
+            const res = await fetch('https://medicareai-4av2.onrender.com/api/auth/me', { credentials: 'include' });
+            if (!res.ok) window.location.href = '/login.html';
+            
+            const user = await res.json();
+            document.getElementById('name').value = user.name || '';
+            document.getElementById('phone').value = user.phone || '';
+            
+            if (user.role === 'doctor') {
+                document.getElementById('doctorOnly').style.display = 'block';
+                document.getElementById('specialty').value = user.specialty || '';
+            }
+        }
+
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                specialty: document.getElementById('specialty').value
+            };
+
+            const res = await fetch('https://medicareai-4av2.onrender.com/api/auth/update-profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                credentials: 'include'
+            });
+
+            if (res.ok) {
+                alert("Profile updated successfully!");
+            } else {
+                alert("Failed to update profile.");
+            }
+        });
+
+        loadProfile();
+    </script>
+</body>
+</html>

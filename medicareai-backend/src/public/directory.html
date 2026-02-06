@@ -1,12 +1,83 @@
-async function messageDoctor(doctorId, phone, name) {
-    // 1. Log the lead in our DB
-    await fetch('https://medicareai-4av2.onrender.com/api/directory/track-click', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doctorId })
-    });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Directory | Swift MD</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { background: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .back-btn { text-decoration: none; color: #2563eb; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+        
+        .doctor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .doctor-card { 
+            background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; 
+            text-align: center; transition: transform 0.2s; 
+        }
+        .doctor-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .avatar { width: 70px; height: 70px; background: #eff6ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 1.8rem; }
+        
+        .specialty { color: #64748b; font-size: 0.9rem; margin-bottom: 15px; }
+        .book-btn { 
+            display: block; width: 100%; padding: 12px; background: #2563eb; color: white; 
+            text-decoration: none; border-radius: 8px; font-weight: 600; 
+        }
+        .book-btn:hover { background: #1d4ed8; }
+        
+        #loading { text-align: center; color: #64748b; padding: 40px; }
+    </style>
+</head>
+<body>
 
-    // 2. Open WhatsApp with a pre-filled message
-    const message = encodeURIComponent(`Hello Dr. ${name}, I found you on Swift MD and would like to consult.`);
-    window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
-}
+    <div class="container">
+        <div class="header">
+            <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
+            <h1 style="margin: 0; font-size: 1.5rem;">Verified Consultants</h1>
+        </div>
+
+        <div id="loading">Loading our specialists...</div>
+        <div id="doctorGrid" class="doctor-grid"></div>
+    </div>
+
+    <script>
+        async function fetchDoctors() {
+            try {
+                const response = await fetch('https://medicareai-4av2.onrender.com/api/directory/doctors');
+                const doctors = await response.json();
+                
+                const grid = document.getElementById('doctorGrid');
+                const loading = document.getElementById('loading');
+                
+                loading.style.display = 'none';
+
+                if (!doctors || doctors.length === 0) {
+                    grid.innerHTML = "<p style='grid-column: 1/-1; text-align: center;'>No doctors available at the moment.</p>";
+                    return;
+                }
+
+                grid.innerHTML = doctors.map(doc => `
+                    <div class="doctor-card">
+                        <div class="avatar">👨‍⚕️</div>
+                        <h3 style="margin: 0 0 5px;">Dr. ${doc.name}</h3>
+                        <div class="specialty">${doc.specialty || 'General Practitioner'}</div>
+                        <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 20px;">KMPDC: ${doc.kmpdc_number || 'Verified'}</p>
+                        <a href="https://wa.me/${doc.phone}?text=Hello Dr. ${doc.name}, I found your profile on Swift MD and would like to book an appointment." 
+                           target="_blank" 
+                           class="book-btn">
+                           Book via WhatsApp
+                        </a>
+                    </div>
+                `).join('');
+
+            } catch (err) {
+                console.error("Directory Error:", err);
+                document.getElementById('loading').innerText = "Failed to load directory. Please try again later.";
+            }
+        }
+
+        fetchDoctors();
+    </script>
+</body>
+</html>
