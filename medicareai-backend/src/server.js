@@ -198,6 +198,19 @@ app.get('/:page', (req, res) => {
     });
 });
 
+// ---- ROUTES ----
+// This connects the 'authRoutes' to the /api/auth path
+app.use('/api/auth', authRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/directory', directoryRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/bookings', bookingRoutes);
+
+// ---- ERROR HANDLING ----
+// This prevents the HTML error by sending JSON for 404s
+app.use((req, res) => {
+    res.status(404).json({ error: "Route not found on server" });
+});
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Swift MD is live on port ${PORT}`);
