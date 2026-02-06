@@ -149,4 +149,49 @@ router.post('/logout', (req, res) => {
     });
 });
 
+// --- ADD THIS TO src/routes/auth.js ---
+
+// This handles the 'Send Verification Code' button on your signup page
+router.post('/send-otp', async (req, res) => {
+    const { phone, email, name, role, kmpdc_number } = req.body;
+
+    try {
+        // 1. DOCTOR VETTING (If applicable)
+        if (role === 'doctor') {
+            const kmpdcCheck = await pool.query(
+                'SELECT * FROM verified_kmpdc WHERE registration_number = $1',
+                [kmpdc_number]
+            );
+            if (kmpdcCheck.rows.length === 0) {
+                return res.status(403).json({ error: "Invalid KMPDC Number." });
+            }
+        }
+
+        // 2. GENERATE OTP
+        const otp = Math.floor(100000 + Math.random() * 900000);
+        const expiry = new Date(Date.now() + 10 * 60000);
+
+        // 3. STORE TEMPORARY USER OR UPDATE OTP
+        // Note: You can store this in a 'temp_users' table or insert into 'users' as unverified
+        const result = await pool.query(
+            `INSERT INTO users (name, email, phone, role, email_otp, otp_expiry, kmpdc_number, is_verified) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE) 
+             ON CONFLICT (email) DO UPDATE SET email_otp = $5, otp_expiry = $6 
+             RETURNING id`,
+            [name, email, phone, role, otp, expiry, kmpdc_number]
+        );
+
+        req.session.userId = result.rows[0].id;
+
+        // 4. SEND WHATSAPP
+        const message = `*Swift MD Code*: ${otp}`;
+        await sendReply(process.env.WHATSAPP_PHONE_ID, phone, process.env.WHATSAPP_ACCESS_TOKEN, message);
+
+        res.json({ success: true, message: "Code sent!" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to send code. Is the email/phone already taken?" });
+    }
+});
+
 export default router;
