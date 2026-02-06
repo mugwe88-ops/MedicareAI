@@ -31,6 +31,27 @@
         }
     </style>
 </head>
+<script>
+  document.getElementById('logoutBtn').onclick = async () => {
+    try {
+      const res = await fetch('https://medicareai-4av2.onrender.com/api/logout', {
+        method: 'POST',
+        credentials: 'include' // 🔑 REQUIRED for sessions
+      });
+
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        window.location.href = '/login.html';
+      } else {
+        alert('Logout failed');
+      }
+    } catch (err) {
+      alert('Network error during logout');
+    }
+  };
+</script>
+
 <body style="background: #f1f5f9;">
     <nav style="background: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
         <div style="font-weight: bold; color: #2563eb; font-size: 1.2rem;">MedicareAI</div>

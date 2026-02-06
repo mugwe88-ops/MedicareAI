@@ -161,5 +161,17 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// POST /api/logout
+router.post('/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      return res.status(500).json({ success: false, message: 'Logout failed' });
+    }
+
+    res.clearCookie('connect.sid'); // important for Render + browser
+    res.json({ success: true });
+  });
+});
+
 
 export default router;
