@@ -102,4 +102,64 @@ router.post('/signup', async (req, res) => {
     }
 });
 
+// --- LOGIN ---
+router.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        }
+
+        const result = await pool.query(
+            'SELECT id, password, is_verified FROM users WHERE email = $1',
+            [email]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
+
+        const user = result.rows[0];
+
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if (!passwordMatch) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
+
+        if (!user.is_verified) {
+            return res.status(403).json({
+                success: false,
+                message: 'Account not verified'
+            });
+        }
+
+        // Create session
+        req.session.userId = user.id;
+        req.session.authenticated = true;
+
+        res.json({
+            success: true,
+            message: 'Login successful'
+        });
+
+    } catch (err) {
+        console.error('Login Error:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Server error during login'
+        });
+    }
+});
+
+
 export default router;
