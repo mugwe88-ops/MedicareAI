@@ -2,71 +2,106 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | MedicareAI</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .analytics-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            margin-top: 25px;
+            border: 1px solid #e2e8f0;
+        }
+        .total-badge {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            text-align: right;
+            font-weight: bold;
+            color: #2563eb;
+        }
+        .lead-row {
+            display: flex; 
+            justify-content: space-between; 
+            padding: 12px 0; 
+            border-bottom: 1px solid #f1f5f9;
+        }
+    </style>
 </head>
 <body style="background: #f1f5f9;">
     <nav style="background: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-        <div style="font-weight: bold; color: var(--primary); font-size: 1.2rem;">MedicareAI</div>
+        <div style="font-weight: bold; color: #2563eb; font-size: 1.2rem;">MedicareAI</div>
         <div id="userInfo">Loading user...</div>
     </nav>
 
     <main style="max-width: 1000px; margin: 2rem auto; padding: 0 1rem;">
-        <h1 id="welcomeText">Welcome back!</h1>
+        <h1 id="welcomeText" style="color: #0f172a;">Welcome back!</h1>
         
-        <div id="roleContent" class="auth-card" style="max-width: 100%; text-align: left;">
+        <div id="roleContent" class="auth-card" style="max-width: 100%; text-align: left; background: white; padding: 20px; border-radius: 8px;">
             <p>Fetching your specific tools...</p>
         </div>
-        <div style="display: flex; gap: 15px; align-items: center;">
-    <a href="profile.html" style="text-decoration: none; color: var(--text);">Profile</a>
-    <button id="logoutBtn" style="background: #ef4444; padding: 5px 15px; width: auto;">Logout</button>
-</div>
+
+        <div class="analytics-card" id="analyticsSection" style="display: none;">
+            <h3 style="margin-top: 0; color: #1e293b;">WhatsApp Leads (This Week)</h3>
+            <div id="leadsList">
+                <p style="color: #64748b;">Loading analytics...</p>
+            </div>
+            <div class="total-badge">
+                Weekly Total: <span id="totalLeads">0</span>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 15px; align-items: center; margin-top: 30px;">
+            <a href="profile.html" style="text-decoration: none; color: #64748b; font-weight: 500;">Profile Settings</a>
+            <button id="logoutBtn" style="background: #ef4444; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">Logout</button>
+        </div>
     </main>
 
     <script src="dashboard.js"></script>
+    <script>
+        // Analytics visibility logic
+        async function loadAnalytics() {
+            try {
+                // First, check if user is a doctor (can be done via dashboard.js or a separate call)
+                const userRes = await fetch('/api/auth/me');
+                const user = await userRes.json();
 
-<div class="analytics-card">
-    <h3>WhatsApp Leads (This Week)</h3>
-    <div id="leadsList">
-        <p>Loading analytics...</p>
-    </div>
-    <div class="total-badge">
-        Total: <span id="totalLeads">0</span>
-    </div>
-</div>
+                if (user.role === 'doctor') {
+                    document.getElementById('analyticsSection').style.display = 'block';
+                    
+                    const response = await fetch('/api/analytics/weekly-leads');
+                    const data = await response.json();
+                    
+                    const list = document.getElementById('leadsList');
+                    const totalSpan = document.getElementById('totalLeads');
+                    
+                    if (!data || data.length === 0) {
+                        list.innerHTML = "<p style='color: #64748b;'>No leads yet this week. Your WhatsApp clicks will appear here.</p>";
+                        return;
+                    }
 
-<script>
-async function loadAnalytics() {
-    try {
-        const response = await fetch('/api/analytics/weekly-leads');
-        const data = await response.json();
-        
-        const list = document.getElementById('leadsList');
-        const totalSpan = document.getElementById('totalLeads');
-        
-        if (data.length === 0) {
-            list.innerHTML = "<p>No leads yet this week. Keep your profile updated!</p>";
-            return;
+                    let total = 0;
+                    list.innerHTML = data.map(item => {
+                        total += parseInt(item.lead_count);
+                        return `
+                            <div class="lead-row">
+                                <span style="color: #475569;">${item.day_of_week.trim()}</span>
+                                <strong style="color: #0f172a;">${item.lead_count} clicks</strong>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    totalSpan.innerText = total;
+                }
+            } catch (err) {
+                console.error("Dashboard error:", err);
+            }
         }
 
-        let total = 0;
-        list.innerHTML = data.map(item => {
-            total += parseInt(item.lead_count);
-            return `
-                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
-                    <span>${item.day_of_week.trim()}</span>
-                    <strong>${item.lead_count} clicks</strong>
-                </div>
-            `;
-        }).join('');
-        
-        totalSpan.innerText = total;
-    } catch (err) {
-        console.error("Dashboard error:", err);
-    }
-}
-
-loadAnalytics();
-</script>
+        loadAnalytics();
+    </script>
 </body>
 </html>
