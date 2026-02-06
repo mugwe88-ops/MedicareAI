@@ -8,19 +8,21 @@
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text-main: #0f172a; --text-muted: #64748b; }
         body { background: var(--bg); font-family: 'Inter', sans-serif; margin: 0; padding: 20px; color: var(--text-main); }
-        .container { max-width: 1000px; margin: 0 auto; }
+        .container { max-width: 1100px; margin: 0 auto; }
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .card { background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
+        .card { background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         
-        /* Queue Table Styles */
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th { text-align: left; color: var(--text-muted); font-size: 0.85rem; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
-        td { padding: 15px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; }
-        .wa-link { color: #16a34a; text-decoration: none; font-weight: bold; }
-        .status-pill { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; background: #dcfce7; color: #166534; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; color: var(--text-muted); padding: 12px; border-bottom: 2px solid #f1f5f9; }
+        td { padding: 15px 12px; border-bottom: 1px solid #f1f5f9; }
         
-        .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-        .action-card { background: white; padding: 24px; border-radius: 12px; text-decoration: none; color: inherit; border: 1px solid #e2e8f0; text-align: center; }
+        .btn { padding: 8px 12px; border-radius: 6px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-done { background: #dcfce7; color: #166534; margin-right: 5px; }
+        .btn-done:hover { background: #bbf7d0; }
+        .btn-noshow { background: #fee2e2; color: #991b1b; }
+        .btn-noshow:hover { background: #fecaca; }
+        .wa-link { color: #16a34a; text-decoration: none; font-weight: bold; margin-right: 15px; }
+        
         .logout-btn { padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; }
     </style>
 </head>
@@ -28,9 +30,9 @@
 
     <div class="container">
         <header>
-            <div class="welcome-section">
+            <div>
                 <h1>Swift MD Portal</h1>
-                <p>Welcome, <span id="welcome-name" style="color: var(--primary); font-weight: 600;">...</span></p>
+                <p>Logged in as: <span id="welcome-name" style="color: var(--primary); font-weight: 600;">...</span></p>
             </div>
             <div style="display: flex; gap: 10px;">
                 <a href="settings.html" style="padding: 8px 15px; background: #f1f5f9; color: #1e293b; text-decoration: none; border-radius: 5px; font-weight: 500;">Profile</a>
@@ -41,32 +43,28 @@
         <main>
             <div id="doctorSection" style="display: none;">
                 <div class="card">
-                    <h3 style="margin-top: 0;">Patient Queue (Upcoming Appointments)</h3>
-                    <div id="queue-loading">Loading your appointments...</div>
+                    <h3 style="margin-top: 0;">Patient Queue (Pending)</h3>
+                    <div id="queue-msg">Loading...</div>
                     <table id="queue-table" style="display: none;">
                         <thead>
                             <tr>
-                                <th>Patient Name</th>
+                                <th>Patient</th>
                                 <th>Date/Time</th>
-                                <th>Status</th>
-                                <th>Actions</th>
+                                <th>Contact</th>
+                                <th>Manage Status</th>
                             </tr>
                         </thead>
-                        <tbody id="appointment-list">
-                            </tbody>
+                        <tbody id="appointment-list"></tbody>
                     </table>
-                </div>
-
-                <div class="card">
-                    <h3>Weekly WhatsApp Leads</h3>
-                    <p>Total Clicks: <span id="totalLeads" style="font-weight: bold; color: var(--primary);">0</span></p>
-                    <div id="leadsList"></div>
                 </div>
             </div>
 
             <div id="patientSection" style="display: none;">
-                <div class="action-grid">
-                    <a href="directory.html" class="action-card"><h3>🔍 Find a Doctor</h3><p>Book via WhatsApp</p></a>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <a href="directory.html" class="card" style="text-decoration: none; text-align: center;">
+                        <h2 style="color: var(--primary);">🔍 Find a Doctor</h2>
+                        <p>Book a consultation via WhatsApp</p>
+                    </a>
                 </div>
             </div>
         </main>
@@ -82,53 +80,61 @@
 
                 if (user.role === 'doctor') {
                     document.getElementById('doctorSection').style.display = 'block';
-                    loadDoctorQueue();
-                    loadDoctorAnalytics();
+                    loadQueue();
                 } else {
                     document.getElementById('patientSection').style.display = 'block';
                 }
             } catch (err) { console.error(err); }
         }
 
-        async function loadDoctorQueue() {
+        async function loadQueue() {
             try {
                 const res = await fetch('https://medicareai-4av2.onrender.com/api/appointments/doctor-queue', { credentials: 'include' });
                 const appointments = await res.json();
                 
-                document.getElementById('queue-loading').style.display = 'none';
-                const table = document.getElementById('queue-table');
                 const list = document.getElementById('appointment-list');
+                const msg = document.getElementById('queue-msg');
+                const table = document.getElementById('queue-table');
 
                 if (!appointments || appointments.length === 0) {
-                    document.getElementById('queue-loading').innerText = "No upcoming patients in your queue.";
-                    document.getElementById('queue-loading').style.display = 'block';
+                    msg.innerText = "No pending appointments.";
+                    table.style.display = "none";
                     return;
                 }
 
-                table.style.display = 'table';
+                msg.style.display = "none";
+                table.style.display = "table";
                 list.innerHTML = appointments.map(app => `
                     <tr>
-                        <td style="font-weight: 600;">${app.patient_name}</td>
+                        <td><strong>${app.patient_name}</strong></td>
                         <td>${new Date(app.appointment_date).toLocaleString()}</td>
-                        <td><span class="status-pill">${app.status}</span></td>
+                        <td><a href="https://wa.me/${app.patient_phone}" target="_blank" class="wa-link">WhatsApp</a></td>
                         <td>
-                            <a href="https://wa.me/${app.patient_phone}" target="_blank" class="wa-link">Chat on WhatsApp</a>
+                            <button onclick="updateStatus(${app.id}, 'completed')" class="btn btn-done">Done</button>
+                            <button onclick="updateStatus(${app.id}, 'no-show')" class="btn btn-noshow">No Show</button>
                         </td>
                     </tr>
                 `).join('');
             } catch (err) { console.error(err); }
         }
 
-        async function loadDoctorAnalytics() {
-            const res = await fetch('https://medicareai-4av2.onrender.com/api/analytics/weekly-leads', { credentials: 'include' });
-            const data = await res.json();
-            let total = 0;
-            document.getElementById('leadsList').innerHTML = data.map(item => {
-                total += parseInt(item.lead_count);
-                return `<div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
-                    <span>${item.day_of_week}</span><strong>${item.lead_count}</strong></div>`;
-            }).join('');
-            document.getElementById('totalLeads').innerText = total;
+        async function updateStatus(appId, newStatus) {
+            if (!confirm(`Mark this appointment as ${newStatus}?`)) return;
+
+            try {
+                const res = await fetch(`https://medicareai-4av2.onrender.com/api/appointments/${appId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus }),
+                    credentials: 'include'
+                });
+
+                if (res.ok) {
+                    loadQueue(); // Refresh the list
+                } else {
+                    alert("Failed to update status.");
+                }
+            } catch (err) { console.error(err); }
         }
 
         async function logout() {
