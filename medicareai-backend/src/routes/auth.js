@@ -115,7 +115,7 @@ router.post('/login', async (req, res) => {
         }
 
         const result = await pool.query(
-            'SELECT id, password, is_verified FROM users WHERE email = $1',
+            'SELECT id, password, is_verified FROM users WHERE LOWER(email) = LOWER($1)'
             [email]
         );
 
