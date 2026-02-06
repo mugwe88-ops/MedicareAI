@@ -7,35 +7,28 @@
     <link rel="stylesheet" href="style.css">
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text-main: #0f172a; --text-muted: #64748b; }
-        body { background: var(--bg); font-family: 'Inter', sans-serif; margin: 0; padding: 20px; color: var(--text-main); }
+        body { background: var(--bg); font-family: 'Inter', sans-serif; margin: 0; padding: 20px; }
         .container { max-width: 1100px; margin: 0 auto; }
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .card { background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; color: var(--text-muted); padding: 12px; border-bottom: 2px solid #f1f5f9; }
         td { padding: 15px 12px; border-bottom: 1px solid #f1f5f9; }
-        
-        .btn { padding: 8px 12px; border-radius: 6px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn { padding: 8px 12px; border-radius: 6px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
         .btn-done { background: #dcfce7; color: #166534; margin-right: 5px; }
-        .btn-done:hover { background: #bbf7d0; }
         .btn-noshow { background: #fee2e2; color: #991b1b; }
-        .btn-noshow:hover { background: #fecaca; }
-        .wa-link { color: #16a34a; text-decoration: none; font-weight: bold; margin-right: 15px; }
-        
         .logout-btn { padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; }
     </style>
 </head>
 <body>
-
     <div class="container">
         <header>
             <div>
                 <h1>Swift MD Portal</h1>
-                <p>Logged in as: <span id="welcome-name" style="color: var(--primary); font-weight: 600;">...</span></p>
+                <p>Status: <span id="welcome-name" style="color: var(--primary); font-weight: 600;">Verifying...</span></p>
             </div>
             <div style="display: flex; gap: 10px;">
-                <a href="settings.html" style="padding: 8px 15px; background: #f1f5f9; color: #1e293b; text-decoration: none; border-radius: 5px; font-weight: 500;">Profile</a>
+                <a href="settings.html" style="padding: 8px 15px; background: #f1f5f9; color: #1e293b; text-decoration: none; border-radius: 5px;">Profile</a>
                 <button onclick="logout()" class="logout-btn">Logout</button>
             </div>
         </header>
@@ -43,38 +36,38 @@
         <main>
             <div id="doctorSection" style="display: none;">
                 <div class="card">
-                    <h3 style="margin-top: 0;">Patient Queue (Pending)</h3>
-                    <div id="queue-msg">Loading...</div>
-                    <table id="queue-table" style="display: none;">
-                        <thead>
-                            <tr>
-                                <th>Patient</th>
-                                <th>Date/Time</th>
-                                <th>Contact</th>
-                                <th>Manage Status</th>
-                            </tr>
-                        </thead>
+                    <h3>Patient Queue</h3>
+                    <table id="queue-table">
+                        <thead><tr><th>Patient</th><th>Time</th><th>Contact</th><th>Actions</th></tr></thead>
                         <tbody id="appointment-list"></tbody>
                     </table>
                 </div>
             </div>
 
             <div id="patientSection" style="display: none;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
-                    <a href="directory.html" class="card" style="text-decoration: none; text-align: center;">
-                        <h2 style="color: var(--primary);">🔍 Find a Doctor</h2>
-                        <p>Book a consultation via WhatsApp</p>
-                    </a>
+                <div class="card" style="text-align: center;">
+                    <h2>🔍 Find a Doctor</h2>
+                    <p>Book your next consultation via WhatsApp</p>
+                    <a href="directory.html" style="display:inline-block; margin-top:10px; padding:12px 20px; background:var(--primary); color:white; text-decoration:none; border-radius:8px;">Open Directory</a>
                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        async function initDashboard() {
+        async function checkSession() {
             try {
-                const response = await fetch('https://medicareai-4av2.onrender.com/api/auth/me', { credentials: 'include' });
-                if (!response.ok) { window.location.href = '/login.html'; return; }
+                const response = await fetch('https://medicareai-4av2.onrender.com/api/auth/me', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    console.error("Auth check failed:", response.status);
+                    window.location.href = '/login.html';
+                    return;
+                }
+
                 const user = await response.json();
                 document.getElementById('welcome-name').innerText = user.name;
 
@@ -84,57 +77,39 @@
                 } else {
                     document.getElementById('patientSection').style.display = 'block';
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error("Connection error:", err);
+                window.location.href = '/login.html';
+            }
         }
 
         async function loadQueue() {
-            try {
-                const res = await fetch('https://medicareai-4av2.onrender.com/api/appointments/doctor-queue', { credentials: 'include' });
-                const appointments = await res.json();
-                
+            const res = await fetch('https://medicareai-4av2.onrender.com/api/appointments/doctor-queue', { credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
                 const list = document.getElementById('appointment-list');
-                const msg = document.getElementById('queue-msg');
-                const table = document.getElementById('queue-table');
-
-                if (!appointments || appointments.length === 0) {
-                    msg.innerText = "No pending appointments.";
-                    table.style.display = "none";
-                    return;
-                }
-
-                msg.style.display = "none";
-                table.style.display = "table";
-                list.innerHTML = appointments.map(app => `
+                list.innerHTML = data.map(app => `
                     <tr>
                         <td><strong>${app.patient_name}</strong></td>
-                        <td>${new Date(app.appointment_date).toLocaleString()}</td>
-                        <td><a href="https://wa.me/${app.patient_phone}" target="_blank" class="wa-link">WhatsApp</a></td>
+                        <td>${new Date(app.appointment_date).toLocaleTimeString()}</td>
+                        <td><a href="https://wa.me/${app.patient_phone}" target="_blank">WhatsApp</a></td>
                         <td>
                             <button onclick="updateStatus(${app.id}, 'completed')" class="btn btn-done">Done</button>
                             <button onclick="updateStatus(${app.id}, 'no-show')" class="btn btn-noshow">No Show</button>
                         </td>
                     </tr>
                 `).join('');
-            } catch (err) { console.error(err); }
+            }
         }
 
-        async function updateStatus(appId, newStatus) {
-            if (!confirm(`Mark this appointment as ${newStatus}?`)) return;
-
-            try {
-                const res = await fetch(`https://medicareai-4av2.onrender.com/api/appointments/${appId}/status`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: newStatus }),
-                    credentials: 'include'
-                });
-
-                if (res.ok) {
-                    loadQueue(); // Refresh the list
-                } else {
-                    alert("Failed to update status.");
-                }
-            } catch (err) { console.error(err); }
+        async function updateStatus(id, status) {
+            await fetch(`https://medicareai-4av2.onrender.com/api/appointments/${id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status }),
+                credentials: 'include'
+            });
+            loadQueue();
         }
 
         async function logout() {
@@ -142,7 +117,7 @@
             window.location.href = '/login.html';
         }
 
-        initDashboard();
+        checkSession();
     </script>
 </body>
 </html>
