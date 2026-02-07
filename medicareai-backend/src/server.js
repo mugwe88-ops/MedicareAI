@@ -16,8 +16,6 @@ import paymentRoutes from './routes/payments.routes.js';
 import bookingRoutes from './routes/bookings.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
-const PostgresStore = pgSession(session);
 
 
 // --- 1. DATABASE & SCHEMA SETUP ---
@@ -131,9 +129,6 @@ app.use(session({
         httpOnly: true
     }
 }));
-
-const app = express();
-app.set('trust proxy', 1); // Add this right after initializing 'app'
 
 // --- 4. WHATSAPP LOGIC ---
 export async function sendReply(phoneId, to, token, text, isButton = false) {
