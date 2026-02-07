@@ -1,113 +1,87 @@
-// src/routes/auth.js
-import express from "express";
-import bcrypt from "bcrypt";
-import pool from "../db.js";
-import { sendReply } from "../server.js";
+// src/middleware/auth.js
+import jwt from "jsonwebtoken";
+import db from "../utils/db.js"; // optional (remove if not using DB sessions)
 
-const router = express.Router();
+const {
+  JWT_SECRET,
+  JWT_ISSUER = "medicareai",
+  JWT_AUDIENCE = "medicareai-users"
+} = process.env;
 
-/* ============================
-   SESSION CHECK
-============================ */
-router.get("/me", async (req, res) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({ error: "Not logged in" });
-  }
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is not defined");
+}
 
+/**
+ * Verify JWT safely
+ */
+export function verifyToken(token, options = {}) {
+  return jwt.verify(token, JWT_SECRET, {
+    issuer: JWT_ISSUER,
+    audience: JWT_AUDIENCE,
+    ...options,
+  });
+}
+
+/**
+ * Express middleware: Require Auth
+ */
+export async function requireAuth(req, res, next) {
   try {
-    const { rows } = await pool.query(
-      "SELECT id, name, email, role, phone, specialty, kmpdc_number FROM users WHERE id=$1",
-      [req.session.userId]
-    );
-
-    res.json(rows[0]);
-  } catch (err) {
-    console.error("ME ERROR:", err);
-    res.status(500).json({ error: "Database error" });
-  }
-});
-
-/* ============================
-   SIGNUP
-============================ */
-router.post("/signup", async (req, res) => {
-  const { name, email, password, role, phone, kmpdc_number } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "Missing email or password" });
-  }
-
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiry = new Date(Date.now() + 10 * 60 * 1000);
-
-  try {
-    const hashed = await bcrypt.hash(password, 10);
-
-    await pool.query(
-      `
-      INSERT INTO users (name,email,password,role,phone,email_otp,otp_expiry,kmpdc_number)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-      ON CONFLICT (email) DO NOTHING
-      `,
-      [name || "User", email, hashed, role || "patient", phone || null, otp, expiry, kmpdc_number || null]
-    );
-
-    // Send OTP (optional)
-    if (phone) {
-      await sendReply(
-        process.env.WHATSAPP_PHONE_ID,
-        phone,
-        process.env.WHATSAPP_ACCESS_TOKEN,
-        `Swift MD OTP: ${otp}`
-      );
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Missing or invalid Authorization header" });
     }
 
-    res.json({ success: true, message: "OTP sent" });
-  } catch (err) {
-    console.error("SIGNUP ERROR:", err);
-    res.status(500).json({ error: "Signup failed" });
-  }
-});
+    const token = authHeader.split(" ")[1];
 
-/* ============================
-   LOGIN
-============================ */
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+    // ✅ Verify cryptographic signature + claims
+    const payload = verifyToken(token);
 
-  try {
-    const result = await pool.query("SELECT * FROM users WHERE email=$1", [email]);
-    const user = result.rows[0];
+    // ✅ Enforce token type (prevents refresh token misuse)
+    if (payload.type !== "access") {
+      return res.status(401).json({ error: "Invalid token type" });
+    }
 
-    if (!user) return res.status(401).json({ error: "User not found" });
+    // OPTIONAL: Check token revocation / session DB
+    if (payload.jti) {
+      const session = await db.sessions.findUnique({
+        where: { jti: payload.jti },
+      });
 
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ error: "Wrong password" });
-
-    req.session.userId = user.id;
-    req.session.role = user.role;
-
-    req.session.save((err) => {
-      if (err) {
-        console.error("SESSION SAVE ERROR:", err);
-        return res.status(500).json({ error: "Session failed" });
+      if (!session || session.revoked) {
+        return res.status(401).json({ error: "Token revoked" });
       }
-      res.json({ success: true, role: user.role });
-    });
+    }
+
+    // Attach user to request
+    req.user = {
+      id: payload.sub,
+      role: payload.role,
+      email: payload.email,
+    };
+
+    next();
   } catch (err) {
-    console.error("LOGIN ERROR:", err);
-    res.status(500).json({ error: "Login failed" });
+    console.error("JWT Auth Error:", err.message);
+
+    return res.status(401).json({
+      error: "Invalid or expired token",
+    });
   }
-});
+}
 
-/* ============================
-   LOGOUT
-============================ */
-router.post("/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.clearCookie("connect.sid");
-    res.json({ success: true });
-  });
-});
+/**
+ * Role-based access control
+ */
+export function requireRole(role) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: "Not authenticated" });
 
-export default router;
+    if (req.user.role !== role) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    next();
+  };
+}
