@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { pool } from '../db.js'; // Import your existing pool instead of creating a new one
+import pool from '../db.js'; // Import your existing pool instead of creating a new one
 import { handleSTKPush, handleMpesaCallback } from '../controllers/payments.controller.js'; 
 import dotenv from 'dotenv';
 

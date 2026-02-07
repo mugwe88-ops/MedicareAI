@@ -9,7 +9,7 @@ import cron from 'node-cron';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import { encrypt, decrypt } from './encryption.js';
-import pool from './db.js'; // ✅ must be default export
+import pool from '../db.js'; // ✅ must be default export
 
 import authRoutes from './routes/auth.js';
 import appointmentRoutes from './routes/appointment.routes.js';
