@@ -1,6 +1,6 @@
 // src/middleware/auth.js
 import jwt from "jsonwebtoken";
-import db from "../utils/db.js"; // optional (remove if not using DB sessions)
+import db from "../utils/db-setup.js"; // optional (remove if not using DB sessions)
 
 const {
   JWT_SECRET,
