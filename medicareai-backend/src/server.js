@@ -160,7 +160,6 @@ export async function sendReply(phoneId, to, token, text, isButton = false) {
     }
 }
 
-// Webhook Verification
 app.get('/api/webhook', (req, res) => {
     if (req.query['hub.verify_token'] === process.env.VERIFY_TOKEN) {
         return res.send(req.query['hub.challenge']);
@@ -168,7 +167,6 @@ app.get('/api/webhook', (req, res) => {
     res.sendStatus(403);
 });
 
-// Webhook Handler
 app.post('/api/webhook', async (req, res) => {
     res.sendStatus(200);
     const body = req.body;
@@ -224,7 +222,7 @@ app.use('/api/directory', directoryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-// --- 7. DATABASE RESET & SEED TOOL (Moved above static files) ---
+// --- 7. DATABASE RESET & SEED TOOL (Fixed seeding for TEST-999-MD) ---
 app.get('/api/admin/reset', async (req, res) => {
     const adminKey = req.query.key;
     const secret = process.env.ADMIN_RESET_KEY || 'super-secret-key';
@@ -239,13 +237,13 @@ app.get('/api/admin/reset', async (req, res) => {
 
         const hashedPw = await bcrypt.hash('password123', 10);
         
-        // Create a Doctor
+        // Seed the TEST-999-MD Doctor
         await pool.query(`
             INSERT INTO users (name, email, password, role, is_verified, specialty, kmpdc_number)
-            VALUES ('Dr. Smith', 'doctor@test.com', $1, 'doctor', true, 'Cardiology', 'DOC-123')
+            VALUES ('Dr. Willy', 'willyweyru3@gmail.com', $1, 'doctor', true, 'General Medicine', 'TEST-999-MD')
         `, [hashedPw]);
 
-        // Create a Patient
+        // Seed a standard Patient
         await pool.query(`
             INSERT INTO users (name, email, password, role, is_verified)
             VALUES ('John Doe', 'patient@test.com', $1, 'patient', true)
@@ -253,14 +251,14 @@ app.get('/api/admin/reset', async (req, res) => {
 
         res.status(200).json({ 
             success: true, 
-            message: "Database wiped and seeded with test accounts." 
+            message: "Database reset. Seeded: willyweyru3@gmail.com (TEST-999-MD) and patient@test.com (Password: password123)" 
         });
     } catch (err) {
         res.status(500).json({ error: "Reset failed", details: err.message });
     }
 });
 
-// --- 8. STATIC FILES & CATCH-ALL ---
+// --- 8. STATIC FILES & CATCH-ALL (Positioned last to prevent blocking reset) ---
 app.get('/:page', (req, res, next) => {
     const page = req.params.page;
     if (page.startsWith('api')) return next(); 
