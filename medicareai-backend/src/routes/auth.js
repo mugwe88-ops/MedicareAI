@@ -34,21 +34,28 @@ router.put('/update-profile', async (req, res) => {
     }
 });
 
-/* 3. SIGNUP */
+// 1. SIGNUP ROUTE (Handles the KMPDC number from your screenshot)
 router.post('/signup', async (req, res) => {
     const { name, email, password, role, phone, kmpdc_number } = req.body;
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    const expiry = new Date(Date.now() + 10 * 60000); 
+
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        const { rows } = await pool.query(
-            `INSERT INTO users (name, email, password, role, phone, kmpdc_number, is_verified) 
-             VALUES ($1, $2, $3, $4, $5, $6, TRUE) RETURNING id, role`,
-            [name, email, hashedPassword, role || 'patient', phone, kmpdc_number]
+        
+        // Ensure you have 8 columns in your INSERT statement
+        await pool.query(
+            'INSERT INTO users (name, email, password, role, phone, email_otp, otp_expiry, kmpdc_number) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [name, email, hashedPassword, role || 'patient', phone, otp, expiry, kmpdc_number || null]
         );
-        req.session.userId = rows[0].id;
-        req.session.role = rows[0].role;
-        req.session.save(() => res.status(201).json({ success: true }));
+
+        const message = `*Swift MD Verification* 🏥\n\nYour code is: *${otp}*`;
+        await sendReply(process.env.WHATSAPP_PHONE_ID, phone, process.env.WHATSAPP_ACCESS_TOKEN, message);
+        
+        res.status(200).json({ success: true, message: "OTP sent" });
     } catch (err) {
-        res.status(500).json({ error: 'Signup failed' });
+        console.error("Signup Error:", err);
+        res.status(500).json({ error: "Signup failed. Make sure the kmpdc_number column exists!" });
     }
 });
 
