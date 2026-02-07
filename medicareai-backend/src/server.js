@@ -7,6 +7,7 @@ import session from 'express-session';
 import pgSession from 'connect-pg-simple';
 import cron from 'node-cron'; 
 import cors from 'cors';
+import bcrypt from 'bcrypt';
 import { encrypt, decrypt } from './encryption.js';
 import { pool } from './db.js'; 
 import authRoutes from './routes/auth.js';
@@ -16,12 +17,10 @@ import paymentRoutes from './routes/payments.routes.js';
 import bookingRoutes from './routes/bookings.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Initialize App
 const app = express();
 
 // --- 1. TRUST PROXY & DATABASE SETUP ---
-app.set('trust proxy', 1); // Moved here: Crucial for Render cookies
+app.set('trust proxy', 1); 
 
 async function initDatabase() {
     try {
@@ -117,7 +116,7 @@ app.use(cors({
 // --- 3. SESSION CONFIG ---
 app.use(session({
     store: new (pgSession(session))({
-        pool: pool, // Optimized: uses your existing pool from db.js
+        pool: pool, 
     }),
     secret: process.env.SESSION_SECRET || 'super-secret-key',
     resave: false,
@@ -161,6 +160,7 @@ export async function sendReply(phoneId, to, token, text, isButton = false) {
     }
 }
 
+// Webhook Verification
 app.get('/api/webhook', (req, res) => {
     if (req.query['hub.verify_token'] === process.env.VERIFY_TOKEN) {
         return res.send(req.query['hub.challenge']);
@@ -168,6 +168,7 @@ app.get('/api/webhook', (req, res) => {
     res.sendStatus(403);
 });
 
+// Webhook Handler
 app.post('/api/webhook', async (req, res) => {
     res.sendStatus(200);
     const body = req.body;
@@ -213,30 +214,17 @@ cron.schedule('0 20 * * 0', async () => {
     }
 });
 
-// --- 6. ROUTES & STATIC FILES ---
+// --- 6. ROUTES ---
 app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
 
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/directory', directoryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-app.get('/:page', (req, res, next) => {
-    const page = req.params.page;
-    if (page.startsWith('api')) return next(); 
-    
-    let filePath = path.join(__dirname, 'public', page);
-    if (!page.includes('.')) filePath += '.html';
-
-    res.sendFile(filePath, (err) => {
-        if (err) res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    });
-});
-
-import bcrypt from 'bcrypt';
-
-// --- DATABASE RESET & SEED TOOL ---
+// --- 7. DATABASE RESET & SEED TOOL (Moved above static files) ---
 app.get('/api/admin/reset', async (req, res) => {
     const adminKey = req.query.key;
     const secret = process.env.ADMIN_RESET_KEY || 'super-secret-key';
@@ -246,13 +234,9 @@ app.get('/api/admin/reset', async (req, res) => {
     }
 
     try {
-        // 1. Wipe everything
         await pool.query('TRUNCATE TABLE users, appointments, analytics, session, consultants CASCADE;');
-        
-        // 2. Reset ID counters
         await pool.query('ALTER SEQUENCE users_id_seq RESTART WITH 1;');
 
-        // 3. Seed Fresh Test Accounts
         const hashedPw = await bcrypt.hash('password123', 10);
         
         // Create a Doctor
@@ -269,15 +253,29 @@ app.get('/api/admin/reset', async (req, res) => {
 
         res.status(200).json({ 
             success: true, 
-            message: "Database wiped. Seeded: doctor@test.com and patient@test.com (Password: password123)" 
+            message: "Database wiped and seeded with test accounts." 
         });
     } catch (err) {
         res.status(500).json({ error: "Reset failed", details: err.message });
     }
 });
 
+// --- 8. STATIC FILES & CATCH-ALL ---
+app.get('/:page', (req, res, next) => {
+    const page = req.params.page;
+    if (page.startsWith('api')) return next(); 
+    
+    let filePath = path.join(__dirname, 'public', page);
+    if (!page.includes('.')) filePath += '.html';
+
+    res.sendFile(filePath, (err) => {
+        if (err) res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    });
+});
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
+// 404 Handler
 app.use((req, res) => res.status(404).json({ error: "Route not found" }));
 
 const PORT = process.env.PORT || 10000;
