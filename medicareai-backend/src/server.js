@@ -9,8 +9,9 @@ import cron from 'node-cron';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import { encrypt, decrypt } from './encryption.js';
-import pool from './db.js'; // ✅ must be default export
+import pool from './db.js';
 
+// Routes
 import authRoutes from './routes/auth.js';
 import appointmentRoutes from './routes/appointment.routes.js';
 import directoryRoutes from './routes/directory.js';
@@ -22,7 +23,7 @@ const app = express();
 const PgSession = connectPgSimple(session);
 
 // ======================
-// 1️⃣ TRUST PROXY
+// 1️⃣ TRUST PROXY (RENDER)
 // ======================
 app.set('trust proxy', 1);
 
@@ -104,7 +105,7 @@ async function initDatabase() {
       ON CONFLICT DO NOTHING;
     `);
 
-    console.log("✅ Database Tables & Sessions Initialized");
+    console.log("✅ Database initialized");
   } catch (err) {
     console.error("❌ Database Init Error:", err);
   }
@@ -128,18 +129,19 @@ app.use(cors({
 }));
 
 // ======================
-// 4️⃣ SESSIONS
+// 4️⃣ SESSIONS (RENDER SAFE)
 // ======================
 app.use(session({
   store: new PgSession({ pool }),
+  name: "medicareai.sid",
   secret: process.env.SESSION_SECRET || 'super-secret-key',
   resave: false,
   saveUninitialized: false,
   proxy: true,
   cookie: {
     maxAge: 30 * 24 * 60 * 60 * 1000,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: 'none',
+    secure: true,          // MUST be true on Render HTTPS
+    sameSite: "none",       // Required for cross-site cookies
     httpOnly: true
   }
 }));
@@ -177,7 +179,9 @@ export async function sendReply(phoneId, to, token, text, isButton = false) {
   }
 }
 
-// Webhook verify
+// ======================
+// 6️⃣ WEBHOOKS
+// ======================
 app.get('/api/webhook', (req, res) => {
   if (req.query['hub.verify_token'] === process.env.VERIFY_TOKEN) {
     return res.send(req.query['hub.challenge']);
@@ -185,10 +189,8 @@ app.get('/api/webhook', (req, res) => {
   res.sendStatus(403);
 });
 
-// Webhook receive
 app.post('/api/webhook', async (req, res) => {
   res.sendStatus(200);
-
   const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
   if (!msg) return;
 
@@ -214,7 +216,7 @@ app.post('/api/webhook', async (req, res) => {
 });
 
 // ======================
-// 6️⃣ CRON REPORTS
+// 7️⃣ CRON REPORTS
 // ======================
 cron.schedule('0 20 * * 0', async () => {
   try {
@@ -236,7 +238,7 @@ cron.schedule('0 20 * * 0', async () => {
 });
 
 // ======================
-// 7️⃣ ROUTES
+// 8️⃣ ROUTES
 // ======================
 app.get('/health', (req, res) => res.json({ status: 'OK' }));
 
@@ -247,7 +249,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
 
 // ======================
-// 8️⃣ ADMIN RESET TOOL
+// 9️⃣ ADMIN RESET TOOL
 // ======================
 app.get('/api/admin/reset', async (req, res) => {
   if (req.query.key !== (process.env.ADMIN_RESET_KEY || 'super-secret-key')) {
@@ -276,16 +278,33 @@ app.get('/api/admin/reset', async (req, res) => {
 });
 
 // ======================
-// 9️⃣ STATIC FRONTEND
+// 10️⃣ STATIC FRONTEND
 // ======================
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ======================
-// 10️⃣ START SERVER
+// 11️⃣ START SERVER
 // ======================
 const PORT = process.env.PORT || 10000;
+
+app.get("/api/admin/fix-db", async (req, res) => {
+  try {
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'patient';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT;
+    `);
+
+    res.json({ success: true, message: "DB fixed" });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Swift MD live on port ${PORT}`);
 });
