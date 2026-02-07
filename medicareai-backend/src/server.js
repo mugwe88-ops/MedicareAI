@@ -19,6 +19,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PostgresStore = pgSession(session);
 
+
 // --- 1. DATABASE & SCHEMA SETUP ---
 async function initDatabase() {
     try {
@@ -116,19 +117,23 @@ app.use(cors({
 
 // --- 3. SESSION CONFIG (CONSOLIDATED) ---
 app.use(session({
-    name: 'medicareai.sid',
-    store: new PostgresStore({ pool, tableName: 'session' }),
-    secret: process.env.SESSION_SECRET || 'medicare_secret_key',
+    store: new (require('connect-pg-simple')(session))({
+        conString: process.env.DATABASE_URL,
+    }),
+    secret: process.env.SESSION_SECRET || 'super-secret-key',
     resave: false,
     saveUninitialized: false,
-    proxy: true, 
+    proxy: true, // Required for Render/Heroku/Proxies
     cookie: {
-        secure: true, // Always true on Render (HTTPS)
-        httpOnly: true,
-        sameSite: 'none', 
-        maxAge: 24 * 60 * 60 * 1000
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        secure: true, // MUST be true for HTTPS on Render
+        sameSite: 'none', // Critical if your frontend and backend domains differ slightly
+        httpOnly: true
     }
 }));
+
+const app = express();
+app.set('trust proxy', 1); // Add this right after initializing 'app'
 
 // --- 4. WHATSAPP LOGIC ---
 export async function sendReply(phoneId, to, token, text, isButton = false) {

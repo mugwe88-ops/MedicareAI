@@ -3,140 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Swift MD | Dashboard</title>
+    <title>MedicareAI | Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 0.8); }
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+        body {
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+            min-height: 100vh;
+        }
     </style>
 </head>
-<body class="bg-[#f8fafc] min-h-screen text-slate-900">
-
-    <nav class="sticky top-0 z-50 w-full glass-card border-b px-6 py-4 mb-8">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">S</div>
-                <h1 class="text-xl font-bold tracking-tight">Swift<span class="text-blue-600">MD</span></h1>
+<body class="p-6">
+    <div class="max-w-6xl mx-auto">
+        <header class="flex justify-between items-center mb-8 glass p-6 rounded-2xl">
+            <h1 class="text-2xl font-bold text-blue-900">Medicare<span class="text-blue-500">AI</span></h1>
+            <div id="userInfo" class="text-right">
+                <span id="userName" class="block font-semibold text-gray-700">Loading...</span>
+                <button onclick="logout()" class="text-sm text-red-500 hover:underline">Logout</button>
             </div>
-            <div class="flex items-center gap-6">
-                <span id="userName" class="text-sm font-semibold text-slate-600">Welcome, User</span>
-                <button onclick="logout()" class="text-sm font-bold text-red-500 hover:bg-red-50 px-4 py-2 rounded-full transition-all">Logout</button>
-            </div>
-        </div>
-    </nav>
+        </header>
 
-    <main class="max-w-7xl mx-auto px-6 pb-12">
-        
-        <div id="doctorPortal" class="hidden space-y-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="glass-card p-6 rounded-3xl">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Inquiries</p>
-                    <h2 id="leadCount" class="text-4xl font-extrabold mt-2">0</h2>
-                    <p class="text-sm text-green-500 font-semibold mt-2">↑ 12% from last week</p>
+        <div id="doctorView" class="hidden space-y-6">
+            <h2 class="text-xl font-semibold text-blue-800">Doctor Control Center</h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass p-6 rounded-2xl">
+                    <h3 class="font-bold mb-4 text-blue-700">Patient Queue</h3>
+                    <ul id="patientQueue" class="space-y-3 text-gray-600">
+                        <li class="p-3 bg-white/50 rounded-lg">No active patients.</li>
+                    </ul>
                 </div>
-                <div class="glass-card p-6 rounded-3xl border-l-4 border-l-blue-600">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Verified Status</p>
-                    <h2 class="text-xl font-bold mt-2 text-blue-600">KMPDC Active</h2>
-                </div>
-            </div>
-
-            <div class="glass-card rounded-3xl overflow-hidden">
-                <div class="p-6 border-b flex justify-between items-center">
-                    <h3 class="text-lg font-bold">Patient Queue</h3>
-                    <button class="text-sm font-bold text-blue-600">Refresh List</button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-50/50 text-slate-400 text-xs uppercase font-bold">
-                            <tr>
-                                <th class="px-6 py-4">Patient</th>
-                                <th class="px-6 py-4">Status</th>
-                                <th class="px-6 py-4">Consultation</th>
-                                <th class="px-6 py-4">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="doctorQueue" class="divide-y divide-slate-100">
-                            </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="patientPortal" class="hidden space-y-8">
-            <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[2rem] p-10 text-white shadow-xl shadow-blue-200/50">
-                <h2 class="text-3xl font-extrabold mb-2">Health access simplified.</h2>
-                <p class="text-blue-100 mb-8 opacity-90">Book a consultation with verified specialists instantly via WhatsApp.</p>
-                <a href="directory.html" class="bg-white text-blue-600 px-8 py-4 rounded-2xl font-bold text-lg hover:shadow-lg transition-all inline-block">Find a Specialist</a>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="glass-card p-8 rounded-[2rem]">
-                    <h3 class="text-xl font-bold mb-4">My Consultations</h3>
-                    <div id="patientHistory" class="text-slate-400 text-sm py-4 italic border-t border-dashed">
-                        No active consultation history found.
+                <div class="glass p-6 rounded-2xl">
+                    <h3 class="font-bold mb-4 text-green-700">WhatsApp Leads</h3>
+                    <div id="whatsappLeads" class="space-y-3">
+                        <p class="text-sm text-gray-500 italic">Syncing live leads...</p>
                     </div>
                 </div>
-                <div class="glass-card p-8 rounded-[2rem]">
-                    <h3 class="text-xl font-bold mb-4">Digital Health Records</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed">Securely access your prescriptions and lab reports here after your appointment.</p>
+            </div>
+        </div>
+
+        <div id="patientView" class="hidden space-y-6">
+            <h2 class="text-xl font-semibold text-blue-800">Patient Portal</h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass p-6 rounded-2xl">
+                    <h3 class="font-bold mb-4 text-blue-700">Specialist Directory</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <a href="#" class="p-3 bg-blue-500 text-white text-center rounded-xl hover:bg-blue-600 transition">Cardiology</a>
+                        <a href="#" class="p-3 bg-blue-500 text-white text-center rounded-xl hover:bg-blue-600 transition">Neurology</a>
+                    </div>
+                </div>
+                <div class="glass p-6 rounded-2xl">
+                    <h3 class="font-bold mb-4 text-gray-700">Appointment History</h3>
+                    <div class="text-sm text-gray-500">No recent visits recorded.</div>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
 
     <script>
         async function checkAuth() {
             try {
-                const res = await fetch('/api/auth/me', { credentials: 'include' });
-                if (!res.ok) throw new Error();
-                const user = await res.json();
-                
-                document.getElementById('userName').innerText = `Welcome, ${user.name}`;
-                
-                if (user.role === 'doctor') {
-                    document.getElementById('doctorPortal').classList.remove('hidden');
-                    loadQueue();
+                // 'credentials: include' is vital for passing the session cookie
+                const response = await fetch('/api/auth/status', { credentials: 'include' });
+                const data = await response.json();
+
+                if (!response.ok) throw new Error('Not authorized');
+
+                document.getElementById('userName').innerText = data.user.name;
+
+                if (data.user.role === 'doctor') {
+                    document.getElementById('doctorView').classList.remove('hidden');
                 } else {
-                    document.getElementById('patientPortal').classList.remove('hidden');
+                    document.getElementById('patientView').classList.remove('hidden');
                 }
             } catch (err) {
                 window.location.href = '/login.html';
             }
         }
 
-        async function loadQueue() {
-            const res = await fetch('/api/appointments/doctor-queue', { credentials: 'include' });
-            if (res.ok) {
-                const data = await res.json();
-                const container = document.getElementById('doctorQueue');
-                if (data.length === 0) {
-                    container.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-400 italic">No patients in queue</td></tr>';
-                    return;
-                }
-                container.innerHTML = data.map(app => `
-                    <tr class="hover:bg-slate-50/50 transition-all">
-                        <td class="px-6 py-5 font-bold text-slate-700">${app.patient_name}</td>
-                        <td class="px-6 py-5">
-                            <span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-[10px] font-black uppercase">Pending</span>
-                        </td>
-                        <td class="px-6 py-5">
-                            <a href="https://wa.me/${app.patient_phone}" target="_blank" class="text-blue-600 font-bold hover:underline">Start WhatsApp Chat</a>
-                        </td>
-                        <td class="px-6 py-5">
-                            <button onclick="updateStatus(${app.id}, 'done')" class="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-600 transition-all">Complete</button>
-                        </td>
-                    </tr>
-                `).join('');
-            }
-        }
-
-        async function logout() {
-            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+        function logout() {
+            // Add logout logic here
             window.location.href = '/login.html';
         }
 
-        checkAuth();
+        window.onload = checkAuth;
     </script>
 </body>
 </html>
