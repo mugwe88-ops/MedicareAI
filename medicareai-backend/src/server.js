@@ -4,12 +4,13 @@ import axios from 'axios';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
-import pgSession from 'connect-pg-simple';
-import cron from 'node-cron'; 
+import connectPgSimple from 'connect-pg-simple';
+import cron from 'node-cron';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import { encrypt, decrypt } from './encryption.js';
-import { pool } from './db.js'; 
+import pool from './db.js'; // ✅ must be default export
+
 import authRoutes from './routes/auth.js';
 import appointmentRoutes from './routes/appointment.routes.js';
 import directoryRoutes from './routes/directory.js';
@@ -18,271 +19,273 @@ import bookingRoutes from './routes/bookings.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+const PgSession = connectPgSimple(session);
 
-// --- 1. TRUST PROXY & DATABASE SETUP ---
-app.set('trust proxy', 1); 
+// ======================
+// 1️⃣ TRUST PROXY
+// ======================
+app.set('trust proxy', 1);
 
+// ======================
+// 2️⃣ DATABASE INIT
+// ======================
 async function initDatabase() {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS "session" (
-              "sid" varchar NOT NULL COLLATE "default" PRIMARY KEY,
-              "sess" json NOT NULL,
-              "expire" timestamp(6) NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role VARCHAR(50) DEFAULT 'patient',
+        email_otp VARCHAR(6),
+        is_verified BOOLEAN DEFAULT FALSE,
+        otp_expiry TIMESTAMP,
+        specialty VARCHAR(100),
+        phone VARCHAR(20),
+        kmpdc_number VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                role VARCHAR(50) DEFAULT 'patient',
-                email_otp VARCHAR(6),
-                is_verified BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                otp_expiry TIMESTAMP,
-                specialty VARCHAR(100),
-                phone VARCHAR(20),
-                kmpdc_number VARCHAR(255)
-            );
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS session (
+        sid VARCHAR PRIMARY KEY,
+        sess JSON NOT NULL,
+        expire TIMESTAMP NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS IDX_session_expire ON session(expire);
+    `);
 
-            -- CRITICAL FIX: Ensure these columns exist in the live DB
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS kmpdc_number VARCHAR(255);
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP;
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS consultants (
+        id SERIAL PRIMARY KEY,
+        whatsapp_phone_id VARCHAR(255) UNIQUE NOT NULL,
+        whatsapp_access_token TEXT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        booking_url TEXT NOT NULL,
+        calendar_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-            CREATE TABLE IF NOT EXISTS consultants (
-                id SERIAL PRIMARY KEY,
-                whatsapp_phone_id VARCHAR(255) UNIQUE NOT NULL,
-                whatsapp_access_token TEXT NOT NULL,
-                name VARCHAR(255) NOT NULL,
-                booking_url TEXT NOT NULL,
-                calendar_id VARCHAR(255),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS appointments (
+        id SERIAL PRIMARY KEY,
+        patient_id INTEGER REFERENCES users(id),
+        department VARCHAR(100),
+        appointment_date DATE,
+        appointment_time TIME,
+        reason TEXT,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-            CREATE TABLE IF NOT EXISTS appointments (
-                id SERIAL PRIMARY KEY,
-                patient_id INTEGER REFERENCES users(id),
-                department VARCHAR(100),
-                appointment_date DATE,
-                appointment_time TIME,
-                reason TEXT,
-                status VARCHAR(20) DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS analytics (
+        id SERIAL PRIMARY KEY,
+        doctor_id INT REFERENCES users(id),
+        event_type VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-            CREATE TABLE IF NOT EXISTS analytics (
-                id SERIAL PRIMARY KEY,
-                doctor_id INT REFERENCES users(id),
-                event_type VARCHAR(50),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS verified_kmpdc (
+        registration_number VARCHAR(50) PRIMARY KEY,
+        doctor_name VARCHAR(255)
+      );
+    `);
 
-            CREATE TABLE IF NOT EXISTS verified_kmpdc (
-                registration_number VARCHAR(50) PRIMARY KEY,
-                doctor_name VARCHAR(255)
-            );
+    await pool.query(`
+      INSERT INTO verified_kmpdc (registration_number, doctor_name)
+      VALUES ('TEST-999-MD', 'Troubleshooting Account')
+      ON CONFLICT DO NOTHING;
+    `);
 
-            INSERT INTO verified_kmpdc (registration_number, doctor_name) 
-            VALUES 
-            ('TEST-999-MD', 'Troubleshooting Account'),
-            ('A1234', 'Dr. Real Doctor')
-            ON CONFLICT (registration_number) DO NOTHING;
-        `);
-        console.log("✅ Database Tables & Sessions Initialized");
-    } catch (err) {
-        console.error("❌ Database Init Error:", err.message);
-    }
+    console.log("✅ Database Tables & Sessions Initialized");
+  } catch (err) {
+    console.error("❌ Database Init Error:", err);
+  }
 }
-initDatabase();
+await initDatabase();
 
-// --- 2. MIDDLEWARE & CORS ---
+// ======================
+// 3️⃣ MIDDLEWARE
+// ======================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(cors({
-    origin: [
-        'http://localhost:5500',
-        'http://127.0.0.1:5500',
-        'https://medicareai-4av2.onrender.com'
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+  origin: [
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'https://medicareai-4av2.onrender.com'
+  ],
+  credentials: true
 }));
 
-// --- 3. SESSION CONFIG ---
+// ======================
+// 4️⃣ SESSIONS
+// ======================
 app.use(session({
-    store: new (pgSession(session))({
-        pool: pool, 
-    }),
-    secret: process.env.SESSION_SECRET || 'super-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    proxy: true, 
-    cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000, 
-        secure: true, 
-        sameSite: 'none', 
-        httpOnly: true
-    }
+  store: new PgSession({ pool }),
+  secret: process.env.SESSION_SECRET || 'super-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  proxy: true,
+  cookie: {
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: 'none',
+    httpOnly: true
+  }
 }));
 
-// --- 4. WHATSAPP LOGIC ---
+// ======================
+// 5️⃣ WHATSAPP FUNCTIONS
+// ======================
 export async function sendReply(phoneId, to, token, text, isButton = false) {
-    const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
-    const data = isButton ? {
-        messaging_product: "whatsapp",
-        to,
-        type: "interactive",
-        interactive: {
-            type: "button",
-            body: { text },
-            action: {
-                buttons: [{ type: "reply", reply: { id: "book_now", title: "Book Now" } }]
-            }
-        }
-    } : {
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: text }
-    };
+  const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
 
-    try {
-        await axios.post(url, data, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-    } catch (error) {
-        console.error("WhatsApp Send Error:", error.response?.data || error.message);
+  const data = isButton ? {
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text },
+      action: {
+        buttons: [{ type: "reply", reply: { id: "book_now", title: "Book Now" } }]
+      }
     }
+  } : {
+    messaging_product: "whatsapp",
+    to,
+    type: "text",
+    text: { body: text }
+  };
+
+  try {
+    await axios.post(url, data, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  } catch (err) {
+    console.error("WhatsApp Error:", err.response?.data || err.message);
+  }
 }
 
+// Webhook verify
 app.get('/api/webhook', (req, res) => {
-    if (req.query['hub.verify_token'] === process.env.VERIFY_TOKEN) {
-        return res.send(req.query['hub.challenge']);
-    }
-    res.sendStatus(403);
+  if (req.query['hub.verify_token'] === process.env.VERIFY_TOKEN) {
+    return res.send(req.query['hub.challenge']);
+  }
+  res.sendStatus(403);
 });
 
+// Webhook receive
 app.post('/api/webhook', async (req, res) => {
-    res.sendStatus(200);
-    const body = req.body;
-    if (!body.entry?.[0]?.changes?.[0]?.value?.messages) return;
+  res.sendStatus(200);
 
-    const message = body.entry[0].changes[0].value.messages[0];
-    const phoneId = body.entry[0].changes[0].value.metadata.phone_number_id;
-    const patientPhone = message.from;
+  const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  if (!msg) return;
 
-    try {
-        const result = await pool.query('SELECT * FROM consultants WHERE whatsapp_phone_id = $1', [phoneId]);
-        if (result.rows.length === 0) return;
+  const phoneId = req.body.entry[0].changes[0].value.metadata.phone_number_id;
+  const patientPhone = msg.from;
 
-        const consultant = result.rows[0];
-        const rawToken = decrypt(consultant.whatsapp_access_token);
+  try {
+    const result = await pool.query(
+      'SELECT * FROM consultants WHERE whatsapp_phone_id=$1',
+      [phoneId]
+    );
+    if (!result.rows.length) return;
 
-        if (message.type === 'text') {
-            await sendReply(phoneId, patientPhone, rawToken, `Hello! You are messaging ${consultant.name}.`, true);
-        }
-    } catch (err) {
-        console.error("Webhook Logic Error:", err.message);
+    const consultant = result.rows[0];
+    const token = decrypt(consultant.whatsapp_access_token);
+
+    if (msg.type === 'text') {
+      await sendReply(phoneId, patientPhone, token, `Hello! You are messaging ${consultant.name}.`, true);
     }
+  } catch (e) {
+    console.error("Webhook error:", e);
+  }
 });
 
-// --- 5. CRON JOBS ---
+// ======================
+// 6️⃣ CRON REPORTS
+// ======================
 cron.schedule('0 20 * * 0', async () => {
-    try {
-        const doctors = await pool.query(`
-            SELECT u.id, u.name, u.phone, COUNT(a.id) as clicks 
-            FROM users u 
-            LEFT JOIN analytics a ON u.id = a.doctor_id 
-            WHERE u.role = 'doctor' AND a.created_at > NOW() - INTERVAL '7 days'
-            GROUP BY u.id
-        `);
+  try {
+    const doctors = await pool.query(`
+      SELECT u.id, u.name, u.phone, COUNT(a.id) AS clicks
+      FROM users u
+      LEFT JOIN analytics a ON u.id = a.doctor_id
+      WHERE u.role='doctor' AND a.created_at > NOW() - INTERVAL '7 days'
+      GROUP BY u.id
+    `);
 
-        for (const doc of doctors.rows) {
-            const reportMsg = `*Swift MD Weekly Report* 📈\n\nHello Dr. ${doc.name}!\n\nThis week, your profile received *${doc.clicks}* booking inquiries.`;
-            await sendReply(process.env.WHATSAPP_PHONE_ID, doc.phone, process.env.WHATSAPP_ACCESS_TOKEN, reportMsg, false);
-        }
-        console.log("Weekly reports sent.");
-    } catch (err) {
-        console.error("Cron Error:", err);
+    for (const d of doctors.rows) {
+      const msg = `Swift MD Weekly Report 📈\nHello Dr. ${d.name}, you had ${d.clicks} bookings this week.`;
+      await sendReply(process.env.WHATSAPP_PHONE_ID, d.phone, process.env.WHATSAPP_ACCESS_TOKEN, msg);
     }
+  } catch (e) {
+    console.error("Cron error:", e);
+  }
 });
 
-// --- 6. ROUTES ---
-app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
+// ======================
+// 7️⃣ ROUTES
+// ======================
+app.get('/health', (req, res) => res.json({ status: 'OK' }));
 
-// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/directory', directoryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-// --- 7. DATABASE RESET & SEED TOOL (Fixed Order) ---
-// This MUST be defined BEFORE the catch-all /:page route
+// ======================
+// 8️⃣ ADMIN RESET TOOL
+// ======================
 app.get('/api/admin/reset', async (req, res) => {
-    const adminKey = req.query.key;
-    const secret = process.env.ADMIN_RESET_KEY || 'super-secret-key';
+  if (req.query.key !== (process.env.ADMIN_RESET_KEY || 'super-secret-key')) {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
 
-    if (adminKey !== secret) {
-        return res.status(403).json({ error: "Unauthorized" });
-    }
+  try {
+    await pool.query('TRUNCATE TABLE appointments, analytics, consultants, session, users RESTART IDENTITY CASCADE;');
 
-    try {
-        // Wipe everything
-        await pool.query('TRUNCATE TABLE users, appointments, analytics, session, consultants CASCADE;');
-        
-        // Reset ID counters
-        await pool.query('ALTER SEQUENCE users_id_seq RESTART WITH 1;');
+    const pw = await bcrypt.hash('password123', 10);
 
-        // Seed Fresh Test Accounts
-        const hashedPw = await bcrypt.hash('password123', 10);
-        
-        // Create the TEST-999-MD Doctor
-        await pool.query(`
-            INSERT INTO users (name, email, password, role, is_verified, specialty, kmpdc_number)
-            VALUES ('Dr. Willy', 'willyweyru3@gmail.com', $1, 'doctor', true, 'General Practice', 'TEST-999-MD')
-        `, [hashedPw]);
+    await pool.query(`
+      INSERT INTO users (name,email,password,role,is_verified,specialty,kmpdc_number)
+      VALUES ('Dr. Willy','willyweyru3@gmail.com',$1,'doctor',true,'General','TEST-999-MD')
+    `,[pw]);
 
-        // Create a Patient
-        await pool.query(`
-            INSERT INTO users (name, email, password, role, is_verified)
-            VALUES ('John Doe', 'patient@test.com', $1, 'patient', true)
-        `, [hashedPw]);
+    await pool.query(`
+      INSERT INTO users (name,email,password,role,is_verified)
+      VALUES ('John Doe','patient@test.com',$1,'patient',true)
+    `,[pw]);
 
-        res.status(200).json({ 
-            success: true, 
-            message: "Database wiped and seeded with TEST-999-MD." 
-        });
-    } catch (err) {
-        res.status(500).json({ error: "Reset failed", details: err.message });
-    }
+    res.json({ success:true });
+  } catch (e) {
+    res.status(500).json({ error:e.message });
+  }
 });
 
-// --- 8. STATIC FILES & CATCH-ALL ---
-app.get('/:page', (req, res, next) => {
-    const page = req.params.page;
-    if (page.startsWith('api')) return next(); 
-    
-    let filePath = path.join(__dirname, 'public', page);
-    if (!page.includes('.')) filePath += '.html';
-
-    res.sendFile(filePath, (err) => {
-        if (err) res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    });
+// ======================
+// 9️⃣ STATIC FRONTEND
+// ======================
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-
-// 404 Handler
-app.use((req, res) => res.status(404).json({ error: "Route not found" }));
-
+// ======================
+// 10️⃣ START SERVER
+// ======================
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Swift MD live on port ${PORT}`);
+  console.log(`🚀 Swift MD live on port ${PORT}`);
 });
