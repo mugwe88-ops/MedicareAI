@@ -1,12 +1,11 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import { pool } from '../db.js';
-// We must import the WhatsApp logic from your main server file
-import { sendReply } from '../server.js'; 
+import { sendReply } from '../server.js'; // Ensure you export this from server.js
 
 const router = express.Router();
 
-/* 1. SESSION CHECK */
+/* 1. SESSION CHECK (Essential for Dashboard) */
 router.get('/me', async (req, res) => {
     if (!req.session?.userId) return res.status(401).json({ error: 'Unauthorized' });
     try {
@@ -20,7 +19,7 @@ router.get('/me', async (req, res) => {
     }
 });
 
-/* 2. SIGNUP */
+/* 2. SIGNUP (Now includes KMPDC logic) */
 router.post('/signup', async (req, res) => {
     const { name, email, password, role, phone, kmpdc_number } = req.body;
     const otp = Math.floor(100000 + Math.random() * 900000);
@@ -29,32 +28,25 @@ router.post('/signup', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Insert user into DB
+        // Citing the requirement for kmpdc_number in signup
         await pool.query(
             'INSERT INTO users (name, email, password, role, phone, email_otp, otp_expiry, kmpdc_number) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
             [name, email, hashedPassword, role || 'patient', phone, otp, expiry, kmpdc_number || null]
         );
 
-        // Attempt to send WhatsApp OTP
+        // WhatsApp OTP delivery
         const message = `*Swift MD Verification* 🏥\n\nYour code is: *${otp}*`;
-        try {
-            await sendReply(process.env.WHATSAPP_PHONE_ID, phone, process.env.WHATSAPP_ACCESS_TOKEN, message);
-        } catch (wsError) {
-            console.error("WhatsApp Send Failed, but user was created:", wsError.message);
-        }
+        await sendReply(process.env.WHATSAPP_PHONE_ID, phone, process.env.WHATSAPP_ACCESS_TOKEN, message);
         
-        res.status(200).json({ success: true, message: "Signup successful. OTP sent via WhatsApp." });
+        res.status(200).json({ success: true, message: "OTP sent" });
     } catch (err) {
-        console.error("Signup Error Details:", err);
-        // If the error is specifically about the column missing
-        if (err.message.includes('kmpdc_number')) {
-            return res.status(500).json({ error: "Database error: kmpdc_number column is missing. Run the reset tool!" });
-        }
-        res.status(500).json({ error: "Signup failed. Please try again." });
+        console.error("Signup Error:", err);
+        // Specifically catch the missing column error shown in your screenshot
+        res.status(500).json({ error: "Signup failed. Ensure kmpdc_number column exists by running the Reset Tool." });
     }
 });
 
-/* 3. LOGIN */
+/* 3. LOGIN (Prevents Login Loop) */
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -65,6 +57,7 @@ router.post('/login', async (req, res) => {
             req.session.userId = user.id;
             req.session.role = user.role;
 
+            // Manual save is critical for Render session stability
             req.session.save((err) => {
                 if (err) return res.status(500).json({ error: "Session save failed" });
                 res.status(200).json({ success: true, role: user.role });
@@ -75,14 +68,6 @@ router.post('/login', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: "Login error" });
     }
-});
-
-/* 4. LOGOUT */
-router.post('/logout', (req, res) => {
-    req.session.destroy(() => {
-        res.clearCookie('medicareai.sid');
-        res.json({ success: true });
-    });
 });
 
 export default router;
