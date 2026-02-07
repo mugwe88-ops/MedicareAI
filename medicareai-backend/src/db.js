@@ -27,6 +27,13 @@ async function autoMigrate() {
   }
 }
 
+await pool.query(`
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'patient';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT;
+`);
+
 autoMigrate();
 
 // ✅ IMPORTANT: DEFAULT EXPORT

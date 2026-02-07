@@ -132,19 +132,20 @@ app.use(cors({
 // 4️⃣ SESSIONS (RENDER SAFE)
 // ======================
 app.use(session({
+  name: "connect.sid",
   store: new PgSession({ pool }),
-  name: "medicareai.sid",
-  secret: process.env.SESSION_SECRET || 'super-secret-key',
+  secret: process.env.SESSION_SECRET || "super-secret-key",
   resave: false,
   saveUninitialized: false,
   proxy: true,
   cookie: {
     maxAge: 30 * 24 * 60 * 60 * 1000,
-    secure: true,          // MUST be true on Render HTTPS
-    sameSite: "none",       // Required for cross-site cookies
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "none",
     httpOnly: true
   }
 }));
+
 
 // ======================
 // 5️⃣ WHATSAPP FUNCTIONS
