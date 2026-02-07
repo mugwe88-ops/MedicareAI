@@ -16,7 +16,7 @@ import paymentRoutes from './routes/payments.routes.js';
 import bookingRoutes from './routes/bookings.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
+const app = express();
 
 // --- 1. DATABASE & SCHEMA SETUP ---
 async function initDatabase() {
