@@ -234,6 +234,48 @@ app.get('/:page', (req, res, next) => {
     });
 });
 
+import bcrypt from 'bcrypt';
+
+// --- DATABASE RESET & SEED TOOL ---
+app.get('/api/admin/reset', async (req, res) => {
+    const adminKey = req.query.key;
+    const secret = process.env.ADMIN_RESET_KEY || 'super-secret-key';
+
+    if (adminKey !== secret) {
+        return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    try {
+        // 1. Wipe everything
+        await pool.query('TRUNCATE TABLE users, appointments, analytics, session, consultants CASCADE;');
+        
+        // 2. Reset ID counters
+        await pool.query('ALTER SEQUENCE users_id_seq RESTART WITH 1;');
+
+        // 3. Seed Fresh Test Accounts
+        const hashedPw = await bcrypt.hash('password123', 10);
+        
+        // Create a Doctor
+        await pool.query(`
+            INSERT INTO users (name, email, password, role, is_verified, specialty, kmpdc_number)
+            VALUES ('Dr. Smith', 'doctor@test.com', $1, 'doctor', true, 'Cardiology', 'DOC-123')
+        `, [hashedPw]);
+
+        // Create a Patient
+        await pool.query(`
+            INSERT INTO users (name, email, password, role, is_verified)
+            VALUES ('John Doe', 'patient@test.com', $1, 'patient', true)
+        `, [hashedPw]);
+
+        res.status(200).json({ 
+            success: true, 
+            message: "Database wiped. Seeded: doctor@test.com and patient@test.com (Password: password123)" 
+        });
+    } catch (err) {
+        res.status(500).json({ error: "Reset failed", details: err.message });
+    }
+});
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.use((req, res) => res.status(404).json({ error: "Route not found" }));
