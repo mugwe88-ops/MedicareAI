@@ -16,12 +16,15 @@ import paymentRoutes from './routes/payments.routes.js';
 import bookingRoutes from './routes/bookings.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Initialize App
 const app = express();
 
-// --- 1. DATABASE & SCHEMA SETUP ---
+// --- 1. TRUST PROXY & DATABASE SETUP ---
+app.set('trust proxy', 1); // Moved here: Crucial for Render cookies
+
 async function initDatabase() {
     try {
-        // Create tables and add columns safely
         await pool.query(`
             CREATE TABLE IF NOT EXISTS "session" (
               "sid" varchar NOT NULL COLLATE "default" PRIMARY KEY,
@@ -82,7 +85,6 @@ async function initDatabase() {
                 doctor_name VARCHAR(255)
             );
 
-            -- FIXED: Using ON CONFLICT to prevent "Duplicate Key" crash
             INSERT INTO verified_kmpdc (registration_number, doctor_name) 
             VALUES 
             ('TEST-999-MD', 'Troubleshooting Account'),
@@ -97,7 +99,6 @@ async function initDatabase() {
 initDatabase();
 
 // --- 2. MIDDLEWARE & CORS ---
-app.set('trust proxy', 1); // Crucial for Render cookies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -113,19 +114,19 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// --- 3. SESSION CONFIG (CONSOLIDATED) ---
+// --- 3. SESSION CONFIG ---
 app.use(session({
-    store: new (require('connect-pg-simple')(session))({
-        conString: process.env.DATABASE_URL,
+    store: new (pgSession(session))({
+        pool: pool, // Optimized: uses your existing pool from db.js
     }),
     secret: process.env.SESSION_SECRET || 'super-secret-key',
     resave: false,
     saveUninitialized: false,
-    proxy: true, // Required for Render/Heroku/Proxies
+    proxy: true, 
     cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        secure: true, // MUST be true for HTTPS on Render
-        sameSite: 'none', // Critical if your frontend and backend domains differ slightly
+        maxAge: 30 * 24 * 60 * 60 * 1000, 
+        secure: true, 
+        sameSite: 'none', 
         httpOnly: true
     }
 }));
@@ -160,7 +161,6 @@ export async function sendReply(phoneId, to, token, text, isButton = false) {
     }
 }
 
-// Webhook Verification
 app.get('/api/webhook', (req, res) => {
     if (req.query['hub.verify_token'] === process.env.VERIFY_TOKEN) {
         return res.send(req.query['hub.challenge']);
@@ -168,7 +168,6 @@ app.get('/api/webhook', (req, res) => {
     res.sendStatus(403);
 });
 
-// Webhook Handler
 app.post('/api/webhook', async (req, res) => {
     res.sendStatus(200);
     const body = req.body;
@@ -217,17 +216,15 @@ cron.schedule('0 20 * * 0', async () => {
 // --- 6. ROUTES & STATIC FILES ---
 app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
 
-// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/directory', directoryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-// Static File Routing (Handle SPA/Clean URLs)
 app.get('/:page', (req, res, next) => {
     const page = req.params.page;
-    if (page.startsWith('api')) return next(); // Skip API routes
+    if (page.startsWith('api')) return next(); 
     
     let filePath = path.join(__dirname, 'public', page);
     if (!page.includes('.')) filePath += '.html';
@@ -239,7 +236,6 @@ app.get('/:page', (req, res, next) => {
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// 404 Handler
 app.use((req, res) => res.status(404).json({ error: "Route not found" }));
 
 const PORT = process.env.PORT || 10000;
