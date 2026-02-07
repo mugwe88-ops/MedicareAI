@@ -11,7 +11,7 @@ import bcrypt from 'bcrypt';
 import { encrypt, decrypt } from './encryption.js';
 import { pool } from './db.js'; 
 import authRoutes from './routes/auth.js';
-import appointmentRoutes from './routes/appointments.js';
+import appointmentRoutes from './routes/appointment.routes.js';
 import directoryRoutes from './routes/directory.js';
 import paymentRoutes from './routes/payments.routes.js';
 import bookingRoutes from './routes/bookings.routes.js';
@@ -47,6 +47,7 @@ async function initDatabase() {
                 kmpdc_number VARCHAR(255)
             );
 
+            -- CRITICAL FIX: Ensure these columns exist in the live DB
             ALTER TABLE users ADD COLUMN IF NOT EXISTS kmpdc_number VARCHAR(255);
             ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
@@ -222,7 +223,8 @@ app.use('/api/directory', directoryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-// --- 7. DATABASE RESET & SEED TOOL (Fixed seeding for TEST-999-MD) ---
+// --- 7. DATABASE RESET & SEED TOOL (Fixed Order) ---
+// This MUST be defined BEFORE the catch-all /:page route
 app.get('/api/admin/reset', async (req, res) => {
     const adminKey = req.query.key;
     const secret = process.env.ADMIN_RESET_KEY || 'super-secret-key';
@@ -232,18 +234,22 @@ app.get('/api/admin/reset', async (req, res) => {
     }
 
     try {
+        // Wipe everything
         await pool.query('TRUNCATE TABLE users, appointments, analytics, session, consultants CASCADE;');
+        
+        // Reset ID counters
         await pool.query('ALTER SEQUENCE users_id_seq RESTART WITH 1;');
 
+        // Seed Fresh Test Accounts
         const hashedPw = await bcrypt.hash('password123', 10);
         
-        // Seed the TEST-999-MD Doctor
+        // Create the TEST-999-MD Doctor
         await pool.query(`
             INSERT INTO users (name, email, password, role, is_verified, specialty, kmpdc_number)
-            VALUES ('Dr. Willy', 'willyweyru3@gmail.com', $1, 'doctor', true, 'General Medicine', 'TEST-999-MD')
+            VALUES ('Dr. Willy', 'willyweyru3@gmail.com', $1, 'doctor', true, 'General Practice', 'TEST-999-MD')
         `, [hashedPw]);
 
-        // Seed a standard Patient
+        // Create a Patient
         await pool.query(`
             INSERT INTO users (name, email, password, role, is_verified)
             VALUES ('John Doe', 'patient@test.com', $1, 'patient', true)
@@ -251,14 +257,14 @@ app.get('/api/admin/reset', async (req, res) => {
 
         res.status(200).json({ 
             success: true, 
-            message: "Database reset. Seeded: willyweyru3@gmail.com (TEST-999-MD) and patient@test.com (Password: password123)" 
+            message: "Database wiped and seeded with TEST-999-MD." 
         });
     } catch (err) {
         res.status(500).json({ error: "Reset failed", details: err.message });
     }
 });
 
-// --- 8. STATIC FILES & CATCH-ALL (Positioned last to prevent blocking reset) ---
+// --- 8. STATIC FILES & CATCH-ALL ---
 app.get('/:page', (req, res, next) => {
     const page = req.params.page;
     if (page.startsWith('api')) return next(); 
