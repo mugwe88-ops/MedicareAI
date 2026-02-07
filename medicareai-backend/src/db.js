@@ -1,38 +1,33 @@
-import pkg from 'pg';
+import pkg from "pg";
 const { Pool } = pkg;
-import 'dotenv/config';
+import "dotenv/config";
 
-export const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes("localhost")
+    ? false
+    : { rejectUnauthorized: false },
 });
 
-// Inside your database initialization function in src/db.js
-const initDb = async () => {
-    try {
-        // This command runs every time the server starts and fixes the table for you
-        await pool.query(`
-            ALTER TABLE users 
-            ADD COLUMN IF NOT EXISTS kmpdc_number VARCHAR(100);
-        `);
-        console.log("✅ Database schema updated: kmpdc_number column is ready.");
-    } catch (err) {
-        console.error("❌ Database init error:", err);
-    }
-};
+// Log connection
+pool.on("connect", () => {
+  console.log("✅ PostgreSQL Connected");
+});
 
-initDb();
-// src/db.js - Auto-healing script
-const ensureColumns = async () => {
-    try {
-        await pool.query(`
-            ALTER TABLE users 
-            ADD COLUMN IF NOT EXISTS kmpdc_number VARCHAR(100);
-        `);
-        console.log("✅ Database updated with kmpdc_number column");
-    } catch (err) {
-        console.error("❌ Column update failed:", err);
-    }
-};
+// Auto-healing migration (runs once at startup)
+async function autoMigrate() {
+  try {
+    await pool.query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS kmpdc_number VARCHAR(100);
+    `);
+    console.log("✅ Database schema ensured (kmpdc_number ready)");
+  } catch (err) {
+    console.error("❌ Auto migration error:", err.message);
+  }
+}
 
-ensureColumns();
+autoMigrate();
+
+// ✅ IMPORTANT: DEFAULT EXPORT
+export default pool;
