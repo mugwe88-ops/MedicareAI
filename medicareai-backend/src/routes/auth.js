@@ -53,19 +53,33 @@ router.post('/signup', async (req, res) => {
 });
 
 /* 4. LOGIN */
+/* 4. LOGIN */
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
         const user = result.rows[0];
+
         if (user && await bcrypt.compare(password, user.password)) {
+            // Setting session data
             req.session.userId = user.id;
             req.session.role = user.role;
-            req.session.save(() => res.json({ success: true, role: user.role }));
+
+            // FORCE a manual save to the database (connect-pg-simple) 
+            // before sending the 200 OK response.
+            req.session.save((err) => {
+                if (err) {
+                    console.error("Session Save Error:", err);
+                    return res.status(500).json({ error: "Could not initialize session" });
+                }
+                // Only respond once the session is confirmed saved in Postgres
+                res.status(200).json({ success: true, role: user.role });
+            });
         } else {
             res.status(401).json({ error: "Invalid credentials" });
         }
     } catch (err) {
+        console.error("Login Error:", err);
         res.status(500).json({ error: "Login error" });
     }
 });
