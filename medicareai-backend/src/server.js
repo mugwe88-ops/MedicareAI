@@ -3,6 +3,11 @@
 ====================== */
 import dotenv from "dotenv";
 dotenv.config();
+import { initDB, setupDatabase } from "./utils/db-setup.js";
+
+await initDB();
+await setupDatabase();
+
 
 import express from "express";
 import path from "path";
