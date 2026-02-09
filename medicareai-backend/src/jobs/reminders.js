@@ -2,14 +2,10 @@ import cron from 'node-cron';
 import pg from 'pg';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import pool from "../db.js";
+
 
 dotenv.config();
-
-const { Pool } = pg;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
 
 // Runs every hour
 cron.schedule('0 * * * *', async () => {

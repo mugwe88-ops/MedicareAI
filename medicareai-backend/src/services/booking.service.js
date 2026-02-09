@@ -1,14 +1,9 @@
-import pg from 'pg';
 import { addMinutes } from 'date-fns';
 import dotenv from 'dotenv';
+import pool from "../db.js";
+
 
 dotenv.config();
-
-const { Pool } = pg;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Required for Render/Neon
-});
 
 export const createBookingWithBuffer = async (doctorId, patientId, startTime, durationMinutes) => {
   const buffer = 10; // 10-minute buffer

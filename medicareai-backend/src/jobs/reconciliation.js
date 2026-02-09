@@ -1,15 +1,10 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import pool from "../db.js";
+
 
 dotenv.config();
 
-const { Pool } = pg;
-
-// 1. Setup Database Connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
 
 async function reconcileData() {
   console.log('--- Starting Reconciliation ---');

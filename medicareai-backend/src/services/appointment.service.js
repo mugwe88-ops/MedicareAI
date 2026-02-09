@@ -1,13 +1,9 @@
-import pg from 'pg';
+import pool from "../db.js";
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const { Pool } = pg;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Required for cloud databases
-});
+
 
 /**
  * Fetch all appointments for a specific doctor
