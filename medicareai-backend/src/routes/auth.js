@@ -1,87 +1,112 @@
-// src/middleware/auth.js
-import jwt from "jsonwebtoken";
-import db from "../utils/db-setup.js"; // optional (remove if not using DB sessions)
+import express from "express";
+import bcrypt from "bcrypt";
+import pool from "../db.js";// ✅ PostgreSQL pool
+import { signAccessToken, signRefreshToken } from "../utils/jwt.js";
+import pool from "../db.js";
 
-const {
-  JWT_SECRET,
-  JWT_ISSUER = "medicareai",
-  JWT_AUDIENCE = "medicareai-users"
-} = process.env;
-
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET is not defined");
-}
-
-/**
- * Verify JWT safely
- */
-export function verifyToken(token, options = {}) {
-  return jwt.verify(token, JWT_SECRET, {
-    issuer: JWT_ISSUER,
-    audience: JWT_AUDIENCE,
-    ...options,
-  });
-}
-
-/**
- * Express middleware: Require Auth
- */
-export async function requireAuth(req, res, next) {
+export async function initDB() {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Missing or invalid Authorization header" });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    // ✅ Verify cryptographic signature + claims
-    const payload = verifyToken(token);
-
-    // ✅ Enforce token type (prevents refresh token misuse)
-    if (payload.type !== "access") {
-      return res.status(401).json({ error: "Invalid token type" });
-    }
-
-    // OPTIONAL: Check token revocation / session DB
-    if (payload.jti) {
-      const session = await db.sessions.findUnique({
-        where: { jti: payload.jti },
-      });
-
-      if (!session || session.revoked) {
-        return res.status(401).json({ error: "Token revoked" });
-      }
-    }
-
-    // Attach user to request
-    req.user = {
-      id: payload.sub,
-      role: payload.role,
-      email: payload.email,
-    };
-
-    next();
+    await pool.query("SELECT 1");
+    console.log("PostgreSQL connected");
   } catch (err) {
-    console.error("JWT Auth Error:", err.message);
-
-    return res.status(401).json({
-      error: "Invalid or expired token",
-    });
+    console.error("DB init failed:", err);
   }
 }
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'patient',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    console.log("Database initialized");
+  } catch (err) {
+    console.error("Database initialization failed:", err);
+  }
+}
+const router = express.Router();
 
-/**
- * Role-based access control
- */
-export function requireRole(role) {
-  return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+/* ================= REGISTER ================= */
+router.post("/signup", async (req, res) => {
+  try {
+    let { name, email, password, role = "patient" } = req.body;
 
-    if (req.user.role !== role) {
-      return res.status(403).json({ error: "Forbidden" });
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Missing fields" });
     }
 
-    next();
-  };
-}
+    email = email.toLowerCase().trim();
+
+    const existing = await pool.query(
+      "SELECT id FROM users WHERE email=$1",
+      [email]
+    );
+    if (existing.rows.length) {
+      return res.status(409).json({ error: "User already exists" });
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+
+    const result = await pool.query(
+      `INSERT INTO users (name, email, password, role)
+       VALUES ($1,$2,$3,$4)
+       RETURNING id, email, role`,
+      [name, email, hash, role]
+    );
+
+    const user = result.rows[0];
+
+    const accessToken = signAccessToken(user);
+    const refreshToken = signRefreshToken(user);
+
+    res.json({ accessToken, refreshToken });
+  } catch (err) {
+    console.error("Signup error:", err);
+    res.status(500).json({ error: "Signup failed" });
+  }
+});
+
+/* ================= LOGIN ================= */
+router.post("/login", async (req, res) => {
+  try {
+    let { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Missing credentials" });
+    }
+
+    email = email.toLowerCase().trim();
+
+    const result = await pool.query(
+      "SELECT id, email, password, role FROM users WHERE email=$1",
+      [email]
+    );
+
+    if (!result.rows.length) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const user = result.rows[0];
+
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const payload = { id: user.id, email: user.email, role: user.role };
+
+    const accessToken = signAccessToken(payload);
+    const refreshToken = signRefreshToken(payload);
+
+    res.json({ accessToken, refreshToken });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+export default router;

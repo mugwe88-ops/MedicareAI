@@ -3,8 +3,8 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Node",
-    "strict": true,
-    "esModuleInterop": true,
+    "strict": false,
+    "esModuleInterop": false,
     "types": ["node"]
   }
 }

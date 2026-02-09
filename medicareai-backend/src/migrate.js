@@ -1,32 +1,39 @@
-import pkg from 'pg';
-const { Pool } = pkg;
-import dotenv from 'dotenv';
-dotenv.config();
+import { pool } from "./db.js";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-
-async function run() {
+const migrate = async () => {
   try {
-    console.log("🛠️ Starting migration...");
-    
-    // Add all missing columns to the users table
     await pool.query(`
-      ALTER TABLE users 
-      ADD COLUMN IF NOT EXISTS kmpdc_number VARCHAR(255),
-      ADD COLUMN IF NOT EXISTS email_otp VARCHAR(6),
-      ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP,
-      ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+      CREATE TABLE IF NOT EXISTS patients (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100),
+        phone VARCHAR(20),
+        email VARCHAR(100),
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS doctors (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100),
+        specialty VARCHAR(100),
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS appointments (
+        id SERIAL PRIMARY KEY,
+        patient_id INT REFERENCES patients(id),
+        doctor_id INT REFERENCES doctors(id),
+        appointment_date TIMESTAMP,
+        status VARCHAR(20) DEFAULT 'Scheduled',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
     `);
 
-    console.log("✅ Database updated successfully! All columns are present.");
-    process.exit(0);
-  } catch (e) {
-    console.error("❌ Migration ERROR:", e.message);
+    console.log("✅ Database tables created");
+    process.exit();
+  } catch (err) {
+    console.error("❌ Migration failed", err);
     process.exit(1);
   }
-}
+};
 
-run();
+migrate();

@@ -6,6 +6,9 @@ import 'dotenv/config';
 import paymentRoutes from './routes/payments.routes.js';
 import appointmentRoutes from './routes/appointment.routes.js';
 import bookingRoutes from './routes/bookings.routes.js';
+import appointmentsRoutes from "./routes/appointments.js";
+
+app.use("/api/appointments", appointmentsRoutes);
 
 const app = express();
 

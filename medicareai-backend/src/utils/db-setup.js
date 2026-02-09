@@ -1,4 +1,4 @@
-import { pool } from './src/db.js';
+import { pool } from '../db.js';
 
 const createSessionTable = async () => {
     console.log("Checking for 'session' table...");

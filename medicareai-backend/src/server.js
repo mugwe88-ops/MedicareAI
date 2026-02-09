@@ -1,15 +1,22 @@
-import "dotenv/config";
+/* ======================
+   0️⃣ ENV + DB CONNECT
+====================== */
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
-import axios from "axios";
 import path from "path";
 import { fileURLToPath } from "url";
-import cron from "node-cron";
 import cors from "cors";
-import bcrypt from "bcrypt";
 import helmet from "helmet";
+import cron from "node-cron";
+import axios from "axios";
+import bcrypt from "bcrypt";
 
-import { encrypt, decrypt } from "./encryption.js";
+// Database
 import pool from "./db.js";
+import { connectDB } from "./config/db.js";
+import { encrypt, decrypt } from "./encryption.js";
 
 // Routes
 import authRoutes from "./routes/auth.js";
@@ -17,30 +24,70 @@ import appointmentRoutes from "./routes/appointment.routes.js";
 import directoryRoutes from "./routes/directory.js";
 import paymentRoutes from "./routes/payments.routes.js";
 import bookingRoutes from "./routes/bookings.routes.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
-const PORT = process.env.PORT || 3000;
+import doctorRoutes from "./routes/doctors.routes.js";
+import { verifyToken } from "./utils/jwt.js";
 
 /* ======================
-   1️⃣ TRUST PROXY (RENDER)
+   1️⃣ APP INIT
+====================== */
+const app = express();
+const PORT = process.env.PORT || 3000;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/* ======================
+   2️⃣ CONNECT MONGO
+====================== */
+connectDB();
+
+/* ======================
+   3️⃣ TRUST PROXY (RENDER)
 ====================== */
 app.set("trust proxy", 1);
 
 /* ======================
-   2️⃣ SECURITY HEADERS
+   4️⃣ SECURITY + BODY
 ====================== */
 app.use(helmet());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 /* ======================
-   3️⃣ DATABASE INIT
+   5️⃣ CORS
+====================== */
+app.use(cors({
+  origin: true,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false
+}));
+
+/* ======================
+   6️⃣ ROUTES
+====================== */
+app.use("/api/auth", authRoutes);
+app.use("/api/appointments", appointmentRoutes);
+app.use("/api/directory", directoryRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/doctors", doctorRoutes);
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", server: "Swift MD API" });
+});
+
+app.get("/api/protected", verifyToken, (req, res) => {
+  res.json({ message: "Protected route success", user: req.user });
+});
+
+/* ======================
+   7️⃣ DATABASE INIT (POSTGRES)
 ====================== */
 async function initDatabase() {
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
+        name VARCHAR(255),
         email VARCHAR(255) UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role VARCHAR(50) DEFAULT 'patient',
@@ -101,32 +148,16 @@ async function initDatabase() {
       ON CONFLICT DO NOTHING;
     `);
 
-    console.log("✅ Database initialized");
+    console.log("✅ PostgreSQL schema ready");
   } catch (err) {
-    console.error("❌ Database Init Error:", err);
+    console.error("❌ DB INIT ERROR:", err);
     process.exit(1);
   }
 }
 await initDatabase();
 
 /* ======================
-   4️⃣ MIDDLEWARE
-====================== */
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
-
-/* JWT CORS (NO cookies) */
-app.use(cors({
-  origin: true,
-  methods: ["GET","POST","PUT","DELETE"],
-  allowedHeaders: ["Content-Type","Authorization"],
-  credentials: false
-}));
-
-
-/* ======================
-   5️⃣ WHATSAPP FUNCTIONS
+   8️⃣ WHATSAPP FUNCTION
 ====================== */
 export async function sendReply(phoneId, to, token, text, isButton = false) {
   const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
@@ -159,7 +190,7 @@ export async function sendReply(phoneId, to, token, text, isButton = false) {
 }
 
 /* ======================
-   6️⃣ WEBHOOKS
+   9️⃣ WEBHOOK
 ====================== */
 app.get("/api/webhook", (req, res) => {
   if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
@@ -170,116 +201,28 @@ app.get("/api/webhook", (req, res) => {
 
 app.post("/api/webhook", async (req, res) => {
   res.sendStatus(200);
-
-  const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  if (!msg) return;
-
-  const phoneId = req.body.entry[0].changes[0].value.metadata.phone_number_id;
-  const patientPhone = msg.from;
-
-  try {
-    const result = await pool.query(
-      "SELECT * FROM consultants WHERE whatsapp_phone_id=$1",
-      [phoneId]
-    );
-    if (!result.rows.length) return;
-
-    const consultant = result.rows[0];
-    let token = consultant.whatsapp_access_token;
-    try { token = decrypt(token); } catch {}
-
-    if (msg.type === "text") {
-      await sendReply(phoneId, patientPhone, token, `Hello! You are messaging ${consultant.name}.`, true);
-    }
-  } catch (e) {
-    console.error("Webhook error:", e);
-  }
 });
 
 /* ======================
-   7️⃣ CRON REPORTS
+   🔟 STATIC FRONTEND
 ====================== */
-cron.schedule("0 20 * * 0", async () => {
-  try {
-    const doctors = await pool.query(`
-      SELECT u.id, u.name, u.phone, COUNT(a.id) AS clicks
-      FROM users u
-      LEFT JOIN analytics a ON u.id = a.doctor_id 
-        AND a.created_at > NOW() - INTERVAL '7 days'
-      WHERE u.role='doctor'
-      GROUP BY u.id
-    `);
-
-    for (const d of doctors.rows) {
-      if (!d.phone) continue;
-      const msg = `Swift MD Weekly Report 📈\nHello Dr. ${d.name}, you had ${d.clicks} bookings this week.`;
-      await sendReply(process.env.WHATSAPP_PHONE_ID, d.phone, process.env.WHATSAPP_ACCESS_TOKEN, msg);
-    }
-  } catch (e) {
-    console.error("Cron error:", e);
-  }
-});
-
-/* ======================
-   8️⃣ ROUTES
-====================== */
-app.get("/health", (req, res) => res.json({ status: "OK" }));
-
-app.use("/api/auth", authRoutes);
-app.use("/api/appointments", appointmentRoutes);
-app.use("/api/directory", directoryRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/bookings", bookingRoutes);
-
-/* ======================
-   9️⃣ ADMIN RESET (LOCKED)
-====================== */
-app.get("/api/admin/reset", async (req, res) => {
-  if (req.query.key !== process.env.ADMIN_RESET_KEY) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
-
-  try {
-    await pool.query("TRUNCATE TABLE appointments, analytics, consultants, users RESTART IDENTITY CASCADE;");
-
-    const pw = await bcrypt.hash("password123", 12);
-
-    await pool.query(`
-      INSERT INTO users (name,email,password,role,is_verified,specialty,kmpdc_number)
-      VALUES ('Dr. Willy','willyweyru3@gmail.com',$1,'doctor',true,'General','TEST-999-MD')
-    `,[pw]);
-
-    await pool.query(`
-      INSERT INTO users (name,email,password,role,is_verified)
-      VALUES ('John Doe','patient@test.com',$1,'patient',true)
-    `,[pw]);
-
-    res.json({ success:true });
-  } catch (e) {
-    res.status(500).json({ error:e.message });
-  }
-});
-
-/* ======================
-   🔟 STATIC FRONTEND LAST
-====================== */
-app.use((err, req, res, next) => {
-  console.error("GLOBAL ERROR:", err);
-  res.status(500).json({ error: "Internal server error" });
-});
+app.use(express.static(path.join(__dirname, "public")));
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 /* ======================
-   11️⃣ START SERVER
+   11️⃣ GLOBAL ERROR HANDLER
+====================== */
+app.use((err, req, res, next) => {
+  console.error("GLOBAL ERROR:", err);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+/* ======================
+   12️⃣ START SERVER
 ====================== */
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Swift MD live on port ${PORT}`);
 });
-
-/* ======================
-   GLOBAL ERROR HANDLER
-====================== */
-
