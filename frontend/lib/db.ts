@@ -7,7 +7,7 @@ declare global {
 }
 
 const pool =
-  global.pgPool ||
+  global.pgPool ??
   new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl:
@@ -18,4 +18,6 @@ const pool =
 
 if (process.env.NODE_ENV !== "production") global.pgPool = pool;
 
+// Export BOTH default and named (so imports never break)
+export { pool };
 export default pool;
