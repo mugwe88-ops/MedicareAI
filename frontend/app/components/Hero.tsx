@@ -80,6 +80,8 @@ export default function Hero() {
             onClick={handleSearch}
             className="bg-blue-600 text-white px-6 rounded"
           >
+            const [specialty, setSpecialty] = useState("");
+            const [city, setCity] = useState("");
             Search
           </button>
 
