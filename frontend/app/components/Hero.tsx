@@ -9,6 +9,7 @@ export default function Hero() {
   const res = await fetch(`/api/doctors?specialty=${specialty}&city=${city}`);
   const data = await res.json();
   console.log("Doctors:", data);
+  setFiltered(data);
 };
 
 
