@@ -1,8 +1,6 @@
 // src/routes/auth.js
-
 import express from "express";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import pool from "../utils/db.js";
 
 const router = express.Router();
@@ -40,7 +38,6 @@ router.post("/doctor/register", async (req, res) => {
   try {
     const { name, email, password, specialty, phone, kmpdc_number } = req.body;
 
-    // Verify KMPDC
     const verify = await pool.query(
       "SELECT * FROM verified_kmpdc WHERE registration_number=$1",
       [kmpdc_number]
@@ -70,7 +67,7 @@ router.post("/doctor/register", async (req, res) => {
 });
 
 /* ======================
-   LOGIN (PATIENT + DOCTOR)
+   LOGIN (NO JWT MODE)
 ====================== */
 router.post("/login", async (req, res) => {
   try {
@@ -92,18 +89,9 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Wrong password" });
     }
 
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET missing in env");
-    }
-
-    const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
     res.json({
-      token,
+      token: null,
+      message: "Login successful (JWT disabled)",
       user: {
         id: user.id,
         name: user.name,
