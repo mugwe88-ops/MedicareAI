@@ -1,11 +1,12 @@
-import pg from "pg";
+import { Pool } from "pg";
 
-const { Pool } = pg;
+// Type-only import for global cache
+type PgPool = import("pg").Pool;
 
 // Prevent creating multiple pools in dev (Next.js hot reload issue)
 declare global {
   // eslint-disable-next-line no-var
-  var pgPool: pg.Pool | undefined;
+  var pgPool: PgPool | undefined;
 }
 
 const pool =
@@ -22,4 +23,3 @@ if (process.env.NODE_ENV !== "production") global.pgPool = pool;
 
 export { pool };
 export default pool;
-
