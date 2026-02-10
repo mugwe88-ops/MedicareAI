@@ -1,9 +1,11 @@
-import { Pool } from "pg";
+import pg from "pg";
+
+const { Pool } = pg;
 
 // Prevent creating multiple pools in dev (Next.js hot reload issue)
 declare global {
   // eslint-disable-next-line no-var
-  var pgPool: Pool | undefined;
+  var pgPool: pg.Pool | undefined;
 }
 
 const pool =
@@ -18,6 +20,6 @@ const pool =
 
 if (process.env.NODE_ENV !== "production") global.pgPool = pool;
 
-// Export BOTH default and named (so imports never break)
 export { pool };
 export default pool;
+
