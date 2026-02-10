@@ -1,4 +1,4 @@
-import pool from '../db.js';
+import pool from '../utils/db.js';
 
 import * as mpesaService from '../services/mpesa.service.js';
 

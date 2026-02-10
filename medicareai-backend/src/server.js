@@ -1,27 +1,18 @@
 /* ======================
-   0️⃣ ENV + DB CONNECT
+   0️⃣ ENV
 ====================== */
 import dotenv from "dotenv";
 dotenv.config();
-import { initDB, setupDatabase } from "./utils/db-setup.js";
-
-await initDB();
-await setupDatabase();
-
 
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import cors from "cors";
 import helmet from "helmet";
-import cron from "node-cron";
 import axios from "axios";
-import bcrypt from "bcrypt";
 
-// Database
-import pool from "./db.js";
-import { connectDB } from "./config/db.js";
-import { encrypt, decrypt } from "./encryption.js";
+// PostgreSQL
+import pool from "./utils/db.js";
 
 // Routes
 import authRoutes from "./routes/auth.js";
@@ -31,6 +22,7 @@ import paymentRoutes from "./routes/payments.routes.js";
 import bookingRoutes from "./routes/bookings.routes.js";
 import doctorRoutes from "./routes/doctors.routes.js";
 import { verifyToken } from "./utils/jwt.js";
+
 
 /* ======================
    1️⃣ APP INIT
@@ -42,7 +34,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /* ======================
    2️⃣ CONNECT MONGO
 ====================== */
-connectDB();
+
 
 /* ======================
    3️⃣ TRUST PROXY (RENDER)
@@ -159,7 +151,6 @@ async function initDatabase() {
     process.exit(1);
   }
 }
-await initDatabase();
 
 /* ======================
    8️⃣ WHATSAPP FUNCTION

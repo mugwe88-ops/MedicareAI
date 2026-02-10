@@ -1,5 +1,5 @@
 // src/models/Doctor.js
-import pool from "../db.js";
+import pool from "../utils/db.js";
 
 /**
  * Get all doctors
