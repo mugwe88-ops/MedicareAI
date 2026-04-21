@@ -8,10 +8,10 @@ export async function getAllDoctors() {
   const result = await pool.query(`
     SELECT 
       id, 
-      name AS full_name,           -- Map 'name' to 'full_name'
-      specialization, 
+      name,                -- Matches frontend 'name'
+      specialization AS specialty, -- Matches frontend 'specialty'
       bio, 
-      years_experience,            -- Match exact DB column name
+      years_experience, 
       clinic_name,
       city, 
       consultation_fee, 
@@ -21,13 +21,8 @@ export async function getAllDoctors() {
     WHERE is_active = true
     ORDER BY rating DESC
   `);
-
   return result.rows;
 }
-
-/**
- * Get doctor by ID
- */
 export async function getDoctorById(id) {
   const result = await pool.query(
     `SELECT 
