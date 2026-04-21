@@ -15,13 +15,23 @@ export default function Signup() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Ensure this variable is set in your Vercel dashboard
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
     try {
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, role }),
+        // Explicitly structuring the body to ensure role is included
+        body: JSON.stringify({ 
+          ...formData, 
+          role,
+          // Sending nulls for doctor fields if patient to keep backend clean
+          specialization: role === "doctor" ? formData.specialization : undefined,
+          license_number: role === "doctor" ? formData.license_number : undefined,
+          city: role === "doctor" ? formData.city : undefined,
+        }),
       });
 
       if (res.ok) {
@@ -33,6 +43,7 @@ export default function Signup() {
       }
     } catch (error) {
       console.error("Signup error:", error);
+      alert("Network error. Please check if the backend is running.");
     }
   };
 
@@ -58,27 +69,27 @@ export default function Signup() {
           <input 
             type="text" 
             placeholder="Full Name" 
-            className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
+            className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500 text-slate-900" 
             required
-            value={formData.name} // Fix: Linked to state
+            value={formData.name}
             onChange={(e) => setFormData({...formData, name: e.target.value})} 
           />
           
           <input 
             type="email" 
             placeholder="Email" 
-            className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
+            className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500 text-slate-900" 
             required
-            value={formData.email} // Fix: Linked to state
+            value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})} 
           />
           
           <input 
             type="password" 
             placeholder="Password" 
-            className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
+            className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500 text-slate-900" 
             required
-            value={formData.password} // Fix: Linked to state
+            value={formData.password}
             onChange={(e) => setFormData({...formData, password: e.target.value})} 
           />
 
@@ -88,31 +99,31 @@ export default function Signup() {
               <input 
                 type="text" 
                 placeholder="Specialization (e.g. Dermatologist)" 
-                className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
-                required
-                value={formData.specialization} // Fix: Linked to state
+                className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500 text-slate-900" 
+                required={role === "doctor"}
+                value={formData.specialization}
                 onChange={(e) => setFormData({...formData, specialization: e.target.value})} 
               />
               <input 
                 type="text" 
                 placeholder="License Number (KMLTTB-...)" 
-                className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
-                required
-                value={formData.license_number} // Fix: Linked to state
+                className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500 text-slate-900" 
+                required={role === "doctor"}
+                value={formData.license_number}
                 onChange={(e) => setFormData({...formData, license_number: e.target.value})} 
               />
               <input 
                 type="text" 
                 placeholder="City" 
-                className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
-                required
-                value={formData.city} // Fix: Linked to state
+                className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500 text-slate-900" 
+                required={role === "doctor"}
+                value={formData.city}
                 onChange={(e) => setFormData({...formData, city: e.target.value})} 
               />
             </div>
           )}
 
-          <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors">
+          <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors mt-4">
             Create Account
           </button>
         </form>
