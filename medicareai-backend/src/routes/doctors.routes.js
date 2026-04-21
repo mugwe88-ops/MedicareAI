@@ -44,20 +44,42 @@ router.get("/", async (req, res) => {
 /**
  * GET /api/doctors/:id
  */
-router.get("/:id", async (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const doctor = await getDoctorById(req.params.id);
-    if (!doctor) return res.status(404).json({ error: "Doctor not found" });
-    res.json(doctor);
+    // 1. Capture every possible parameter name the frontend might use
+    // Your Hero.tsx uses 'query'
+    // Your previous code used 'specialization'
+    const { city, query, q, specialization } = req.query;
+
+    // 2. Determine the search term (prioritize 'query' from your URL)
+    const searchTerm = (query || q || specialization || "").toString().trim().toLowerCase();
+    const cityTerm = (city || "").toString().trim().toLowerCase();
+
+    // 3. Get active doctors from PostgreSQL
+    let doctors = await getAllDoctors();
+
+    // 4. Apply Fuzzy Filtering
+    if (cityTerm !== "") {
+      doctors = doctors.filter(d => 
+        d.city?.toLowerCase().includes(cityTerm)
+      );
+    }
+
+    if (searchTerm !== "") {
+      doctors = doctors.filter(d => 
+        // Using includes() ensures "Dermatology" matches "Dermatologist"
+        d.specialization?.toLowerCase().includes(searchTerm) || 
+        d.full_name?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // 5. Send results back to the Vercel frontend
+    res.json(doctors);
   } catch (err) {
-    console.error("Doctor fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch doctor" });
+    console.error("Doctors API error:", err);
+    res.status(500).json({ error: "Failed to fetch doctors" });
   }
 });
-
-/**
- * POST /api/doctors
- */
 router.post("/", async (req, res) => {
   try {
     const doctor = await createDoctor(req.body);
