@@ -69,5 +69,21 @@ router.post("/", async (req, res) => {
     res.status(500).json({ error: "Failed to create doctor" });
   }
 });
-
+// Add this to your doctors.routes.js
+router.post('/', async (req, res) => {
+  try {
+    const { name, specialization, bio, years_experience, clinic_name, city, consultation_fee, license_number } = req.body;
+    
+    const newDoctor = await pool.query(
+      `INSERT INTO doctors (name, specialization, bio, years_experience, clinic_name, city, consultation_fee, license_number, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true) RETURNING *`,
+      [name, specialization, bio, years_experience, clinic_name, city, consultation_fee, license_number]
+    );
+    
+    res.status(201).json(newDoctor.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
 export default router;
