@@ -3,15 +3,16 @@ import pool from "../utils/db.js";
 /**
  * Get all doctors
  * Aliasing columns to match frontend expectations (name and specialty)
+ * Uses 'name' and 'years_experience' to match your actual schema
  */
 export async function getAllDoctors() {
   const result = await pool.query(`
     SELECT 
       id, 
-      full_name AS name,           -- Aliased for frontend
-      specialization AS specialty, -- Aliased for frontend
+      name AS full_name,           -- Map 'name' to 'full_name' for the route
+      specialization, 
       bio, 
-      experience_years, 
+      years_experience,            -- Matches your schema
       clinic_name,
       city, 
       consultation_fee, 
@@ -32,9 +33,16 @@ export async function getDoctorById(id) {
   const result = await pool.query(
     `SELECT 
       id, 
-      full_name AS name, 
-      specialization AS specialty, 
-      * FROM doctors WHERE id = $1`,
+      name AS full_name, 
+      specialization, 
+      bio, 
+      years_experience, 
+      clinic_name, 
+      city, 
+      consultation_fee, 
+      rating, 
+      license_number 
+    FROM doctors WHERE id = $1`,
     [id]
   );
 
@@ -42,33 +50,46 @@ export async function getDoctorById(id) {
 }
 
 /**
- * Create doctor (admin later)
+ * Create doctor
+ * Includes 'license_number' to avoid NOT NULL constraint errors
  */
 export async function createDoctor(data) {
   const {
-    full_name,
+    name,
     specialization,
     bio,
-    experience_years,
+    years_experience,
     clinic_name,
     city,
     consultation_fee,
+    license_number, // Required field in your schema
   } = data;
 
   const result = await pool.query(
     `
-    INSERT INTO doctors (full_name, specialization, bio, experience_years, clinic_name, city, consultation_fee)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
-    RETURNING id, full_name AS name, specialization AS specialty, bio, experience_years, clinic_name, city, consultation_fee
+    INSERT INTO doctors (
+      name, 
+      specialization, 
+      bio, 
+      years_experience, 
+      clinic_name, 
+      city, 
+      consultation_fee, 
+      license_number, 
+      is_active
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+    RETURNING id, name AS full_name, specialization, bio, years_experience, clinic_name, city, consultation_fee
     `,
     [
-      full_name,
+      name,
       specialization,
       bio,
-      experience_years,
+      years_experience,
       clinic_name,
       city,
       consultation_fee,
+      license_number,
     ]
   );
 
