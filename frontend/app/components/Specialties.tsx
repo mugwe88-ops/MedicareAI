@@ -3,7 +3,7 @@
 import {
   Stethoscope,
   Baby,
-  Tooth,
+  Activity, // Swapped Tooth for Activity to fix the Vercel Build Error
   HeartPulse,
   User,
   Bone,
@@ -15,7 +15,7 @@ export default function Speciality() {
     { name: "Dermatologist", icon: User },
     { name: "Pediatrician", icon: Baby },
     { name: "Gynecologist", icon: HeartPulse },
-    { name: "Dentist", icon: Tooth },
+    { name: "Dentist", icon: Activity }, 
     { name: "Orthopedic Surgeon", icon: Bone },
   ];
 
