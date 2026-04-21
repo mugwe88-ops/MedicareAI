@@ -5,27 +5,32 @@ const router = express.Router();
 
 /**
  * GET /api/doctors
- * Updated to match frontend query params: ?city=Nairobi&q=Dermatology
+ * Optimized for fuzzy matching and frontend compatibility
  */
 router.get("/", async (req, res) => {
   try {
-    // 'q' comes from your Hero.tsx search input
-    const { city, q } = req.query; 
+    // Hero.tsx and api.ts send 'query' for specialization
+    const { city, query, specialization } = req.query;
+    
+    // Normalize the search term: check 'query', then 'specialization'
+    const searchTerm = (query || specialization || "").trim().toLowerCase();
+    const cityTerm = (city || "").trim().toLowerCase();
+
     let doctors = await getAllDoctors();
 
-    // Filter by City
-    if (city && city.trim() !== "") {
+    // 1. Filter by City (Fuzzy match)
+    if (cityTerm !== "") {
       doctors = doctors.filter(d =>
-        d.city?.toLowerCase().includes(city.toLowerCase())
+        d.city?.toLowerCase().includes(cityTerm)
       );
     }
 
-    // Filter by Specialty/Name (using 'q' from frontend)
-    if (q && q.trim() !== "") {
-      const searchTerm = q.toLowerCase();
+    // 2. Filter by Specialty or Name (Fuzzy match)
+    if (searchTerm !== "") {
       doctors = doctors.filter(d =>
-        d.specialty?.toLowerCase().includes(searchTerm) || 
-        d.name?.toLowerCase().includes(searchTerm)
+        // Use field names from your DB Model: full_name and specialization
+        d.specialization?.toLowerCase().includes(searchTerm) || 
+        d.full_name?.toLowerCase().includes(searchTerm)
       );
     }
 
