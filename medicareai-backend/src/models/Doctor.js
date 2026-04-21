@@ -2,16 +2,16 @@ import pool from "../utils/db.js";
 
 /**
  * Get all doctors
- * Maps database columns (name, years_experience) to frontend expectations (full_name)
+ * Aliasing columns to match frontend expectations exactly
  */
 export async function getAllDoctors() {
   const result = await pool.query(`
     SELECT 
       id, 
-      name,                -- Matches frontend 'name'
-      specialization AS specialty, -- Matches frontend 'specialty'
+      name AS full_name,           -- Map 'name' to 'full_name'
+      specialization AS specialty, -- Map to 'specialty'
       bio, 
-      years_experience, 
+      years_experience,            -- Matches actual DB column
       clinic_name,
       city, 
       consultation_fee, 
@@ -23,12 +23,13 @@ export async function getAllDoctors() {
   `);
   return result.rows;
 }
+
 export async function getDoctorById(id) {
   const result = await pool.query(
     `SELECT 
       id, 
       name AS full_name, 
-      specialization, 
+      specialization AS specialty, 
       bio, 
       years_experience, 
       clinic_name, 
@@ -39,14 +40,9 @@ export async function getDoctorById(id) {
     FROM doctors WHERE id = $1`,
     [id]
   );
-
   return result.rows[0];
 }
 
-/**
- * Create doctor
- * Includes license_number to satisfy NOT NULL constraint
- */
 export async function createDoctor(data) {
   const {
     name,
@@ -56,36 +52,18 @@ export async function createDoctor(data) {
     clinic_name,
     city,
     consultation_fee,
-    license_number, // Must be provided per DB constraint
+    license_number, // Prevents NOT NULL error
   } = data;
 
   const result = await pool.query(
     `
     INSERT INTO doctors (
-      name, 
-      specialization, 
-      bio, 
-      years_experience, 
-      clinic_name, 
-      city, 
-      consultation_fee, 
-      license_number, 
-      is_active
+      name, specialization, bio, years_experience, clinic_name, city, consultation_fee, license_number, is_active
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-    RETURNING id, name AS full_name, specialization, bio, years_experience, clinic_name, city, consultation_fee
+    RETURNING id, name AS full_name, specialization AS specialty, bio, years_experience, clinic_name, city, consultation_fee
     `,
-    [
-      name,
-      specialization,
-      bio,
-      years_experience,
-      clinic_name,
-      city,
-      consultation_fee,
-      license_number,
-    ]
+    [name, specialization, bio, years_experience, clinic_name, city, consultation_fee, license_number]
   );
-
   return result.rows[0];
 }
