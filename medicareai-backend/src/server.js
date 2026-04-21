@@ -52,10 +52,10 @@ app.use(express.urlencoded({ extended: true }));
    5️⃣ CORS
 ====================== */
 app.use(cors({
-  origin: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  origin: ["https://medicare-ai-two.vercel.app", "http://localhost:3000", "http://localhost:5173"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: false
+  credentials: true
 }));
 
 /* ======================
