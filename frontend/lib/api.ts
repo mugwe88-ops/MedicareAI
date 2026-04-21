@@ -4,6 +4,9 @@ const API_BASE =
     ? "http://localhost:5000"
     : "");
 
+/**
+ * Fetches all appointments for the dashboard
+ */
 export async function getAppointments() {
   const res = await fetch(`${API_BASE}/api/appointments`, {
     cache: "no-store",
@@ -15,12 +18,21 @@ export async function getAppointments() {
 
   return res.json();
 }
-// Add this to frontend/lib/api.ts
+
+/**
+ * Searches for doctors based on specialization and city.
+ * Map 'query' to 'specialization' to match the backend route:
+ * const { city, specialization } = req.query;
+ */
 export async function searchDoctors(query: string, city: string) {
-  const res = await fetch(`${API_BASE}/api/doctors?search=${query}&city=${city}`, {
+  // Changed '?search=' to '?specialization=' to match your backend logic
+  const res = await fetch(`${API_BASE}/api/doctors?specialization=${query}&city=${city}`, {
     cache: "no-store",
   });
 
-  if (!res.ok) throw new Error("Failed to search doctors");
+  if (!res.ok) {
+    throw new Error("Failed to search doctors");
+  }
+  
   return res.json();
 }
