@@ -1,4 +1,3 @@
-// src/routes/doctors.routes.js
 import express from "express";
 import { getAllDoctors, getDoctorById, createDoctor } from "../models/Doctor.js";
 
@@ -6,23 +5,27 @@ const router = express.Router();
 
 /**
  * GET /api/doctors
- * Optional filters: ?city=Nairobi&specialization=Cardiology
+ * Updated to match frontend query params: ?city=Nairobi&q=Dermatology
  */
 router.get("/", async (req, res) => {
   try {
-    const { city, specialization } = req.query;
+    // 'q' comes from your Hero.tsx search input
+    const { city, q } = req.query; 
     let doctors = await getAllDoctors();
 
-    // Simple filtering in JS (we can optimize later in SQL)
-    if (city) {
+    // Filter by City
+    if (city && city.trim() !== "") {
       doctors = doctors.filter(d =>
-        d.city?.toLowerCase() === city.toLowerCase()
+        d.city?.toLowerCase().includes(city.toLowerCase())
       );
     }
 
-    if (specialization) {
+    // Filter by Specialty/Name (using 'q' from frontend)
+    if (q && q.trim() !== "") {
+      const searchTerm = q.toLowerCase();
       doctors = doctors.filter(d =>
-        d.specialization?.toLowerCase() === specialization.toLowerCase()
+        d.specialty?.toLowerCase().includes(searchTerm) || 
+        d.name?.toLowerCase().includes(searchTerm)
       );
     }
 
@@ -49,7 +52,6 @@ router.get("/:id", async (req, res) => {
 
 /**
  * POST /api/doctors
- * Admin only later
  */
 router.post("/", async (req, res) => {
   try {
