@@ -5,8 +5,12 @@ import Link from "next/link";
 export default function Signup() {
   const [role, setRole] = useState("patient");
   const [formData, setFormData] = useState({
-    email: "", password: "", name: "", 
-    specialization: "", license_number: "", city: ""
+    email: "", 
+    password: "", 
+    name: "", 
+    specialization: "", 
+    license_number: "", 
+    city: ""
   });
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -39,38 +43,76 @@ export default function Signup() {
         
         <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
           <button 
+            type="button"
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${role === 'patient' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
             onClick={() => setRole("patient")}
           >Patient</button>
           <button 
+            type="button"
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${role === 'doctor' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
             onClick={() => setRole("doctor")}
           >Doctor</button>
         </div>
 
         <form onSubmit={handleSignup} className="space-y-4">
-          <input type="text" placeholder="Full Name" className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" required
-            onChange={(e) => setFormData({...formData, name: e.target.value})} />
+          <input 
+            type="text" 
+            placeholder="Full Name" 
+            className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
+            required
+            value={formData.name} // Fix: Linked to state
+            onChange={(e) => setFormData({...formData, name: e.target.value})} 
+          />
           
-          <input type="email" placeholder="Email" className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" required
-            onChange={(e) => setFormData({...formData, email: e.target.value})} />
+          <input 
+            type="email" 
+            placeholder="Email" 
+            className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
+            required
+            value={formData.email} // Fix: Linked to state
+            onChange={(e) => setFormData({...formData, email: e.target.value})} 
+          />
           
-          <input type="password" placeholder="Password" className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" required
-            onChange={(e) => setFormData({...formData, password: e.target.value})} />
+          <input 
+            type="password" 
+            placeholder="Password" 
+            className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
+            required
+            value={formData.password} // Fix: Linked to state
+            onChange={(e) => setFormData({...formData, password: e.target.value})} 
+          />
 
           {role === "doctor" && (
             <div className="space-y-4 pt-4 border-t border-slate-100">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Professional Info</p>
-              <input type="text" placeholder="Specialization (e.g. Dermatologist)" className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" required
-                onChange={(e) => setFormData({...formData, specialization: e.target.value})} />
-              <input type="text" placeholder="License Number (KMLTTB-...)" className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" required
-                onChange={(e) => setFormData({...formData, license_number: e.target.value})} />
-              <input type="text" placeholder="City" className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" required
-                onChange={(e) => setFormData({...formData, city: e.target.value})} />
+              <input 
+                type="text" 
+                placeholder="Specialization (e.g. Dermatologist)" 
+                className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
+                required
+                value={formData.specialization} // Fix: Linked to state
+                onChange={(e) => setFormData({...formData, specialization: e.target.value})} 
+              />
+              <input 
+                type="text" 
+                placeholder="License Number (KMLTTB-...)" 
+                className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
+                required
+                value={formData.license_number} // Fix: Linked to state
+                onChange={(e) => setFormData({...formData, license_number: e.target.value})} 
+              />
+              <input 
+                type="text" 
+                placeholder="City" 
+                className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500" 
+                required
+                value={formData.city} // Fix: Linked to state
+                onChange={(e) => setFormData({...formData, city: e.target.value})} 
+              />
             </div>
           )}
 
-          <button className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors">
+          <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors">
             Create Account
           </button>
         </form>
