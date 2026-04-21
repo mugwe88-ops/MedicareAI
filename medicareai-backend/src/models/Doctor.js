@@ -2,17 +2,16 @@ import pool from "../utils/db.js";
 
 /**
  * Get all doctors
- * Aliasing columns to match frontend expectations (name and specialty)
- * Uses 'name' and 'years_experience' to match your actual schema
+ * Maps database columns (name, years_experience) to frontend expectations (full_name)
  */
 export async function getAllDoctors() {
   const result = await pool.query(`
     SELECT 
       id, 
-      name AS full_name,           -- Map 'name' to 'full_name' for the route
+      name AS full_name,           -- Map 'name' to 'full_name'
       specialization, 
       bio, 
-      years_experience,            -- Matches your schema
+      years_experience,            -- Match exact DB column name
       clinic_name,
       city, 
       consultation_fee, 
@@ -51,7 +50,7 @@ export async function getDoctorById(id) {
 
 /**
  * Create doctor
- * Includes 'license_number' to avoid NOT NULL constraint errors
+ * Includes license_number to satisfy NOT NULL constraint
  */
 export async function createDoctor(data) {
   const {
@@ -62,7 +61,7 @@ export async function createDoctor(data) {
     clinic_name,
     city,
     consultation_fee,
-    license_number, // Required field in your schema
+    license_number, // Must be provided per DB constraint
   } = data;
 
   const result = await pool.query(
