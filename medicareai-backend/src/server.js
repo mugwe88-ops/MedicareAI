@@ -138,7 +138,7 @@ async function initDatabase() {
 
     // ✅ VERIFIED DOCTORS
     await pool.query(`
-      CREATE TABLE verified_kmpdc (
+      CREATE TABLE IF NOT EXISTS verified_kmpdc(
         registration_number VARCHAR(50) PRIMARY KEY,
         doctor_name VARCHAR(255)
       );
