@@ -20,18 +20,24 @@ export default function Signup() {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
     try {
+      // Structure the data to match your auth.controller.js
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: role,
+        // Only include professional data if signing up as a doctor
+        ...(role === "doctor" && {
+          specialization: formData.specialization,
+          license_number: formData.license_number,
+          city: formData.city
+        })
+      };
+
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Explicitly structuring the body to ensure role is included
-        body: JSON.stringify({ 
-          ...formData, 
-          role,
-          // Sending nulls for doctor fields if patient to keep backend clean
-          specialization: role === "doctor" ? formData.specialization : undefined,
-          license_number: role === "doctor" ? formData.license_number : undefined,
-          city: role === "doctor" ? formData.city : undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -43,7 +49,7 @@ export default function Signup() {
       }
     } catch (error) {
       console.error("Signup error:", error);
-      alert("Network error. Please check if the backend is running.");
+      alert("Network error. Please ensure NEXT_PUBLIC_API_URL is correct in Vercel.");
     }
   };
 
@@ -52,6 +58,7 @@ export default function Signup() {
       <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl">
         <h2 className="text-2xl font-bold text-center mb-6 text-slate-800">Join MedicareAI</h2>
         
+        {/* Role Selector */}
         <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
           <button 
             type="button"
@@ -66,12 +73,13 @@ export default function Signup() {
         </div>
 
         <form onSubmit={handleSignup} className="space-y-4">
+          {/* Base Fields for both roles */}
           <input 
             type="text" 
             placeholder="Full Name" 
             className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500 text-slate-900" 
             required
-            value={formData.name}
+            value={formData.name} // Fix: Value linked to state
             onChange={(e) => setFormData({...formData, name: e.target.value})} 
           />
           
@@ -80,7 +88,7 @@ export default function Signup() {
             placeholder="Email" 
             className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500 text-slate-900" 
             required
-            value={formData.email}
+            value={formData.email} // Fix: Value linked to state
             onChange={(e) => setFormData({...formData, email: e.target.value})} 
           />
           
@@ -89,10 +97,11 @@ export default function Signup() {
             placeholder="Password" 
             className="w-full p-3 border border-slate-200 rounded-xl outline-blue-500 text-slate-900" 
             required
-            value={formData.password}
+            value={formData.password} // Fix: Value linked to state
             onChange={(e) => setFormData({...formData, password: e.target.value})} 
           />
 
+          {/* Conditional Doctor-Only Fields */}
           {role === "doctor" && (
             <div className="space-y-4 pt-4 border-t border-slate-100">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Professional Info</p>
@@ -127,6 +136,7 @@ export default function Signup() {
             Create Account
           </button>
         </form>
+
         <p className="mt-6 text-center text-sm text-slate-600">
           Already have an account? <Link href="/login" className="text-blue-600 font-semibold hover:underline">Login</Link>
         </p>
