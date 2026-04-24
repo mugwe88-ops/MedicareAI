@@ -81,15 +81,10 @@ async function initDatabase() {
   try {
     console.log("⚙️ Initializing database...");
 
-    // 🔥 RESET DATABASE (DEV ONLY - fixes UUID vs INTEGER issue)
-    await pool.query(`DROP TABLE IF EXISTS analytics CASCADE;`);
-    await pool.query(`DROP TABLE IF EXISTS appointments CASCADE;`);
-    await pool.query(`DROP TABLE IF EXISTS consultants CASCADE;`);
-    await pool.query(`DROP TABLE IF EXISTS users CASCADE;`);
-
+    // 1. Create tables with IF NOT EXISTS to prevent crashes on restart
     // ✅ USERS
     await pool.query(`
-      CREATE TABLE users (
+      CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255),
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -101,7 +96,7 @@ async function initDatabase() {
 
     // ✅ ANALYTICS
     await pool.query(`
-      CREATE TABLE analytics (
+      CREATE TABLE IF NOT EXISTS analytics (
         id SERIAL PRIMARY KEY,
         doctor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         event_type VARCHAR(50),
@@ -111,7 +106,7 @@ async function initDatabase() {
 
     // ✅ CONSULTANTS
     await pool.query(`
-      CREATE TABLE consultants (
+      CREATE TABLE IF NOT EXISTS consultants (
         id SERIAL PRIMARY KEY,
         whatsapp_phone_id VARCHAR(255) UNIQUE NOT NULL,
         whatsapp_access_token TEXT NOT NULL,
@@ -124,7 +119,7 @@ async function initDatabase() {
 
     // ✅ APPOINTMENTS
     await pool.query(`
-      CREATE TABLE appointments (
+      CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
         patient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         department VARCHAR(100),
@@ -138,22 +133,25 @@ async function initDatabase() {
 
     // ✅ VERIFIED DOCTORS
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS verified_kmpdc(
+      CREATE TABLE IF NOT EXISTS verified_kmpdc (
         registration_number VARCHAR(50) PRIMARY KEY,
         doctor_name VARCHAR(255)
       );
     `);
 
+    // 2. Seed default data using ON CONFLICT to avoid duplicate key errors
     await pool.query(`
       INSERT INTO verified_kmpdc (registration_number, doctor_name)
       VALUES ('TEST-999-MD', 'Troubleshooting Account')
-      ON CONFLICT DO NOTHING;
+      ON CONFLICT (registration_number) DO NOTHING;
     `);
 
     console.log("✅ PostgreSQL schema ready");
   } catch (err) {
     console.error("❌ DB INIT ERROR:", err);
-    process.exit(1);
+    // On Render, exiting will cause a restart loop. 
+    // Only exit if the error is fatal to the app's core functionality.
+    process.exit(1); 
   }
 }
 
