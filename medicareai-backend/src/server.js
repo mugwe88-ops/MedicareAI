@@ -1,6 +1,5 @@
-const authRoutes = require('./src/routes/auth.routes');
 /* ======================
-   0️⃣ ENV
+   0️⃣ ENV & IMPORTS
 ====================== */
 import dotenv from "dotenv";
 dotenv.config();
@@ -15,7 +14,7 @@ import axios from "axios";
 // PostgreSQL
 import pool from "./utils/db.js";
 
-// Routes
+// Routes - FIXED: Removed duplicate 'require' and standardized naming
 import authRoutes from "./routes/auth.js";
 import appointmentRoutes from "./routes/appointment.routes.js";
 import directoryRoutes from "./routes/directory.js";
@@ -23,7 +22,6 @@ import paymentRoutes from "./routes/payments.routes.js";
 import bookingRoutes from "./routes/bookings.routes.js";
 import doctorRoutes from "./routes/doctors.routes.js";
 import { verifyToken } from "./utils/jwt.js";
-
 
 /* ======================
    1️⃣ APP INIT
@@ -33,24 +31,19 @@ const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /* ======================
-   2️⃣ CONNECT MONGO
-====================== */
-
-
-/* ======================
-   3️⃣ TRUST PROXY (RENDER)
+   2️⃣ TRUST PROXY (RENDER)
 ====================== */
 app.set("trust proxy", 1);
 
 /* ======================
-   4️⃣ SECURITY + BODY
+   3️⃣ SECURITY + BODY
 ====================== */
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ======================
-   5️⃣ CORS
+   4️⃣ CORS
 ====================== */
 app.use(cors({
   origin: ["https://medicare-ai-two.vercel.app", "http://localhost:3000", "http://localhost:5173"],
@@ -60,15 +53,15 @@ app.use(cors({
 }));
 
 /* ======================
-   6️⃣ ROUTES
+   5️⃣ ROUTES
 ====================== */
+// FIXED: Removed the redundant second '/api/auth' declaration
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
-app.use('/api/auth', authRoutes); // This creates the /api/auth/signup path
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", server: "Swift MD API" });
@@ -79,10 +72,11 @@ app.get("/api/protected", verifyToken, (req, res) => {
 });
 
 /* ======================
-   7️⃣ DATABASE INIT (POSTGRES)
+   6️⃣ DATABASE INIT (POSTGRES)
 ====================== */
 async function initDatabase() {
   try {
+    // Create Users Table (Note: ensures schema matches your Medical Lab Technologist requirements)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -100,6 +94,7 @@ async function initDatabase() {
       );
     `);
 
+    // Create Consultants and Appointments Tables
     await pool.query(`
       CREATE TABLE IF NOT EXISTS consultants (
         id SERIAL PRIMARY KEY,
@@ -154,12 +149,14 @@ async function initDatabase() {
   }
 }
 
+// Call the DB init
+initDatabase();
+
 /* ======================
-   8️⃣ WHATSAPP FUNCTION
+   7️⃣ WHATSAPP & WEBHOOKS
 ====================== */
 export async function sendReply(phoneId, to, token, text, isButton = false) {
   const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
-
   const data = isButton ? {
     messaging_product: "whatsapp",
     to,
@@ -187,9 +184,6 @@ export async function sendReply(phoneId, to, token, text, isButton = false) {
   }
 }
 
-/* ======================
-   9️⃣ WEBHOOK
-====================== */
 app.get("/api/webhook", (req, res) => {
   if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
     return res.send(req.query["hub.challenge"]);
@@ -202,16 +196,17 @@ app.post("/api/webhook", async (req, res) => {
 });
 
 /* ======================
-   🔟 STATIC FRONTEND
+   8️⃣ STATIC FRONTEND
 ====================== */
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("*", (req, res) => {
+// Ensure API routes aren't swallowed by the wild-card catch-all
+app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 /* ======================
-   11️⃣ GLOBAL ERROR HANDLER
+   9️⃣ GLOBAL ERROR HANDLER
 ====================== */
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err);
@@ -219,7 +214,7 @@ app.use((err, req, res, next) => {
 });
 
 /* ======================
-   12️⃣ START SERVER
+   🔟 START SERVER
 ====================== */
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Swift MD live on port ${PORT}`);
