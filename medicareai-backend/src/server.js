@@ -1,3 +1,4 @@
+const authRoutes = require('./src/routes/auth.routes');
 /* ======================
    0️⃣ ENV
 ====================== */
@@ -67,6 +68,7 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
+app.use('/api/auth', authRoutes); // This creates the /api/auth/signup path
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", server: "Swift MD API" });
