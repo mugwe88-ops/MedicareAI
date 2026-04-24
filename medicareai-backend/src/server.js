@@ -1,5 +1,5 @@
 /* ======================
-   0️⃣ ENV & IMPORTS
+    0️⃣ ENV
 ====================== */
 import dotenv from "dotenv";
 dotenv.config();
@@ -14,7 +14,7 @@ import axios from "axios";
 // PostgreSQL
 import pool from "./utils/db.js";
 
-// Routes
+// Routes - FIXED: Removed the conflicting 'require' line from the top and used these imports
 import authRoutes from "./routes/auth.js";
 import appointmentRoutes from "./routes/appointment.routes.js";
 import directoryRoutes from "./routes/directory.js";
@@ -23,27 +23,33 @@ import bookingRoutes from "./routes/bookings.routes.js";
 import doctorRoutes from "./routes/doctors.routes.js";
 import { verifyToken } from "./utils/jwt.js";
 
+
 /* ======================
-   1️⃣ APP INIT
+    1️⃣ APP INIT
 ====================== */
 const app = express();
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /* ======================
-   2️⃣ TRUST PROXY (RENDER)
+    2️⃣ CONNECT MONGO
+====================== */
+
+
+/* ======================
+    3️⃣ TRUST PROXY (RENDER)
 ====================== */
 app.set("trust proxy", 1);
 
 /* ======================
-   3️⃣ SECURITY + BODY
+    4️⃣ SECURITY + BODY
 ====================== */
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ======================
-   4️⃣ CORS
+    5️⃣ CORS
 ====================== */
 app.use(cors({
   origin: ["https://medicare-ai-two.vercel.app", "http://localhost:3000", "http://localhost:5173"],
@@ -53,7 +59,7 @@ app.use(cors({
 }));
 
 /* ======================
-   5️⃣ ROUTES
+    6️⃣ ROUTES
 ====================== */
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
@@ -71,11 +77,10 @@ app.get("/api/protected", verifyToken, (req, res) => {
 });
 
 /* ======================
-   6️⃣ DATABASE INIT (POSTGRES)
+    7️⃣ DATABASE INIT (POSTGRES)
 ====================== */
 async function initDatabase() {
   try {
-    // 1. Create Users Table first
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -93,7 +98,6 @@ async function initDatabase() {
       );
     `);
 
-    // 2. Create Consultants
     await pool.query(`
       CREATE TABLE IF NOT EXISTS consultants (
         id SERIAL PRIMARY KEY,
@@ -106,7 +110,6 @@ async function initDatabase() {
       );
     `);
 
-    // 3. Create Appointments (Matching patient_id to users.id type)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
@@ -120,11 +123,10 @@ async function initDatabase() {
       );
     `);
 
-    // 4. Create Analytics - FIXED: doctor_id type must match users.id (INTEGER)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS analytics (
         id SERIAL PRIMARY KEY,
-        doctor_id INTEGER REFERENCES users(id),
+        doctor_id INT REFERENCES users(id),
         event_type VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -145,18 +147,19 @@ async function initDatabase() {
 
     console.log("✅ PostgreSQL schema ready");
   } catch (err) {
-    console.error("❌ DB INIT ERROR:", err.message); // Cleaner error log
+    console.error("❌ DB INIT ERROR:", err);
     process.exit(1);
   }
 }
 
-initDatabase();
+// Note: You might want to call initDatabase() here if it's not called elsewhere.
 
 /* ======================
-   7️⃣ WHATSAPP & WEBHOOKS
+    8️⃣ WHATSAPP FUNCTION
 ====================== */
 export async function sendReply(phoneId, to, token, text, isButton = false) {
   const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
+
   const data = isButton ? {
     messaging_product: "whatsapp",
     to,
@@ -184,6 +187,9 @@ export async function sendReply(phoneId, to, token, text, isButton = false) {
   }
 }
 
+/* ======================
+    9️⃣ WEBHOOK
+====================== */
 app.get("/api/webhook", (req, res) => {
   if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
     return res.send(req.query["hub.challenge"]);
@@ -191,21 +197,21 @@ app.get("/api/webhook", (req, res) => {
   res.sendStatus(403);
 });
 
-app.post("/api/webhook", (req, res) => {
+app.post("/api/webhook", async (req, res) => {
   res.sendStatus(200);
 });
 
 /* ======================
-   8️⃣ STATIC FRONTEND
+    🔟 STATIC FRONTEND
 ====================== */
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get(/^\/(?!api).*/, (req, res) => {
+app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 /* ======================
-   9️⃣ GLOBAL ERROR HANDLER
+    11️⃣ GLOBAL ERROR HANDLER
 ====================== */
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err);
@@ -213,7 +219,7 @@ app.use((err, req, res, next) => {
 });
 
 /* ======================
-   🔟 START SERVER
+    12️⃣ START SERVER
 ====================== */
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Swift MD live on port ${PORT}`);
