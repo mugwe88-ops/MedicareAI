@@ -57,7 +57,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ======================
-   4️⃣ ROUTES (API FIRST!)
+   4️⃣ ROUTES
 ====================== */
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
@@ -67,7 +67,7 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
+  res.json({ status: "ok", message: "API is running" });
 });
 
 app.get("/api/protected", verifyToken, (req, res) => {
@@ -79,8 +79,17 @@ app.get("/api/protected", verifyToken, (req, res) => {
 ====================== */
 async function initDatabase() {
   try {
+    console.log("⚙️ Initializing database...");
+
+    // 🔥 RESET DATABASE (DEV ONLY - fixes UUID vs INTEGER issue)
+    await pool.query(`DROP TABLE IF EXISTS analytics CASCADE;`);
+    await pool.query(`DROP TABLE IF EXISTS appointments CASCADE;`);
+    await pool.query(`DROP TABLE IF EXISTS consultants CASCADE;`);
+    await pool.query(`DROP TABLE IF EXISTS users CASCADE;`);
+
+    // ✅ USERS
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255),
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -90,17 +99,19 @@ async function initDatabase() {
       );
     `);
 
+    // ✅ ANALYTICS
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS analytics (
+      CREATE TABLE analytics (
         id SERIAL PRIMARY KEY,
-        doctor_id INTEGER REFERENCES users(id),
+        doctor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         event_type VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
+    // ✅ CONSULTANTS
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS consultants (
+      CREATE TABLE consultants (
         id SERIAL PRIMARY KEY,
         whatsapp_phone_id VARCHAR(255) UNIQUE NOT NULL,
         whatsapp_access_token TEXT NOT NULL,
@@ -111,10 +122,11 @@ async function initDatabase() {
       );
     `);
 
+    // ✅ APPOINTMENTS
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS appointments (
+      CREATE TABLE appointments (
         id SERIAL PRIMARY KEY,
-        patient_id INTEGER REFERENCES users(id),
+        patient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         department VARCHAR(100),
         appointment_date DATE,
         appointment_time TIME,
@@ -124,8 +136,9 @@ async function initDatabase() {
       );
     `);
 
+    // ✅ VERIFIED DOCTORS
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS verified_kmpdc (
+      CREATE TABLE verified_kmpdc (
         registration_number VARCHAR(50) PRIMARY KEY,
         doctor_name VARCHAR(255)
       );
@@ -137,9 +150,9 @@ async function initDatabase() {
       ON CONFLICT DO NOTHING;
     `);
 
-    console.log("✅ PostgreSQL ready");
+    console.log("✅ PostgreSQL schema ready");
   } catch (err) {
-    console.error("❌ DB ERROR:", err);
+    console.error("❌ DB INIT ERROR:", err);
     process.exit(1);
   }
 }
@@ -199,11 +212,15 @@ app.post("/api/webhook", async (req, res) => {
 });
 
 /* ======================
-   8️⃣ STATIC (LAST!)
+   8️⃣ STATIC (SAFE)
 ====================== */
 app.use(express.static(path.join(__dirname, "public")));
 
+// ⚠️ Prevent API routes from being overridden by frontend
 app.get("*", (req, res) => {
+  if (req.path.startsWith("/api")) {
+    return res.status(404).json({ error: "API route not found" });
+  }
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
@@ -211,14 +228,25 @@ app.get("*", (req, res) => {
    9️⃣ ERROR HANDLER
 ====================== */
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error("🔥 GLOBAL ERROR:", err);
   res.status(500).json({ error: "Internal server error" });
 });
 
 /* ======================
-   🔟 START SERVER
+   🔟 START SERVER (SAFE)
 ====================== */
-app.listen(PORT, "0.0.0.0", async () => {
-  await initDatabase();
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await initDatabase();
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+
+  } catch (err) {
+    console.error("❌ Startup failed:", err);
+    process.exit(1);
+  }
+}
+
+startServer();
