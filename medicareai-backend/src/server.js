@@ -14,7 +14,7 @@ import axios from "axios";
 // PostgreSQL
 import pool from "./utils/db.js";
 
-// Routes - FIXED: Removed duplicate 'require' and standardized naming
+// Routes
 import authRoutes from "./routes/auth.js";
 import appointmentRoutes from "./routes/appointment.routes.js";
 import directoryRoutes from "./routes/directory.js";
@@ -55,7 +55,6 @@ app.use(cors({
 /* ======================
    5️⃣ ROUTES
 ====================== */
-// FIXED: Removed the redundant second '/api/auth' declaration
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/directory", directoryRoutes);
@@ -76,7 +75,7 @@ app.get("/api/protected", verifyToken, (req, res) => {
 ====================== */
 async function initDatabase() {
   try {
-    // Create Users Table (Note: ensures schema matches your Medical Lab Technologist requirements)
+    // 1. Create Users Table first
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -94,7 +93,7 @@ async function initDatabase() {
       );
     `);
 
-    // Create Consultants and Appointments Tables
+    // 2. Create Consultants
     await pool.query(`
       CREATE TABLE IF NOT EXISTS consultants (
         id SERIAL PRIMARY KEY,
@@ -107,6 +106,7 @@ async function initDatabase() {
       );
     `);
 
+    // 3. Create Appointments (Matching patient_id to users.id type)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
@@ -120,10 +120,11 @@ async function initDatabase() {
       );
     `);
 
+    // 4. Create Analytics - FIXED: doctor_id type must match users.id (INTEGER)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS analytics (
         id SERIAL PRIMARY KEY,
-        doctor_id INT REFERENCES users(id),
+        doctor_id INTEGER REFERENCES users(id),
         event_type VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -144,12 +145,11 @@ async function initDatabase() {
 
     console.log("✅ PostgreSQL schema ready");
   } catch (err) {
-    console.error("❌ DB INIT ERROR:", err);
+    console.error("❌ DB INIT ERROR:", err.message); // Cleaner error log
     process.exit(1);
   }
 }
 
-// Call the DB init
 initDatabase();
 
 /* ======================
@@ -191,7 +191,7 @@ app.get("/api/webhook", (req, res) => {
   res.sendStatus(403);
 });
 
-app.post("/api/webhook", async (req, res) => {
+app.post("/api/webhook", (req, res) => {
   res.sendStatus(200);
 });
 
@@ -200,7 +200,6 @@ app.post("/api/webhook", async (req, res) => {
 ====================== */
 app.use(express.static(path.join(__dirname, "public")));
 
-// Ensure API routes aren't swallowed by the wild-card catch-all
 app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
