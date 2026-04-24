@@ -76,13 +76,13 @@ app.get("/api/protected", verifyToken, (req, res) => {
 });
 
 /* ======================
-   5️⃣ DATABASE INIT
+   5️⃣ DATABASE INIT (WITH MIGRATIONS)
 ====================== */
 async function initDatabase() {
   try {
     console.log("⚙️ Initializing database...");
 
-    // ✅ USERS (Updated with missing columns from your signup form)
+    // 1. Create the base users table if it doesn't exist at all
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -90,13 +90,22 @@ async function initDatabase() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role VARCHAR(50) DEFAULT 'patient',
-        specialization VARCHAR(255),
-        license_number VARCHAR(255),
-        city VARCHAR(255),
-        phone VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // 2. MIGRATION: Add missing columns if they don't exist in the existing table
+    // This is crucial for fixing the 500 Internal Server Error
+    const migrations = [
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(255);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);"
+    ];
+
+    for (const query of migrations) {
+      await pool.query(query);
+    }
 
     // ✅ ANALYTICS
     await pool.query(`
@@ -150,7 +159,7 @@ async function initDatabase() {
       ON CONFLICT (registration_number) DO NOTHING;
     `);
 
-    console.log("✅ PostgreSQL schema ready");
+    console.log("✅ PostgreSQL schema ready and updated");
   } catch (err) {
     console.error("❌ DB INIT ERROR:", err);
     process.exit(1); 
@@ -178,11 +187,9 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // ⚠️ CATCH-ALL MUST BE LAST
 app.get("*", (req, res) => {
-  // If the request starts with /api but didn't match any routes above
   if (req.path.startsWith("/api")) {
     return res.status(404).json({ error: "API route not found" });
   }
-  // Otherwise serve the frontend
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
