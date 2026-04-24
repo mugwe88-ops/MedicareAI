@@ -59,6 +59,7 @@ app.use(express.urlencoded({ extended: true }));
 /* ======================
    4️⃣ ROUTES
 ====================== */
+// IMPORTANT: Routes must come BEFORE the static file handlers
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/directory", directoryRoutes);
@@ -81,8 +82,7 @@ async function initDatabase() {
   try {
     console.log("⚙️ Initializing database...");
 
-    // 1. Create tables with IF NOT EXISTS to prevent crashes on restart
-    // ✅ USERS
+    // ✅ USERS (Updated with missing columns from your signup form)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -90,6 +90,10 @@ async function initDatabase() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role VARCHAR(50) DEFAULT 'patient',
+        specialization VARCHAR(255),
+        license_number VARCHAR(255),
+        city VARCHAR(255),
+        phone VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -139,7 +143,7 @@ async function initDatabase() {
       );
     `);
 
-    // 2. Seed default data using ON CONFLICT to avoid duplicate key errors
+    // ✅ SEED DATA
     await pool.query(`
       INSERT INTO verified_kmpdc (registration_number, doctor_name)
       VALUES ('TEST-999-MD', 'Troubleshooting Account')
@@ -149,54 +153,12 @@ async function initDatabase() {
     console.log("✅ PostgreSQL schema ready");
   } catch (err) {
     console.error("❌ DB INIT ERROR:", err);
-    // On Render, exiting will cause a restart loop. 
-    // Only exit if the error is fatal to the app's core functionality.
     process.exit(1); 
   }
 }
 
 /* ======================
-   6️⃣ WHATSAPP
-====================== */
-export async function sendReply(phoneId, to, token, text, isButton = false) {
-  const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
-
-  const data = isButton
-    ? {
-        messaging_product: "whatsapp",
-        to,
-        type: "interactive",
-        interactive: {
-          type: "button",
-          body: { text },
-          action: {
-            buttons: [
-              {
-                type: "reply",
-                reply: { id: "book_now", title: "Book Now" }
-              }
-            ]
-          }
-        }
-      }
-    : {
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: text }
-      };
-
-  try {
-    await axios.post(url, data, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-  } catch (err) {
-    console.error("WhatsApp Error:", err.response?.data || err.message);
-  }
-}
-
-/* ======================
-   7️⃣ WEBHOOK
+   6️⃣ WHATSAPP / WEBHOOK
 ====================== */
 app.get("/api/webhook", (req, res) => {
   if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
@@ -210,37 +172,29 @@ app.post("/api/webhook", async (req, res) => {
 });
 
 /* ======================
-   8️⃣ STATIC (SAFE)
+   7️⃣ STATIC & CATCH-ALL
 ====================== */
 app.use(express.static(path.join(__dirname, "public")));
 
-// ⚠️ Prevent API routes from being overridden by frontend
+// ⚠️ CATCH-ALL MUST BE LAST
 app.get("*", (req, res) => {
+  // If the request starts with /api but didn't match any routes above
   if (req.path.startsWith("/api")) {
     return res.status(404).json({ error: "API route not found" });
   }
+  // Otherwise serve the frontend
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 /* ======================
-   9️⃣ ERROR HANDLER
-====================== */
-app.use((err, req, res, next) => {
-  console.error("🔥 GLOBAL ERROR:", err);
-  res.status(500).json({ error: "Internal server error" });
-});
-
-/* ======================
-   🔟 START SERVER (SAFE)
+   8️⃣ START SERVER
 ====================== */
 async function startServer() {
   try {
     await initDatabase();
-
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
-
   } catch (err) {
     console.error("❌ Startup failed:", err);
     process.exit(1);
