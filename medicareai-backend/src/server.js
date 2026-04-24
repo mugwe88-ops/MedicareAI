@@ -81,19 +81,24 @@ app.get("/api/protected", verifyToken, (req, res) => {
 ====================== */
 async function initDatabase() {
   try {
+    // 1. Ensure users table exists
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
+        id SERIAL PRIMARY KEY, -- This creates an INTEGER type
         name VARCHAR(255),
         email VARCHAR(255) UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role VARCHAR(50) DEFAULT 'patient',
-        email_otp VARCHAR(6),
-        is_verified BOOLEAN DEFAULT FALSE,
-        otp_expiry TIMESTAMP,
-        specialty VARCHAR(100),
-        phone VARCHAR(20),
-        kmpdc_number VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 2. FIXED: analytics table must use INTEGER to match SERIAL
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS analytics (
+        id SERIAL PRIMARY KEY,
+        doctor_id INTEGER REFERENCES users(id), -- Changed from UUID to match users.id
+        event_type VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
