@@ -10,31 +10,21 @@ const router = express.Router();
 ====================== */
 router.post(["/register", "/signup"], async (req, res) => {
   try {
-    // Destructure all fields sent by the frontend payload
-    const { 
-      name, 
-      email, 
-      password, 
-      role, 
-      specialization, 
-      license_number, 
-      city 
-    } = req.body;
+    const { name, email, password, role, specialization, license_number, city } = req.body;
 
-    // Basic validation
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
     const hashed = await bcrypt.hash(password, 10);
 
-    // Insert with all potential doctor fields (will be null for patients)
+    // Use COALESCE or null checks to handle missing fields for 'patient' role
     const result = await pool.query(
       `INSERT INTO users (name, email, password, role, specialization, license_number, city)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, name, email, role`,
       [
-        name, 
+        name || null, 
         email, 
         hashed, 
         role || 'patient', 
@@ -46,11 +36,11 @@ router.post(["/register", "/signup"], async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
+    console.error("Signup error details:", err); // This will show the exact missing column in Render logs
     if (err.code === "23505") {
       return res.status(400).json({ error: "Email already exists" });
     }
-    console.error("Registration error:", err);
-    res.status(500).json({ error: "Registration failed" });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
