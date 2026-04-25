@@ -3,9 +3,9 @@ import { useState } from "react";
 import Link from "next/link";
 
 export default function SignupPage() {
-  const [role, setRole] = useState("patient"); // Default role
+  const [role, setRole] = useState("patient"); 
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: "", text: "" });
+  const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -17,14 +17,14 @@ export default function SignupPage() {
     license_number: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage({ type: "", text: "" });
+    setError("");
 
     try {
       const res = await fetch("https://medicareai-1.onrender.com/api/auth/signup", {
@@ -34,136 +34,111 @@ export default function SignupPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Signup failed");
+      if (!res.ok) throw new Error(data.error || "Registration failed");
 
-      setMessage({ type: "success", text: "Account created! Redirecting to login..." });
-      setTimeout(() => (window.location.href = "/login"), 2000);
+      alert("Registration Successful!");
+      window.location.href = "/login";
     } catch (err: any) {
-      setMessage({ type: "error", text: err.message });
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4 py-12">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-600">Swift MD</h1>
-          <p className="text-gray-500 mt-2">Create your practitioner or patient account</p>
-        </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-6">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <h1 className="text-center text-4xl font-extrabold text-blue-600">Swift MD</h1>
+        <h2 className="mt-4 text-center text-xl text-gray-600">Create your account</h2>
+      </div>
 
-        {/* Role Selector Tabs */}
-        <div className="flex mb-8 p-1 bg-gray-100 rounded-xl">
-          <button
-            onClick={() => setRole("patient")}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-              role === "patient" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
-            }`}
-          >
-            Signup as Patient
-          </button>
-          <button
-            onClick={() => setRole("doctor")}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-              role === "doctor" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
-            }`}
-          >
-            Signup as Doctor
-          </button>
-        </div>
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-6 shadow-xl rounded-2xl border border-gray-100">
+          
+          {/* Role Switcher */}
+          <div className="flex p-1 bg-gray-100 rounded-lg mb-6">
+            <button
+              onClick={() => setRole("patient")}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition ${role === 'patient' ? 'bg-white text-blue-600 shadow' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Patient
+            </button>
+            <button
+              onClick={() => setRole("doctor")}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition ${role === 'doctor' ? 'bg-white text-blue-600 shadow' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Doctor
+            </button>
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <input
               name="name"
               placeholder="Full Name"
-              onChange={handleChange}
-              className="p-3 border border-gray-200 rounded-xl text-black bg-white focus:ring-2 focus:ring-blue-500 outline-none"
               required
+              onChange={handleChange}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-black"
             />
             <input
               name="email"
               type="email"
-              placeholder="Email Address"
-              onChange={handleChange}
-              className="p-3 border border-gray-200 rounded-xl text-black bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="Email address"
               required
+              onChange={handleChange}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-black"
             />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               name="password"
               type="password"
               placeholder="Password"
-              onChange={handleChange}
-              className="p-3 border border-gray-200 rounded-xl text-black bg-white focus:ring-2 focus:ring-blue-500 outline-none"
               required
-            />
-            <input
-              name="phone"
-              placeholder="Phone Number"
               onChange={handleChange}
-              className="p-3 border border-gray-200 rounded-xl text-black bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-black"
             />
-          </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+               <input name="phone" placeholder="Phone" onChange={handleChange} className="px-4 py-3 border border-gray-200 rounded-xl text-black" />
+               <input name="city" placeholder="City" onChange={handleChange} className="px-4 py-3 border border-gray-200 rounded-xl text-black" />
+            </div>
 
-          <input
-            name="city"
-            placeholder="City"
-            onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl text-black bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-
-          {/* Conditional Doctor Fields */}
-          {role === "doctor" && (
-            <div className="space-y-4 pt-2 animate-in fade-in duration-300">
-              <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
-                <p className="text-xs text-blue-600 font-bold uppercase mb-2">Professional Details</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input
-                    name="specialization"
-                    placeholder="Specialization (e.g. Surgeon)"
-                    onChange={handleChange}
-                    className="p-2 border border-blue-200 rounded-lg text-black bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                    required
-                  />
-                  <input
-                    name="license_number"
-                    placeholder="Medical License #"
-                    onChange={handleChange}
-                    className="p-2 border border-blue-200 rounded-lg text-black bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                    required
-                  />
-                </div>
+            {/* Doctor Specific Fields */}
+            {role === "doctor" && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                <div className="h-px bg-gray-100 my-4" />
+                <input
+                  name="specialization"
+                  placeholder="Medical Specialization"
+                  required
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-blue-100 rounded-xl bg-blue-50 text-black"
+                />
+                <input
+                  name="license_number"
+                  placeholder="Medical License Number"
+                  required
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-blue-100 rounded-xl bg-blue-50 text-black"
+                />
               </div>
-            </div>
-          )}
+            )}
 
-          {message.text && (
-            <div className={`p-3 rounded-xl text-center text-sm font-medium ${
-              message.type === "success" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
-            }`}>
-              {message.text}
-            </div>
-          )}
+            {error && <p className="text-red-500 text-sm text-center font-medium">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white p-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg disabled:bg-blue-300"
-          >
-            {loading ? "Creating Account..." : `Register as ${role.charAt(0).toUpperCase() + role.slice(1)}`}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none disabled:bg-blue-300 transition"
+            >
+              {loading ? "Processing..." : `Sign up as ${role}`}
+            </button>
+          </form>
 
-        <p className="text-center mt-6 text-gray-500 text-sm">
-          Already have an account?{" "}
-          <Link href="/login" className="text-blue-600 font-bold hover:underline">
-            Login here
-          </Link>
-        </p>
+          <div className="mt-6 text-center">
+            <Link href="/login" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+              Already have an account? Log in
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
