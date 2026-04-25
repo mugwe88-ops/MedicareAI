@@ -2,31 +2,33 @@ import express from "express";
 import bcrypt from "bcrypt";
 import pool from "../utils/db.js";
 const router = express.Router();
-
-// ✅ MATCH FRONTEND: This handles POST to /api/auth/signup
+/* ======================
+   PATIENT REGISTER / SIGNUP
+====================== */
+// Ensure this explicitly matches the frontend call
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, password, role, specialization, license_number, city } = req.body;
+    const { name, email, password } = req.body; //
 
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
+      return res.status(400).json({ error: "Email and password are required" }); //
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 10); //
 
     const result = await pool.query(
-      `INSERT INTO users (name, email, password, role, specialization, license_number, city)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO users (name, email, password, role)
+       VALUES ($1, $2, $3, 'patient')
        RETURNING id, name, email, role`,
-      [name, email, hashedPassword, role || 'patient', specialization, license_number, city]
+      [name, email, hashed] //
     );
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(result.rows[0]); //
   } catch (err) {
-    console.error("Signup Error:", err);
-    if (err.code === "23505") return res.status(400).json({ error: "Email already exists" });
-    res.status(500).json({ error: "Registration failed" });
+    if (err.code === "23505") {
+      return res.status(400).json({ error: "Email already exists" }); //
+    }
+    console.error("Register error:", err);
+    res.status(500).json({ error: "Registration failed" }); //
   }
 });
-
-export default router;
