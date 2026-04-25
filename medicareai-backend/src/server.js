@@ -95,7 +95,7 @@ async function initDatabase() {
     `);
 
     // 2. MIGRATION: Add missing columns if they don't exist in the existing table
-    // This is crucial for fixing the 500 Internal Server Error
+    // This fixes the 500 Internal Server Error when your frontend sends extra data
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
