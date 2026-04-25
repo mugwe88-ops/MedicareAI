@@ -9,16 +9,10 @@ const router = express.Router();
 ====================== */
 router.post("/signup", async (req, res) => {
   try {
-    // 1. Extract ALL fields sent by the frontend
+    // 1. Extract ALL fields to match server.js migrations exactly
     const { 
-      name, 
-      email, 
-      password, 
-      role, 
-      specialization, 
-      license_number, 
-      city,
-      phone 
+      name, email, password, role, 
+      specialization, license_number, city, phone 
     } = req.body; 
 
     if (!email || !password) {
@@ -27,7 +21,7 @@ router.post("/signup", async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
 
-    // 2. Insert into ALL 8 columns defined in server.js
+    // 2. Insert into ALL 8 columns ($1 through $8)
     const result = await pool.query(
       `INSERT INTO users (name, email, password, role, specialization, license_number, city, phone)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -49,8 +43,8 @@ router.post("/signup", async (req, res) => {
     if (err.code === "23505") {
       return res.status(400).json({ error: "Email already exists" });
     }
-    // Log the error message to Render logs so you can see if a column is missing
-    console.error("Signup error:", err.message); 
+    // This will now show up in your Render logs if it fails again
+    console.error("Signup error details:", err.message);
     res.status(500).json({ error: "Registration failed" });
   }
 });
