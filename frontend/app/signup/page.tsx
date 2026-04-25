@@ -23,32 +23,38 @@ export default function SignupPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+// Find your handleSubmit function and update the success logic:
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
 
-    try {
-      const res = await fetch("https://medicareai-1.onrender.com/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, role }),
-      });
+  try {
+    const res = await fetch("https://medicareai-1.onrender.com/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...formData, role }),
+    });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Registration failed");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Registration failed");
 
-      // Redirect to login on success
-      window.location.href = "/login";
-    } catch (err: any) {
-      // Handles the 'Failed to fetch' error seen in your browser
-      setError(err.message === "Failed to fetch" 
-        ? "The server is waking up. Please wait 30 seconds and try again." 
-        : err.message);
-    } finally {
-      setLoading(false);
+    // SUCCESS LOGIC:
+    localStorage.setItem("token", data.token); // Save the login session
+    
+    // Redirect based on role
+    if (data.user.role === "doctor") {
+      window.location.href = "/dashboard";
+    } else {
+      window.location.href = "/patient-portal"; // Direct patients to their own portal
     }
-  };
+    
+  } catch (err: any) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-6">
