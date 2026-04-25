@@ -2,28 +2,14 @@
 import { useState } from "react";
 
 export default function LoginPage() {
-  // Always initialize with empty strings, never null/undefined
-  const [formData, setFormData] = useState({
-    email: "",
-    password: ""
-  });
+  // 1. Always initialize with empty strings to prevent "uncontrolled input" errors
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    
-    // Safety check: ensure name and value exist before updating state
-    if (!name) return;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value || "" 
-    }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // Prevents the blank screen refresh
+    e.preventDefault();
     setError("");
     setLoading(true);
 
@@ -31,19 +17,15 @@ export default function LoginPage() {
       const res = await fetch("https://medicareai-1.onrender.com/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Invalid credentials");
 
-      if (!res.ok) {
-        throw new Error(data.error || "Login failed");
-      }
-
-      // Handle successful login (e.g., save token, redirect)
-      console.log("Login Success:", data);
-      window.location.href = "/dashboard"; 
-
+      // Success logic (Token storage, redirect, etc.)
+      localStorage.setItem("token", data.token);
+      window.location.href = "/dashboard";
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -52,33 +34,39 @@ export default function LoginPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4">
-      <input
-        type="email"
-        name="email"
-        placeholder="Email"
-        value={formData.email}
-        onChange={handleChange}
-        className="border p-2 mb-2 w-full text-black"
-        required
-      />
-      <input
-        type="password"
-        name="password"
-        placeholder="Password"
-        value={formData.password}
-        onChange={handleChange}
-        className="border p-2 mb-4 w-full text-black"
-        required
-      />
-      {error && <p className="text-red-500 mb-2">{error}</p>}
-      <button 
-        type="submit" 
-        disabled={loading}
-        className="bg-blue-600 text-white p-2 rounded w-full"
-      >
-        {loading ? "Logging in..." : "Login"}
-      </button>
-    </form>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+      <form onSubmit={handleSubmit} className="p-8 border rounded shadow-md w-96">
+        <h1 className="text-2xl font-bold mb-4 text-black">Login</h1>
+        
+        <input
+          type="email"
+          placeholder="Email Address"
+          // 2. Ensure value and onChange are correctly mapped
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full p-2 mb-4 border rounded text-black bg-gray-50"
+          required
+        />
+        
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full p-2 mb-4 border rounded text-black bg-gray-50"
+          required
+        />
+
+        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
+        >
+          {loading ? "Verifying..." : "Login"}
+        </button>
+      </form>
+    </div>
   );
 }
