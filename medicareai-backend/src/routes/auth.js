@@ -7,10 +7,11 @@ const router = express.Router();
 ====================== */
 router.post("/signup", async (req, res) => {
   try {
+    // 1. Extract ALL fields sent by the frontend
     const { 
       name, email, password, role, 
       specialization, license_number, city 
-    } = req.body;
+    } = req.body; 
 
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
@@ -18,12 +19,20 @@ router.post("/signup", async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
 
-    // Update query to include all potential fields
+    // 2. Insert into ALL columns
     const result = await pool.query(
       `INSERT INTO users (name, email, password, role, specialization, license_number, city)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, name, email, role`,
-      [name, email, hashed, role || 'patient', specialization, license_number, city]
+      [
+        name, 
+        email, 
+        hashed, 
+        role || 'patient', // Default to patient if role is missing
+        specialization || null, 
+        license_number || null, 
+        city || null
+      ]
     );
 
     res.status(201).json(result.rows[0]);
