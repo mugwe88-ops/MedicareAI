@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 
 export default function AppointmentsPage() {
-  const [appointments, setAppointments] = useState([]);
+  // Added <any[]> to the state definition
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
