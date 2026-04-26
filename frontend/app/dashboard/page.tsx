@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 
 interface Appointment {
   id: number;
@@ -11,6 +12,8 @@ interface Appointment {
 }
 
 export default function DoctorDashboard() {
+  const router = useRouter();
+  const pathname = usePathname();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,27 +67,63 @@ export default function DoctorDashboard() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      {/* Swift MD Pro Header */}
-      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40">
-        <h1 className="text-2xl font-black text-blue-600 tracking-tighter">Swift MD <span className="text-slate-900 font-light italic">Pro</span></h1>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-sm font-black text-slate-900 leading-none">Dr. Sarah Johnson</p>
-            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">Medical Director</p>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-black shadow-lg shadow-blue-100">SJ</div>
-        </div>
-      </nav>
+  // Sidebar Button Component
+  const SidebarItem = ({ name, icon, path }: { name: string, icon: string, path: string }) => {
+    const isActive = pathname === path;
+    return (
+      <button
+        onClick={() => router.push(path)}
+        className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 font-black ${
+          isActive 
+            ? "bg-blue-600 text-white shadow-xl shadow-blue-100" 
+            : "text-slate-400 hover:bg-white hover:text-blue-600"
+        }`}
+      >
+        <span className="text-xl">{icon}</span>
+        <span className="text-sm tracking-tight uppercase">{name}</span>
+      </button>
+    );
+  };
 
-      <main className="max-w-7xl mx-auto p-8">
-        <div className="flex justify-between items-end mb-10">
-          <div>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Patient Management</h2>
-            <p className="text-slate-500 font-bold mt-2">Active Appointments: {appointments.length}</p>
-          </div>
+  return (
+    <div className="flex min-h-screen bg-slate-50 font-sans">
+      {/* --- SIDEBAR --- */}
+      <aside className="w-72 bg-[#F8FAFC] border-r border-slate-200 p-6 flex flex-col gap-10 sticky top-0 h-screen">
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black">S</div>
+          <h1 className="text-xl font-black text-slate-900 tracking-tighter uppercase">Swift MD</h1>
         </div>
+
+        <nav className="flex flex-col gap-2 flex-1">
+          <SidebarItem name="Dashboard" icon="📊" path="/doctor/dashboard" />
+          <SidebarItem name="Schedule" icon="📅" path="/doctor/schedule" />
+          <SidebarItem name="Patients" icon="👤" path="/doctor/patients" />
+          <SidebarItem name="Records" icon="📂" path="/doctor/records" />
+          <SidebarItem name="Settings" icon="⚙️" path="/doctor/settings" />
+        </nav>
+
+        <button className="flex items-center gap-4 px-6 py-4 text-red-400 font-black hover:bg-red-50 rounded-2xl transition-all uppercase text-xs tracking-widest">
+          <span>🚪</span>
+          <span>Logout</span>
+        </button>
+      </aside>
+
+      {/* --- MAIN CONTENT --- */}
+      <main className="flex-1 p-10 overflow-y-auto">
+        <header className="flex justify-between items-center mb-10">
+          <div>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Clinical Console</h2>
+            <p className="text-slate-500 font-bold mt-1 text-sm uppercase tracking-widest opacity-60">Status: {appointments.length} Patients Active</p>
+          </div>
+          
+          <div className="flex items-center gap-4 bg-white p-2 pr-6 rounded-full border border-slate-100 shadow-sm">
+             <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-black">SJ</div>
+             <div>
+               <p className="text-xs font-black text-slate-900 leading-none">Dr. Sarah Johnson</p>
+               <p className="text-[9px] font-bold text-blue-500 uppercase mt-1">Medical Director</p>
+             </div>
+          </div>
+        </header>
 
         {/* Clinical Records Table */}
         <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/40 overflow-hidden">
