@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 
-// 1. Define what an Appointment looks like (helps TypeScript)
 interface Appointment {
   id: number;
   patient_name: string;
@@ -14,8 +13,6 @@ interface Appointment {
 export default function PatientPortal() {
   const [isBooking, setIsBooking] = useState(false);
   const [loading, setLoading] = useState(false);
-  
-  // 2. TELL TYPESCRIPT: This is an array of Appointments, not "never"
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   
   const [doctors] = useState([
@@ -30,6 +27,7 @@ export default function PatientPortal() {
     phone: ""
   });
 
+  // Fetch data when the component mounts
   useEffect(() => {
     fetchAppointments();
   }, []);
@@ -37,14 +35,14 @@ export default function PatientPortal() {
   const fetchAppointments = async () => {
     try {
       const res = await fetch("https://medicareai-1.onrender.com/api/appointments");
+      if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       
-      // 3. This will now work perfectly
       if (Array.isArray(data)) {
         setAppointments(data);
       }
     } catch (err) {
-      console.error("Failed to fetch appointments");
+      console.error("Fetch Error:", err);
     }
   };
 
@@ -68,12 +66,12 @@ export default function PatientPortal() {
       });
 
       if (res.ok) {
-        alert("Booking Confirmed!");
         setIsBooking(false);
-        fetchAppointments(); 
+        // Re-fetch appointments immediately so the list updates
+        await fetchAppointments(); 
       }
     } catch (err) {
-      alert("Network error. Try again.");
+      alert("Error saving appointment. Check backend logs.");
     } finally {
       setLoading(false);
     }
@@ -81,34 +79,60 @@ export default function PatientPortal() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ... (Keep your existing Navigation and Header UI) ... */}
+      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm sticky top-0 z-40">
+        <h1 className="text-2xl font-black text-blue-600 tracking-tight">Swift MD</h1>
+        <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">W</div>
+      </nav>
 
       <main className="max-w-7xl mx-auto p-8">
-        {/* ... (Keep your Booking Button and Modal UI) ... */}
+        <div className="flex justify-between items-center mb-10">
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Your Dashboard</h2>
+            <p className="text-slate-500 font-medium mt-1 text-sm">Manage your health and upcoming visits</p>
+          </div>
+          <button 
+            onClick={() => setIsBooking(true)}
+            className="px-8 py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 transition transform active:scale-95"
+          >
+            + Book New Appointment
+          </button>
+        </div>
 
-        {/* Updated Appointments List using the Typed state */}
+        {/* Modal Logic Remains the same... */}
+
+        {/* Real Appointments List */}
         <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm">
-           <h3 className="text-xl font-bold text-slate-900 mb-6">Upcoming Appointments</h3>
+           <h3 className="text-xl font-bold text-slate-900 mb-6 tracking-tight">Upcoming Appointments</h3>
            
            <div className="space-y-4">
              {appointments.length > 0 ? (
                appointments.map((apt) => (
-                 <div key={apt.id} className="flex items-center justify-between p-6 border border-slate-50 rounded-2xl bg-slate-50/50">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 font-bold">🩺</div>
+                 <div key={apt.id} className="flex items-center justify-between p-6 border border-slate-50 rounded-3xl bg-slate-50/50 hover:bg-white hover:shadow-md transition-all duration-300">
+                    <div className="flex items-center gap-5">
+                      <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center text-2xl border border-slate-100">
+                        🩺
+                      </div>
                       <div>
-                        <p className="font-black text-slate-900">{apt.patient_name}</p>
-                        <p className="text-sm text-slate-500 font-bold">{new Date(apt.appointment_time).toLocaleString()}</p>
+                        <p className="font-black text-slate-900 text-lg leading-tight">{apt.patient_name}</p>
+                        <p className="text-sm text-slate-500 font-bold mt-1">
+                          {new Date(apt.appointment_time).toLocaleDateString('en-GB', {
+                            day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                          })}
+                        </p>
                       </div>
                     </div>
-                    <span className="px-4 py-2 bg-white border border-slate-200 text-blue-600 text-xs font-black rounded-full shadow-sm capitalize">
-                      {apt.status || 'Pending'}
-                    </span>
+                    <div className="flex items-center gap-4">
+                      <span className={`px-5 py-2 text-[10px] font-black rounded-full uppercase tracking-widest ${
+                        apt.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {apt.status || 'Scheduled'}
+                      </span>
+                    </div>
                  </div>
                ))
              ) : (
-               <div className="text-center py-12">
-                 <p className="text-slate-400 font-bold italic">No appointments found. Book your first consultation above.</p>
+               <div className="text-center py-20 bg-slate-50/30 rounded-3xl border-2 border-dashed border-slate-100">
+                 <p className="text-slate-400 font-bold italic">No appointments found. Your schedule is clear.</p>
                </div>
              )}
            </div>
