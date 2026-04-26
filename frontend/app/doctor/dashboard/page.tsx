@@ -68,7 +68,9 @@ export default function DoctorDashboard() {
     <div className="min-h-screen bg-slate-50 font-sans">
       {/* Swift MD Pro Header */}
       <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40">
-        <h1 className="text-2xl font-black text-blue-600 tracking-tighter">Swift MD <span className="text-slate-900 font-light italic">Pro</span></h1>
+        <h1 className="text-2xl font-black text-blue-600 tracking-tighter">
+          Swift MD <span className="text-slate-900 font-light italic">Pro</span>
+        </h1>
         <div className="flex items-center gap-3">
           <div className="text-right">
             <p className="text-sm font-black text-slate-900 leading-none">Dr. Sarah Johnson</p>
@@ -81,7 +83,7 @@ export default function DoctorDashboard() {
       <main className="max-w-7xl mx-auto p-8">
         <div className="flex justify-between items-end mb-10">
           <div>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Patient Management</h2>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Clinical Console</h2>
             <p className="text-slate-500 font-bold mt-2">Active Appointments: {appointments.length}</p>
           </div>
         </div>
