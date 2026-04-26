@@ -42,16 +42,37 @@ app.set("trust proxy", 1);
 /* ======================
    3️⃣ MIDDLEWARE
 ====================== */
-app.use(helmet());
+// Adjust helmet to allow data from Render
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+const allowedOrigins = [
+  "https://medicare-ai-two.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:5173",
+  /\.github\.dev$/ // ✅ This allows your specific Codespace URL
+];
 
 app.use(cors({
-  origin: [
-    "https://medicare-ai-two.vercel.app",
-    "http://localhost:3000",
-    "http://localhost:5173"
-  ],
-  credentials: true
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    const isAllowed = allowedOrigins.some((allowed) => 
+      typeof allowed === "string" ? allowed === origin : allowed.test(origin)
+    );
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS blocked this origin"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"]
 }));
+
+// Handle Preflight requests globally
+app.options("*", cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -59,7 +80,6 @@ app.use(express.urlencoded({ extended: true }));
 /* ======================
    4️⃣ ROUTES
 ====================== */
-// IMPORTANT: Routes must come BEFORE the static file handlers
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/directory", directoryRoutes);
@@ -82,7 +102,6 @@ async function initDatabase() {
   try {
     console.log("⚙️ Initializing database...");
 
-    // 1. Create the base users table if it doesn't exist at all
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -94,8 +113,6 @@ async function initDatabase() {
       );
     `);
 
-    // 2. MIGRATION: Add missing columns if they don't exist in the existing table
-    // This fixes the 500 Internal Server Error when your frontend sends extra data
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
@@ -107,7 +124,6 @@ async function initDatabase() {
       await pool.query(query);
     }
 
-    // ✅ ANALYTICS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS analytics (
         id SERIAL PRIMARY KEY,
@@ -117,7 +133,6 @@ async function initDatabase() {
       );
     `);
 
-    // ✅ CONSULTANTS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS consultants (
         id SERIAL PRIMARY KEY,
@@ -130,13 +145,13 @@ async function initDatabase() {
       );
     `);
 
-    // ✅ APPOINTMENTS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
         patient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         department VARCHAR(100),
         appointment_date DATE,
+        appointment_date_str VARCHAR(100),
         appointment_time TIME,
         reason TEXT,
         status VARCHAR(20) DEFAULT 'pending',
@@ -144,7 +159,6 @@ async function initDatabase() {
       );
     `);
 
-    // ✅ VERIFIED DOCTORS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS verified_kmpdc (
         registration_number VARCHAR(50) PRIMARY KEY,
@@ -152,7 +166,6 @@ async function initDatabase() {
       );
     `);
 
-    // ✅ SEED DATA
     await pool.query(`
       INSERT INTO verified_kmpdc (registration_number, doctor_name)
       VALUES ('TEST-999-MD', 'Troubleshooting Account')
@@ -185,7 +198,6 @@ app.post("/api/webhook", async (req, res) => {
 ====================== */
 app.use(express.static(path.join(__dirname, "public")));
 
-// ⚠️ CATCH-ALL MUST BE LAST
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api")) {
     return res.status(404).json({ error: "API route not found" });
