@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { Stethoscope, User, Baby, Activity, HeartPulse, Bone } from "lucide-react";
 
 type Doctor = {
   id: string;
@@ -11,6 +12,16 @@ type Doctor = {
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+// Specialty Data for the Grid
+const specialties = [
+  { name: "General Physician", icon: Stethoscope },
+  { name: "Dermatologist", icon: User },
+  { name: "Pediatrician", icon: Baby },
+  { name: "Gynecologist", icon: Activity },
+  { name: "Dentist", icon: HeartPulse },
+  { name: "Orthopedic Surgeon", icon: Bone },
+];
 
 export default function Hero() {
   const [query, setQuery] = useState("");
@@ -22,7 +33,6 @@ export default function Hero() {
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -62,18 +72,23 @@ export default function Hero() {
     router.push(`/doctors?${params.toString()}`);
   };
 
+  const handleSpecialtyClick = (specialtyName: string) => {
+    const params = new URLSearchParams({ query: specialtyName, city: city || "" });
+    router.push(`/doctors?${params.toString()}`);
+  };
+
   return (
     <section className="bg-gradient-to-r from-cyan-500 to-blue-600 py-14 px-4 text-white">
       <div className="max-w-6xl mx-auto text-center">
-        <h1 className="text-3xl md:text-4xl font-bold">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
           Find the Best Doctors Near You
         </h1>
-        <p className="mt-2 text-base md:text-lg">
+        <p className="mt-2 text-base md:text-lg opacity-90">
           Book appointments instantly
         </p>
 
-        <div className="mt-8 bg-white p-3 md:p-4 rounded-xl shadow-lg flex flex-col md:flex-row gap-3 relative">
-          
+        {/* Search Bar Section */}
+        <div className="mt-8 bg-white p-3 md:p-4 rounded-xl shadow-2xl flex flex-col md:flex-row gap-3 relative">
           <div className="relative w-full" ref={dropdownRef}>
             <input
               type="text"
@@ -86,10 +101,7 @@ export default function Hero() {
 
             {showDropdown && (doctors.length > 0 || loading) && (
               <div className="absolute top-full left-0 mt-2 bg-white text-black w-full border rounded-lg shadow-2xl max-h-60 overflow-y-auto z-50">
-                {loading && (
-                  <div className="p-3 text-gray-500">Searching...</div>
-                )}
-
+                {loading && <div className="p-3 text-gray-500">Searching...</div>}
                 {!loading && doctors.map((doc) => (
                   <div
                     key={doc.id}
@@ -121,10 +133,34 @@ export default function Hero() {
 
           <button
             onClick={handleSearch}
-            className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all w-full md:w-auto"
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all w-full md:w-auto shadow-lg"
           >
             Search
           </button>
+        </div>
+
+        {/* Fixed "Book by Speciality" Section */}
+        <div className="mt-16">
+          <h2 className="text-xl font-bold mb-8 uppercase tracking-widest opacity-80">Book by Speciality</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {specialties.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => handleSpecialtyClick(item.name)}
+                  className="flex flex-col items-center p-6 bg-white/10 backdrop-blur-md rounded-2xl hover:bg-white hover:text-blue-600 transition-all group border border-white/20 shadow-lg"
+                >
+                  <div className="w-12 h-12 bg-white/20 rounded-full mb-3 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                    <Icon size={24} className="group-hover:text-blue-600" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-tighter text-center">
+                    {item.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>
