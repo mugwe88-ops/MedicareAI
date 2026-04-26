@@ -3,68 +3,114 @@ import { useState } from "react";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
+    setError("");
 
     try {
       const res = await fetch("https://medicareai-1.onrender.com/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(formData),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Invalid credentials");
 
+      if (!res.ok) {
+        throw new Error(data.message || "Login failed. Check your credentials.");
+      }
+
+      // 1. Save the token for the session
       localStorage.setItem("token", data.token);
-      window.location.href = "/dashboard";
+
+      // 2. Role-Based Redirect Logic
+      // Checks if the user is a doctor or patient and sends them to the right page
+      if (data.user.role === "doctor") {
+        window.location.href = "/dashboard";
+      } else {
+        window.location.href = "/patient-portal";
+      }
+
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message === "Failed to fetch" 
+        ? "Server is waking up. Please wait 30 seconds and try again." 
+        : err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-600">Swift MD</h1>
-          <p className="text-gray-500 mt-2">Sign in to your practitioner portal</p>
-        </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-6">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+        <h1 className="text-4xl font-black text-blue-600 tracking-tight">Swift MD</h1>
+        <p className="mt-2 text-slate-600 font-semibold">Welcome back to your portal</p>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email Address"
-            value={email}
-            onChange={(e) => setEmail((e.target.value || "").toLowerCase())}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-black bg-white"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-black bg-white"
-          />
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white p-3 rounded-xl font-semibold hover:bg-blue-700 shadow-md transition-all"
-          >
-            {loading ? "Verifying..." : "Login"}
-          </button>
-        </form>
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-10 px-10 shadow-2xl rounded-3xl border border-gray-100">
+          
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
+              <input
+                name="email"
+                type="email"
+                placeholder="doctor@swiftmd.com"
+                required
+                onChange={handleChange}
+                className="w-full px-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Password</label>
+              <input
+                name="password"
+                type="password"
+                placeholder="••••••••"
+                required
+                onChange={handleChange}
+                className="w-full px-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white transition-all"
+              />
+            </div>
+
+            {error && (
+              <div className="bg-rose-50 border border-rose-100 text-rose-600 text-sm font-bold px-4 py-3 rounded-xl text-center">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 px-4 rounded-xl shadow-lg shadow-blue-200 text-sm font-black text-white bg-blue-600 hover:bg-blue-700 transition-all transform active:scale-[0.98] disabled:bg-blue-300"
+            >
+              {loading ? "Authenticating..." : "Login to Account"}
+            </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <p className="text-sm text-slate-500">
+              Don't have an account?{" "}
+              <Link href="/signup" className="font-bold text-blue-600 hover:text-blue-800 transition">
+                Create one here
+              </Link>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
