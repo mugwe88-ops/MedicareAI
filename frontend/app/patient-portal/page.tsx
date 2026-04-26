@@ -13,6 +13,7 @@ interface Appointment {
 export default function PatientPortal() {
   const [isBooking, setIsBooking] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   
   const [doctors] = useState([
@@ -42,17 +43,35 @@ export default function PatientPortal() {
     }
   };
 
-  // Helper to determine status badge colors
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to cancel this appointment?")) return;
+
+    setDeletingId(id);
+    try {
+      const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        // Optimistic UI update: remove from list immediately
+        setAppointments(prev => prev.filter(apt => apt.id !== id));
+      } else {
+        alert("Failed to delete appointment.");
+      }
+    } catch (err) {
+      console.error("Delete Error:", err);
+      alert("Server connection failed.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const getStatusStyles = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'pending':
-        return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'completed':
-        return 'bg-green-100 text-green-700 border-green-200';
-      case 'cancelled':
-        return 'bg-red-100 text-red-700 border-red-200';
-      default:
-        return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'completed': return 'bg-green-100 text-green-700 border-green-200';
+      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
+      default: return 'bg-blue-100 text-blue-700 border-blue-200';
     }
   };
 
@@ -112,11 +131,11 @@ export default function PatientPortal() {
           </button>
         </div>
 
-        {/* MODAL (Same as your previous logic) */}
+        {/* MODAL */}
         {isBooking && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in duration-300">
-               {/* ... (Your existing form code) ... */}
+               <h2 className="text-2xl font-black text-slate-900 mb-6">New Appointment</h2>
                <form onSubmit={handleBookAppointment} className="space-y-4">
                   <input 
                     type="tel"
@@ -169,10 +188,25 @@ export default function PatientPortal() {
                       </div>
                     </div>
 
-                    {/* DYNAMIC STATUS TAG */}
-                    <span className={`px-5 py-2 text-[10px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(apt.status)}`}>
-                      {apt.status || 'Scheduled'}
-                    </span>
+                    <div className="flex items-center gap-4">
+                      <span className={`px-5 py-2 text-[10px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(apt.status)}`}>
+                        {apt.status || 'Scheduled'}
+                      </span>
+                      
+                      <button 
+                        onClick={() => handleDelete(apt.id)}
+                        disabled={deletingId === apt.id}
+                        className="p-3 bg-white border border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 rounded-2xl transition-all shadow-sm hover:shadow-md active:scale-90"
+                      >
+                        {deletingId === apt.id ? (
+                          <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                  </div>
                ))
              ) : (
