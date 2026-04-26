@@ -11,7 +11,7 @@ export default function PatientPortal() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("https://medicareai-1.onrender.com/api/appointments/book", {
+      const res = await fetch("https://medicareai-1.onrender.com/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
