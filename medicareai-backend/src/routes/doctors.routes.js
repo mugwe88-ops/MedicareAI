@@ -9,30 +9,26 @@ const router = express.Router();
  */
 router.get("/", async (req, res) => {
   try {
-    // 1. Capture all possible frontend param names to be safe
     const { city, query, q, specialization } = req.query;
 
-    // 2. Normalize terms (checks query, then q, then specialization)
+    // Normalize terms
     const searchTerm = (query || q || specialization || "").toString().trim().toLowerCase();
     const cityTerm = (city || "").toString().trim().toLowerCase();
 
-    // 3. Fetch doctors from model
     let doctors = await getAllDoctors();
 
-    // 4. Apply Fuzzy Filtering
-    // Filtering by City
+    // Apply Filtering
     if (cityTerm !== "") {
       doctors = doctors.filter(d => 
-        d.city?.toLowerCase().includes(cityTerm)
+        (d.city || d.location)?.toLowerCase().includes(cityTerm)
       );
     }
 
-    // Filtering by Name or Specialty
     if (searchTerm !== "") {
       doctors = doctors.filter(d => 
-        // Ensure these match the ALIASED names in your Doctor.js model
-        d.specialty?.toLowerCase().includes(searchTerm) || 
-        d.full_name?.toLowerCase().includes(searchTerm)
+        // FIX: Check both common naming conventions (specialization vs specialty)
+        (d.specialization || d.specialty)?.toLowerCase().includes(searchTerm) || 
+        (d.name || d.full_name)?.toLowerCase().includes(searchTerm)
       );
     }
 
@@ -44,8 +40,20 @@ router.get("/", async (req, res) => {
 });
 
 /**
- * GET /api/doctors/:id
+ * POST /api/doctors
+ * Optimized to prevent "pool is not defined" and handle column naming
  */
+router.post("/", async (req, res) => {
+  try {
+    // It is safer to use your createDoctor model function which should handle the pool logic
+    const doctor = await createDoctor(req.body);
+    res.status(201).json(doctor);
+  } catch (err) {
+    console.error("Create doctor error:", err);
+    res.status(500).json({ error: "Failed to create doctor" });
+  }
+});
+
 router.get("/:id", async (req, res) => {
   try {
     const doctor = await getDoctorById(req.params.id);
@@ -57,33 +65,4 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-/**
- * POST /api/doctors
- */
-router.post("/", async (req, res) => {
-  try {
-    const doctor = await createDoctor(req.body);
-    res.status(201).json(doctor);
-  } catch (err) {
-    console.error("Create doctor error:", err);
-    res.status(500).json({ error: "Failed to create doctor" });
-  }
-});
-// Add this to your doctors.routes.js
-router.post('/', async (req, res) => {
-  try {
-    const { name, specialization, bio, years_experience, clinic_name, city, consultation_fee, license_number } = req.body;
-    
-    const newDoctor = await pool.query(
-      `INSERT INTO doctors (name, specialization, bio, years_experience, clinic_name, city, consultation_fee, license_number, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true) RETURNING *`,
-      [name, specialization, bio, years_experience, clinic_name, city, consultation_fee, license_number]
-    );
-    
-    res.status(201).json(newDoctor.rows[0]);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server Error");
-  }
-});
 export default router;
