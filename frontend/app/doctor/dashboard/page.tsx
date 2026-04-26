@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import DashboardLayout from "./dashboard/layout";
+// ✅ FIXED: Changed from "./dashboard/layout" to "./layout" to avoid circular reference
+import DashboardLayout from "./layout"; 
 
 interface Appointment {
   id: number;
@@ -21,6 +22,7 @@ export default function DoctorDashboard() {
 
   const fetchAppointments = async () => {
     try {
+      // ✅ Using your verified Render URL
       const res = await fetch("https://medicareai-1.onrender.com/api/appointments");
       const data = await res.json();
       if (Array.isArray(data)) setAppointments(data);
@@ -75,7 +77,6 @@ export default function DoctorDashboard() {
           </p>
         </div>
         
-        {/* Profile indicator matching your screenshot */}
         <div className="flex items-center gap-3 bg-white/5 p-2 pr-6 rounded-full border border-white/10">
           <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-black">SJ</div>
           <div className="text-left">
@@ -85,7 +86,6 @@ export default function DoctorDashboard() {
         </div>
       </div>
 
-      {/* Main Records Container */}
       <div className="bg-white rounded-[2rem] overflow-hidden shadow-2xl">
         <table className="w-full text-left">
           <thead className="bg-slate-50">
@@ -100,48 +100,52 @@ export default function DoctorDashboard() {
           <tbody className="divide-y divide-slate-50">
             {loading ? (
               <tr><td colSpan={5} className="py-20 text-center font-black text-slate-300 italic">Syncing with Render DB...</td></tr>
-            ) : appointments.map((apt) => (
-              <tr key={apt.id} className="hover:bg-blue-50/50 transition-all group">
-                <td className="px-8 py-6">
-                  <p className="font-black text-slate-900 leading-tight">{apt.patient_name}</p>
-                  <p className="text-xs text-slate-400 font-bold mt-1">{apt.phone}</p>
-                </td>
-                <td className="px-8 py-6">
-                  <p className="font-black text-slate-700 text-sm">
-                    {new Date(apt.appointment_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </p>
-                  <p className="text-[10px] font-black text-blue-500 uppercase mt-0.5">
-                    {new Date(apt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </td>
-                <td className="px-8 py-6">
-                  <span className="px-3 py-1.5 bg-slate-100 rounded-lg text-[10px] text-slate-500 font-black uppercase">
-                    "{apt.reason}"
-                  </span>
-                </td>
-                <td className="px-8 py-6">
-                  <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase tracking-tighter border ${getStatusStyles(apt.status)}`}>
-                    {apt.status || 'Pending'}
-                  </span>
-                </td>
-                <td className="px-8 py-6 text-right">
-                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => handleStatusUpdate(apt.id, 'completed')}
-                      className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(apt.id)}
-                      className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            ) : appointments.length === 0 ? (
+              <tr><td colSpan={5} className="py-20 text-center text-slate-400 font-bold">No active appointments found.</td></tr>
+            ) : (
+              appointments.map((apt) => (
+                <tr key={apt.id} className="hover:bg-blue-50/50 transition-all group">
+                  <td className="px-8 py-6">
+                    <p className="font-black text-slate-900 leading-tight">{apt.patient_name}</p>
+                    <p className="text-xs text-slate-400 font-bold mt-1">{apt.phone}</p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <p className="font-black text-slate-700 text-sm">
+                      {new Date(apt.appointment_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                    <p className="text-[10px] font-black text-blue-500 uppercase mt-0.5">
+                      {new Date(apt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <span className="px-3 py-1.5 bg-slate-100 rounded-lg text-[10px] text-slate-500 font-black uppercase">
+                      "{apt.reason}"
+                    </span>
+                  </td>
+                  <td className="px-8 py-6">
+                    <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase tracking-tighter border ${getStatusStyles(apt.status)}`}>
+                      {apt.status || 'Pending'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => handleStatusUpdate(apt.id, 'completed')}
+                        className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(apt.id)}
+                        className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
