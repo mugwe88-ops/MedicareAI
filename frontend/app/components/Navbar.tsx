@@ -1,42 +1,39 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 export default function Navbar() {
-  const pathname = usePathname();
-
-  // Ensure navbar shows on home page, but hides on specific portals
-  if (pathname.startsWith("/dashboard") || pathname.startsWith("/patient-portal")) {
-    return null;
-  }
-
   return (
-    <nav className="fixed top-0 left-0 right-0 w-full bg-white border-b border-gray-100 z-[9999] h-20 shadow-sm">
-      <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
+    <nav className="fixed top-0 left-0 w-full bg-white z-[9999] border-b border-slate-100 h-20 shadow-sm">
+      <div className="max-w-7xl mx-auto px-6 h-full flex justify-between items-center">
         
-        {/* Left Side: Logo */}
-        <div className="flex items-center">
-          <Link href="/" className="text-2xl font-extrabold text-blue-600 tracking-tighter">
-            Swift MD
-          </Link>
+        {/* Logo */}
+        <Link href="/" className="text-2xl font-black text-blue-600 tracking-tighter hover:opacity-80 transition-opacity">
+          Swift MD
+        </Link>
+
+        {/* Center Links */}
+        <div className="hidden md:flex gap-8 text-sm font-bold text-slate-500">
+          <Link href="/doctors" className="hover:text-blue-600 transition-colors">Find Doctors</Link>
+          <Link href="#" className="hover:text-blue-600 transition-colors">Video Consult</Link>
+          <Link href="#" className="hover:text-blue-600 transition-colors">Medicines</Link>
         </div>
 
-        {/* Right Side: Auth Buttons */}
-        <div className="flex items-center gap-8">
+        {/* Right Side Actions */}
+        <div className="flex items-center gap-6">
           <Link 
             href="/login" 
-            className="text-[15px] font-bold text-gray-700 hover:text-blue-600 transition-colors"
+            className="text-sm font-bold text-slate-700 hover:text-blue-600 transition-colors"
           >
             Login
           </Link>
+          
           <Link 
             href="/signup" 
-            className="px-6 py-2.5 bg-blue-600 text-white text-[15px] font-extrabold rounded-lg hover:bg-blue-700 transition-all active:scale-95 shadow-md shadow-blue-100"
+            className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
           >
             Sign Up
           </Link>
         </div>
-
       </div>
     </nav>
   );

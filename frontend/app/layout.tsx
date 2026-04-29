@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import "./globals.css"; // This line is crucial to fix the "ancient" look
+import "./globals.css";
+import Navbar from "./components/Navbar"; // 1. Import the Navbar
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,6 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} antialiased bg-gray-50 text-slate-900`}>
+        <Navbar /> {/* 2. This brings the Logo/Buttons to the front page */}
         <main>
           {children}
         </main>
