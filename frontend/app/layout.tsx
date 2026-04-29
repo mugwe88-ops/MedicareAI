@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Swift MD | Healthcare Reimagined",
-  description: "Advanced healthcare platform for doctors and patients",
+  description: "Advanced healthcare platform",
 };
 
 export default function RootLayout({
@@ -16,11 +16,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="scroll-smooth">
-      <body className={`${inter.className} antialiased bg-white text-slate-900`}>
+    <html lang="en">
+      <body className={`${inter.className} bg-white text-slate-900`}>
         <Navbar />
-        {/* No extra padding/margins here so Hero can be full width */}
-        {children}
+        <main>{children}</main>
       </body>
     </html>
   );
