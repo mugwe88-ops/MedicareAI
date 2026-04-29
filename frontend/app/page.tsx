@@ -6,65 +6,63 @@ import Doctors from "./components/Doctors";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#F8FAFC]"> {/* Clean light grey background */}
+    <main className="min-h-screen bg-white overflow-x-hidden">
       <Navbar />
-      
-      {/* 1. Header & Specialties */}
       <Hero />
       
-      {/* 2. Services Grid - Refactored for Horizontal Tiles */}
-      <section className="py-12 bg-white border-b border-slate-100">
+      {/* 1. Services Row */}
+      <section className="py-20 bg-white px-4 border-t border-slate-50">
         <div className="max-w-7xl mx-auto">
           <Services />
         </div>
       </section>
 
-      {/* 3. Mission Statement "What we do" - Practo Style */}
-      <section className="py-24 px-4 bg-white">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-extrabold text-slate-800 mb-6">What we do</h2>
-          <p className="text-lg md:text-xl text-slate-600 leading-relaxed font-medium">
-            We are on a mission to make quality healthcare affordable and accessible for everyone. 
-            We empower people with the information and care that they can trust to make 
-            <span className="text-[#237BFF]"> better healthcare decisions every day.</span>
-          </p>
-          
-          {/* Trust Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-14 pt-12 border-t border-slate-50">
-            <div>
-              <div className="text-2xl font-bold text-slate-800">10k+</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Patients</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-800">500+</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Verified Doctors</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-800">50+</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Clinics</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-800">24/7</div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Support</div>
+      {/* 2. Professional Trust Banner */}
+      <section className="w-full bg-[#28328C] py-24 px-4 text-white relative overflow-hidden">
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-white/5 rounded-full -mr-64 border border-white/10" />
+        
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-16 relative z-10">
+          <div className="max-w-2xl text-left">
+            <h2 className="text-3xl md:text-5xl font-black leading-tight mb-8">
+              SwiftMD is now KMLTTB & MOH Compliant
+            </h2>
+            <p className="text-blue-100 text-lg mb-12 font-medium opacity-90">
+              Your health is protected by verified professional standards and real-time medical auditing.
+            </p>
+            <div className="flex gap-16 border-t border-white/20 pt-10">
+              <div>
+                <div className="text-4xl font-black text-white">10k+</div>
+                <div className="text-[10px] uppercase tracking-widest text-blue-300 font-black mt-2">Verified Patients</div>
+              </div>
+              <div>
+                <div className="text-4xl font-black text-white">500+</div>
+                <div className="text-[10px] uppercase tracking-widest text-blue-300 font-black mt-2">Top Specialists</div>
+              </div>
             </div>
           </div>
+          
+          <button className="px-10 py-5 bg-white text-[#28328C] font-black uppercase tracking-widest rounded-2xl hover:bg-blue-50 transition-all shadow-2xl">
+            Learn More
+          </button>
         </div>
       </section>
 
-      {/* 4. Top Rated Doctors Section */}
-      <section className="py-20 px-4">
+      {/* 3. Doctors List */}
+      <section className="py-28 px-4 bg-slate-50/50">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold text-slate-800">Top Rated Doctors</h2>
-            <p className="text-slate-500 mt-2">Verified specialists available for instant booking</p>
+          <div className="mb-16">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Top Rated Doctors</h2>
+            <p className="text-slate-500 mt-2 font-bold text-sm uppercase tracking-wider">Book in 60 seconds</p>
           </div>
           <Doctors />
         </div>
       </section>
 
-      {/* 5. Footer Placeholder */}
-      <footer className="py-12 bg-slate-900 text-slate-400 text-center text-sm">
-        <p>© 2026 Swift MD. All rights reserved.</p>
+      <footer className="py-20 bg-[#0F172A] text-slate-500">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-8">
+          <span className="text-2xl font-black text-white">Swift<span className="text-[#237BFF]">MD</span></span>
+          <p className="text-sm font-bold opacity-60">© 2026 Swift MD. Built for better healthcare.</p>
+        </div>
       </footer>
     </main>
   );
