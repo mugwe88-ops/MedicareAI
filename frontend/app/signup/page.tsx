@@ -9,7 +9,7 @@ export default function SignupPage() {
     name: "",
     email: "",
     password: "",
-    role: "patient" // Default role
+    role: "Doctor" // Matches the value in your screenshot dropdown
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -22,7 +22,8 @@ export default function SignupPage() {
     setError("");
 
     try {
-      const res = await fetch("https://medicareai-1.onrender.com/api/auth/register", {
+      // Switched to /signup as /register returned a 404 error
+      const res = await fetch("https://medicareai-1.onrender.com/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -31,10 +32,10 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Registration failed.");
+        throw new Error(data.message || "Registration failed. Check your connection.");
       }
 
-      // Automatically log them in or redirect to login
+      // If registration is successful, redirect to login
       window.location.href = "/login";
 
     } catch (err: any) {
@@ -61,10 +62,10 @@ export default function SignupPage() {
               <input
                 name="name"
                 type="text"
-                placeholder="John Doe"
+                placeholder="WILLIAM WERU"
                 required
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white transition-all"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-gray-50 transition-all"
               />
             </div>
 
@@ -73,10 +74,10 @@ export default function SignupPage() {
               <input
                 name="email"
                 type="email"
-                placeholder="john@example.com"
+                placeholder="willyweyru6@gmail.com"
                 required
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white transition-all"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-gray-50 transition-all"
               />
             </div>
 
@@ -84,11 +85,12 @@ export default function SignupPage() {
               <label className="block text-sm font-bold text-slate-700 mb-1">Join as</label>
               <select 
                 name="role" 
+                value={formData.role}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white transition-all"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-gray-50 transition-all"
               >
-                <option value="patient">Patient</option>
-                <option value="doctor">Doctor</option>
+                <option value="Patient">Patient</option>
+                <option value="Doctor">Doctor</option>
               </select>
             </div>
 
@@ -100,12 +102,12 @@ export default function SignupPage() {
                 placeholder="••••••••"
                 required
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white transition-all"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-gray-50 transition-all"
               />
             </div>
 
             {error && (
-              <div className="bg-rose-50 border border-rose-100 text-rose-600 text-sm font-bold px-4 py-3 rounded-xl text-center">
+              <div className="bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold px-4 py-3 rounded-xl text-center leading-tight">
                 {error}
               </div>
             )}

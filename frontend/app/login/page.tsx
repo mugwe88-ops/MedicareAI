@@ -34,8 +34,8 @@ export default function LoginPage() {
 
       localStorage.setItem("token", data.token);
 
-      // Role-Based Redirect
-      if (data.user.role === "doctor") {
+      // Redirect based on backend response
+      if (data.user.role?.toLowerCase() === "doctor") {
         window.location.href = "/dashboard";
       } else {
         window.location.href = "/patient-portal";
@@ -43,7 +43,7 @@ export default function LoginPage() {
 
     } catch (err: any) {
       setError(err.message === "Failed to fetch" 
-        ? "Server is waking up. Please wait 30 seconds and try again." 
+        ? "Server is waking up. Please wait 30 seconds." 
         : err.message);
     } finally {
       setLoading(false);
@@ -65,10 +65,10 @@ export default function LoginPage() {
               <input
                 name="email"
                 type="email"
-                placeholder="doctor@swiftmd.com"
+                placeholder="willyweyru4@gmail.com"
                 required
                 onChange={handleChange}
-                className="w-full px-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white transition-all"
+                className="w-full px-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-gray-50 transition-all"
               />
             </div>
 
@@ -80,7 +80,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 required
                 onChange={handleChange}
-                className="w-full px-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white transition-all"
+                className="w-full px-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-gray-50 transition-all"
               />
             </div>
 
