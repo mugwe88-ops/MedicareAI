@@ -1,7 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-// ✅ FIXED: Changed from "./dashboard/layout" to "./layout" to avoid circular reference
-import DashboardLayout from "./layout"; 
 
 interface Appointment {
   id: number;
@@ -22,7 +20,6 @@ export default function DoctorDashboard() {
 
   const fetchAppointments = async () => {
     try {
-      // ✅ Using your verified Render URL
       const res = await fetch("https://medicareai-1.onrender.com/api/appointments");
       const data = await res.json();
       if (Array.isArray(data)) setAppointments(data);
@@ -68,7 +65,7 @@ export default function DoctorDashboard() {
   };
 
   return (
-    <DashboardLayout>
+    <div className="p-4 md:p-8">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-4xl font-black text-white tracking-tighter">Clinical Console</h2>
@@ -149,6 +146,6 @@ export default function DoctorDashboard() {
           </tbody>
         </table>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
