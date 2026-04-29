@@ -1,154 +1,170 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { 
+  LayoutDashboard, Calendar, Users, FileText, Settings, 
+  LogOut, CheckCircle2, Trash2, Search, Bell, Filter
+} from "lucide-react";
 
-interface Appointment {
-  id: number;
-  patient_name: string;
-  phone: string;
-  appointment_time: string;
-  status: string;
-  reason: string;
-}
+export default function ClinicalConsole() {
+  const [activeTab, setActiveTab] = useState("dashboard");
 
-export default function DoctorDashboard() {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchAppointments();
-  }, []);
-
-  const fetchAppointments = async () => {
-    try {
-      const res = await fetch("https://medicareai-1.onrender.com/api/appointments");
-      const data = await res.json();
-      if (Array.isArray(data)) setAppointments(data);
-    } catch (err) {
-      console.error("Fetch Error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStatusUpdate = async (id: number, newStatus: string) => {
-    try {
-      const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) fetchAppointments();
-    } catch (err) {
-      alert("Failed to update status");
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to remove this patient record?")) return;
-    try {
-      const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${id}`, {
-        method: "DELETE"
-      });
-      if (res.ok) setAppointments(prev => prev.filter(a => a.id !== id));
-    } catch (err) {
-      alert("Delete failed");
-    }
-  };
-
-  const getStatusStyles = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
-      default: return 'bg-blue-100 text-blue-700 border-blue-200';
-    }
-  };
+  const sidebarItems = [
+    { id: "dashboard", label: "DASHBOARD", icon: <LayoutDashboard size={20} /> },
+    { id: "schedule", label: "SCHEDULE", icon: <Calendar size={20} /> },
+    { id: "patients", label: "PATIENTS", icon: <Users size={20} /> },
+    { id: "records", label: "RECORDS", icon: <FileText size={20} /> },
+    { id: "settings", label: "SETTINGS", icon: <Settings size={20} /> },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      {/* Swift MD Pro Header */}
-      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40">
-        <h1 className="text-2xl font-black text-blue-600 tracking-tighter">
-          Swift MD <span className="text-slate-900 font-light italic">Pro</span>
-        </h1>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-sm font-black text-slate-900 leading-none">Dr. Sarah Johnson</p>
-            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">Medical Director</p>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-black shadow-lg shadow-blue-100">SJ</div>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto p-8">
-        <div className="flex justify-between items-end mb-10">
-          <div>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Clinical Console</h2>
-            <p className="text-slate-500 font-bold mt-2">Active Appointments: {appointments.length}</p>
+    <div className="flex h-screen bg-[#F8FAFC] font-sans">
+      {/* Sidebar - Professional Navy Aesthetic */}
+      <aside className="w-72 bg-[#0F172A] text-white flex flex-col shadow-2xl z-20">
+        <div className="p-10">
+          <div className="flex items-center space-x-3">
+            <div className="h-8 w-8 bg-blue-500 rounded-lg flex items-center justify-center">
+              <div className="h-4 w-4 bg-white rounded-sm rotate-45" />
+            </div>
+            <h2 className="text-2xl font-black tracking-tighter text-white">Swift MD</h2>
           </div>
         </div>
 
-        {/* Clinical Records Table */}
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/40 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50/50">
-              <tr className="border-b border-slate-100">
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Patient Profile</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Visit Timing</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Medical Reason</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Clinical Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {loading ? (
-                <tr><td colSpan={5} className="py-20 text-center font-black text-slate-300 italic text-xl">Accessing secure records...</td></tr>
-              ) : appointments.map((apt) => (
-                <tr key={apt.id} className="hover:bg-blue-50/30 transition-all group">
-                  <td className="px-10 py-7">
-                    <p className="font-black text-slate-900 text-lg leading-tight">{apt.patient_name}</p>
-                    <p className="text-sm text-slate-400 font-bold mt-1 tracking-tight">{apt.phone}</p>
-                  </td>
-                  <td className="px-10 py-7">
-                    <p className="font-black text-slate-700">
-                      {new Date(apt.appointment_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </p>
-                    <p className="text-xs font-black text-blue-500 uppercase mt-0.5">
-                      {new Date(apt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </td>
-                  <td className="px-10 py-7">
-                    <div className="px-4 py-2 bg-slate-100 rounded-xl inline-block">
-                      <p className="text-xs text-slate-500 font-black italic uppercase tracking-tighter">"{apt.reason}"</p>
-                    </div>
-                  </td>
-                  <td className="px-10 py-7">
-                    <span className={`px-4 py-1.5 text-[9px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(apt.status)}`}>
-                      {apt.status || 'Scheduled'}
-                    </span>
-                  </td>
-                  <td className="px-10 py-7 text-right">
-                    <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                      <button 
-                        onClick={() => handleStatusUpdate(apt.id, 'completed')}
-                        className="h-11 w-11 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                        title="Complete Visit"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(apt.id)}
-                        className="h-11 w-11 flex items-center justify-center bg-red-50 text-red-600 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
-                        title="Delete Record"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <nav className="flex-1 px-6 space-y-1.5">
+          {sidebarItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center space-x-4 px-5 py-4 rounded-2xl font-bold text-sm transition-all duration-200 ${
+                activeTab === item.id 
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" 
+                : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
+              }`}
+            >
+              {item.icon}
+              <span className="tracking-wide">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-6 border-t border-slate-800/50">
+          <button className="w-full flex items-center space-x-4 px-5 py-4 text-slate-400 hover:text-rose-400 font-bold transition-all rounded-2xl hover:bg-rose-500/10">
+            <LogOut size={20} />
+            <span className="tracking-wide">LOGOUT</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0">
+        {/* Top Header - High Contrast */}
+        <header className="h-24 bg-white border-b border-slate-200 flex items-center justify-between px-12 sticky top-0 z-10">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search patients, appointments, or medical records..." 
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+            />
+          </div>
+          
+          <div className="flex items-center space-x-8">
+            <button className="relative p-2 text-slate-400 hover:text-blue-600 transition-colors">
+              <Bell size={22} />
+              <span className="absolute top-2 right-2 h-2 w-2 bg-rose-500 rounded-full border-2 border-white" />
+            </button>
+            <div className="h-10 w-px bg-slate-200" />
+            <div className="flex items-center space-x-4">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-black text-slate-900 leading-tight">Dr. William Weru</p>
+                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Medical Technologist</p>
+              </div>
+              <div className="h-12 w-12 rounded-2xl bg-blue-600 border-4 border-blue-50 flex items-center justify-center text-white font-black text-sm shadow-sm">
+                WW
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Dashboard Body */}
+        <div className="flex-1 overflow-y-auto p-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-end justify-between mb-10">
+              <div>
+                <h1 className="text-4xl font-black text-slate-900 tracking-tight">Clinical Console</h1>
+                <p className="text-slate-500 font-semibold mt-2">
+                  You have <span className="text-blue-600">2 pending appointments</span> for today.
+                </p>
+              </div>
+              <button className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
+                <Filter size={16} />
+                <span>Filter Results</span>
+              </button>
+            </div>
+
+            {/* Modern Table Design */}
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200/60 overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-100">
+                    <th className="px-10 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em]">Patient Profile</th>
+                    <th className="px-10 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em]">Visit Timing</th>
+                    <th className="px-10 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em]">Medical Reason</th>
+                    <th className="px-10 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em]">Status</th>
+                    <th className="px-10 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {[
+                    { date: "30 Apr 2026", time: "05:03 PM", status: "Completed", color: "emerald" },
+                    { date: "29 Apr 2026", time: "04:53 PM", status: "Pending", color: "orange" }
+                  ].map((row, idx) => (
+                    <tr key={idx} className="group hover:bg-blue-50/30 transition-all">
+                      <td className="px-10 py-8">
+                        <div className="flex items-center space-x-4">
+                          <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:shadow-sm transition-all">
+                            <Users size={18} />
+                          </div>
+                          <div>
+                            <p className="font-black text-slate-900 group-hover:text-blue-700 transition-colors">William Weru</p>
+                            <p className="text-xs text-slate-400 font-bold tracking-wide">0723503988</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-10 py-8">
+                        <p className="font-bold text-slate-700 text-sm">{row.date}</p>
+                        <p className="text-blue-600 text-xs font-black mt-0.5">{row.time}</p>
+                      </td>
+                      <td className="px-10 py-8">
+                        <span className="px-4 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-wider border border-slate-200/50">
+                          General Consultation
+                        </span>
+                      </td>
+                      <td className="px-10 py-8">
+                        <span className={`px-4 py-1.5 bg-${row.color}-50 text-${row.color}-600 text-[10px] font-black rounded-full uppercase tracking-wider border border-${row.color}-100`}>
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="px-10 py-8">
+                        <div className="flex justify-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <button className="p-3 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all border border-transparent hover:border-emerald-100 shadow-sm hover:shadow-emerald-100">
+                            <CheckCircle2 size={18} />
+                          </button>
+                          <button className="p-3 text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 shadow-sm hover:shadow-rose-100">
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="p-8 bg-slate-50/50 border-t border-slate-100 text-center">
+                <button className="text-sm font-black text-blue-600 hover:text-blue-800 transition-colors uppercase tracking-widest">
+                  View Full Appointment History
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>

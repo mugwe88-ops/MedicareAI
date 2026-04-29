@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Navbar from "./components/Navbar"; // 1. Import the Navbar
+import Navbar from "./components/Navbar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,12 +16,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} antialiased bg-gray-50 text-slate-900`}>
-        <Navbar /> {/* 2. This brings the Logo/Buttons to the front page */}
-        <main>
-          {children}
-        </main>
+    <html lang="en" className="scroll-smooth">
+      <body className={`${inter.className} antialiased bg-white text-slate-900`}>
+        <Navbar />
+        {/* No extra padding/margins here so Hero can be full width */}
+        {children}
       </body>
     </html>
   );

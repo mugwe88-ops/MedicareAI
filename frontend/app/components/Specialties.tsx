@@ -1,59 +1,45 @@
 "use client";
-
-import { useRouter } from "next/navigation";
-import {
-  Stethoscope,
-  Baby,
-  Activity,
-  HeartPulse,
-  User,
-  Bone,
+import { 
+  Stethoscope, UserRound, Baby, 
+  HeartPulse, Activity, Bone 
 } from "lucide-react";
 
-export default function Speciality() {
-  const router = useRouter();
+const specialties = [
+  { name: "General Physician", icon: <Stethoscope size={24} />, color: "text-blue-600", bg: "bg-blue-50" },
+  { name: "Dermatologist", icon: <UserRound size={24} />, color: "text-rose-600", bg: "bg-rose-50" },
+  { name: "Pediatrician", icon: <Baby size={24} />, color: "text-amber-600", bg: "bg-amber-50" },
+  { name: "Gynecologist", icon: <HeartPulse size={24} />, color: "text-purple-600", bg: "bg-purple-50" },
+  { name: "Dentist", icon: <Activity size={24} />, color: "text-emerald-600", bg: "bg-emerald-50" },
+  { name: "Orthopedic", icon: <Bone size={24} />, color: "text-indigo-600", bg: "bg-indigo-50" },
+];
 
-  const specs = [
-    { name: "General Physician", icon: Stethoscope },
-    { name: "Dermatologist", icon: User },
-    { name: "Pediatrician", icon: Baby },
-    { name: "Gynecologist", icon: HeartPulse },
-    { name: "Dentist", icon: Activity }, 
-    { name: "Orthopedic Surgeon", icon: Bone },
-  ];
-
-  const handleSpecialtyClick = (specialtyName: string) => {
-    // This logic successfully sends the query to your backend
-    router.push(`/doctors?query=${encodeURIComponent(specialtyName)}`);
-  };
-
+export default function Specialties() {
   return (
-    <section className="py-12 bg-slate-900 text-white">
-      <div className="max-w-6xl mx-auto px-4">
-        <h2 className="text-xl md:text-2xl font-bold text-center mb-8 uppercase tracking-widest">
-          Book by Speciality
-        </h2>
+    <section className="relative z-30 -mt-24 px-6">
+      <div className="max-w-7xl mx-auto bg-white rounded-[3rem] shadow-2xl shadow-blue-900/10 border border-slate-100 p-12">
+        <div className="text-center mb-12">
+          <span className="text-[10px] font-black tracking-[0.3em] text-blue-600 uppercase">
+            Categories
+          </span>
+          <h2 className="text-3xl font-black text-slate-900 mt-2">
+            Book by Speciality
+          </h2>
+        </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {specs.map((s) => {
-            const Icon = s.icon;
-            return (
-              <button
-                key={s.name}
-                onClick={() => handleSpecialtyClick(s.name)}
-                className="bg-slate-800 p-6 rounded-2xl flex flex-col items-center text-center 
-                           hover:bg-blue-600 cursor-pointer transition-all duration-200 
-                           min-h-[140px] border border-slate-700 group shadow-lg"
-              >
-                <div className="bg-blue-600 p-3 rounded-full mb-3 group-hover:bg-white/20 transition-colors">
-                  <Icon size={28} className="text-white" />
-                </div>
-                <p className="text-[10px] sm:text-xs font-black uppercase tracking-tighter leading-tight">
-                  {s.name}
-                </p>
-              </button>
-            );
-          })}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+          {specialties.map((item, index) => (
+            <button
+              key={index}
+              className="group flex flex-col items-center p-6 rounded-3xl hover:bg-slate-50 transition-all duration-300 border border-transparent hover:border-slate-100"
+            >
+              <div className={`mb-4 p-5 rounded-2xl ${item.bg} ${item.color} group-hover:scale-110 transition-transform`}>
+                {item.icon}
+              </div>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider text-center leading-tight">
+                {item.name}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
     </section>
