@@ -1,26 +1,64 @@
+"use client";
+import { Video, Pill, Microscope, Calendar, ClipboardList } from "lucide-react";
+
 export default function Services() {
   const services = [
-    { name: "Video Consultation", icon: "🩺" },
-    { name: "Order Medicines", icon: "💊" },
-    { name: "Lab Tests", icon: "🧪" },
+    {
+      title: "Video Consultation",
+      desc: "Connect with doctors within 5 minutes",
+      icon: Video,
+      color: "bg-orange-50",
+      iconColor: "text-orange-500",
+    },
+    {
+      title: "Order Medicines",
+      desc: "Essentials delivered to your doorstep",
+      icon: Pill,
+      color: "bg-rose-50",
+      iconColor: "text-rose-500",
+    },
+    {
+      title: "Lab Tests",
+      desc: "Sample pickup from your home",
+      icon: Microscope,
+      color: "bg-indigo-50",
+      iconColor: "text-indigo-500",
+    },
+    {
+      title: "Surgeries",
+      desc: "Safe and trusted surgical care",
+      icon: Calendar,
+      color: "bg-emerald-50",
+      iconColor: "text-emerald-500",
+    }
   ];
 
   return (
-    <section className="py-12 bg-gray-50">
-      <div className="max-w-6xl mx-auto grid grid-cols-3 gap-6">
-        {services.map((s) => (
-          <div
-            key={s.name}
-            className="bg-white p-8 shadow rounded-xl text-center hover:shadow-xl transition"
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 px-4">
+      {services.map((service) => {
+        const Icon = service.icon;
+        return (
+          <div 
+            key={service.title}
+            className="group cursor-pointer bg-white border border-slate-100 rounded-xl p-4 flex items-center gap-4 hover:shadow-md transition-all active:scale-[0.98]"
           >
-            <div className="text-4xl">{s.icon}</div>
-            <h3 className="font-bold text-lg mt-2">{s.name}</h3>
-            <p className="text-gray-500 mt-1">
-              Safe and fast healthcare services
-            </p>
+            {/* Minimalist Icon Box */}
+            <div className={`w-14 h-14 shrink-0 rounded-lg flex items-center justify-center ${service.color}`}>
+              <Icon size={24} className={service.iconColor} />
+            </div>
+
+            {/* Text Content */}
+            <div className="flex flex-col">
+              <h3 className="font-bold text-slate-800 text-[15px] group-hover:text-[#237BFF] transition-colors">
+                {service.title}
+              </h3>
+              <p className="text-[12px] text-slate-500 leading-tight mt-0.5">
+                {service.desc}
+              </p>
+            </div>
           </div>
-        ))}
-      </div>
-    </section>
+        );
+      })}
+    </div>
   );
 }
