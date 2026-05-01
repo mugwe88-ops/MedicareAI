@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+// Import the PatientResultsTable component
+import PatientResultsTable from "../../src/components/PatientResultsTable";
 
 interface Appointment {
   id: number;
@@ -53,7 +55,6 @@ export default function PatientPortal() {
       });
 
       if (res.ok) {
-        // Optimistic UI update: remove from list immediately
         setAppointments(prev => prev.filter(apt => apt.id !== id));
       } else {
         alert("Failed to delete appointment.");
@@ -117,7 +118,7 @@ export default function PatientPortal() {
         <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">W</div>
       </nav>
 
-      <main className="max-w-7xl mx-auto p-8">
+      <main className="max-w-7xl mx-auto p-8 space-y-12">
         <div className="flex justify-between items-center mb-10">
           <div>
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Your Dashboard</h2>
@@ -169,9 +170,9 @@ export default function PatientPortal() {
           </div>
         )}
 
-        <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm">
+        {/* SECTION: Appointments */}
+        <section className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm">
            <h3 className="text-xl font-bold text-slate-900 mb-6 tracking-tight">Upcoming Appointments</h3>
-           
            <div className="space-y-4">
              {appointments.length > 0 ? (
                appointments.map((apt) => (
@@ -215,7 +216,17 @@ export default function PatientPortal() {
                </div>
              )}
            </div>
-        </div>
+        </section>
+
+        {/* SECTION: Lab Reports */}
+        <section className="space-y-4">
+          <div className="ml-2">
+            <h3 className="text-xl font-bold text-slate-900 tracking-tight">Recent Lab Findings</h3>
+            <p className="text-slate-500 font-medium text-sm">Official laboratory reports and clinical results</p>
+          </div>
+          <PatientResultsTable />
+        </section>
+
       </main>
     </div>
   );
