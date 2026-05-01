@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import PatientResultsTable from "../../src/components/PatientResultsTable";
 import HealthTrends from "../../src/components/HealthTrends";
 import AIInsights from "../../src/components/AIInsights";
+import RecordsVault from "../../src/components/RecordsVault";
 
 interface Appointment {
   id: number;
@@ -229,6 +230,9 @@ export default function PatientPortal() {
             <AIInsights />
           </div>
         </section>
+
+        {/* SECTION: Records Vault */}
+        <RecordsVault />
 
         {/* SECTION: Lab Reports */}
         <section className="space-y-4">
