@@ -1,9 +1,10 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Video, Calendar, Clock, MessageSquare, ChevronRight } from "lucide-react";
 
-export default function TelehealthBooking() {
+// Using a wrapper for Suspense since useSearchParams() requires it in App Router
+function BookingForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const contextId = searchParams.get("context");
@@ -29,7 +30,8 @@ export default function TelehealthBooking() {
 
       if (response.ok) {
         alert("Telehealth session requested successfully!");
-        router.push("/dashboard"); 
+        // Redirecting to your actual portal path seen in image_495763.png
+        router.push("/patient-portal"); 
       }
     } catch (error) {
       console.error("Booking error:", error);
@@ -82,5 +84,14 @@ export default function TelehealthBooking() {
         </form>
       </div>
     </div>
+  );
+}
+
+// Main component with Suspense boundary for Next.js build requirements
+export default function TelehealthBooking() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center font-bold">Loading booking context...</div>}>
+      <BookingForm />
+    </Suspense>
   );
 }
