@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-// Import the PatientResultsTable component
+// Import the PatientResultsTable and HealthTrends components
 import PatientResultsTable from "../../src/components/PatientResultsTable";
+import HealthTrends from "../../src/components/HealthTrends";
 
 interface Appointment {
   id: number;
@@ -216,6 +217,11 @@ export default function PatientPortal() {
                </div>
              )}
            </div>
+        </section>
+
+        {/* SECTION: Health Trends Visualization */}
+        <section>
+          <HealthTrends />
         </section>
 
         {/* SECTION: Lab Reports */}
