@@ -4,12 +4,12 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 
-// 1. Email Configuration (Ensure these are in your .env)
+// 1. Email Configuration
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // Use an App Password
+    user: process.env.EMAIL_USER, // Your Gmail
+    pass: process.env.EMAIL_PASS, // Your 16-digit App Password
   },
 });
 
@@ -26,16 +26,16 @@ export const signup = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Generate unique verification token
     const verificationToken = crypto.randomBytes(32).toString("hex");
 
-    // Insert user (Defaults to is_verified = false)
+    // Insert user (is_verified defaults to false)
     const userResult = await pool.query(
       "INSERT INTO users (email, password, role, verification_token, is_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id",
       [email, hashedPassword, role.toLowerCase(), verificationToken, false]
     );
     const userId = userResult.rows[0].id;
 
+    // Handle Role Specific Data
     if (role.toLowerCase() === 'doctor') {
       await pool.query(
         `INSERT INTO doctors (user_id, name, specialization, license_number, city, is_active) 
@@ -54,10 +54,10 @@ export const signup = async (req, res) => {
       to: email,
       subject: "Verify Your Account - Swift MD",
       html: `
-        <div style="font-family: sans-serif; padding: 20px;">
-          <h2>Welcome to Swift MD, ${name}!</h2>
+        <div style="font-family: sans-serif; padding: 20px; color: #333;">
+          <h2 style="color: #237BFF;">Welcome to Swift MD, ${name}!</h2>
           <p>Please click the button below to verify your email address and activate your account.</p>
-          <a href="${verificationUrl}" style="background: #237BFF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Verify Email</a>
+          <a href="${verificationUrl}" style="background: #237BFF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">Verify Email</a>
           <p style="margin-top: 20px; font-size: 12px; color: #666;">If the button doesn't work, copy this link: ${verificationUrl}</p>
         </div>
       `
@@ -91,7 +91,7 @@ export const verifyEmail = async (req, res) => {
   }
 };
 
-// LOGIN LOGIC (With Verification Check)
+// LOGIN LOGIC
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -103,7 +103,7 @@ export const login = async (req, res) => {
 
     const user = result.rows[0];
 
-    // Check if account is verified
+    // Check Verification Status
     if (!user.is_verified) {
       return res.status(403).json({ 
         message: "Account not verified. Please check your email for the verification link." 
