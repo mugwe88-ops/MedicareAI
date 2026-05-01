@@ -1,39 +1,56 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-import pool from "../utils/db.js";
+import pool from "../config/db.js"; // Standardized to your config path
 import jwt from "jsonwebtoken";
-// FIX: Ensure this path matches your file name exactly (lowercase 'a' vs uppercase 'A')
-import { getMe, signup, login, verifyEmail } from "../controllers/authController.js";
 import { verifyToken } from "../utils/jwt.js";
 
 const router = express.Router();
 
 /**
  * ✅ PERSISTENCE ROUTE
+ * Fetches the current user based on the decoded token
  */
-router.get("/me", verifyToken, getMe);
+router.get("/me", verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name, email, role FROM users WHERE id = $1",
+      [req.userId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "User not found" });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
-// SIGNUP ROUTE
+/**
+ * ✅ SIGNUP ROUTE
+ * Per your instruction: is_verified is set to TRUE immediately
+ */
 router.post("/signup", async (req, res) => {
   try {
     const { name, email, password, role, specialization, license_number, city, phone } = req.body; 
     if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
     const hashed = await bcrypt.hash(password, 10);
+    
     const result = await pool.query(
       `INSERT INTO users (name, email, password, role, specialization, license_number, city, phone, is_verified)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, name, email, role`,
       [name || null, email, hashed, role || 'patient', specialization || null, license_number || null, city || null, phone || null, true]
     ); 
-    // Per your instruction: is_verified is set to TRUE immediately.
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
     if (err.code === "23505") return res.status(400).json({ error: "Email already exists" });
+    console.error("SIGNUP ERROR:", err.message);
     res.status(500).json({ error: "Registration failed" });
   }
 });
 
-// LOGIN ROUTE
+/**
+ * ✅ LOGIN ROUTE
+ */
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { 
   LayoutDashboard, Calendar, Users, FileText, Settings, 
   LogOut, CheckCircle2, Trash2, Search, Bell, Filter
@@ -7,45 +7,6 @@ import {
 
 export default function ClinicalConsole() {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // 1. Fetch real appointments from your API on component mount
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/appointments`);
-        if (!response.ok) throw new Error("Failed to fetch");
-        const data = await response.json();
-        setAppointments(data);
-      } catch (error) {
-        console.error("Fetch error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAppointments();
-  }, []);
-
-  // 2. Define the handler that was missing in your screenshot
-  const handleUpdateStatus = async (id, newStatus) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/appointments/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (response.ok) {
-        // Update local state so UI reflects the change immediately
-        setAppointments((prev) =>
-          prev.map((app) => (app.id === id ? { ...app, status: newStatus } : app))
-        );
-      }
-    } catch (error) {
-      console.error("Update error:", error);
-    }
-  };
 
   const sidebarItems = [
     { id: "dashboard", label: "DASHBOARD", icon: <LayoutDashboard size={20} /> },
@@ -57,6 +18,7 @@ export default function ClinicalConsole() {
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans">
+      {/* Sidebar - Professional Navy Aesthetic */}
       <aside className="w-72 bg-[#0F172A] text-white flex flex-col shadow-2xl z-20">
         <div className="p-10">
           <div className="flex items-center space-x-3">
@@ -92,18 +54,25 @@ export default function ClinicalConsole() {
         </div>
       </aside>
 
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0">
+        {/* Top Header - High Contrast */}
         <header className="h-24 bg-white border-b border-slate-200 flex items-center justify-between px-12 sticky top-0 z-10">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="Search patients..." 
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-transparent rounded-xl text-sm outline-none transition-all"
+              placeholder="Search patients, appointments, or medical records..." 
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
             />
           </div>
           
           <div className="flex items-center space-x-8">
+            <button className="relative p-2 text-slate-400 hover:text-blue-600 transition-colors">
+              <Bell size={22} />
+              <span className="absolute top-2 right-2 h-2 w-2 bg-rose-500 rounded-full border-2 border-white" />
+            </button>
+            <div className="h-10 w-px bg-slate-200" />
             <div className="flex items-center space-x-4">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-black text-slate-900 leading-tight">Dr. William Weru</p>
@@ -116,14 +85,23 @@ export default function ClinicalConsole() {
           </div>
         </header>
 
+        {/* Dashboard Body */}
         <div className="flex-1 overflow-y-auto p-12">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-end justify-between mb-10">
               <div>
                 <h1 className="text-4xl font-black text-slate-900 tracking-tight">Clinical Console</h1>
+                <p className="text-slate-500 font-semibold mt-2">
+                  You have <span className="text-blue-600">2 pending appointments</span> for today.
+                </p>
               </div>
+              <button className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
+                <Filter size={16} />
+                <span>Filter Results</span>
+              </button>
             </div>
 
+            {/* Modern Table Design */}
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200/60 overflow-hidden">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -136,45 +114,43 @@ export default function ClinicalConsole() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {appointments.map((app) => (
-                    <tr key={app.id} className="group hover:bg-blue-50/30 transition-all">
+                  {[
+                    { date: "30 Apr 2026", time: "05:03 PM", status: "Completed", color: "emerald" },
+                    { date: "29 Apr 2026", time: "04:53 PM", status: "Pending", color: "orange" }
+                  ].map((row, idx) => (
+                    <tr key={idx} className="group hover:bg-blue-50/30 transition-all">
                       <td className="px-10 py-8">
                         <div className="flex items-center space-x-4">
-                          <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                          <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:shadow-sm transition-all">
                             <Users size={18} />
                           </div>
                           <div>
-                            <p className="font-black text-slate-900">{app.patient_name || "Unknown Patient"}</p>
-                            <p className="text-xs text-slate-400 font-bold">{app.patient_phone || "No Phone"}</p>
+                            <p className="font-black text-slate-900 group-hover:text-blue-700 transition-colors">William Weru</p>
+                            <p className="text-xs text-slate-400 font-bold tracking-wide">0723503988</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-10 py-8">
-                        <p className="font-bold text-slate-700 text-sm">{app.appointment_date}</p>
-                        <p className="text-blue-600 text-xs font-black mt-0.5">{app.appointment_time}</p>
+                        <p className="font-bold text-slate-700 text-sm">{row.date}</p>
+                        <p className="text-blue-600 text-xs font-black mt-0.5">{row.time}</p>
                       </td>
                       <td className="px-10 py-8">
                         <span className="px-4 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-wider border border-slate-200/50">
-                          {app.reason || "General Consultation"}
+                          General Consultation
                         </span>
                       </td>
                       <td className="px-10 py-8">
-                        {/* Corrected Tailwind conditional classes */}
-                        <span className={`px-4 py-1.5 text-[10px] font-black rounded-full uppercase tracking-wider border ${
-                          app.status === 'Completed' 
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                          : 'bg-orange-50 text-orange-600 border-orange-100'
-                        }`}>
-                          {app.status}
+                        <span className={`px-4 py-1.5 bg-${row.color}-50 text-${row.color}-600 text-[10px] font-black rounded-full uppercase tracking-wider border border-${row.color}-100`}>
+                          {row.status}
                         </span>
                       </td>
                       <td className="px-10 py-8">
                         <div className="flex justify-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <button 
-                            onClick={() => handleUpdateStatus(app.id, 'Completed')} 
-                            className="p-3 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all shadow-sm"
-                          >
+                          <button className="p-3 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all border border-transparent hover:border-emerald-100 shadow-sm hover:shadow-emerald-100">
                             <CheckCircle2 size={18} />
+                          </button>
+                          <button className="p-3 text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 shadow-sm hover:shadow-rose-100">
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       </td>
@@ -182,7 +158,11 @@ export default function ClinicalConsole() {
                   ))}
                 </tbody>
               </table>
-              {loading && <div className="p-12 text-center text-slate-400 font-bold">Syncing Records...</div>}
+              <div className="p-8 bg-slate-50/50 border-t border-slate-100 text-center">
+                <button className="text-sm font-black text-blue-600 hover:text-blue-800 transition-colors uppercase tracking-widest">
+                  View Full Appointment History
+                </button>
+              </div>
             </div>
           </div>
         </div>
