@@ -1,8 +1,8 @@
 import express from "express";
-import bcrypt from "bcryptjs"; // Updated to match your authController.js usage
+import bcrypt from "bcryptjs";
 import pool from "../utils/db.js";
 import jwt from "jsonwebtoken";
-// Importing existing controllers and middleware for the "Me" endpoint
+// FIX: Ensure this path matches your file name exactly (lowercase 'a' vs uppercase 'A')
 import { getMe, signup, login, verifyEmail } from "../controllers/authController.js";
 import { verifyToken } from "../utils/jwt.js";
 
@@ -10,7 +10,6 @@ const router = express.Router();
 
 /**
  * ✅ PERSISTENCE ROUTE
- * This allows the frontend to verify the session on refresh.
  */
 router.get("/me", verifyToken, getMe);
 
@@ -25,7 +24,8 @@ router.post("/signup", async (req, res) => {
       `INSERT INTO users (name, email, password, role, specialization, license_number, city, phone, is_verified)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, name, email, role`,
       [name || null, email, hashed, role || 'patient', specialization || null, license_number || null, city || null, phone || null, true]
-    ); // Note: is_verified set to true per your MedicareAI simplified auth flow.
+    ); 
+    // Per your instruction: is_verified is set to TRUE immediately.
     res.status(201).json(result.rows[0]);
   } catch (err) {
     if (err.code === "23505") return res.status(400).json({ error: "Email already exists" });
@@ -33,9 +33,7 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-/* ======================
-   LOGIN ROUTE
-====================== */
+// LOGIN ROUTE
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -58,7 +56,7 @@ router.post("/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role }, // Changed key to 'userId' to match verifyToken middleware
+      { userId: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET || "medicare_secret_key",
       { expiresIn: "1d" }
     );
