@@ -1,7 +1,6 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-// CHANGE THIS LINE: Add curly braces around pool
-import { pool } from "../config/db.js"; 
+import pool from "../config/db.js"; // REMOVED curly braces
 import jwt from "jsonwebtoken";
 import { verifyToken } from "../utils/jwt.js";
 
