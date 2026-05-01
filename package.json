@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "axios": "^1.15.2",
     "resend": "^6.12.2"
   }
 }
