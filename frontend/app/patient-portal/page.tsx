@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
-// Import the PatientResultsTable and HealthTrends components
+// Import the necessary components
 import PatientResultsTable from "../../src/components/PatientResultsTable";
 import HealthTrends from "../../src/components/HealthTrends";
+import AIInsights from "../../src/components/AIInsights";
 
 interface Appointment {
   id: number;
@@ -219,9 +220,14 @@ export default function PatientPortal() {
            </div>
         </section>
 
-        {/* SECTION: Health Trends Visualization */}
-        <section>
-          <HealthTrends />
+        {/* SECTION: Health Trends & AI Insights */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <HealthTrends />
+          </div>
+          <div className="lg:col-span-1">
+            <AIInsights />
+          </div>
         </section>
 
         {/* SECTION: Lab Reports */}
