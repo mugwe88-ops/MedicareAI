@@ -5,6 +5,8 @@ import jwt from "jsonwebtoken"; // Make sure to npm install jsonwebtoken
 
 const router = express.Router();
 
+router.get("/me", verifyToken, getMe);
+
 // SIGNUP ROUTE (Keep your existing correct signup code here)
 router.post("/signup", async (req, res) => {
   try {
