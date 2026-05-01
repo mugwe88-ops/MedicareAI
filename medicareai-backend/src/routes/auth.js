@@ -1,15 +1,12 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-import pool from "../config/db.js"; // Standardized to your config path
+// CHANGE THIS LINE: Add curly braces around pool
+import { pool } from "../config/db.js"; 
 import jwt from "jsonwebtoken";
 import { verifyToken } from "../utils/jwt.js";
 
 const router = express.Router();
 
-/**
- * ✅ PERSISTENCE ROUTE
- * Fetches the current user based on the decoded token
- */
 router.get("/me", verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
