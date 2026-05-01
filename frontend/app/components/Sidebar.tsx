@@ -15,7 +15,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-72 bg-[#0F172A] text-slate-300 flex flex-col h-screen sticky top-0 shadow-2xl">
+    <aside className="hidden md:flex w-72 bg-[#0F172A] text-slate-300 flex-col h-screen sticky top-0 shadow-2xl shrink-0">
       <div className="p-8">
         <div className="flex items-center gap-3 mb-10">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
