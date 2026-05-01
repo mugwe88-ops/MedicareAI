@@ -1,11 +1,8 @@
-import mongoose from "mongoose";
+import pkg from 'pg';
+const { Pool } = pkg;
 
-export const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGO_URI);
-    console.log("✅ MongoDB Connected:", conn.connection.host);
-  } catch (error) {
-    console.error("❌ MongoDB connection error:", error.message);
-    process.exit(1);
-  }
-};
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export default pool; // This makes it a "default" export
