@@ -15,7 +15,7 @@ export default function LabResultForm({ patientId, testId }: { patientId: string
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/lab-results`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/lab/results`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...formData, patient_id: patientId, test_id: testId }),
