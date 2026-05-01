@@ -49,9 +49,11 @@ app.use(helmet({
 
 const allowedOrigins = [
   "https://medicare-ai-two.vercel.app",
+  "https://www.medicare-ai-two.vercel.app",
   "http://localhost:3000",
   "http://localhost:5173",
-  /\.github\.dev$/ // ✅ This allows your specific Codespace URL
+  /\.github\.dev$/,
+  /\.vercel\.app$/ // ✅ This allows your specific Codespace URL
 ];
 
 app.use(cors({
