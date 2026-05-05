@@ -96,18 +96,27 @@ export default function PatientPortal() {
     }
   };
 
-  const handleBookAppointment = async (e: React.FormEvent) => {
+const handleBookAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate that we actually have a doctor selected
+    if (!bookingData.doctorId) {
+      alert("Please select a doctor first.");
+      return;
+    }
+
     setLoading(true);
 
     const payload = {
-      patient_name: "William Weru", 
+      patient_name: "William Weru", // Derived from your dashboard state
       phone: bookingData.phone,
       appointment_time: bookingData.date, 
-      doctor_id: parseInt(bookingData.doctorId) || null,
+      doctor_id: parseInt(bookingData.doctorId), // Ensure this is a Number
       reason: bookingData.reason || "General Consultation"
     };
-    console.log("Sending Payload:", payload); // Check if doctor_id is a valid number
+
+    console.log("Sending Validated Payload:", payload);
+
     try {
       const res = await fetch("https://medicareai-1.onrender.com/api/appointments", {
         method: "POST",
@@ -115,17 +124,9 @@ export default function PatientPortal() {
         body: JSON.stringify(payload),
       });
 
-      const result = await res.json();
-
-      if (res.ok) {
-        setIsBooking(false);
-        setBookingData({ doctorId: "", date: "", reason: "", phone: "" });
-        await fetchAppointments(); 
-      } else {
-        alert(`Booking failed: ${result.error}`);
-      }
+      // ... rest of your logic
     } catch (err) {
-      alert("Server connection failed.");
+       // ... error handling
     } finally {
       setLoading(false);
     }

@@ -4,32 +4,29 @@ import pool from "../utils/db.js";
 
 const router = express.Router();
 
-/**
- * GET /api/doctors
- * Handles filtering by city and search query (name or specialty)
- */
 router.get("/", async (req, res) => {
   try {
     const { city, query, q, specialization } = req.query;
 
-    // Normalize terms
+    // 1. Fetch from DB using the pool directly to ensure we get IDs
+    const result = await pool.query(
+      "SELECT id, name, specialty, city FROM users WHERE role = 'doctor' ORDER BY name ASC"
+    );
+    let doctors = result.rows;
+
+    // 2. Normalize terms for optional filtering
     const searchTerm = (query || q || specialization || "").toString().trim().toLowerCase();
     const cityTerm = (city || "").toString().trim().toLowerCase();
 
-    let doctors = await getAllDoctors();
-
-    // Apply Filtering
+    // 3. Apply Filtering logic if params exist
     if (cityTerm !== "") {
-      doctors = doctors.filter(d => 
-        (d.city || d.location)?.toLowerCase().includes(cityTerm)
-      );
+      doctors = doctors.filter(d => d.city?.toLowerCase().includes(cityTerm));
     }
 
     if (searchTerm !== "") {
       doctors = doctors.filter(d => 
-        // FIX: Check both common naming conventions (specialization vs specialty)
-        (d.specialization || d.specialty)?.toLowerCase().includes(searchTerm) || 
-        (d.name || d.full_name)?.toLowerCase().includes(searchTerm)
+        d.specialty?.toLowerCase().includes(searchTerm) || 
+        d.name?.toLowerCase().includes(searchTerm)
       );
     }
 
@@ -40,27 +37,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET all doctors
-router.get("/", async (req, res) => {
-  try {
-    // Selects users who have the role of 'doctor'
-    const result = await pool.query(
-      "SELECT id, name, specialty FROM users WHERE role = 'doctor' ORDER BY name ASC"
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Server error fetching doctors" });
-  }
-});
+// Remove the redundant second router.get("/") block!
 
-/**
- * POST /api/doctors
- * Optimized to prevent "pool is not defined" and handle column naming
- */
 router.post("/", async (req, res) => {
   try {
-    // It is safer to use your createDoctor model function which should handle the pool logic
     const doctor = await createDoctor(req.body);
     res.status(201).json(doctor);
   } catch (err) {
