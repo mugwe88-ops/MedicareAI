@@ -1,11 +1,13 @@
 import express from "express";
-import { addLabResult } from "../controllers/labController.js";
+import { addLabResult, getMyResults } from "../controllers/labController.js";
 import { verifyToken } from "../utils/jwt.js";
 
 const router = express.Router();
 
-// POST /api/lab/results
+// Used by Doctors/Lab Techs to upload results
 router.post("/results", verifyToken, addLabResult);
 
+// Used by Patients to view their own results
 router.get("/my-results", verifyToken, getMyResults);
+
 export default router;
