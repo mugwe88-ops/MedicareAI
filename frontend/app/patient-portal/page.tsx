@@ -23,6 +23,7 @@ export default function PatientPortal() {
   
   const [doctors] = useState([
     { id: 1, name: "Dr. Sarah Johnson", specialty: "General Practitioner" },
+    { id: 1, name: "Dr. Fibian Nyorita", specialty: " Dermatologist" },
     { id: 2, name: "Dr. Michael Chen", specialty: "Cardiologist" }
   ]);
 

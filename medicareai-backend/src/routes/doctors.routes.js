@@ -1,5 +1,6 @@
 import express from "express";
 import { getAllDoctors, getDoctorById, createDoctor } from "../models/Doctor.js";
+import pool from "../utils/db.js";
 
 const router = express.Router();
 
@@ -36,6 +37,20 @@ router.get("/", async (req, res) => {
   } catch (err) {
     console.error("Doctors API error:", err);
     res.status(500).json({ error: "Failed to fetch doctors" });
+  }
+});
+
+// GET all doctors
+router.get("/", async (req, res) => {
+  try {
+    // Selects users who have the role of 'doctor'
+    const result = await pool.query(
+      "SELECT id, name, specialty FROM users WHERE role = 'doctor' ORDER BY name ASC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: "Server error fetching doctors" });
   }
 });
 
