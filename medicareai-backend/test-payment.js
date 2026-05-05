@@ -13,7 +13,7 @@ const triggerTest = async () => {
   console.log("🚀 Initiating STK Push Test...");
   
   try {
-    const response = await axios.post('http://localhost:3000/api/payments/initiate', TEST_DATA);
+    const response = await axios.post('[https://medicareai-1.onrender.com](https://medicareai-1.onrender.com)/api/payments/initiate', TEST_DATA);
     
     console.log("✅ STK Push Triggered Successfully!");
     console.log("Response:", response.data);

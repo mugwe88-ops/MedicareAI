@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import cors from "cors";
 import helmet from "helmet";
 import axios from "axios";
+import resultsRoutes from "./routes/labResults.routes.js";
 
 /* ======================
    DB
@@ -50,7 +51,7 @@ app.use(helmet({
 const allowedOrigins = [
   "https://medicare-ai-two.vercel.app",
   "https://www.medicare-ai-two.vercel.app",
-  "http://localhost:3000",
+  "[https://medicareai-1.onrender.com](https://medicareai-1.onrender.com)",
   "http://localhost:5173",
   /\.github\.dev$/,
   /\.vercel\.app$/ // ✅ This allows your specific Codespace URL
@@ -88,6 +89,7 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
+app.use("/api/results", resultsRoutes);
 /* ======================
    4️⃣ ROUTES
 ====================== */

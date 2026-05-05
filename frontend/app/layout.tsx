@@ -31,7 +31,7 @@ export default function RootLayout({
 
       try {
         // Point to your running server.js port
-        const res = await axios.get("http://localhost:3000/api/auth/me", {
+        const res = await axios.get("[https://medicareai-1.onrender.com](https://medicareai-1.onrender.com)/api/auth/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUser(res.data);
