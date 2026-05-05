@@ -16,60 +16,45 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("DEBUG: 1. Login form submitted"); // Trigger check
+    console.log("DEBUG: 1. Login form submitted via handleSubmit");
     setLoading(true);
     setError("");
 
     try {
-      console.log("DEBUG: 2. Attempting fetch to medicareai-1.onrender.com...");
-      console.log("DEBUG: Payload:", { email: formData.email, password: " (hidden) " });
-
+      console.log("DEBUG: 2. Fetching from: https://medicareai-1.onrender.com/api/auth/login");
       const res = await fetch("https://medicareai-1.onrender.com/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
-      console.log("DEBUG: 3. Fetch completed. Status:", res.status);
-
       const data = await res.json();
-      console.log("DEBUG: 4. Parsed Response Data:", data);
+      console.log("DEBUG: 3. Response data:", data);
 
       if (!res.ok) {
-        console.error("DEBUG: 5. Response not OK. Error logic triggered.");
         throw new Error(data.message || data.error || "Invalid email or password");
       }
 
-      // Store the token
       localStorage.setItem("token", data.token);
-      console.log("DEBUG: 6. Token saved to localStorage");
 
-      // Defensively check for role mapping
       const userRole = (data.user?.role || data.role || "").toLowerCase();
-      console.log("DEBUG: 7. Identified User Role:", userRole);
+      console.log("DEBUG: 4. Role identified:", userRole);
 
       if (userRole === "doctor") {
-        console.log("DEBUG: 8. Redirecting to Doctor Dashboard...");
         window.location.href = "/dashboard";
       } else if (userRole === "patient") {
-        console.log("DEBUG: 8. Redirecting to Patient Portal...");
         window.location.href = "/patient-portal";
       } else {
-        console.warn("DEBUG: 8. Unknown role detected. Defaulting to dashboard.");
         window.location.href = "/dashboard";
       }
 
     } catch (err: any) {
-      console.error("DEBUG: FATAL ERROR during login process:", err);
-      
-      let errorMessage = err.message;
-      if (err.message === "Failed to fetch") {
-        errorMessage = "Server is waking up. Please wait 30 seconds and try again.";
-      }
-      setError(errorMessage);
+      console.error("DEBUG: Login Error:", err);
+      setError(err.message === "Failed to fetch" 
+        ? "Server is waking up. Please wait 30 seconds." 
+        : err.message);
     } finally {
       setLoading(false);
-      console.log("DEBUG: 9. Auth lifecycle complete.");
     }
   };
 
@@ -84,8 +69,11 @@ export default function LoginPage() {
         <div className="bg-white py-10 px-10 shadow-2xl rounded-3xl border border-gray-100">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
+              <label htmlFor="email-field" className="block text-sm font-bold text-slate-700 mb-2">
+                Email Address
+              </label>
               <input
+                id="email-field"
                 name="email"
                 type="email"
                 placeholder="doctor@medicareai.com"
@@ -97,8 +85,11 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Password</label>
+              <label htmlFor="password-field" className="block text-sm font-bold text-slate-700 mb-2">
+                Password
+              </label>
               <input
+                id="password-field"
                 name="password"
                 type="password"
                 placeholder="••••••••"
