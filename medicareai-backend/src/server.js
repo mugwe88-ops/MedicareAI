@@ -1,5 +1,5 @@
 /* ======================
-   0️⃣ ENV
+   0️⃣ ENV & IMPORTS
 ====================== */
 import dotenv from "dotenv";
 dotenv.config();
@@ -10,22 +10,16 @@ import { fileURLToPath } from "url";
 import cors from "cors";
 import helmet from "helmet";
 import axios from "axios";
-import resultsRoutes from "./routes/labRoutes.js";
 
-/* ======================
-   DB
-====================== */
+// Database & Routes
 import pool from "./utils/db.js";
-
-/* ======================
-   ROUTES
-====================== */
 import authRoutes from "./routes/auth.js";
 import appointmentRoutes from "./routes/appointment.routes.js";
 import directoryRoutes from "./routes/directory.js";
 import paymentRoutes from "./routes/payments.routes.js";
 import bookingRoutes from "./routes/bookings.routes.js";
 import doctorRoutes from "./routes/doctors.routes.js";
+import resultsRoutes from "./routes/labRoutes.js";
 import { verifyToken } from "./utils/jwt.js";
 
 /* ======================
@@ -35,15 +29,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/* ======================
-   2️⃣ TRUST PROXY
-====================== */
 app.set("trust proxy", 1);
 
 /* ======================
-   3️⃣ MIDDLEWARE
+   2️⃣ MIDDLEWARE & CORS
 ====================== */
-// Adjust helmet to allow data from Render
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
@@ -52,9 +42,10 @@ const allowedOrigins = [
   "https://medicare-ai-two.vercel.app",
   "https://www.medicare-ai-two.vercel.app",
   "https://medicareai-1.onrender.com",
+  "http://localhost:3000",
   "http://localhost:5173",
   /\.github\.dev$/,
-  /\.vercel\.app$/ // ✅ This allows your specific Codespace URL
+  /\.vercel\.app$/ 
 ];
 
 app.use(cors({
@@ -66,22 +57,21 @@ app.use(cors({
     if (isAllowed) {
       callback(null, true);
     } else {
+      console.error(`CORS blocked for origin: ${origin}`);
       callback(new Error("CORS blocked this origin"));
     }
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Accept"]
+  allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Requested-With"]
 }));
 
-// Handle Preflight requests globally
 app.options("*", cors());
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ======================
-   4️⃣ ROUTES
+   3️⃣ API ROUTES
 ====================== */
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
@@ -90,22 +80,11 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/results", resultsRoutes);
-/* ======================
-   4️⃣ ROUTES
-====================== */
-app.use("/api/auth", authRoutes);
-app.use("/api/appointments", appointmentRoutes);
 
-// ✅ ADDED: Filtered GET route to prevent patients from seeing each other's data
-app.get("/api/my-appointments", async (req, res) => {
-  const { patient_id } = req.query;
-
-  if (!patient_id) {
-    return res.status(400).json({ error: "patient_id query parameter is required" });
-  }
-
+// Filtered Appointments for Patients
+app.get("/api/my-appointments", verifyToken, async (req, res) => {
+  const patient_id = req.user.id; 
   try {
-    // Only fetch rows that match the patient_id provided in the frontend request
     const result = await pool.query(
       "SELECT * FROM appointments WHERE patient_id = $1 ORDER BY created_at DESC",
       [patient_id]
@@ -117,23 +96,32 @@ app.get("/api/my-appointments", async (req, res) => {
   }
 });
 
-// ... rest of your routes (directory, payments, etc.)
-
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "API is running" });
 });
 
-app.get("/api/protected", verifyToken, (req, res) => {
-  res.json({ message: "Protected route success", user: req.user });
+/* ======================
+   4️⃣ WHATSAPP WEBHOOKS
+====================== */
+app.get("/api/webhook", (req, res) => {
+  if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
+    return res.send(req.query["hub.challenge"]);
+  }
+  res.sendStatus(403);
+});
+
+app.post("/api/webhook", async (req, res) => {
+  res.sendStatus(200);
 });
 
 /* ======================
-   5️⃣ DATABASE INIT (WITH MIGRATIONS)
+   5️⃣ DATABASE INIT (CORE + MISSING TABLES)
 ====================== */
 async function initDatabase() {
   try {
-    console.log("⚙️ Initializing database...");
+    console.log("⚙️ Initializing database schema...");
 
+    // Users & Roles
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -145,17 +133,16 @@ async function initDatabase() {
       );
     `);
 
+    // Dynamic Migrations
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);"
     ];
+    for (const query of migrations) { await pool.query(query); }
 
-    for (const query of migrations) {
-      await pool.query(query);
-    }
-
+    // Analytics Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS analytics (
         id SERIAL PRIMARY KEY,
@@ -165,6 +152,7 @@ async function initDatabase() {
       );
     `);
 
+    // Consultants / WhatsApp Integration
     await pool.query(`
       CREATE TABLE IF NOT EXISTS consultants (
         id SERIAL PRIMARY KEY,
@@ -177,13 +165,13 @@ async function initDatabase() {
       );
     `);
 
+    // Appointments
     await pool.query(`
       CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
         patient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         department VARCHAR(100),
         appointment_date DATE,
-        appointment_date_str VARCHAR(100),
         appointment_time TIME,
         reason TEXT,
         status VARCHAR(20) DEFAULT 'pending',
@@ -191,6 +179,7 @@ async function initDatabase() {
       );
     `);
 
+    // KMPDC Verification
     await pool.query(`
       CREATE TABLE IF NOT EXISTS verified_kmpdc (
         registration_number VARCHAR(50) PRIMARY KEY,
@@ -198,6 +187,7 @@ async function initDatabase() {
       );
     `);
 
+    // Seed Troubleshooting Account
     await pool.query(`
       INSERT INTO verified_kmpdc (registration_number, doctor_name)
       VALUES ('TEST-999-MD', 'Troubleshooting Account')
@@ -212,21 +202,7 @@ async function initDatabase() {
 }
 
 /* ======================
-   6️⃣ WHATSAPP / WEBHOOK
-====================== */
-app.get("/api/webhook", (req, res) => {
-  if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
-    return res.send(req.query["hub.challenge"]);
-  }
-  res.sendStatus(403);
-});
-
-app.post("/api/webhook", async (req, res) => {
-  res.sendStatus(200);
-});
-
-/* ======================
-   7️⃣ STATIC & CATCH-ALL
+   6️⃣ STATIC & CATCH-ALL
 ====================== */
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -238,7 +214,7 @@ app.get("*", (req, res) => {
 });
 
 /* ======================
-   8️⃣ START SERVER
+   7️⃣ START SERVER
 ====================== */
 async function startServer() {
   try {
