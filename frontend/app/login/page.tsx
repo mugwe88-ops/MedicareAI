@@ -16,44 +16,60 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("DEBUG: 1. Login form submitted"); // Trigger check
     setLoading(true);
     setError("");
 
     try {
+      console.log("DEBUG: 2. Attempting fetch to medicareai-1.onrender.com...");
+      console.log("DEBUG: Payload:", { email: formData.email, password: " (hidden) " });
+
       const res = await fetch("https://medicareai-1.onrender.com/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
+      console.log("DEBUG: 3. Fetch completed. Status:", res.status);
+
       const data = await res.json();
+      console.log("DEBUG: 4. Parsed Response Data:", data);
 
       if (!res.ok) {
-        // Handle both 'message' and 'error' keys from backend
+        console.error("DEBUG: 5. Response not OK. Error logic triggered.");
         throw new Error(data.message || data.error || "Invalid email or password");
       }
 
-      // Store the token for authorized API calls
+      // Store the token
       localStorage.setItem("token", data.token);
+      console.log("DEBUG: 6. Token saved to localStorage");
 
-      // Defensively check for role in case it's nested or direct
+      // Defensively check for role mapping
       const userRole = (data.user?.role || data.role || "").toLowerCase();
+      console.log("DEBUG: 7. Identified User Role:", userRole);
 
       if (userRole === "doctor") {
+        console.log("DEBUG: 8. Redirecting to Doctor Dashboard...");
         window.location.href = "/dashboard";
       } else if (userRole === "patient") {
+        console.log("DEBUG: 8. Redirecting to Patient Portal...");
         window.location.href = "/patient-portal";
       } else {
-        // Fallback for safety
+        console.warn("DEBUG: 8. Unknown role detected. Defaulting to dashboard.");
         window.location.href = "/dashboard";
       }
 
     } catch (err: any) {
-      setError(err.message === "Failed to fetch" 
-        ? "Server is waking up. Please wait 30 seconds." 
-        : err.message);
+      console.error("DEBUG: FATAL ERROR during login process:", err);
+      
+      let errorMessage = err.message;
+      if (err.message === "Failed to fetch") {
+        errorMessage = "Server is waking up. Please wait 30 seconds and try again.";
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
+      console.log("DEBUG: 9. Auth lifecycle complete.");
     }
   };
 
@@ -73,6 +89,7 @@ export default function LoginPage() {
                 name="email"
                 type="email"
                 placeholder="doctor@medicareai.com"
+                autoComplete="email"
                 required
                 onChange={handleChange}
                 className="w-full px-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-gray-50 transition-all"
@@ -85,6 +102,7 @@ export default function LoginPage() {
                 name="password"
                 type="password"
                 placeholder="••••••••"
+                autoComplete="current-password"
                 required
                 onChange={handleChange}
                 className="w-full px-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-gray-50 transition-all"
