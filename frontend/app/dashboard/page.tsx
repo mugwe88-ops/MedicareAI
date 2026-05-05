@@ -1,12 +1,34 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Users, CheckCircle2, Trash2, Search, Bell, Filter
 } from "lucide-react";
 
 export default function ClinicalConsole() {
-  // We no longer need activeTab or sidebarItems here because the 
-  // Sidebar logic is handled by the parent layout.tsx.
+  // State for dynamic user data
+  const [user, setUser] = useState<{ name: string; role: string } | null>(null);
+
+  // Fetch current user details on mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const token = localStorage.getItem("token"); 
+        const res = await fetch("https://medicareai-1.onrender.com/api/auth/me", {
+          headers: { 
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setUser(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch user context", err);
+      }
+    };
+    fetchUser();
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC]">
@@ -29,11 +51,17 @@ export default function ClinicalConsole() {
           <div className="h-10 w-px bg-slate-200" />
           <div className="flex items-center space-x-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-black text-slate-900 leading-tight">Dr. William Weru</p>
-              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Medical Technologist</p>
+              {/* Dynamic Name and Role mapping */}
+              <p className="text-sm font-black text-slate-900 leading-tight">
+                {user ? user.name : "Loading..."}
+              </p>
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
+                {user ? user.role : "Authorized User"}
+              </p>
             </div>
             <div className="h-12 w-12 rounded-2xl bg-blue-600 border-4 border-blue-50 flex items-center justify-center text-white font-black text-sm shadow-sm">
-              WW
+              {/* Dynamic Initials */}
+              {user ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : "..."}
             </div>
           </div>
         </div>
