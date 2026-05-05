@@ -6,41 +6,52 @@ const router = express.Router();
 /* ================= CREATE APPOINTMENT ================= */
 router.post("/", async (req, res) => {
   try {
-    const { patient_name, phone, appointment_time, doctor_id, reason } = req.body;
+    const { patient_name, phone, appointment_time, doctor_id, reason, patient_id } = req.body;
 
-    // 1. Strict Validation
     if (!patient_name || !phone || !appointment_time) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // 2. Safe Parsing (Ensures doctor_id is a number or null)
     const parsedDoctorId = doctor_id ? parseInt(doctor_id, 10) : null;
+    const parsedPatientId = patient_id ? parseInt(patient_id, 10) : null;
 
-    // Log the attempt for debugging in Render
     console.log(`Attempting booking for: ${patient_name} at ${appointment_time}`);
 
     const result = await pool.query(
-      `INSERT INTO appointments (patient_name, phone, appointment_time, doctor_id, reason, status) 
-       VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING *`,
-      [patient_name, phone, appointment_time, parsedDoctorId, reason || 'General Consultation']
+      `INSERT INTO appointments (patient_name, phone, appointment_time, doctor_id, patient_id, reason, status) 
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending') RETURNING *`,
+      [patient_name, phone, appointment_time, parsedDoctorId, parsedPatientId, reason || 'General Consultation']
     );
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    // This will appear in red in your Render logs
     console.error("CRITICAL DB ERROR:", err.message); 
-    
-    res.status(500).json({ 
-      error: "Booking failed", 
-      details: err.message // Sends the exact PG error back to the frontend console
-    });
+    res.status(500).json({ error: "Booking failed", details: err.message });
   }
 });
 
-/* ================= GET ALL APPOINTMENTS ================= */
+/* ================= GET FILTERED APPOINTMENTS (The Privacy Fix) ================= */
 router.get("/", async (req, res) => {
+  const { patient_id, doctor_id } = req.query;
+
   try {
-    const result = await pool.query("SELECT * FROM appointments ORDER BY appointment_time DESC");
+    let query = "SELECT * FROM appointments";
+    let params = [];
+
+    // If a patient_id is provided, only show their appointments
+    if (patient_id) {
+      query += " WHERE patient_id = $1";
+      params.push(patient_id);
+    } 
+    // If a doctor_id is provided, only show their appointments
+    else if (doctor_id) {
+      query += " WHERE doctor_id = $1";
+      params.push(doctor_id);
+    }
+
+    query += " ORDER BY appointment_time DESC";
+    
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     console.error("Fetch Error:", err.message);
