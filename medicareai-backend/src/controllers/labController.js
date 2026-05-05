@@ -1,65 +1,21 @@
-import pool from "../config/db.js";
+import express from "express";
+// Import both controller functions to resolve the ReferenceError
+import { addLabResult, getMyResults } from "../controllers/labController.js";
+import { verifyToken } from "../utils/jwt.js";
+
+const router = express.Router();
 
 /**
- * @desc    Upload a new lab result (Used by Lab Technologists)
- * @route   POST /api/lab/results
- * @access  Private (Technician/Doctor)
+ * POST /api/results/results
+ * Note: If mounted as app.use("/api/results", labRoutes) in server.js, 
+ * this endpoint becomes /api/results/results
  */
-export const addLabResult = async (req, res) => {
-  const { 
-    patient_id, 
-    test_id, 
-    parameter_name, 
-    result_value, 
-    unit, 
-    reference_range, 
-    is_abnormal,
-    lab_notes 
-  } = req.body;
-
-  try {
-    const result = await pool.query(
-      `INSERT INTO lab_results 
-       (patient_id, doctor_id, test_id, parameter_name, result_value, unit, reference_range, is_abnormal, lab_notes) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-       RETURNING *`,
-      [
-        patient_id, 
-        req.userId, // Set from verifyToken middleware
-        test_id, 
-        parameter_name, 
-        result_value, 
-        unit, 
-        reference_range, 
-        is_abnormal,
-        lab_notes
-      ]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error("Error inserting lab result:", err);
-    res.status(500).json({ error: "Failed to upload lab result" });
-  }
-};
+router.post("/results", verifyToken, addLabResult);
 
 /**
- * @desc    Get all lab results for the logged-in patient
- * @route   GET /api/lab/results/my-results
- * @access  Private (Patient)
+ * GET /api/results/my-results
+ * Used by the patient portal to fetch lab reports
  */
-export const getMyResults = async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT * FROM lab_results 
-       WHERE patient_id = $1 
-       ORDER BY reported_at DESC`,
-      [req.userId] // Set from verifyToken middleware
-    );
+router.get("/my-results", verifyToken, getMyResults);
 
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching patient results:", err);
-    res.status(500).json({ error: "Failed to retrieve medical records" });
-  }
-};
+export default router;
