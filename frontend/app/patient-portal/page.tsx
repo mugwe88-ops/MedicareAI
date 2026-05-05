@@ -24,6 +24,7 @@ interface Doctor {
 export default function PatientPortal() {
   const [isBooking, setIsBooking] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchingDoctors, setFetchingDoctors] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   
@@ -55,6 +56,7 @@ export default function PatientPortal() {
 
   // Logic to fetch doctors from your API
   const fetchDoctors = async () => {
+    setFetchingDoctors(true);
     try {
       const res = await fetch("https://medicareai-1.onrender.com/api/doctors");
       if (!res.ok) throw new Error("Failed to fetch doctors");
@@ -62,6 +64,8 @@ export default function PatientPortal() {
       if (Array.isArray(data)) setDoctors(data);
     } catch (err) {
       console.error("Fetch Doctors Error:", err);
+    } finally {
+      setFetchingDoctors(false);
     }
   };
 
@@ -182,12 +186,16 @@ const handleBookAppointment = async (e: React.FormEvent) => {
                     onChange={(e) => setBookingData({...bookingData, doctorId: e.target.value})}
                     required
                   >
-                    <option value="">Select Doctor</option>
-                    {doctors.map(doc => (
-                      <option key={doc.id} value={doc.id}>
-                        {doc.name} - {doc.specialty}
-                      </option>
-                    ))}
+                    <option value="">{fetchingDoctors ? "Searching for doctors..." : "Select Doctor"}</option>
+                    {doctors.length > 0 ? (
+                      doctors.map(doc => (
+                        <option key={doc.id} value={doc.id}>
+                          {doc.name} - {doc.specialty}
+                        </option>
+                      ))
+                    ) : (
+                      !fetchingDoctors && <option disabled>No doctors found in your area</option>
+                    )}
                   </select>
                   <input 
                     type="datetime-local" 
