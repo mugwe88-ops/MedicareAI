@@ -107,7 +107,7 @@ export default function PatientPortal() {
       doctor_id: parseInt(bookingData.doctorId) || null,
       reason: bookingData.reason || "General Consultation"
     };
-
+    console.log("Sending Payload:", payload); // Check if doctor_id is a valid number
     try {
       const res = await fetch("https://medicareai-1.onrender.com/api/appointments", {
         method: "POST",
