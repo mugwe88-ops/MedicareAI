@@ -15,17 +15,20 @@ interface Appointment {
   reason?: string;
 }
 
+interface Doctor {
+  id: number;
+  name: string;
+  specialty: string;
+}
+
 export default function PatientPortal() {
   const [isBooking, setIsBooking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   
-  const [doctors] = useState([
-    { id: 1, name: "Dr. Sarah Johnson", specialty: "General Practitioner" },
-    { id: 1, name: "Dr. Fibian Nyorita", specialty: " Dermatologist" },
-    { id: 2, name: "Dr. Michael Chen", specialty: "Cardiologist" }
-  ]);
+  // State for dynamically fetched doctors
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
 
   const [bookingData, setBookingData] = useState({
     doctorId: "",
@@ -36,16 +39,29 @@ export default function PatientPortal() {
 
   useEffect(() => {
     fetchAppointments();
+    fetchDoctors(); // Fetch doctors on component mount
   }, []);
 
   const fetchAppointments = async () => {
     try {
       const res = await fetch("https://medicareai-1.onrender.com/api/appointments");
-      if (!res.ok) throw new Error("Failed to fetch");
+      if (!res.ok) throw new Error("Failed to fetch appointments");
       const data = await res.json();
       if (Array.isArray(data)) setAppointments(data);
     } catch (err) {
-      console.error("Fetch Error:", err);
+      console.error("Fetch Appointments Error:", err);
+    }
+  };
+
+  // Logic to fetch doctors from your API
+  const fetchDoctors = async () => {
+    try {
+      const res = await fetch("https://medicareai-1.onrender.com/api/doctors");
+      if (!res.ok) throw new Error("Failed to fetch doctors");
+      const data = await res.json();
+      if (Array.isArray(data)) setDoctors(data);
+    } catch (err) {
+      console.error("Fetch Doctors Error:", err);
     }
   };
 
@@ -125,7 +141,6 @@ export default function PatientPortal() {
       <main className="max-w-7xl mx-auto p-8 space-y-12">
         <div className="flex justify-between items-center mb-10">
           <div>
-            {/* ONLY UPDATED THE LINE BELOW */}
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">William Weru's Dashboard</h2>
             <p className="text-slate-500 font-medium mt-1 text-sm">Manage your health and upcoming visits</p>
           </div>
@@ -152,11 +167,16 @@ export default function PatientPortal() {
                   />
                   <select 
                     className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold"
+                    value={bookingData.doctorId}
                     onChange={(e) => setBookingData({...bookingData, doctorId: e.target.value})}
                     required
                   >
                     <option value="">Select Doctor</option>
-                    {doctors.map(doc => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+                    {doctors.map(doc => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.name} - {doc.specialty}
+                      </option>
+                    ))}
                   </select>
                   <input 
                     type="datetime-local" 
@@ -233,7 +253,6 @@ export default function PatientPortal() {
           </div>
         </section>
 
-        {/* SECTION: Records Vault */}
         <RecordsVault />
 
         {/* SECTION: Lab Reports */}
