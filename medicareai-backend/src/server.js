@@ -88,6 +88,34 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
+/* ======================
+   4️⃣ ROUTES
+====================== */
+app.use("/api/auth", authRoutes);
+app.use("/api/appointments", appointmentRoutes);
+
+// ✅ ADDED: Filtered GET route to prevent patients from seeing each other's data
+app.get("/api/my-appointments", async (req, res) => {
+  const { patient_id } = req.query;
+
+  if (!patient_id) {
+    return res.status(400).json({ error: "patient_id query parameter is required" });
+  }
+
+  try {
+    // Only fetch rows that match the patient_id provided in the frontend request
+    const result = await pool.query(
+      "SELECT * FROM appointments WHERE patient_id = $1 ORDER BY created_at DESC",
+      [patient_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching filtered appointments:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ... rest of your routes (directory, payments, etc.)
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "API is running" });
