@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-// Import the necessary components
 import PatientResultsTable from "../../src/components/PatientResultsTable";
 import HealthTrends from "../../src/components/HealthTrends";
 import AIInsights from "../../src/components/AIInsights";
@@ -25,10 +24,7 @@ export default function PatientPortal() {
   const [isBooking, setIsBooking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetchingDoctors, setFetchingDoctors] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  
-  // State for dynamically fetched doctors
   const [doctors, setDoctors] = useState<Doctor[]>([]);
 
   const [bookingData, setBookingData] = useState({
@@ -40,13 +36,24 @@ export default function PatientPortal() {
 
   useEffect(() => {
     fetchAppointments();
-    fetchDoctors(); // Fetch doctors on component mount
+    // Initial fetch for all doctors
+    fetchDoctors(""); 
   }, []);
+
+  // NEW: Effect to fetch doctors whenever the "reason" changes
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (isBooking) {
+        fetchDoctors(bookingData.reason);
+      }
+    }, 500); // 500ms debounce to avoid hitting the API on every single keystroke
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [bookingData.reason, isBooking]);
 
   const fetchAppointments = async () => {
     try {
       const res = await fetch("https://medicareai-1.onrender.com/api/appointments");
-      if (!res.ok) throw new Error("Failed to fetch appointments");
       const data = await res.json();
       if (Array.isArray(data)) setAppointments(data);
     } catch (err) {
@@ -54,11 +61,13 @@ export default function PatientPortal() {
     }
   };
 
-  // Logic to fetch doctors from your API
-  const fetchDoctors = async () => {
+  // UPDATED: Fetch doctors with a specialty/query parameter
+  const fetchDoctors = async (query: string) => {
     setFetchingDoctors(true);
     try {
-      const res = await fetch("https://medicareai-1.onrender.com/api/doctors");
+      // Passes the 'reason' as the 'specialization' query param to your backend
+      const url = `https://medicareai-1.onrender.com/api/doctors?specialization=${encodeURIComponent(query)}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch doctors");
       const data = await res.json();
       if (Array.isArray(data)) setDoctors(data);
@@ -69,57 +78,18 @@ export default function PatientPortal() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to cancel this appointment?")) return;
-
-    setDeletingId(id);
-    try {
-      const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        setAppointments(prev => prev.filter(apt => apt.id !== id));
-      } else {
-        alert("Failed to delete appointment.");
-      }
-    } catch (err) {
-      console.error("Delete Error:", err);
-      alert("Server connection failed.");
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const getStatusStyles = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'completed': return 'bg-green-100 text-green-700 border-green-200';
-      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
-      default: return 'bg-blue-100 text-blue-700 border-blue-200';
-    }
-  };
-
-const handleBookAppointment = async (e: React.FormEvent) => {
+  const handleBookAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate that we actually have a doctor selected
-    if (!bookingData.doctorId) {
-      alert("Please select a doctor first.");
-      return;
-    }
-
+    if (!bookingData.doctorId) return alert("Please select a doctor.");
     setLoading(true);
 
     const payload = {
-      patient_name: "William Weru", // Derived from dashboard state
+      patient_name: "William Weru", 
       phone: bookingData.phone,
       appointment_time: bookingData.date, 
-      doctor_id: parseInt(bookingData.doctorId), // Ensure this is a Number
+      doctor_id: parseInt(bookingData.doctorId),
       reason: bookingData.reason || "General Consultation"
     };
-
-    console.log("Sending Validated Payload:", payload);
 
     try {
       const res = await fetch("https://medicareai-1.onrender.com/api/appointments", {
@@ -129,17 +99,13 @@ const handleBookAppointment = async (e: React.FormEvent) => {
       });
 
       if (res.ok) {
-        alert("Appointment booked successfully!");
+        alert("Appointment booked!");
         setIsBooking(false);
         setBookingData({ doctorId: "", date: "", reason: "", phone: "" });
-        fetchAppointments(); // Refresh the list
-      } else {
-        const errorData = await res.json();
-        alert(`Booking failed: ${errorData.error || "Unknown error"}`);
+        fetchAppointments();
       }
     } catch (err) {
        console.error("Booking Error:", err);
-       alert("Failed to connect to the server.");
     } finally {
       setLoading(false);
     }
@@ -166,7 +132,6 @@ const handleBookAppointment = async (e: React.FormEvent) => {
           </button>
         </div>
 
-        {/* MODAL */}
         {isBooking && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in duration-300">
@@ -180,23 +145,35 @@ const handleBookAppointment = async (e: React.FormEvent) => {
                     onChange={(e) => setBookingData({...bookingData, phone: e.target.value})}
                     required
                   />
+                  
+                  {/* Step 1: User types reason/specialty */}
+                  <input 
+                    type="text"
+                    placeholder="Reason (e.g. Dental, Cardiology)"
+                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-200 font-bold text-slate-900 focus:bg-white transition-colors"
+                    value={bookingData.reason}
+                    onChange={(e) => setBookingData({...bookingData, reason: e.target.value})}
+                  />
+
+                  {/* Step 2: Dropdown filters based on input above */}
                   <select 
                     className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold text-slate-900"
                     value={bookingData.doctorId}
                     onChange={(e) => setBookingData({...bookingData, doctorId: e.target.value})}
                     required
                   >
-                    <option value="">{fetchingDoctors ? "Searching for doctors..." : "Select Doctor"}</option>
+                    <option value="">{fetchingDoctors ? "Searching doctors..." : "Select Available Doctor"}</option>
                     {doctors.length > 0 ? (
                       doctors.map(doc => (
                         <option key={doc.id} value={doc.id}>
-                          {doc.name} - {doc.specialty}
+                          {doc.name} ({doc.specialty})
                         </option>
                       ))
                     ) : (
-                      !fetchingDoctors && <option disabled>No doctors found in your area</option>
+                      !fetchingDoctors && <option disabled>No specialists found for "{bookingData.reason}"</option>
                     )}
                   </select>
+
                   <input 
                     type="datetime-local" 
                     className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold text-slate-900"
@@ -204,13 +181,7 @@ const handleBookAppointment = async (e: React.FormEvent) => {
                     onChange={(e) => setBookingData({...bookingData, date: e.target.value})}
                     required
                   />
-                  <input 
-                    type="text"
-                    placeholder="Reason for visit (e.g. Headache)"
-                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold text-slate-900"
-                    value={bookingData.reason}
-                    onChange={(e) => setBookingData({...bookingData, reason: e.target.value})}
-                  />
+
                   <div className="flex gap-4 pt-4">
                     <button type="button" onClick={() => setIsBooking(false)} className="flex-1 font-bold text-slate-400">Cancel</button>
                     <button type="submit" disabled={loading} className="flex-1 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition disabled:opacity-50">
@@ -226,71 +197,25 @@ const handleBookAppointment = async (e: React.FormEvent) => {
         <section className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm">
            <h3 className="text-xl font-bold text-slate-900 mb-6 tracking-tight">Upcoming Appointments</h3>
            <div className="space-y-4">
-             {appointments.length > 0 ? (
-               appointments.map((apt) => (
-                 <div key={apt.id} className="flex items-center justify-between p-6 border border-slate-50 rounded-3xl bg-slate-50/50 hover:bg-white hover:shadow-md transition-all duration-300">
+             {appointments.map((apt) => (
+                 <div key={apt.id} className="flex items-center justify-between p-6 border border-slate-50 rounded-3xl bg-slate-50/50">
                     <div className="flex items-center gap-5">
                       <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center text-2xl border border-slate-100">🩺</div>
                       <div>
                         <p className="font-black text-slate-900 text-lg leading-tight">{apt.patient_name}</p>
-                        <p className="text-sm text-slate-500 font-bold mt-1">
-                          {new Date(apt.appointment_time).toLocaleDateString('en-GB', {
-                            day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                          })}
-                        </p>
+                        <p className="text-sm text-slate-500 font-bold mt-1">{apt.appointment_time}</p>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <span className={`px-5 py-2 text-[10px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(apt.status)}`}>
-                        {apt.status || 'Scheduled'}
-                      </span>
-                      
-                      <button 
-                        onClick={() => handleDelete(apt.id)}
-                        disabled={deletingId === apt.id}
-                        className="p-3 bg-white border border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 rounded-2xl transition-all shadow-sm hover:shadow-md active:scale-90"
-                      >
-                        {deletingId === apt.id ? (
-                          <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        )}
-                      </button>
                     </div>
                  </div>
                ))
-             ) : (
-               <div className="text-center py-20 bg-slate-50/30 rounded-3xl border-2 border-dashed border-slate-100">
-                 <p className="text-slate-400 font-bold italic">No appointments found. Your schedule is clear.</p>
-               </div>
-             )}
+             }
            </div>
         </section>
 
-        {/* SECTION: Health Trends & AI Insights */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <HealthTrends />
-          </div>
-          <div className="lg:col-span-1">
-            <AIInsights />
-          </div>
-        </section>
-
+        <HealthTrends />
+        <AIInsights />
         <RecordsVault />
-
-        {/* SECTION: Lab Reports */}
-        <section className="space-y-4">
-          <div className="ml-2">
-            <h3 className="text-xl font-bold text-slate-900 tracking-tight">Recent Lab Findings</h3>
-            <p className="text-slate-500 font-medium text-sm">Official laboratory reports and clinical results</p>
-          </div>
-          <PatientResultsTable />
-        </section>
-
+        <PatientResultsTable />
       </main>
     </div>
   );
