@@ -4,6 +4,10 @@ import pool from "../utils/db.js";
 
 const router = express.Router();
 
+/**
+ * GET /api/doctors
+ * Consolidated route to fetch doctors with real IDs from the DB
+ */
 router.get("/", async (req, res) => {
   try {
     const { city, query, q, specialization } = req.query;
@@ -36,8 +40,6 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch doctors" });
   }
 });
-
-// Remove the redundant second router.get("/") block!
 
 router.post("/", async (req, res) => {
   try {

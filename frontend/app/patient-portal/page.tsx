@@ -108,7 +108,7 @@ const handleBookAppointment = async (e: React.FormEvent) => {
     setLoading(true);
 
     const payload = {
-      patient_name: "William Weru", // Derived from your dashboard state
+      patient_name: "William Weru", // Derived from dashboard state
       phone: bookingData.phone,
       appointment_time: bookingData.date, 
       doctor_id: parseInt(bookingData.doctorId), // Ensure this is a Number
@@ -124,9 +124,18 @@ const handleBookAppointment = async (e: React.FormEvent) => {
         body: JSON.stringify(payload),
       });
 
-      // ... rest of your logic
+      if (res.ok) {
+        alert("Appointment booked successfully!");
+        setIsBooking(false);
+        setBookingData({ doctorId: "", date: "", reason: "", phone: "" });
+        fetchAppointments(); // Refresh the list
+      } else {
+        const errorData = await res.json();
+        alert(`Booking failed: ${errorData.error || "Unknown error"}`);
+      }
     } catch (err) {
-       // ... error handling
+       console.error("Booking Error:", err);
+       alert("Failed to connect to the server.");
     } finally {
       setLoading(false);
     }
@@ -162,12 +171,13 @@ const handleBookAppointment = async (e: React.FormEvent) => {
                   <input 
                     type="tel"
                     placeholder="Phone Number"
-                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold"
+                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold text-slate-900"
+                    value={bookingData.phone}
                     onChange={(e) => setBookingData({...bookingData, phone: e.target.value})}
                     required
                   />
                   <select 
-                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold"
+                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold text-slate-900"
                     value={bookingData.doctorId}
                     onChange={(e) => setBookingData({...bookingData, doctorId: e.target.value})}
                     required
@@ -181,14 +191,22 @@ const handleBookAppointment = async (e: React.FormEvent) => {
                   </select>
                   <input 
                     type="datetime-local" 
-                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold"
+                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold text-slate-900"
+                    value={bookingData.date}
                     onChange={(e) => setBookingData({...bookingData, date: e.target.value})}
                     required
                   />
+                  <input 
+                    type="text"
+                    placeholder="Reason for visit (e.g. Headache)"
+                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold text-slate-900"
+                    value={bookingData.reason}
+                    onChange={(e) => setBookingData({...bookingData, reason: e.target.value})}
+                  />
                   <div className="flex gap-4 pt-4">
                     <button type="button" onClick={() => setIsBooking(false)} className="flex-1 font-bold text-slate-400">Cancel</button>
-                    <button type="submit" disabled={loading} className="flex-1 py-4 bg-blue-600 text-white font-black rounded-2xl">
-                      {loading ? "..." : "Confirm"}
+                    <button type="submit" disabled={loading} className="flex-1 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition disabled:opacity-50">
+                      {loading ? "Confirming..." : "Confirm"}
                     </button>
                   </div>
                </form>
