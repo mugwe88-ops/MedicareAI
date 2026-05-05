@@ -29,16 +29,23 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Invalid email or password");
+        // Handle both 'message' and 'error' keys from backend
+        throw new Error(data.message || data.error || "Invalid email or password");
       }
 
+      // Store the token for authorized API calls
       localStorage.setItem("token", data.token);
 
-      // Redirect based on backend response
-      if (data.user.role?.toLowerCase() === "doctor") {
+      // Defensively check for role in case it's nested or direct
+      const userRole = (data.user?.role || data.role || "").toLowerCase();
+
+      if (userRole === "doctor") {
         window.location.href = "/dashboard";
-      } else {
+      } else if (userRole === "patient") {
         window.location.href = "/patient-portal";
+      } else {
+        // Fallback for safety
+        window.location.href = "/dashboard";
       }
 
     } catch (err: any) {
@@ -65,7 +72,7 @@ export default function LoginPage() {
               <input
                 name="email"
                 type="email"
-                placeholder="willyweyru4@gmail.com"
+                placeholder="doctor@medicareai.com"
                 required
                 onChange={handleChange}
                 className="w-full px-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-gray-50 transition-all"
