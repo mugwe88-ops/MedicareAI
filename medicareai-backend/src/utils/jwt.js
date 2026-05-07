@@ -1,15 +1,14 @@
-// backend/utils/jwt.js
 import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET || "medicare_secret_key"; // Match login fallback
+const JWT_SECRET = process.env.JWT_SECRET || "medicare_secret_key";
 const JWT_ISSUER = "medicareai";
 const JWT_AUDIENCE = "medicareai-users";
 
 export function signAccessToken(user) {
   return jwt.sign(
     {
-      sub: user.id, // Subject is the ID
+      sub: String(user.id), // Ensure ID is a string in the token
       email: user.email,
       role: user.role,
     },
@@ -27,6 +26,7 @@ export function verifyToken(req, res, next) {
   try {
     const auth = req.headers.authorization;
     if (!auth || !auth.startsWith("Bearer ")) {
+      console.error("AUTH ERROR: No Bearer token in header");
       return res.status(401).json({ error: "No token provided" });
     }
 
@@ -36,9 +36,9 @@ export function verifyToken(req, res, next) {
       audience: JWT_AUDIENCE,
     });
 
-    // FIX: Map 'sub' back to 'id' so auth.js can find it
+    // We map 'sub' back to 'id' for the database
     req.user = {
-      id: decoded.sub, 
+      id: decoded.sub,
       email: decoded.email,
       role: decoded.role,
     };
@@ -46,6 +46,6 @@ export function verifyToken(req, res, next) {
     next();
   } catch (err) {
     console.error("JWT VERIFICATION FAILED:", err.message);
-    return res.status(401).json({ error: "Session expired, please login again" });
+    return res.status(401).json({ error: "Invalid or expired session" });
   }
 }
