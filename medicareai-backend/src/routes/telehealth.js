@@ -1,47 +1,36 @@
-import express from 'express';
-import axios from 'axios';
+// Add verifyToken middleware import at the top of routes/telehealth.js
+import { verifyToken } from '../utils/jwt.js';
+import pool from '../utils/db.js';
 
-const router = express.Router();
+// ... your existing /create-room logic ...
 
-// Route to generate an on-demand Daily.co room URL
-router.post('/create-room', async (req, res) => {
+// NEW: Validate that the patient has a legitimate appointment before letting them join
+router.get('/verify-session/:appointmentId', verifyToken, async (req, res) => {
+  const { appointmentId } = req.params;
+  const patientId = req.user.id; // Extracted securely from JWT token
+
   try {
-    const { appointmentId } = req.body;
-
-    if (!appointmentId) {
-      return res.status(400).json({ error: 'Appointment ID is required' });
-    }
-
-    // Set the room to automatically self-destruct in 1 hour (3600 seconds)
-    const expirationTimestamp = Math.floor(Date.now() / 1000) + 3600;
-
-    // Send request to Daily's REST API
-    const response = await axios.post(
-      'https://api.daily.co/v1/rooms',
-      {
-        name: `medicareai-${appointmentId}`, 
-        privacy: 'public', 
-        properties: {
-          exp: expirationTimestamp,
-          enable_mesh_sfu: true,
-          enable_prejoin_ui: true, 
-        },
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.DAILY_API_KEY}`,
-        },
-      }
+    const result = await pool.query(
+      `SELECT a.id, a.status, u.name as doctor_name 
+       FROM appointments a
+       JOIN users u ON a.doctor_id = u.id
+       WHERE a.id = $1 AND a.patient_id = $2`,
+      [appointmentId, patientId]
     );
 
-    return res.json({ url: response.data.url });
-    
-  } catch (error) {
-    console.error('Daily.co API Error:', error.response?.data || error.message);
-    return res.status(500).json({ error: 'Failed to initialize video consult room' });
+    if (result.rows.length === 0) {
+      return res.status(403).json({ isValid: false, error: "Unauthorized or invalid appointment reference." });
+    }
+
+    // Return true along with doctor details to display on screen
+    return res.json({ 
+      isValid: true, 
+      doctorName: result.rows[0].doctor_name,
+      status: result.rows[0].status 
+    });
+
+  } catch (err) {
+    console.error("Session verification database error:", err);
+    return res.status(500).json({ isValid: false, error: "Internal server error verification." });
   }
 });
-
-// CRITICAL FIX: Exports the router correctly to eliminate the Render SyntaxError
-export default router;
