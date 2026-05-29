@@ -43,5 +43,5 @@ router.post('/create-room', async (req, res) => {
   }
 });
 
-// CRITICAL FIX: This tells Node.js exactly what "telehealthRouter" is!
+// CRITICAL FIX: Exports the router correctly to eliminate the Render SyntaxError
 export default router;
