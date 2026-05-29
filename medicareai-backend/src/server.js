@@ -20,6 +20,7 @@ import paymentRoutes from "./routes/payments.routes.js";
 import bookingRoutes from "./routes/bookings.routes.js";
 import doctorRoutes from "./routes/doctors.routes.js";
 import resultsRoutes from "./routes/labRoutes.js";
+import telehealthRouter from "./routes/telehealth.js"; // Placed cleanly with routing imports
 import { verifyToken } from "./utils/jwt.js";
 
 /* ======================
@@ -28,15 +29,12 @@ import { verifyToken } from "./utils/jwt.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-import telehealthRouter from './routes/telehealth.js';
-
 
 app.set("trust proxy", 1);
 
 /* ======================
    2️⃣ MIDDLEWARE & CORS
 ====================== */
-app.use('/api/telehealth', telehealthRouter);
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
@@ -76,6 +74,7 @@ app.use(express.urlencoded({ extended: true }));
 /* ======================
    3️⃣ API ROUTES
 ====================== */
+app.use("/api/telehealth", telehealthRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/directory", directoryRoutes);
