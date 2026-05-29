@@ -28,7 +28,7 @@ import { verifyToken } from "./utils/jwt.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const telehealthRouter = require('./routes/telehealth');
+import telehealthRouter from './routes/telehealth.js';
 
 
 app.set("trust proxy", 1);
