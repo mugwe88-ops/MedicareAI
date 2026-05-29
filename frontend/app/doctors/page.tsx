@@ -1,93 +1,219 @@
+// 📁 frontend/app/doctors/dashboard/page.tsx
 "use client";
-import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import Navbar from "../components/Navbar";
+import { useState, useEffect } from "react";
 
-interface Doctor {
-  id: string;
-  full_name: string;
-  specialty: string;
-  city: string;
-  rating: number;
+interface Appointment {
+  id: number;
+  patient_name: string;
+  phone: string;
+  appointment_time: string;
+  status: string;
+  reason: string;
 }
 
-// Ensure this is exactly your Render URL
-const API_BASE = "https://medicareai-1.onrender.com";
+interface UserSession {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
 
-function SearchResults() {
-  const searchParams = useSearchParams();
-  const query = searchParams.get("query") || "";
-  const city = searchParams.get("city") || "";
-
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
+export default function DoctorDashboard() {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [currentDoctor, setCurrentDoctor] = useState<UserSession | null>(null);
 
   useEffect(() => {
-    const fetchResults = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const searchUrl = `${API_BASE}/api/doctors?query=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`;
-        
-        const res = await fetch(searchUrl, {
-          method: "GET",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          mode: 'cors', // Explicitly ask for CORS
-          cache: "no-store",
-        });
+    const storedUser = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
 
-        if (!res.ok) throw new Error("Registry connection failed");
+    if (!token || !storedUser) {
+      console.warn("No session keys found. Routing back to login entry page.");
+      localStorage.clear();
+      window.location.href = "/login";
+      return;
+    }
 
-        const data = await res.json();
-        setDoctors(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Fetch error:", err);
-        setError("Unable to connect to the medical registry. This is usually a CORS or server-side issue.");
-      } finally {
-        setLoading(false);
+    try {
+      const parsedUser = JSON.parse(storedUser) as UserSession;
+      const cleanRole = parsedUser.role?.toLowerCase();
+      
+      // Strict layout role guard validation checks
+      if (cleanRole !== "doctor") {
+        console.warn("Account validation mismatched. Sending to user panel.");
+        window.location.href = "/dashboard";
+        return;
       }
-    };
 
-    fetchResults();
-  }, [query, city]);
+      setCurrentDoctor(parsedUser);
+      fetchAppointments();
+    } catch (err) {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+  }, []);
+
+  const fetchAppointments = async () => {
+    try {
+      const res = await fetch("https://medicareai-1.onrender.com/api/appointments");
+      const data = await res.json();
+      if (Array.isArray(data)) setAppointments(data);
+    } catch (err) {
+      console.error("Fetch Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (id: number, newStatus: string) => {
+    setActionLoading(id);
+    try {
+      const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) fetchAppointments();
+    } catch (err) {
+      alert("Failed to update status");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Remove this appointment record?")) return;
+    setActionLoading(id);
+    try {
+      const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) setAppointments(prev => prev.filter(a => a.id !== id));
+    } catch (err) {
+      alert("Delete failed");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = "/login";
+  };
+
+  const getStatusStyles = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
+      default: return 'bg-blue-100 text-blue-700 border-blue-200';
+    }
+  };
+
+  if (loading && !currentDoctor) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <p className="text-slate-400 font-black animate-pulse text-lg tracking-tight">Verifying Medical Credentials...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-       {/* UI Code... */}
-       {error ? (
-         <div className="text-center py-20 bg-red-50 rounded-2xl border border-red-200">
-           <p className="text-red-600 font-bold">{error}</p>
-           <p className="text-xs text-red-400 mt-2">Check if Backend is awake on Render.</p>
-         </div>
-       ) : (
-         /* Render Doctors logic here */
-         doctors.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {doctors.map(doc => (
-                <div key={doc.id} className="p-6 bg-white rounded-xl shadow-sm border">
-                  <h2 className="font-bold text-lg">{doc.full_name}</h2>
-                  <p className="text-blue-600 text-sm font-bold uppercase">{doc.specialty}</p>
-                  <p className="text-slate-400 text-xs mt-1">📍 {doc.city}</p>
-                </div>
-              ))}
+    <div className="min-h-screen bg-slate-50">
+      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40">
+        <h1 className="text-2xl font-black text-blue-600 tracking-tight">Swift MD <span className="text-slate-900 font-light">Pro</span></h1>
+        
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-sm font-black text-slate-900 leading-none">
+                {currentDoctor?.name ? `Dr. ${currentDoctor.name}` : "Medical Professional"}
+              </p>
+              <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">Practitioner Account</p>
             </div>
-         ) : !loading && <p className="text-center text-slate-400">No doctors found matching "{query}"</p>
-       )}
-    </div>
-  );
-}
+            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-200">
+              {currentDoctor?.name ? currentDoctor.name.substring(0, 2).toUpperCase() : "MD"}
+            </div>
+          </div>
 
-export default function DoctorsPage() {
-  return (
-    <main className="min-h-screen bg-slate-50">
-      <Navbar />
-      <Suspense fallback={<div className="p-20 text-center">Loading registry...</div>}>
-        <SearchResults />
-      </Suspense>
-    </main>
+          <button 
+            onClick={handleLogout}
+            className="text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 px-3 py-2 rounded-xl transition"
+          >
+            Sign Out
+          </button>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto p-8">
+        <div className="mb-10">
+          <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Clinical Overview</h2>
+          <p className="text-slate-500 font-bold mt-2">Managing {appointments.length} active patients</p>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-slate-50">
+                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Patient</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Schedule</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Reason</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Status</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em] text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {appointments.length === 0 ? (
+                <tr><td colSpan={5} className="py-20 text-center font-bold text-slate-400 italic">No scheduled appointments found on record.</td></tr>
+              ) : appointments.map((apt) => (
+                <tr key={apt.id} className="hover:bg-slate-50/50 transition-all group">
+                  <td className="px-10 py-6">
+                    <p className="font-black text-slate-900 text-lg leading-tight">{apt.patient_name}</p>
+                    <p className="text-sm text-slate-400 font-bold mt-1">{apt.phone}</p>
+                  </td>
+                  <td className="px-10 py-6">
+                    <p className="font-black text-slate-700">
+                      {apt.appointment_time ? new Date(apt.appointment_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : "N/A"}
+                    </p>
+                    <p className="text-xs font-black text-blue-500 mt-0.5">
+                      {apt.appointment_time ? new Date(apt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                    </p>
+                  </td>
+                  <td className="px-10 py-6">
+                    <p className="text-sm text-slate-500 font-bold italic">"{apt.reason || 'No baseline evaluation provided'}"</p>
+                  </td>
+                  <td className="px-10 py-6">
+                    <span className={`px-4 py-1.5 text-[9px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(apt.status)}`}>
+                      {apt.status || 'Scheduled'}
+                    </span>
+                  </td>
+                  <td className="px-10 py-6 text-right">
+                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        disabled={actionLoading === apt.id}
+                        onClick={() => handleStatusUpdate(apt.id, 'completed')}
+                        className="p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm disabled:opacity-40"
+                        title="Mark Completed"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                      </button>
+                      <button 
+                        disabled={actionLoading === apt.id}
+                        onClick={() => handleDelete(apt.id)}
+                        className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm disabled:opacity-40"
+                        title="Delete Record"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
   );
 }
