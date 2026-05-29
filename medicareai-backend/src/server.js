@@ -42,6 +42,7 @@ app.use(helmet({
 const allowedOrigins = [
   "https://medicare-ai-two.vercel.app",
   "https://www.medicare-ai-two.vercel.app",
+  "https://medicareai-backend.onrender.com",
   "https://medicareai-1.onrender.com",
   "http://localhost:3000",
   "http://localhost:5173",

@@ -21,8 +21,8 @@ export default function VideoConsultPage({ params }: PageProps) {
   useEffect(() => {
     async function fetchRoom() {
       try {
-        // FIX: Replaced hardcoded localhost url with your production Render environment fallback
-        const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-1.onrender.com';
+        // FIX: Points directly to your active production Render URL endpoint
+        const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-backend.onrender.com';
         
         const res = await fetch(`${BACKEND_BASE}/api/telehealth/create-room`, {
           method: 'POST',
