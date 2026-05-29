@@ -34,10 +34,10 @@ export default function LoginPage() {
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      // Dynamic routing based on the authorized profile role
+      // FIXED ROUTING GATEWAY: Pointing accurately to the plural folder path structure
       if (data.user.role === 'doctor') {
-        console.log('Redirecting to medical provider workspace...');
-        window.location.href = '/doctor/dashboard'; 
+        console.log('Redirecting to medical provider workspace structural route...');
+        window.location.href = '/doctors/dashboard'; // Fixed from '/doctor/dashboard'
       } else {
         console.log('Redirecting to patient clinic panel...');
         window.location.href = '/dashboard';
