@@ -106,13 +106,16 @@ export default function VideoConsultPage({ params }: PageProps) {
           }}
           userInfo={{
             displayName: 'Patient Attendee',
+            email: 'patient@medicareai.com',
           }}
           onReadyToClose={() => {
             window.location.href = '/dashboard';
           }}
           getIFrameRef={(iframeRef) => {
-            iframeRef.style.height = '100%';
-            iframeRef.style.width = '100%';
+            if (iframeRef) {
+              iframeRef.style.height = '100%';
+              iframeRef.style.width = '100%';
+            }
           }}
         />
       </div>
