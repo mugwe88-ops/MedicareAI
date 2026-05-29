@@ -19,7 +19,7 @@ export default function VideoConsultPage({ params }: PageProps) {
   useEffect(() => {
     async function verifyAccess() {
       try {
-        const token = localStorage.getItem('token'); // Retrieve auth token
+        const token = localStorage.getItem('token');
         if (!token) {
           setErrorMessage('Please login to access your telehealth session.');
           setChecking(false);
@@ -54,6 +54,7 @@ export default function VideoConsultPage({ params }: PageProps) {
     verifyAccess();
   }, [appointmentId]);
 
+  // 1. Show loading state first
   if (checking) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-50">
@@ -64,20 +65,22 @@ export default function VideoConsultPage({ params }: PageProps) {
     );
   }
 
+  // 2. If backend verification fails, block the user right here
   if (!authorized) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-50">
         <div className="bg-white p-8 rounded-xl shadow-md text-center max-w-md border border-slate-200">
           <h2 className="text-xl font-bold text-red-600 mb-2">Access Restrained</h2>
           <p className="text-slate-600 mb-6">{errorMessage}</p>
-          <a href="/login" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-            Log In / Return to Dashboard
+          <a href="/dashboard" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+            Return to Dashboard
           </a>
         </div>
       </div>
     );
   }
 
+  // 3. ONLY render this layout and trigger the camera iframe if authorized is true!
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 h-screen flex flex-col bg-slate-50">
       <div className="mb-6 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
