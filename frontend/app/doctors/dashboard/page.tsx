@@ -10,13 +10,47 @@ interface Appointment {
   reason: string;
 }
 
+interface UserSession {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [currentDoctor, setCurrentDoctor] = useState<UserSession | null>(null);
 
   useEffect(() => {
-    fetchAppointments();
+    // 1. SESSION SEED SECURITY GUARD: Stop the bouncing loops right here
+    const storedUser = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
+
+    if (!token || !storedUser) {
+      console.warn("Unauthorized endpoint clearance. Relocating back to entry portal.");
+      localStorage.clear();
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(storedUser) as UserSession;
+      
+      // If a standard patient tries to breach the doctors route, boot them back to the user panel
+      if (parsedUser.role !== "doctor") {
+        console.warn("Invalid account authorization level for clinical views.");
+        window.location.href = "/dashboard";
+        return;
+      }
+
+      setCurrentDoctor(parsedUser);
+      fetchAppointments();
+    } catch (err) {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
   }, []);
 
   const fetchAppointments = async () => {
@@ -62,6 +96,11 @@ export default function DoctorDashboard() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = "/login";
+  };
+
   const getStatusStyles = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
@@ -71,17 +110,40 @@ export default function DoctorDashboard() {
     }
   };
 
+  if (loading && !currentDoctor) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <p className="text-slate-400 font-black animate-pulse text-lg tracking-tight">Verifying Medical Credentials...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Swift MD Nav */}
       <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40">
         <h1 className="text-2xl font-black text-blue-600 tracking-tight">Swift MD <span className="text-slate-900 font-light">Pro</span></h1>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-sm font-black text-slate-900 leading-none">Dr. Sarah Johnson</p>
-            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">Administrator</p>
+        
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              {/* FIXED DYNAMIC DISPLAY PROFILE NAME */}
+              <p className="text-sm font-black text-slate-900 leading-none">
+                {currentDoctor?.name ? `Dr. ${currentDoctor.name}` : "Medical Professional"}
+              </p>
+              <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">Practitioner Account</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-200">
+              {currentDoctor?.name ? currentDoctor.name.substring(0, 2).toUpperCase() : "MD"}
+            </div>
           </div>
-          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-200">SJ</div>
+
+          <button 
+            onClick={handleLogout}
+            className="text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 px-3 py-2 rounded-xl transition"
+          >
+            Sign Out
+          </button>
         </div>
       </nav>
 
@@ -95,16 +157,18 @@ export default function DoctorDashboard() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-slate-50">
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Patient</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Schedule</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Reason</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Patient</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Schedule</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Reason</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Status</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em] text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr><td colSpan={5} className="py-20 text-center font-black text-slate-300 italic text-xl">Loading records...</td></tr>
+              ) : appointments.length === 0 ? (
+                <tr><td colSpan={5} className="py-20 text-center font-bold text-slate-400 italic">No scheduled appointments found on record.</td></tr>
               ) : appointments.map((apt) => (
                 <tr key={apt.id} className="hover:bg-slate-50/50 transition-all group">
                   <td className="px-10 py-6">
@@ -113,14 +177,14 @@ export default function DoctorDashboard() {
                   </td>
                   <td className="px-10 py-6">
                     <p className="font-black text-slate-700">
-                      {new Date(apt.appointment_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                      {apt.appointment_time ? new Date(apt.appointment_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : "N/A"}
                     </p>
                     <p className="text-xs font-black text-blue-500 mt-0.5">
-                      {new Date(apt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {apt.appointment_time ? new Date(apt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                     </p>
                   </td>
                   <td className="px-10 py-6">
-                    <p className="text-sm text-slate-500 font-bold italic">"{apt.reason}"</p>
+                    <p className="text-sm text-slate-500 font-bold italic">"{apt.reason || 'No baseline evaluation provided'}"</p>
                   </td>
                   <td className="px-10 py-6">
                     <span className={`px-4 py-1.5 text-[9px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(apt.status)}`}>
@@ -130,15 +194,17 @@ export default function DoctorDashboard() {
                   <td className="px-10 py-6 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
+                        disabled={actionLoading === apt.id}
                         onClick={() => handleStatusUpdate(apt.id, 'completed')}
-                        className="p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                        className="p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm disabled:opacity-40"
                         title="Mark Completed"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                       </button>
                       <button 
+                        disabled={actionLoading === apt.id}
                         onClick={() => handleDelete(apt.id)}
-                        className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                        className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm disabled:opacity-40"
                         title="Delete Record"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
