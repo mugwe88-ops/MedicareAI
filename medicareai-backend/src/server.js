@@ -84,6 +84,50 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/results", resultsRoutes);
 
+// NEW: Dynamic Multi-Department Doctor Seeding Utility Route
+app.get("/api/seed-test-doctors", async (req, res) => {
+  const sampleDoctors = [
+    { name: "Dr. Paul Kioni", email: "paul.kioni@medicareai.com", spec: "dermatology", phone: "+254711111111", lic: "KMPDC-D921" },
+    { name: "Dr. Faith Njoroge", email: "faith.njoroge@medicareai.com", spec: "cardiology", phone: "+254722222222", lic: "KMPDC-C432" },
+    { name: "Dr. Silas Mwangi", email: "silas.mwangi@medicareai.com", spec: "pediatrics", phone: "+254733333333", lic: "KMPDC-P012" },
+    { name: "Dr. Amina Omondi", email: "amina.omondi@medicareai.com", spec: "general medicine", phone: "+254744444444", lic: "KMPDC-G789" },
+    { name: "Dr. Chloe Kiprop", email: "chloe.kiprop@medicareai.com", spec: "gynaecology", phone: "+254755555555", lic: "KMPDC-O544" }
+  ];
+
+  try {
+    console.log("🌱 Seeding comprehensive medical specialists into PostgreSQL...");
+    
+    // Static safe bcrypt string representing password: 'Password123'
+    const mockHash = "$2b$10$76hZ6uFByZ02S6vY7WkXb.NlZ64GjDmsE7m05Wk47U24L6f6YbeoK";
+
+    for (const doc of sampleDoctors) {
+      // 1. Ensure registration numbers bypass the system verification table
+      await pool.query(
+        `INSERT INTO verified_kmpdc (registration_number, doctor_name) 
+         VALUES ($1, $2) ON CONFLICT (registration_number) DO NOTHING`,
+        [doc.lic, doc.name]
+      );
+
+      // 2. Insert clinical specialist profiles cleanly into users registry
+      await pool.query(
+        `INSERT INTO users (name, email, password, role, specialization, license_number, city, phone)
+         VALUES ($1, $2, $3, 'doctor', $4, $5, 'Juja', $6)
+         ON CONFLICT (email) DO NOTHING`,
+        [doc.name, doc.email, mockHash, doc.spec, doc.lic, doc.phone]
+      );
+    }
+
+    return res.json({ 
+      status: "success", 
+      message: "Doctors for all healthcare departments seeded successfully!",
+      departmentsSeeded: sampleDoctors.map(d => d.spec)
+    });
+  } catch (err) {
+    console.error("❌ Seeding Operation Failed:", err);
+    return res.status(500).json({ error: "Failed to build out provider registry", details: err.message });
+  }
+});
+
 // Filtered Appointments for Patients
 app.get("/api/my-appointments", verifyToken, async (req, res) => {
   const patient_id = req.user.id; 
@@ -168,11 +212,12 @@ async function initDatabase() {
       );
     `);
 
-    // Appointments
+    // Appointments (Enforces direct relationship anchoring for telehealth gates)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
         patient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         department VARCHAR(100),
         appointment_date DATE,
         appointment_time TIME,
@@ -181,6 +226,9 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Ensure appointment dynamic schema has doctor_id safely tied
+    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
 
     // KMPDC Verification
     await pool.query(`
