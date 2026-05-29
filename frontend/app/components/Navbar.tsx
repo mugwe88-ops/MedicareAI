@@ -10,11 +10,14 @@ interface NavbarProps {
 export default function Navbar({ user }: NavbarProps) {
   const pathname = usePathname();
 
-  // FIX: Hide the global navbar if the user is in the dashboard to prevent 
+  // Hide the global navbar if the user is in the dashboard to prevent 
   // the overlapping UI seen in the mobile recording.
   if (pathname.startsWith("/dashboard")) {
     return null;
   }
+
+  // Generate a short, unique fallback session ID for the instant video consult button
+  const randomSessionId = `session-${Math.random().toString(36).substring(2, 9)}`;
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
@@ -26,11 +29,23 @@ export default function Navbar({ user }: NavbarProps) {
           </span>
         </Link>
 
-        {/* Navigation Links - Hidden on small screens to keep it clean */}
+        {/* Navigation Links */}
         <div className="hidden md:flex gap-8 text-sm font-bold text-slate-600">
-          <Link href="/" className="hover:text-blue-600 transition-colors">Find Doctors</Link>
-          <Link href="/" className="hover:text-blue-600 transition-colors">Video Consult</Link>
-          <Link href="/" className="hover:text-blue-600 transition-colors">Medicines</Link>
+          <Link href="/" className="hover:text-blue-600 transition-colors">
+            Find Doctors
+          </Link>
+          
+          {/* FIX: Wired link up to dynamically navigate to an initialized telehealth session */}
+          <Link 
+            href={`/telehealth/${randomSessionId}`} 
+            className="hover:text-blue-600 transition-colors"
+          >
+            Video Consult
+          </Link>
+          
+          <Link href="/" className="hover:text-blue-600 transition-colors">
+            Medicines
+          </Link>
         </div>
 
         <div className="flex items-center gap-5">

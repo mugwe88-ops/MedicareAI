@@ -1,4 +1,3 @@
-// frontend/app/telehealth/[appointmentId]/page.tsx
 'use client';
 
 import { useEffect, useRef, useState, use } from 'react';
@@ -22,7 +21,10 @@ export default function VideoConsultPage({ params }: PageProps) {
   useEffect(() => {
     async function fetchRoom() {
       try {
-        const res = await fetch('http://localhost:5000/api/telehealth/create-room', {
+        // FIX: Replaced hardcoded localhost url with your production Render environment fallback
+        const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-1.onrender.com';
+        
+        const res = await fetch(`${BACKEND_BASE}/api/telehealth/create-room`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ appointmentId }),
@@ -85,8 +87,8 @@ export default function VideoConsultPage({ params }: PageProps) {
         <div className="bg-white p-8 rounded-xl shadow-md text-center max-w-md">
           <h2 className="text-xl font-bold text-red-600 mb-2">Connection Error</h2>
           <p className="text-slate-600 mb-6">{error}</p>
-          <a href="/dashboard" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-            Return to Dashboard
+          <a href="/" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+            Return to Home
           </a>
         </div>
       </div>
