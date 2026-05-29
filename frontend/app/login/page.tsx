@@ -34,10 +34,16 @@ export default function LoginPage() {
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      // FIXED ROUTING GATEWAY: Pointing accurately to the plural folder path structure
-      if (data.user.role === 'doctor') {
+      // Normalizing the string role to prevent capitalization mismatch bugs
+      const userRole = data.user?.role?.toLowerCase() || 'patient';
+
+      // DIAGNOSTIC POPUP: Tells us exactly what the frontend is doing
+      alert(`Debug Info:\nReceived Role: "${data.user?.role}"\nTarget Path: ${userRole === 'doctor' ? '/doctors/dashboard' : '/dashboard'}`);
+
+      // ROUTING GATEWAY: Testing against normalized role string
+      if (userRole === 'doctor') {
         console.log('Redirecting to medical provider workspace structural route...');
-        window.location.href = '/doctors/dashboard'; // Fixed from '/doctor/dashboard'
+        window.location.href = '/doctors/dashboard'; 
       } else {
         console.log('Redirecting to patient clinic panel...');
         window.location.href = '/dashboard';
