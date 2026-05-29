@@ -17,13 +17,14 @@ export default function VideoConsultPage({ params }: PageProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 1. Ask your Express Backend to create/fetch the Daily room link
+  // 1. Fetch the Daily.co room token link from the Express Backend
   useEffect(() => {
     async function fetchRoom() {
       try {
-        // FIX: Points directly to your active production Render URL endpoint
+        // Fall back to explicit production backend to safeguard path structure
         const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-backend.onrender.com';
         
+        // Cleanly interpolated endpoint structure
         const res = await fetch(`${BACKEND_BASE}/api/telehealth/create-room`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -101,7 +102,10 @@ export default function VideoConsultPage({ params }: PageProps) {
       <div className="mb-6 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">SwiftMD Telehealth Session</h1>
-          <p className="text-sm text-slate-500">Secure Consultation Reference: <span className="font-mono bg-slate-200 px-1 py-0.5 rounded text-xs">{appointmentId}</span></p>
+          <p className="text-sm text-slate-500">
+            Secure Consultation Reference:{' '}
+            <span className="font-mono bg-slate-200 px-1 py-0.5 rounded text-xs">{appointmentId}</span>
+          </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-emerald-600 font-medium bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 self-start">
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
