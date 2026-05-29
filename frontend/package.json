@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.90.0",
+    "@jitsi/react-sdk": "^1.4.4",
     "axios": "^1.15.2",
     "lucide-react": "^1.8.0",
     "next": "16.1.6",
