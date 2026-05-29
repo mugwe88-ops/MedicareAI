@@ -1,13 +1,13 @@
-// Add verifyToken middleware import at the top of routes/telehealth.js
-import { verifyToken } from '../utils/jwt.js';
+import express from 'express';
 import pool from '../utils/db.js';
+import { verifyToken } from '../utils/jwt.js';
 
-// ... your existing /create-room logic ...
+const router = express.Router();
 
-// NEW: Validate that the patient has a legitimate appointment before letting them join
+// 1. Validate that the patient has a legitimate appointment before letting them join
 router.get('/verify-session/:appointmentId', verifyToken, async (req, res) => {
   const { appointmentId } = req.params;
-  const patientId = req.user.id; // Extracted securely from JWT token
+  const patientId = req.user.id; // Securely pulled from verified JWT token
 
   try {
     const result = await pool.query(
@@ -22,7 +22,6 @@ router.get('/verify-session/:appointmentId', verifyToken, async (req, res) => {
       return res.status(403).json({ isValid: false, error: "Unauthorized or invalid appointment reference." });
     }
 
-    // Return true along with doctor details to display on screen
     return res.json({ 
       isValid: true, 
       doctorName: result.rows[0].doctor_name,
@@ -34,3 +33,11 @@ router.get('/verify-session/:appointmentId', verifyToken, async (req, res) => {
     return res.status(500).json({ isValid: false, error: "Internal server error verification." });
   }
 });
+
+// 2. Fallback legacy endpoint if your code hits it elsewhere
+router.post('/create-room', async (req, res) => {
+  return res.json({ message: "Bypassed to direct client Jitsi session generation" });
+});
+
+// CRITICAL FIX: Located cleanly at the bottom root scope so Node finds the default module export
+export default router;
