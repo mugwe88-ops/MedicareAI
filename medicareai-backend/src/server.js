@@ -28,12 +28,15 @@ import { verifyToken } from "./utils/jwt.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const telehealthRouter = require('./routes/telehealth');
+
 
 app.set("trust proxy", 1);
 
 /* ======================
    2️⃣ MIDDLEWARE & CORS
 ====================== */
+app.use('/api/telehealth', telehealthRouter);
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
