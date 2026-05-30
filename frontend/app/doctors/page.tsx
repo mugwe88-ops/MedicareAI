@@ -1,4 +1,3 @@
-// 📁 frontend/app/doctors/dashboard/page.tsx
 "use client";
 import { useState, useEffect } from "react";
 
@@ -29,7 +28,7 @@ export default function DoctorDashboard() {
     const token = localStorage.getItem("token");
 
     if (!token || !storedUser) {
-      console.warn("No session keys found. Routing back to login entry page.");
+      console.warn("No active session tokens found. Evicting to login portal.");
       localStorage.clear();
       window.location.href = "/login";
       return;
@@ -39,32 +38,28 @@ export default function DoctorDashboard() {
       const parsedUser = JSON.parse(storedUser) as UserSession;
       const cleanRole = parsedUser.role?.toLowerCase();
       
-      // Strict layout role guard validation checks
       if (cleanRole !== "doctor") {
-        console.warn("Account validation mismatched. Sending to user panel.");
+        console.warn("Mismatched security clearance context.");
         window.location.href = "/dashboard";
         return;
       }
 
       setCurrentDoctor(parsedUser);
-      fetchAppointments();
+      
+      // Fetch data immediately now that security validation is cleared
+      fetch("https://medicareai-1.onrender.com/api/appointments")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) setAppointments(data);
+        })
+        .catch((err) => console.error("Fetch Failure:", err))
+        .finally(() => setLoading(false));
+
     } catch (err) {
       localStorage.clear();
       window.location.href = "/login";
     }
   }, []);
-
-  const fetchAppointments = async () => {
-    try {
-      const res = await fetch("https://medicareai-1.onrender.com/api/appointments");
-      const data = await res.json();
-      if (Array.isArray(data)) setAppointments(data);
-    } catch (err) {
-      console.error("Fetch Error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStatusUpdate = async (id: number, newStatus: string) => {
     setActionLoading(id);
@@ -74,7 +69,11 @@ export default function DoctorDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (res.ok) fetchAppointments();
+      if (res.ok) {
+        setAppointments(prev =>
+          prev.map(apt => apt.id === id ? { ...apt, status: newStatus } : apt)
+        );
+      }
     } catch (err) {
       alert("Failed to update status");
     } finally {
@@ -83,7 +82,7 @@ export default function DoctorDashboard() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Remove this appointment record?")) return;
+    if (!confirm("Remove this appointment record permanently?")) return;
     setActionLoading(id);
     try {
       const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${id}`, {
@@ -91,7 +90,7 @@ export default function DoctorDashboard() {
       });
       if (res.ok) setAppointments(prev => prev.filter(a => a.id !== id));
     } catch (err) {
-      alert("Delete failed");
+      alert("Delete execution failed");
     } finally {
       setActionLoading(null);
     }
@@ -114,7 +113,7 @@ export default function DoctorDashboard() {
   if (loading && !currentDoctor) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
-        <p className="text-slate-400 font-black animate-pulse text-lg tracking-tight">Verifying Medical Credentials...</p>
+        <p className="text-slate-400 font-black animate-pulse text-lg tracking-tight">Syncing Clinical Workspace...</p>
       </div>
     );
   }
@@ -156,11 +155,11 @@ export default function DoctorDashboard() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-slate-50">
-                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Patient</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Schedule</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Reason</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Status</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em] text-right">Actions</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Patient</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Schedule</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Reason</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -181,7 +180,7 @@ export default function DoctorDashboard() {
                     </p>
                   </td>
                   <td className="px-10 py-6">
-                    <p className="text-sm text-slate-500 font-bold italic">"{apt.reason || 'No baseline evaluation provided'}"</p>
+                    <p className="text-sm text-slate-500 font-bold italic">"{apt.reason || 'No specific clinical description given'}"</p>
                   </td>
                   <td className="px-10 py-6">
                     <span className={`px-4 py-1.5 text-[9px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(apt.status)}`}>
