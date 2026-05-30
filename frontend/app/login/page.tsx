@@ -1,12 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Automatically sweep old sessions on component mounting to prevent fallback loops
+  useEffect(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,20 +43,16 @@ export default function LoginPage() {
       // Normalizing the string role to prevent capitalization mismatch bugs
       const userRole = data.user?.role?.toLowerCase() || 'patient';
 
-      // DIAGNOSTIC POPUP: Tells us exactly what the frontend is doing
-      alert(`Debug Info:\nReceived Role: "${data.user?.role}"\nTarget Path: ${userRole === 'doctor' ? '/doctors/dashboard' : '/dashboard'}`);
-
-      // ROUTING GATEWAY: Testing against normalized role string
+      // ROUTING GATEWAY: Direct location change assignment
       if (userRole === 'doctor') {
         console.log('Redirecting to medical provider workspace structural route...');
-        window.location.href = '/doctors/dashboard'; 
+        window.location.replace('/doctors/dashboard'); 
       } else {
         console.log('Redirecting to patient clinic panel...');
-        window.location.href = '/dashboard';
+        window.location.replace('/dashboard');
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication.');
-    } finally {
       setLoading(false);
     }
   };
