@@ -1,18 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Automatically sweep old sessions on component mounting to prevent fallback loops
-  useEffect(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,13 +38,13 @@ export default function LoginPage() {
       // Normalizing the string role to prevent capitalization mismatch bugs
       const userRole = data.user?.role?.toLowerCase() || 'patient';
 
-      // ROUTING GATEWAY: Direct location change assignment
+      // ROUTING GATEWAY: Force clear window navigation to load clean layout files
       if (userRole === 'doctor') {
         console.log('Redirecting to medical provider workspace structural route...');
-        window.location.replace('/doctors/dashboard'); 
+        window.location.href = '/doctors/dashboard'; 
       } else {
         console.log('Redirecting to patient clinic panel...');
-        window.location.replace('/dashboard');
+        window.location.href = '/dashboard';
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication.');
@@ -99,11 +94,20 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:bg-blue-400 shadow-md shadow-blue-100"
+            className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:bg-blue-400 shadow-md shadow-blue-100 uppercase tracking-wider"
           >
             {loading ? 'Authenticating...' : 'Login to Account'}
           </button>
         </form>
+
+        <div className="mt-6 text-center text-sm">
+          <p className="text-slate-500 font-medium">
+            Don't have an account?{' '}
+            <Link href="/signup" className="text-blue-600 font-bold hover:underline">
+              Sign Up
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
