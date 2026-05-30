@@ -8,19 +8,20 @@ export default function HomePage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [location, setLocation] = useState("Nairobi, Kenya");
-  const [checkingAuth, setCheckingAuth] = useState(true);
-  const [userToken, setUserToken] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
-  // Read authentication state strictly once during page mount initialization
+  // Synchronously fetch authentication state immediately upon mounting
   useEffect(() => {
     const token = localStorage.getItem("token");
-    setUserToken(token);
-    setCheckingAuth(false);
+    setIsLoggedIn(!!token);
   }, []);
 
   // Central access gatekeeper function
   const handleProtectedAction = (targetRoute: string) => {
-    if (!userToken) {
+    // If state isn't determined yet, do nothing to prevent broken loops
+    if (isLoggedIn === null) return;
+
+    if (!isLoggedIn) {
       // Send unauthenticated traffic straight to login
       router.push("/login");
     } else {
@@ -73,8 +74,8 @@ export default function HomePage() {
     }
   ];
 
-  // Prevent components from guessing action requirements while checking token existence
-  if (checkingAuth) {
+  // Prevent UI flashing or early gate evaluations while reading localStorage
+  if (isLoggedIn === null) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center space-y-3">
