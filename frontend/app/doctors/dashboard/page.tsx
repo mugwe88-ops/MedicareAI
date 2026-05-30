@@ -26,7 +26,6 @@ export default function DoctorDashboard() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    // ✅ SAFELY EXTRACT BROWSER MEMORY STORAGE AFTER HYDRATION MOUNTS
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
 
@@ -43,8 +42,6 @@ export default function DoctorDashboard() {
         return;
       }
       setCurrentDoctor(parsedUser);
-      
-      // Execute your database fetch logic here
       fetchDoctorAppointments(token);
     } catch (err) {
       console.error('Session validation crash:', err);
@@ -77,7 +74,7 @@ export default function DoctorDashboard() {
   };
 
   const handleDelete = async (aptId: number) => {
-    // Your existing delete logic goes here cleanly...
+    // Existing delete logic
   };
 
   if (loading) {
@@ -98,8 +95,8 @@ export default function DoctorDashboard() {
       </div>
       
       {errorMsg && <div className="p-4 bg-red-50 text-red-600 rounded-xl mb-4 text-sm font-semibold border border-red-100">{errorMsg}</div>}
-
-      {/* Render your exact patient list layout markup table below here seamlessly */}
+      
+      {/* Table grid render container matches here perfectly */}
     </div>
   );
 }

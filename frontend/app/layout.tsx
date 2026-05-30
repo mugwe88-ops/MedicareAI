@@ -1,16 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/Navbar";
 import axios from "axios";
 
 const inter = Inter({ subsets: ["latin"] });
-
-// Note: Metadata must be moved to a separate layout-metadata.ts 
-// or omitted if using "use client" at the top level of layout.tsx.
 
 export default function RootLayout({
   children,
@@ -30,14 +26,23 @@ export default function RootLayout({
       }
 
       try {
-        // Point to your running server.js port
-        const res = await axios.get("[https://medicareai-1.onrender.com](https://medicareai-1.onrender.com)/api/auth/me", {
+        const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-1.onrender.com';
+        
+        // Clean URL request string utilizing dynamic environment fallback
+        const res = await axios.get(`${BACKEND_BASE}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        
         setUser(res.data);
-      } catch (err) {
-        console.error("Session expired or invalid");
-        localStorage.removeItem("token");
+      } catch (err: any) {
+        console.error("Session verification temporary failure:", err.message);
+        
+        // Only clear the token if the server specifically rejects the credentials (401/403)
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          console.warn("Session explicitly invalid. Clearing memory.");
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+        }
       } finally {
         setLoading(false);
       }
@@ -52,8 +57,8 @@ export default function RootLayout({
         <Navbar user={user} />
         <main>
           {loading ? (
-            <div className="flex h-screen items-center justify-center">
-              <p className="text-blue-600 animate-pulse font-bold">Verifying MedicareAI Session...</p>
+            <div className="flex h-screen items-center justify-center bg-white">
+              <p className="text-blue-600 animate-pulse font-bold text-lg">Verifying MedicareAI Session...</p>
             </div>
           ) : (
             children
