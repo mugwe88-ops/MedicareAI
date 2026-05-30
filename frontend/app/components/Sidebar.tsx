@@ -10,9 +10,14 @@ export default function Sidebar() {
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Schedule", href: "/dashboard/appointments", icon: Calendar },
     { name: "Patients", href: "/dashboard/patients", icon: Users },
-    { name: "Records", href: "/dashboard/data", icon: FileText },
+    { name: "Records", href: "/data", icon: FileText }, // Fixed route to match app/data folder structure
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
+
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = "/"; // Redirects to landing page seamlessly
+  };
 
   return (
     <aside className="hidden md:flex w-72 bg-[#0F172A] text-slate-300 flex-col h-screen sticky top-0 shadow-2xl shrink-0">
@@ -47,7 +52,10 @@ export default function Sidebar() {
       </div>
 
       <div className="mt-auto p-8 border-t border-slate-800">
-        <button className="flex items-center gap-4 text-slate-500 hover:text-red-400 transition-colors font-bold text-sm uppercase">
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-4 text-slate-500 hover:text-red-400 transition-colors font-bold text-sm uppercase w-full text-left"
+        >
           <LogOut size={20} />
           <span>Logout</span>
         </button>
