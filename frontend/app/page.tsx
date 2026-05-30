@@ -8,17 +8,19 @@ export default function HomePage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [location, setLocation] = useState("Nairobi, Kenya");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [userToken, setUserToken] = useState<string | null>(null);
 
-  // Monitor active authorization tokens locally on mount
+  // Read authentication state strictly once during page mount initialization
   useEffect(() => {
     const token = localStorage.getItem("token");
-    setIsLoggedIn(!!token);
+    setUserToken(token);
+    setCheckingAuth(false);
   }, []);
 
   // Central access gatekeeper function
   const handleProtectedAction = (targetRoute: string) => {
-    if (!isLoggedIn) {
+    if (!userToken) {
       // Send unauthenticated traffic straight to login
       router.push("/login");
     } else {
@@ -70,6 +72,18 @@ export default function HomePage() {
       route: "/dashboard/appointments"
     }
   ];
+
+  // Prevent components from guessing action requirements while checking token existence
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-slate-500 text-sm font-bold tracking-wide uppercase">Verifying SwiftMD Session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
