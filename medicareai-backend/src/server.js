@@ -20,7 +20,7 @@ import paymentRoutes from "./routes/payments.routes.js";
 import bookingRoutes from "./routes/bookings.routes.js";
 import doctorRoutes from "./routes/doctors.routes.js";
 import resultsRoutes from "./routes/labRoutes.js";
-import telehealthRouter from "./routes/telehealth.js"; // Placed cleanly with routing imports
+import telehealthRouter from "./routes/telehealth.js"; 
 import { verifyToken } from "./utils/jwt.js";
 
 /* ======================
@@ -140,6 +140,31 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Error fetching filtered appointments:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Filtered Appointments for Doctors
+app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
+  const doctor_id = req.user.id; 
+  const user_role = req.user.role?.toLowerCase();
+
+  if (user_role !== "doctor") {
+    return res.status(403).json({ error: "Access denied. Restricted to medical professionals." });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT a.*, u.name as patient_name, u.phone 
+       FROM appointments a
+       LEFT JOIN users u ON a.patient_id = u.id
+       WHERE a.doctor_id = $1 
+       ORDER BY a.appointment_date ASC, a.appointment_time ASC`,
+      [doctor_id]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching provider specialized records:", err);
+    return res.status(500).json({ error: "Internal server error reading appointment ledger" });
   }
 });
 

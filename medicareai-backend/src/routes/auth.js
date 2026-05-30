@@ -108,4 +108,31 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// GET /api/auth/me
+router.get("/me", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Access denied. No token provided." });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
+
+    const result = await pool.query(
+      "SELECT id, name, email, role, specialization, license_number, city, phone FROM users WHERE id = $1",
+      [decoded.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User profile not found." });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Profile verification session failure:", err);
+    return res.status(401).json({ error: "Session expired or invalid credentials." });
+  }
+});
+
 export default router;
