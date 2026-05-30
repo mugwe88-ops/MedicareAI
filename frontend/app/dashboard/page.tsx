@@ -19,11 +19,12 @@ export default function PatientDashboardPage() {
 
     try {
       const parsedUser = JSON.parse(storedUser);
+      const userRole = parsedUser.role?.toLowerCase();
       
-      // PROTECTION GUARD: If user is logged in as a doctor, route them out of patient workspace
-      if (parsedUser.role === 'doctor') {
+      // PROTECTION GUARD: Fixed to point accurately to the plural folder path structure
+      if (userRole === 'doctor' || userRole === 'provider') {
         console.log('Doctor detected on patient route. Forwarding to professional panel...');
-        window.location.href = '/doctor/dashboard';
+        window.location.href = '/doctors/dashboard';
         return;
       }
 
