@@ -24,12 +24,11 @@ export default function DoctorDashboard() {
   const [currentDoctor, setCurrentDoctor] = useState<UserSession | null>(null);
 
   useEffect(() => {
-    // 1. SESSION SEED SECURITY GUARD: Stop the bouncing loops right here
     const storedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
 
     if (!token || !storedUser) {
-      console.warn("Unauthorized endpoint clearance. Relocating back to entry portal.");
+      console.warn("No active session tokens found. Evicting to login portal.");
       localStorage.clear();
       window.location.href = "/login";
       return;
@@ -37,33 +36,30 @@ export default function DoctorDashboard() {
 
     try {
       const parsedUser = JSON.parse(storedUser) as UserSession;
+      const cleanRole = parsedUser.role?.toLowerCase();
       
-      // If a standard patient tries to breach the doctors route, boot them back to the user panel
-      if (parsedUser.role !== "doctor") {
-        console.warn("Invalid account authorization level for clinical views.");
+      if (cleanRole !== "doctor") {
+        console.warn("Mismatched security clearance context.");
         window.location.href = "/dashboard";
         return;
       }
 
       setCurrentDoctor(parsedUser);
-      fetchAppointments();
+      
+      // Fetch data immediately now that security validation is cleared
+      fetch("https://medicareai-1.onrender.com/api/appointments")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) setAppointments(data);
+        })
+        .catch((err) => console.error("Fetch Failure:", err))
+        .finally(() => setLoading(false));
+
     } catch (err) {
       localStorage.clear();
       window.location.href = "/login";
     }
   }, []);
-
-  const fetchAppointments = async () => {
-    try {
-      const res = await fetch("https://medicareai-1.onrender.com/api/appointments");
-      const data = await res.json();
-      if (Array.isArray(data)) setAppointments(data);
-    } catch (err) {
-      console.error("Fetch Error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStatusUpdate = async (id: number, newStatus: string) => {
     setActionLoading(id);
@@ -73,7 +69,11 @@ export default function DoctorDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (res.ok) fetchAppointments();
+      if (res.ok) {
+        setAppointments(prev =>
+          prev.map(apt => apt.id === id ? { ...apt, status: newStatus } : apt)
+        );
+      }
     } catch (err) {
       alert("Failed to update status");
     } finally {
@@ -82,7 +82,7 @@ export default function DoctorDashboard() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Remove this appointment record?")) return;
+    if (!confirm("Remove this appointment record permanently?")) return;
     setActionLoading(id);
     try {
       const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${id}`, {
@@ -90,7 +90,7 @@ export default function DoctorDashboard() {
       });
       if (res.ok) setAppointments(prev => prev.filter(a => a.id !== id));
     } catch (err) {
-      alert("Delete failed");
+      alert("Delete execution failed");
     } finally {
       setActionLoading(null);
     }
@@ -113,21 +113,19 @@ export default function DoctorDashboard() {
   if (loading && !currentDoctor) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
-        <p className="text-slate-400 font-black animate-pulse text-lg tracking-tight">Verifying Medical Credentials...</p>
+        <p className="text-slate-400 font-black animate-pulse text-lg tracking-tight">Syncing Clinical Workspace...</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Swift MD Nav */}
       <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40">
         <h1 className="text-2xl font-black text-blue-600 tracking-tight">Swift MD <span className="text-slate-900 font-light">Pro</span></h1>
         
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <div className="text-right">
-              {/* FIXED DYNAMIC DISPLAY PROFILE NAME */}
               <p className="text-sm font-black text-slate-900 leading-none">
                 {currentDoctor?.name ? `Dr. ${currentDoctor.name}` : "Medical Professional"}
               </p>
@@ -157,17 +155,15 @@ export default function DoctorDashboard() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-slate-50">
-                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Patient</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Schedule</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Reason</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em]">Status</th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-440 uppercase tracking-[0.2em] text-right">Actions</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Patient</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Schedule</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Reason</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
+                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {loading ? (
-                <tr><td colSpan={5} className="py-20 text-center font-black text-slate-300 italic text-xl">Loading records...</td></tr>
-              ) : appointments.length === 0 ? (
+              {appointments.length === 0 ? (
                 <tr><td colSpan={5} className="py-20 text-center font-bold text-slate-400 italic">No scheduled appointments found on record.</td></tr>
               ) : appointments.map((apt) => (
                 <tr key={apt.id} className="hover:bg-slate-50/50 transition-all group">
@@ -184,7 +180,7 @@ export default function DoctorDashboard() {
                     </p>
                   </td>
                   <td className="px-10 py-6">
-                    <p className="text-sm text-slate-500 font-bold italic">"{apt.reason || 'No baseline evaluation provided'}"</p>
+                    <p className="text-sm text-slate-500 font-bold italic">"{apt.reason || 'No specific clinical description given'}"</p>
                   </td>
                   <td className="px-10 py-6">
                     <span className={`px-4 py-1.5 text-[9px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(apt.status)}`}>
