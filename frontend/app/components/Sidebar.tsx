@@ -1,22 +1,52 @@
 "use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, Users, FileText, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, FileText, Settings, LogOut, Video, Pill } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [role, setRole] = useState<string>("patient");
 
-  const menuItems = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  // Read the active authenticated user role from local storage dynamically
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        if (parsedUser.role) {
+          setRole(parsedUser.role.toLowerCase());
+        }
+      } catch (err) {
+        console.error("Error parsing user role context in sidebar:", err);
+      }
+    }
+  }, []);
+
+  // Define clean navigation workflows for both roles
+  const doctorMenuItems = [
+    { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
     { name: "Schedule", href: "/dashboard/appointments", icon: Calendar },
     { name: "Patients", href: "/dashboard/patients", icon: Users },
-    { name: "Records", href: "/data", icon: FileText }, // Fixed route to match app/data folder structure
+    { name: "Records", href: "/data", icon: FileText },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
 
+  const patientMenuItems = [
+    { name: "My Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "My Appointments", href: "/dashboard/appointments", icon: Calendar },
+    { name: "Telehealth Room", href: "/telehealth", icon: Video },
+    { name: "Pharmacy Store", href: "/medicines", icon: Pill },
+    { name: "Medical Records", href: "/data", icon: FileText },
+  ];
+
+  // Pick the correct menu array based on the authenticated role
+  const menuItems = role === "doctor" ? doctorMenuItems : patientMenuItems;
+
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = "/"; // Redirects to landing page seamlessly
+    window.location.href = "/";
   };
 
   return (
