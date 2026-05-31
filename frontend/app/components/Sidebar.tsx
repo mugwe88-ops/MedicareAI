@@ -9,7 +9,6 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [role, setRole] = useState<string>("patient");
 
-  // Read the active authenticated user role from local storage dynamically
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
@@ -19,12 +18,12 @@ export default function Sidebar() {
           setRole(parsedUser.role.toLowerCase());
         }
       } catch (err) {
-        console.error("Error parsing user role context in sidebar:", err);
+        console.error("Error evaluating role matrix for system layout:", err);
       }
     }
   }, []);
 
-  // Define clean navigation workflows for both roles
+  // Structural route groups isolated by authentication tier
   const doctorMenuItems = [
     { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
     { name: "Schedule", href: "/dashboard/appointments", icon: Calendar },
@@ -41,7 +40,6 @@ export default function Sidebar() {
     { name: "Medical Records", href: "/data", icon: FileText },
   ];
 
-  // Pick the correct menu array based on the authenticated role
   const menuItems = role === "doctor" ? doctorMenuItems : patientMenuItems;
 
   const handleLogout = () => {
