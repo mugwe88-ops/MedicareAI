@@ -11,6 +11,7 @@ export default function HomePage() {
   const [location, setLocation] = useState("Nairobi, Kenya");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [userName, setUserName] = useState<string>("");
+  const [userRole, setUserRole] = useState<string>(""); // Added to track role
 
   // Synchronously evaluate local session status on mount
   useEffect(() => {
@@ -23,19 +24,28 @@ export default function HomePage() {
       try {
         const parsed = JSON.parse(storedUser);
         setUserName(parsed.name || "Account");
+        setUserRole(parsed.role?.toLowerCase() || "patient"); // Normalize role to lowercase
       } catch (e) {
         console.error("Hydration profile parsing error:", e);
       }
     }
   }, []);
 
-  const handleProtectedAction = (targetRoute: string) => {
+  const handleProtectedAction = (patientRoute: string) => {
     if (isLoggedIn === null) return;
 
     if (!isLoggedIn) {
       router.push("/login");
+      return;
+    }
+
+    // Dynamic Role Routing Engine
+    if (userRole === "doctor") {
+      // If a doctor clicks any capability, redirect them straight to their control panel workspace
+      router.push("/doctors/dashboard");
     } else {
-      router.push(targetRoute);
+      // If a patient clicks, take them to the requested sub-route
+      router.push(patientRoute);
     }
   };
 
@@ -43,6 +53,7 @@ export default function HomePage() {
     localStorage.clear();
     setIsLoggedIn(false);
     setUserName("");
+    setUserRole("");
     window.location.reload();
   };
 
@@ -132,11 +143,12 @@ export default function HomePage() {
               </>
             ) : (
               <div className="flex items-center gap-4">
+                {/* Dynamically update the header button to point to the correct workspace dashboard based on role */}
                 <Link 
-                  href="/dashboard" 
+                  href={userRole === "doctor" ? "/doctors/dashboard" : "/dashboard"} 
                   className="text-slate-700 hover:text-blue-600 font-bold text-sm bg-slate-100 px-4 py-2 rounded-xl transition-all"
                 >
-                  {userName.toUpperCase()}&apos;S DASHBOARD
+                  {userName.toUpperCase()}&apos;S ({userRole.toUpperCase()}) DASHBOARD
                 </Link>
                 <button 
                   onClick={handleLogout}
