@@ -1,43 +1,51 @@
 'use client';
 
 import { useRouter } from "next/navigation";
+import { Video, ShieldCheck } from "lucide-react";
 
 export default function TelehealthLandingPage() {
   const router = useRouter();
 
-  // Example handler to enter a room
   const handleJoinRoom = (appointmentId: string) => {
-    // Navigates out to your existing dynamic dynamic folder: app/telehealth/[appointmentId]
     router.push(`/telehealth/${appointmentId}`);
   };
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
+    <div className="p-6 md:p-8 max-w-7xl mx-auto min-h-screen text-slate-100">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Telehealth Room</h1>
-        <p className="text-gray-600 mt-1">Join virtual consultations and connect live with your provider.</p>
+        <h1 className="text-2xl font-black tracking-tight text-white">Telehealth Hub</h1>
+        <p className="text-slate-400 text-sm mt-1">Join high-definition secure clinical video calls with your assigned practitioners.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-700 mb-2">Next Virtual Session</h2>
-          <p className="text-sm text-gray-500 mb-4">You have a session scheduled today.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+        <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-col justify-between shadow-xl">
+          <div>
+            <div className="w-10 h-10 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-center mb-4">
+              <Video className="w-5 h-5 text-orange-400" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-200">Active Virtual Consultations</h2>
+            <p className="text-xs text-slate-400 mt-1 mb-6">Ready to connect? Enter your pre-booked session securely below.</p>
+          </div>
           
-          {/* Replace 'example-id' with dynamic active appointment ID state if available */}
           <button 
-            onClick={() => handleJoinRoom("example-id")}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+            onClick={() => handleJoinRoom("active-session")}
+            className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-xl transition-all text-sm text-center shadow-lg shadow-blue-600/10"
           >
-            Enter Video Consultation Room
+            Launch Consultation Room
           </button>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col justify-between">
+        <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-col justify-between shadow-xl">
           <div>
-            <h2 className="text-lg font-semibold text-gray-700 mb-2">Hardware Check</h2>
-            <p className="text-sm text-gray-500">Ensure your camera and microphone access are allowed in your browser settings before entering.</p>
+            <div className="w-10 h-10 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center justify-center mb-4">
+              <ShieldCheck className="w-5 h-5 text-green-400" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-200">System Checklist</h2>
+            <p className="text-xs text-slate-400 mt-1">Please ensure browser permissions for web-camera and microphone devices are allowed before entry.</p>
           </div>
-          <span className="text-xs text-green-600 font-medium mt-4">✓ System Ready</span>
+          <div className="mt-6 flex items-center gap-2 text-xs text-green-400 font-bold tracking-wider bg-green-950/20 border border-green-900/30 px-3 py-2 rounded-lg w-max">
+            ● WEBRTC HARDWARE READY
+          </div>
         </div>
       </div>
     </div>

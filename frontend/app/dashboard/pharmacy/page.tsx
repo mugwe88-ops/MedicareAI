@@ -4,25 +4,26 @@ import { Pill, Search } from "lucide-react";
 
 export default function PharmacyPage() {
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
+    <div className="p-6 md:p-8 max-w-7xl mx-auto min-h-screen text-slate-100">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Pharmacy Store</h1>
-        <p className="text-gray-600 mt-1">Order your prescription medicines and health essentials directly to your home.</p>
+        <h1 className="text-2xl font-black tracking-tight text-white">Pharmacy Store</h1>
+        <p className="text-slate-400 text-sm mt-1">Order your prescription medicines and health essentials directly to your home.</p>
       </div>
 
-      <div className="bg-white p-6 rounded-xl border border-gray-200 max-w-xl shadow-sm">
-        <div className="flex gap-2 p-2 border border-gray-200 rounded-lg items-center bg-gray-50">
-          <Search className="w-5 h-5 text-gray-400 shrink-0" />
+      <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 max-w-xl shadow-xl">
+        <div className="flex gap-2 p-3 border border-slate-800 rounded-xl items-center bg-slate-950">
+          <Search className="w-5 h-5 text-slate-500 shrink-0" />
           <input 
             type="text" 
             placeholder="Search prescriptions, tablets, vitamins..." 
-            className="w-full bg-transparent outline-none text-sm text-gray-700"
+            className="w-full bg-transparent outline-none text-sm text-slate-200 placeholder:text-slate-600"
           />
         </div>
         
-        <div className="mt-12 text-center text-gray-400 py-12">
-          <Pill className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-          <p className="text-sm font-medium">Your prescriptions will appear here once verified by your clinician.</p>
+        <div className="mt-12 text-center text-slate-600 py-12">
+          <Pill className="w-12 h-12 mx-auto text-slate-700 mb-3 animate-pulse" />
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">No Orders Found</p>
+          <p className="text-xs text-slate-500 mt-1">Your digital prescriptions will appear here once verified by a clinician.</p>
         </div>
       </div>
     </div>
