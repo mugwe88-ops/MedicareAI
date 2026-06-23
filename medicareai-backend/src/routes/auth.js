@@ -49,7 +49,10 @@ router.post("/signup", async (req, res) => {
     const token = jwt.sign(
       { id: newUser.rows[0].id, role: newUser.rows[0].role },
       process.env.JWT_SECRET || "fallback_secret",
-      { expiresIn: "24h" }
+      { 
+        expiresIn: "24h",
+        audience: "medicareai-users" // Explicit audience fix
+      }
     );
 
     return res.status(201).json({
@@ -89,7 +92,10 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(
       { id: userRow.id, role: userRow.role || "patient" },
       process.env.JWT_SECRET || "fallback_secret",
-      { expiresIn: "24h" }
+      { 
+        expiresIn: "24h",
+        audience: "medicareai-users" // Explicit audience fix
+      }
     );
 
     // CRITICAL FRONTEND FIX: Return full explicit values so role checks don't evaluate to undefined
@@ -117,7 +123,9 @@ router.get("/me", async (req, res) => {
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret", {
+      audience: "medicareai-users" // Ensures profile fetching verification matches signed properties
+    });
 
     const result = await pool.query(
       "SELECT id, name, email, role, specialization, license_number, city, phone FROM users WHERE id = $1",
