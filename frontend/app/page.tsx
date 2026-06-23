@@ -62,7 +62,7 @@ export default function HomePage() {
       icon: Video,
       color: "text-orange-500",
       bg: "bg-orange-50",
-      route: "/telehealth"
+      route: "/dashboard/telehealth"
     },
     {
       title: "Order Medicines",
@@ -70,7 +70,7 @@ export default function HomePage() {
       icon: Pill,
       color: "text-pink-500",
       bg: "bg-pink-50",
-      route: "/medicines"
+      route: "/dashboard/pharmacy"
     },
     {
       title: "Lab Tests",
@@ -78,7 +78,7 @@ export default function HomePage() {
       icon: FlaskConical,
       color: "text-blue-500",
       bg: "bg-blue-50",
-      route: "/data"
+      route: "/dashboard/records"
     },
     {
       title: "Surgeries",
@@ -119,4 +119,130 @@ export default function HomePage() {
               <>
                 <Link 
                   href="/login" 
-                  className="text
+                  className="text-slate-600 hover:text-slate-900 font-semibold text-sm transition-colors"
+                >
+                  Login
+                </Link>
+                <Link 
+                  href="/signup" 
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-4 py-2 rounded-xl transition-colors shadow-sm"
+                >
+                  Sign Up
+                </Link>
+              </>
+            ) : (
+              <div className="flex items-center gap-4">
+                <Link 
+                  href="/dashboard" 
+                  className="text-slate-700 hover:text-blue-600 font-bold text-sm bg-slate-100 px-4 py-2 rounded-xl transition-all"
+                >
+                  {userName.toUpperCase()}&apos;S DASHBOARD
+                </Link>
+                <button 
+                  onClick={handleLogout}
+                  className="text-slate-400 hover:text-red-500 p-2 rounded-xl transition-colors"
+                  title="Log out"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* HERO SECTION */}
+      <section className="bg-white py-16 px-6 border-b border-slate-100">
+        <div className="max-w-4xl mx-auto text-center space-y-6">
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900">
+            Your Health, <span className="text-blue-600">Swiftly</span> Managed.
+          </h1>
+          <p className="text-slate-500 text-base max-w-xl mx-auto font-medium">
+            Find checked clinical specialists, order medications directly, or review medical data summaries from one secure panel.
+          </p>
+
+          {/* SEARCH COMPONENT */}
+          <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/80 p-2 flex flex-col md:flex-row items-center gap-2 mt-8">
+            <div className="flex items-center gap-2 w-full px-3 py-2 border-b md:border-b-0 md:border-r border-slate-100">
+              <MapPin className="w-5 h-5 text-slate-400 shrink-0" />
+              <input 
+                type="text" 
+                value={location} 
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full text-sm font-semibold text-slate-800 bg-transparent outline-none" 
+              />
+            </div>
+            <div className="flex items-center gap-2 w-full px-3 py-2">
+              <Search className="w-5 h-5 text-slate-400 shrink-0" />
+              <input 
+                type="text" 
+                placeholder="Search doctors, clinical clinics or specialities..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-sm font-medium text-slate-800 bg-transparent outline-none placeholder:text-slate-400" 
+              />
+            </div>
+            <button className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-3 rounded-xl transition-all shadow-md shadow-blue-500/10 shrink-0">
+              Search
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* CORE SERVICES GRID */}
+      <section className="max-w-7xl mx-auto px-6 py-16 w-full">
+        <h2 className="text-xl font-extrabold text-slate-900 mb-8 tracking-tight">Our Virtual Care Capabilities</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {coreServices.map((service, index) => {
+            const IconComponent = service.icon;
+            return (
+              <div 
+                key={index} 
+                onClick={() => handleProtectedAction(service.route)}
+                className="bg-white p-6 rounded-2xl border border-slate-100 hover:border-blue-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+              >
+                <div>
+                  <div className={`w-12 h-12 ${service.bg} rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-105`}>
+                    <IconComponent className={`w-6 h-6 ${service.color}`} />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">{service.title}</h3>
+                  <p className="text-slate-400 text-xs font-medium leading-relaxed">{service.desc}</p>
+                </div>
+                <div className="text-blue-600 font-bold text-xs mt-6 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Access Platform &rarr;
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* SPECIALTIES ROW */}
+      <section className="bg-slate-100/60 py-16 px-6 w-full mt-auto border-t border-slate-200/50">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-xl font-extrabold text-slate-900 mb-8 tracking-tight">Consult Across Specialties</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {specialties.map((spec, index) => {
+              const IconComp = spec.icon;
+              return (
+                <div 
+                  key={index}
+                  onClick={() => handleProtectedAction("/dashboard/appointments")}
+                  className="bg-white p-4 rounded-xl border border-slate-200/40 flex flex-col items-center text-center shadow-2xl shadow-slate-100/20 hover:shadow-md transition-all cursor-pointer group"
+                >
+                  <div className={`w-10 h-10 ${spec.bg} rounded-xl flex items-center justify-center mb-3`}>
+                    <IconComp className={`w-5 h-5 ${spec.color}`} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">
+                    {spec.name}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+    </div>
+  );
+}
