@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Calendar, Phone, FileText, CheckCircle, Clock, LogOut } from 'lucide-react';
 
 interface Appointment {
   id: number;
@@ -55,14 +56,15 @@ export default function DoctorDashboard() {
       const res = await fetch(`${BACKEND_BASE}/api/appointments/doctor`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${authToken}`,
+          'Authorization': `Bearer ${authToken.trim()}`,
           'Content-Type': 'application/json'
         }
       });
       
       if (res.ok) {
         const data = await res.json();
-        setAppointments(data || []);
+        setAppointments(Array.isArray(data) ? data : []);
+        setErrorMsg(''); // Clear any historical errors on successful fetch
       } else {
         setErrorMsg('Failed to pull appointment data records.');
       }
@@ -73,30 +75,22 @@ export default function DoctorDashboard() {
     }
   };
 
-  const handleDelete = async (aptId: number) => {
-    // Existing delete logic
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.replace('/login');
+  };
+
+  // Clean up duplicate "Dr. Dr." formatting if present in database payload
+  const formatDoctorName = (name: string) => {
+    if (!name) return '';
+    return name.toLowerCase().startsWith('dr.') ? name : `Dr. ${name}`;
   };
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="text-center animate-pulse">
-          <p className="text-sm font-bold text-slate-500 tracking-wide uppercase">Assembling Clinical Matrix...</p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs font-bold text-slate-500 tracking-wider uppercase">Assembling Clinical Matrix...</p>
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Welcome, Dr. {currentDoctor?.name}</h1>
-        <p className="text-slate-500 text-sm mt-1">Provider Control Center Workspace</p>
-      </div>
-      
-      {errorMsg && <div className="p-4 bg-red-50 text-red-600 rounded-xl mb-4 text-sm font-semibold border border-red-100">{errorMsg}</div>}
-      
-      {/* Table grid render container matches here perfectly */}
-    </div>
-  );
-}
