@@ -77,14 +77,14 @@ app.use(express.urlencoded({ extended: true }));
 ====================== */
 app.use("/api/telehealth", telehealthRouter);
 app.use("/api/auth", authRoutes);
-app.use("/api/appointments", appointmentRoutes);
+app.use("/api/appointments", appointmentRoutes); // Clean dynamic routing
 app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/results", resultsRoutes);
 
-// NEW: Dynamic Multi-Department Doctor Seeding Utility Route
+// Dynamic Multi-Department Doctor Seeding Utility Route
 app.get("/api/seed-test-doctors", async (req, res) => {
   const sampleDoctors = [
     { name: "Dr. Paul Kioni", email: "paul.kioni@medicareai.com", spec: "dermatology", phone: "+254711111111", lic: "KMPDC-D921" },
@@ -96,19 +96,15 @@ app.get("/api/seed-test-doctors", async (req, res) => {
 
   try {
     console.log("🌱 Seeding comprehensive medical specialists into PostgreSQL...");
-    
-    // Static safe bcrypt string representing password: 'Password123'
     const mockHash = "$2b$10$76hZ6uFByZ02S6vY7WkXb.NlZ64GjDmsE7m05Wk47U24L6f6YbeoK";
 
     for (const doc of sampleDoctors) {
-      // 1. Ensure registration numbers bypass the system verification table
       await pool.query(
         `INSERT INTO verified_kmpdc (registration_number, doctor_name) 
          VALUES ($1, $2) ON CONFLICT (registration_number) DO NOTHING`,
         [doc.lic, doc.name]
       );
 
-      // 2. Insert clinical specialist profiles cleanly into users registry
       await pool.query(
         `INSERT INTO users (name, email, password, role, specialization, license_number, city, phone)
          VALUES ($1, $2, $3, 'doctor', $4, $5, 'Juja', $6)
@@ -128,45 +124,7 @@ app.get("/api/seed-test-doctors", async (req, res) => {
   }
 });
 
-// Filtered Appointments for Patients
-app.get("/api/my-appointments", verifyToken, async (req, res) => {
-  const patient_id = req.user.id; 
-  try {
-    const result = await pool.query(
-      "SELECT * FROM appointments WHERE patient_id = $1 ORDER BY created_at DESC",
-      [patient_id]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching filtered appointments:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Filtered Appointments for Doctors
-app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
-  const doctor_id = req.user.id; 
-  const user_role = req.user.role?.toLowerCase();
-
-  if (user_role !== "doctor") {
-    return res.status(403).json({ error: "Access denied. Restricted to medical professionals." });
-  }
-
-  try {
-    const result = await pool.query(
-      `SELECT a.*, u.name as patient_name, u.phone 
-       FROM appointments a
-       LEFT JOIN users u ON a.patient_id = u.id
-       WHERE a.doctor_id = $1 
-       ORDER BY a.appointment_date ASC, a.appointment_time ASC`,
-      [doctor_id]
-    );
-    return res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching provider specialized records:", err);
-    return res.status(500).json({ error: "Internal server error reading appointment ledger" });
-  }
-});
+// REMOVED: Injected inline /api/appointments override blocks to prevent token parsing loops
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "API is running" });
