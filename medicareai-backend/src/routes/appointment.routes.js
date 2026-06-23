@@ -1,7 +1,38 @@
 import express from "express";
+import jwt from "jsonwebtoken";
 import pool from "../utils/db.js";
 
 const router = express.Router();
+
+/* ================= GET DOCTOR SPECIFIC APPOINTMENTS (FIXED) ================= */
+// This handles the GET request to /api/appointments/doctor called by the dashboard
+router.get("/doctor", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Access denied. No authentication token provided." });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
+
+    // Double check that the authenticated user is actually a doctor
+    if (decoded.role?.toLowerCase() !== "doctor") {
+      return res.status(403).json({ error: "Access forbidden. Account requires doctor privileges." });
+    }
+
+    // Query appointments where the doctor_id matches the logged-in doctor's user ID
+    const result = await pool.query(
+      "SELECT * FROM appointments WHERE doctor_id = $1 ORDER BY appointment_time DESC",
+      [decoded.id]
+    );
+
+    return res.json(result.rows || []);
+  } catch (err) {
+    console.error("Doctor Appointment Fetch Error:", err.message);
+    return res.status(401).json({ error: "Session expired or token authentication failed." });
+  }
+});
 
 /* ================= CREATE APPOINTMENT ================= */
 router.post("/", async (req, res) => {
