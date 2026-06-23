@@ -51,7 +51,7 @@ router.post("/signup", async (req, res) => {
       process.env.JWT_SECRET || "fallback_secret",
       { 
         expiresIn: "24h",
-        audience: "medicareai-users" // Explicit audience fix
+        audience: "medicareai-users" // Explicit audience signature fix
       }
     );
 
@@ -94,11 +94,11 @@ router.post("/login", async (req, res) => {
       process.env.JWT_SECRET || "fallback_secret",
       { 
         expiresIn: "24h",
-        audience: "medicareai-users" // Explicit audience fix
+        audience: "medicareai-users" // Explicit audience signature fix
       }
     );
 
-    // CRITICAL FRONTEND FIX: Return full explicit values so role checks don't evaluate to undefined
+    // Return full explicit values so role checks don't evaluate to undefined
     return res.json({
       token,
       user: {
@@ -124,7 +124,7 @@ router.get("/me", async (req, res) => {
 
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret", {
-      audience: "medicareai-users" // Ensures profile fetching verification matches signed properties
+      audience: "medicareai-users" // Confirms inbound authorization checks mirror setup criteria
     });
 
     const result = await pool.query(
