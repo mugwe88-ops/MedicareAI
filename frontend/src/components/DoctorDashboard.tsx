@@ -106,7 +106,7 @@ export default function DoctorDashboard() {
       }
     } catch {
       setErrorMsg("Unable to connect to backend service.");
-    } finally {
+    } font-semibold
       setLoading(false);
     }
   };
@@ -160,7 +160,7 @@ export default function DoctorDashboard() {
 
   // 5. Quick Action Route Handlers
   const handleStartQuickConsult = () => {
-    router.push("/telehealth");
+    router.push("/telehealth/quick-consult");
   };
 
   const handleIssuePrescription = async () => {
@@ -193,7 +193,7 @@ export default function DoctorDashboard() {
         setShowRxModal(false);
         setRxPatientName("");
         setRxNotes("");
-        fetchPrescriptions(); // Refresh list immediately after saving
+        fetchPrescriptions();
       } else {
         alert(`Server Error (${res.status}): ${data.error || "Could not save prescription"}`);
       }
@@ -384,7 +384,7 @@ export default function DoctorDashboard() {
           </button>
           <button 
             onClick={handleStartQuickConsult}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium border border-slate-700 transition"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
           >
             <Video className="w-4 h-4" /> Start Quick Consult
           </button>
@@ -419,6 +419,7 @@ export default function DoctorDashboard() {
                   <th className="p-4">Time Window</th>
                   <th className="p-4">Reason</th>
                   <th className="p-4">Status</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-sm">
@@ -445,6 +446,15 @@ export default function DoctorDashboard() {
                         <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                         {apt.status || "Scheduled"}
                       </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => router.push(`/telehealth/${apt.id}`)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-900/40 hover:bg-purple-800/60 border border-purple-700/50 text-purple-200 rounded-lg text-xs font-semibold transition"
+                      >
+                        <Video className="w-3.5 h-3.5 text-purple-400" />
+                        Join Call
+                      </button>
                     </td>
                   </tr>
                 ))}
