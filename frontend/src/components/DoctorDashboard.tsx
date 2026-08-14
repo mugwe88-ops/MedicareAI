@@ -91,23 +91,22 @@ export default function DoctorDashboard() {
     }
   };
 
-  // 3. Update Provider Availability Status
+  // 3. Update Provider Availability Status (Uses POST to bypass restricted CORS PATCH preflights)
   const handleStatusChange = async (status: string) => {
     setProviderStatus(status);
     const token = localStorage.getItem("token");
     
-    // Optional endpoint: Persist status on backend
     try {
       await fetch(`${BACKEND_BASE}/api/doctor/status`, {
-        method: "PATCH",
+        method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ status }),
       });
-    } catch {
-      // Silently catch if status endpoint isn't implemented yet
+    } catch (err) {
+      console.warn("Backend status update skipped:", err);
     }
   };
 
@@ -118,7 +117,6 @@ export default function DoctorDashboard() {
 
   const handleNewPrescription = () => {
     alert("Opening Rx Order Modal...");
-    // You can replace this with a modal trigger state or router.push('/prescriptions/new')
   };
 
   const handleLogout = () => {
