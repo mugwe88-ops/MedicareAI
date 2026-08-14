@@ -140,28 +140,33 @@ export default function DoctorDashboard() {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await fetch(`${BACKEND_BASE}/api/doctors/prescriptions`, {
+      // Unified path to singular /api/doctor/prescriptions
+      const res = await fetch(`${BACKEND_BASE}/api/doctor/prescriptions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token.trim()}` } : {}),
         },
         body: JSON.stringify({
-          doctor_id: doctor?.id,
-          patient_name: rxPatientName,
-          medication_details: rxNotes,
+          doctor_id: doctor?.id ? Number(doctor.id) : null,
+          patient_name: rxPatientName.trim(),
+          medication_details: rxNotes.trim(),
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
+        alert("Prescription submitted successfully!");
         setShowRxModal(false);
         setRxPatientName("");
         setRxNotes("");
       } else {
-        console.error("Failed to save prescription record.");
+        alert(`Server Error (${res.status}): ${data.error || "Could not save prescription"}`);
       }
     } catch (err) {
       console.error("Error submitting prescription:", err);
+      alert("Network error: Unable to reach the backend server.");
     } finally {
       setSubmittingRx(false);
     }
