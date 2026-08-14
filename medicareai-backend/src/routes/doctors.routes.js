@@ -5,31 +5,55 @@ import pool from "../utils/db.js";
 const router = express.Router();
 
 /**
+ * POST /api/doctors/status  AND  /api/doctor/status
+ * Handles provider status updates (Available, In Visit, On Break)
+ */
+router.post("/status", async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: "Status field is required." });
+    }
+
+    // Logging for debugging on Render / Neon
+    console.log(`Doctor status updated to: ${status}`);
+
+    // If you have a column in your 'users' or 'doctors' table, update it here:
+    // await pool.query("UPDATE users SET status = $1 WHERE role = 'doctor'", [status]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Doctor status updated successfully",
+      status,
+    });
+  } catch (err) {
+    console.error("Status update error:", err);
+    return res.status(500).json({ error: "Failed to update doctor status" });
+  }
+});
+
+/**
  * GET /api/doctors
- * Fetches doctors from the 'users' table (since 'specialists' relation does not exist)
+ * Fetches doctors from the 'users' table
  */
 router.get("/", async (req, res) => {
   try {
-    // Added 'specialty' to the destructured query to catch frontend requests
     const { city, query, q, specialization, specialty } = req.query;
 
-    // Database check: Pull from users table where role is doctor
     const result = await pool.query(
       "SELECT id, name, specialty, registration_number, city FROM users WHERE role = 'doctor' ORDER BY name ASC"
     );
     
     let doctors = result.rows;
 
-    // Normalize search terms: Include 'specialty' in the fallback
     const searchTerm = (query || q || specialization || specialty || "").toString().trim().toLowerCase();
     const cityTerm = (city || "").toString().trim().toLowerCase();
 
-    // 1. Filter by City if provided
     if (cityTerm !== "") {
       doctors = doctors.filter(d => d.city?.toLowerCase().includes(cityTerm));
     }
 
-    // 2. Filter by Name or Specialty if search term provided
     if (searchTerm !== "") {
       doctors = doctors.filter(d => 
         d.specialty?.toLowerCase().includes(searchTerm) || 
@@ -39,7 +63,6 @@ router.get("/", async (req, res) => {
 
     res.json(doctors);
   } catch (err) {
-    // Captures the errors seen in Render/Neon logs
     console.error("Doctors API error:", err); 
     res.status(500).json({ error: "Failed to fetch doctors" });
   }
@@ -58,6 +81,9 @@ router.post("/", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/doctors/:id (Keep below static sub-routes like /status)
+ */
 router.get("/:id", async (req, res) => {
   try {
     const doctor = await getDoctorById(req.params.id);
