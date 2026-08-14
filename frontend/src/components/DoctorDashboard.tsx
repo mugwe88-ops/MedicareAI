@@ -14,7 +14,8 @@ import {
   LogOut,
   Phone,
   RefreshCw,
-  X
+  X,
+  Pill
 } from "lucide-react";
 
 interface Appointment {
@@ -27,6 +28,15 @@ interface Appointment {
   reason: string;
 }
 
+interface Prescription {
+  id: number;
+  doctor_id: number | null;
+  patient_name: string;
+  medication_details: string;
+  status: string;
+  created_at: string;
+}
+
 interface UserSession {
   id: number;
   name: string;
@@ -37,6 +47,7 @@ interface UserSession {
 export default function DoctorDashboard() {
   const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [doctor, setDoctor] = useState<UserSession | null>(null);
   const [providerStatus, setProviderStatus] = useState("Available");
@@ -65,6 +76,7 @@ export default function DoctorDashboard() {
       const parsedUser = JSON.parse(storedUser) as UserSession;
       setDoctor(parsedUser);
       fetchAppointments(token);
+      fetchPrescriptions(token);
     } catch {
       router.replace("/login");
     }
@@ -99,7 +111,28 @@ export default function DoctorDashboard() {
     }
   };
 
-  // 3. Update Provider Availability Status
+  // 3. Fetch Prescriptions from Backend API
+  const fetchPrescriptions = async (authToken?: string) => {
+    const token = authToken || localStorage.getItem("token");
+    try {
+      const res = await fetch(`${BACKEND_BASE}/api/doctor/prescriptions`, {
+        method: "GET",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token.trim()}` } : {}),
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setPrescriptions(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Failed to load prescriptions:", err);
+    }
+  };
+
+  // 4. Update Provider Availability Status
   const handleStatusChange = async (status: string) => {
     setProviderStatus(status);
     const token = localStorage.getItem("token");
@@ -125,7 +158,7 @@ export default function DoctorDashboard() {
     }
   };
 
-  // 4. Quick Action Route Handlers
+  // 5. Quick Action Route Handlers
   const handleStartQuickConsult = () => {
     router.push("/telehealth");
   };
@@ -140,7 +173,6 @@ export default function DoctorDashboard() {
     try {
       const token = localStorage.getItem("token");
 
-      // Unified path to singular /api/doctor/prescriptions
       const res = await fetch(`${BACKEND_BASE}/api/doctor/prescriptions`, {
         method: "POST",
         headers: {
@@ -161,6 +193,7 @@ export default function DoctorDashboard() {
         setShowRxModal(false);
         setRxPatientName("");
         setRxNotes("");
+        fetchPrescriptions(); // Refresh list immediately after saving
       } else {
         alert(`Server Error (${res.status}): ${data.error || "Could not save prescription"}`);
       }
@@ -177,7 +210,6 @@ export default function DoctorDashboard() {
     router.replace("/login");
   };
 
-  // Helper for safe Date formatting
   const formatAppointmentTime = (dateStr?: string, timeStr?: string) => {
     if (!timeStr && !dateStr) return "Scheduled";
     try {
@@ -197,7 +229,7 @@ export default function DoctorDashboard() {
     }
   };
 
-  // 5. Dynamic Calculations derived from live backend data
+  // 6. Dynamic Calculations
   const totalCount = appointments.length;
   const inQueueCount = appointments.filter(
     (a) => a.status?.toLowerCase() === "scheduled" || a.status?.toLowerCase() === "pending"
@@ -213,6 +245,14 @@ export default function DoctorDashboard() {
       apt.patient_name?.toLowerCase().includes(query) ||
       apt.phone?.toLowerCase().includes(query) ||
       apt.reason?.toLowerCase().includes(query)
+    );
+  });
+
+  const filteredPrescriptions = prescriptions.filter((rx) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      rx.patient_name?.toLowerCase().includes(query) ||
+      rx.medication_details?.toLowerCase().includes(query)
     );
   });
 
@@ -245,7 +285,6 @@ export default function DoctorDashboard() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Dynamic Status Toggle */}
           <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1 text-xs font-medium">
             {["Available", "In Visit", "On Break"].map((status) => (
               <button
@@ -280,7 +319,7 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* DYNAMIC METRIC CARDS */}
+      {/* METRIC CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4 flex items-center gap-4">
           <div className="p-3 bg-blue-500/10 text-blue-400 rounded-lg">
@@ -317,8 +356,8 @@ export default function DoctorDashboard() {
             <FileText className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs text-slate-400 font-medium">Pending Reviews</p>
-            <p className="text-xl font-semibold text-white">0</p>
+            <p className="text-xs text-slate-400 font-medium">Total Prescriptions</p>
+            <p className="text-xl font-semibold text-white">{prescriptions.length}</p>
           </div>
         </div>
       </div>
@@ -352,7 +391,7 @@ export default function DoctorDashboard() {
         </div>
       </div>
 
-      {/* DYNAMIC INCOMING PATIENT TABLE */}
+      {/* INCOMING PATIENT SCHEDULE TABLE */}
       <div className="bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center gap-2 text-blue-400 font-semibold text-xs uppercase tracking-wider">
@@ -362,7 +401,7 @@ export default function DoctorDashboard() {
         </div>
 
         {filteredAppointments.length === 0 ? (
-          <div className="p-16 flex flex-col items-center justify-center text-center">
+          <div className="p-12 flex flex-col items-center justify-center text-center">
             <div className="w-12 h-12 rounded-full bg-slate-800/60 border border-slate-700/50 flex items-center justify-center text-slate-500 mb-4">
               <Clock className="w-6 h-6" />
             </div>
@@ -405,6 +444,58 @@ export default function DoctorDashboard() {
                       }`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                         {apt.status || "Scheduled"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ISSUED PRESCRIPTIONS & CLINICAL NOTES SECTION */}
+      <div className="bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-purple-400 font-semibold text-xs uppercase tracking-wider">
+            <Pill className="w-4 h-4" />
+            <span>Issued Prescriptions & Clinical Notes ({filteredPrescriptions.length})</span>
+          </div>
+        </div>
+
+        {filteredPrescriptions.length === 0 ? (
+          <div className="p-12 flex flex-col items-center justify-center text-center">
+            <div className="w-12 h-12 rounded-full bg-slate-800/60 border border-slate-700/50 flex items-center justify-center text-slate-500 mb-4">
+              <FileText className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-semibold text-slate-200">NO ISSUED NOTES YET</h3>
+            <p className="text-sm text-slate-500 mt-1 max-w-sm">
+              Submitted prescriptions and clinical notes will display here automatically.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase font-bold tracking-wider bg-slate-950/40">
+                  <th className="p-4">Patient Name</th>
+                  <th className="p-4">Medication & Dosage Details</th>
+                  <th className="p-4">Date Issued</th>
+                  <th className="p-4">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-sm">
+                {filteredPrescriptions.map((rx) => (
+                  <tr key={rx.id} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="p-4 font-bold text-white">{rx.patient_name}</td>
+                    <td className="p-4 text-slate-300 max-w-md">{rx.medication_details}</td>
+                    <td className="p-4 text-slate-400 text-xs">
+                      {new Date(rx.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+                    </td>
+                    <td className="p-4">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-purple-950/40 text-purple-400 border border-purple-900/40">
+                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                        {rx.status || "Issued"}
                       </span>
                     </td>
                   </tr>

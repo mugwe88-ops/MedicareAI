@@ -16,11 +16,7 @@ const updateStatusHandler = async (req, res) => {
       return res.status(400).json({ error: "Status field is required." });
     }
 
-    // Logging for debugging on Render / Neon
     console.log(`Doctor status updated to: ${status}`);
-
-    // If you have a column in your 'users' or 'doctors' table, update it here:
-    // await pool.query("UPDATE users SET status = $1 WHERE role = 'doctor'", [status]);
 
     return res.status(200).json({
       success: true,
@@ -35,14 +31,12 @@ const updateStatusHandler = async (req, res) => {
 
 /**
  * POST & PATCH /api/doctors/status AND /api/doctor/status
- * Handles provider status updates (Available, In Visit, On Break)
  */
 router.post("/status", updateStatusHandler);
 router.patch("/status", updateStatusHandler);
 
 /**
  * GET /api/doctors
- * Fetches doctors from the 'users' table
  */
 router.get("/", async (req, res) => {
   try {
@@ -89,6 +83,22 @@ router.post("/", async (req, res) => {
 });
 
 /**
+ * GET /api/doctors/prescriptions
+ * Retrieves all issued prescriptions
+ */
+router.get("/prescriptions", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM prescriptions ORDER BY created_at DESC`
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching prescriptions:", err);
+    return res.status(500).json({ error: "Failed to retrieve prescription logs" });
+  }
+});
+
+/**
  * POST /api/doctors/prescriptions
  * Issues and stores a new prescription record
  */
@@ -118,7 +128,7 @@ router.post("/prescriptions", async (req, res) => {
 });
 
 /**
- * GET /api/doctors/:id (Keep below static sub-routes like /status)
+ * GET /api/doctors/:id
  */
 router.get("/:id", async (req, res) => {
   try {
