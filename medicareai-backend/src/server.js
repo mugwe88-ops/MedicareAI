@@ -117,6 +117,18 @@ app.get("/api/seed-test-doctors", async (req, res) => {
       );
     }
 
+    // Prescriptions Registry
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS prescriptions (
+    id SERIAL PRIMARY KEY,
+    doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    patient_name VARCHAR(255) NOT NULL,
+    medication_details TEXT NOT NULL,
+    status VARCHAR(50) DEFAULT 'issued',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
     return res.json({ 
       status: "success", 
       message: "Doctors for all healthcare departments seeded successfully!",
