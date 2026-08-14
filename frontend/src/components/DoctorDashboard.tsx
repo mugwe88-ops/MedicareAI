@@ -106,7 +106,7 @@ export default function DoctorDashboard() {
       }
     } catch {
       setErrorMsg("Unable to connect to backend service.");
-    } font-semibold
+    } finally {
       setLoading(false);
     }
   };
