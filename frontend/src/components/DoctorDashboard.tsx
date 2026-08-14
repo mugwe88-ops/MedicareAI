@@ -42,8 +42,9 @@ export default function DoctorDashboard() {
   const [providerStatus, setProviderStatus] = useState("Available");
   const [searchQuery, setSearchQuery] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [submittingRx, setSubmittingRx] = useState(false);
   
-  // Modal states replacing browser alert()
+  // Modal states
   const [showRxModal, setShowRxModal] = useState(false);
   const [rxPatientName, setRxPatientName] = useState("");
   const [rxNotes, setRxNotes] = useState("");
@@ -129,12 +130,49 @@ export default function DoctorDashboard() {
     router.push("/telehealth");
   };
 
+  const handleIssuePrescription = async () => {
+    if (!rxPatientName.trim() || !rxNotes.trim()) {
+      alert("Please fill in both Patient Name and Medication details.");
+      return;
+    }
+
+    setSubmittingRx(true);
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(`${BACKEND_BASE}/api/doctors/prescriptions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token.trim()}` } : {}),
+        },
+        body: JSON.stringify({
+          doctor_id: doctor?.id,
+          patient_name: rxPatientName,
+          medication_details: rxNotes,
+        }),
+      });
+
+      if (res.ok) {
+        setShowRxModal(false);
+        setRxPatientName("");
+        setRxNotes("");
+      } else {
+        console.error("Failed to save prescription record.");
+      }
+    } catch (err) {
+      console.error("Error submitting prescription:", err);
+    } finally {
+      setSubmittingRx(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.clear();
     router.replace("/login");
   };
 
-  // Helper for safe Date formatting (prevents Invalid Date crashes on raw time strings)
+  // Helper for safe Date formatting
   const formatAppointmentTime = (dateStr?: string, timeStr?: string) => {
     if (!timeStr && !dateStr) return "Scheduled";
     try {
@@ -383,6 +421,7 @@ export default function DoctorDashboard() {
               <button 
                 onClick={() => setShowRxModal(false)}
                 className="text-slate-400 hover:text-white"
+                disabled={submittingRx}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -398,7 +437,8 @@ export default function DoctorDashboard() {
                   placeholder="Enter patient full name..."
                   value={rxPatientName}
                   onChange={(e) => setRxPatientName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  disabled={submittingRx}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                 />
               </div>
 
@@ -411,7 +451,8 @@ export default function DoctorDashboard() {
                   placeholder="e.g. Amoxicillin 500mg - 1 capsule every 8 hours for 7 days"
                   value={rxNotes}
                   onChange={(e) => setRxNotes(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  disabled={submittingRx}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                 />
               </div>
             </div>
@@ -419,19 +460,17 @@ export default function DoctorDashboard() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowRxModal(false)}
-                className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-slate-300"
+                disabled={submittingRx}
+                className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setShowRxModal(false);
-                  setRxPatientName("");
-                  setRxNotes("");
-                }}
-                className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-blue-600 hover:bg-blue-500 text-white"
+                onClick={handleIssuePrescription}
+                disabled={submittingRx}
+                className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
               >
-                Issue Rx Order
+                {submittingRx ? "Saving..." : "Issue Rx Order"}
               </button>
             </div>
           </div>

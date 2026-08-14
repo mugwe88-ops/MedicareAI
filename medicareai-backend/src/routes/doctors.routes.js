@@ -89,6 +89,35 @@ router.post("/", async (req, res) => {
 });
 
 /**
+ * POST /api/doctors/prescriptions
+ * Issues and stores a new prescription record
+ */
+router.post("/prescriptions", async (req, res) => {
+  try {
+    const { patient_name, medication_details, doctor_id } = req.body;
+
+    if (!patient_name || !medication_details) {
+      return res.status(400).json({ error: "Patient name and medication details are required." });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO prescriptions (doctor_id, patient_name, medication_details)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [doctor_id || null, patient_name, medication_details]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Prescription issued successfully",
+      prescription: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Prescription issuance error:", err);
+    return res.status(500).json({ error: "Failed to store prescription record" });
+  }
+});
+
+/**
  * GET /api/doctors/:id (Keep below static sub-routes like /status)
  */
 router.get("/:id", async (req, res) => {
