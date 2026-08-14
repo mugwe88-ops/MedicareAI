@@ -5,10 +5,10 @@ import pool from "../utils/db.js";
 const router = express.Router();
 
 /**
- * POST /api/doctors/status  AND  /api/doctor/status
- * Handles provider status updates (Available, In Visit, On Break)
+ * Shared controller for updating doctor status.
+ * Handles both POST and PATCH requests to prevent method mismatches.
  */
-router.post("/status", async (req, res) => {
+const updateStatusHandler = async (req, res) => {
   try {
     const { status } = req.body;
 
@@ -31,7 +31,14 @@ router.post("/status", async (req, res) => {
     console.error("Status update error:", err);
     return res.status(500).json({ error: "Failed to update doctor status" });
   }
-});
+};
+
+/**
+ * POST & PATCH /api/doctors/status AND /api/doctor/status
+ * Handles provider status updates (Available, In Visit, On Break)
+ */
+router.post("/status", updateStatusHandler);
+router.patch("/status", updateStatusHandler);
 
 /**
  * GET /api/doctors
