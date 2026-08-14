@@ -13,13 +13,15 @@ import {
   Plus,
   LogOut,
   Phone,
-  RefreshCw
+  RefreshCw,
+  X
 } from "lucide-react";
 
 interface Appointment {
   id: number;
   patient_name: string;
   phone: string;
+  appointment_date?: string;
   appointment_time: string;
   status: string;
   reason: string;
@@ -40,6 +42,11 @@ export default function DoctorDashboard() {
   const [providerStatus, setProviderStatus] = useState("Available");
   const [searchQuery, setSearchQuery] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  
+  // Modal states replacing browser alert()
+  const [showRxModal, setShowRxModal] = useState(false);
+  const [rxPatientName, setRxPatientName] = useState("");
+  const [rxNotes, setRxNotes] = useState("");
 
   const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
 
@@ -91,22 +98,29 @@ export default function DoctorDashboard() {
     }
   };
 
-  // 3. Update Provider Availability Status (Uses POST to bypass restricted CORS PATCH preflights)
+  // 3. Update Provider Availability Status
   const handleStatusChange = async (status: string) => {
     setProviderStatus(status);
     const token = localStorage.getItem("token");
     
     try {
-      await fetch(`${BACKEND_BASE}/api/doctor/status`, {
+      const res = await fetch(`${BACKEND_BASE}/api/doctor/status`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token || ""}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ status }),
       });
+
+      if (res.ok) {
+        console.log(`Status updated successfully to: ${status}`);
+      } else {
+        const errorText = await res.text();
+        console.warn("Backend status update failed:", errorText);
+      }
     } catch (err) {
-      console.warn("Backend status update skipped:", err);
+      console.error("Backend status update network error:", err);
     }
   };
 
@@ -115,13 +129,29 @@ export default function DoctorDashboard() {
     router.push("/telehealth");
   };
 
-  const handleNewPrescription = () => {
-    alert("Opening Rx Order Modal...");
-  };
-
   const handleLogout = () => {
     localStorage.clear();
     router.replace("/login");
+  };
+
+  // Helper for safe Date formatting (prevents Invalid Date crashes on raw time strings)
+  const formatAppointmentTime = (dateStr?: string, timeStr?: string) => {
+    if (!timeStr && !dateStr) return "Scheduled";
+    try {
+      if (dateStr && timeStr) {
+        const fullDate = new Date(`${dateStr.split("T")[0]}T${timeStr}`);
+        if (!isNaN(fullDate.getTime())) {
+          return fullDate.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+        }
+      }
+      const rawDate = new Date(timeStr || dateStr || "");
+      if (!isNaN(rawDate.getTime())) {
+        return rawDate.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+      }
+      return `${dateStr ? dateStr.split("T")[0] : ""} ${timeStr || ""}`.trim();
+    } catch {
+      return timeStr || dateStr || "Scheduled";
+    }
   };
 
   // 5. Dynamic Calculations derived from live backend data
@@ -265,7 +295,7 @@ export default function DoctorDashboard() {
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <button 
-            onClick={handleNewPrescription}
+            onClick={() => setShowRxModal(true)}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
           >
             <Plus className="w-4 h-4" /> New Prescription
@@ -319,10 +349,7 @@ export default function DoctorDashboard() {
                       </div>
                     </td>
                     <td className="p-4 text-slate-300 font-medium">
-                      {new Date(apt.appointment_time).toLocaleString([], {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
+                      {formatAppointmentTime(apt.appointment_date, apt.appointment_time)}
                     </td>
                     <td className="p-4 text-slate-400 max-w-xs truncate">
                       {apt.reason || "General Consultation"}
@@ -344,6 +371,72 @@ export default function DoctorDashboard() {
           </div>
         )}
       </div>
+
+      {/* NEW PRESCRIPTION MODAL */}
+      {showRxModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-xl p-6 space-y-4 text-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-white">
+                <Plus className="w-5 h-5 text-blue-500" /> Issue Prescription
+              </h3>
+              <button 
+                onClick={() => setShowRxModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Patient Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter patient full name..."
+                  value={rxPatientName}
+                  onChange={(e) => setRxPatientName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Medication & Dosage Details
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="e.g. Amoxicillin 500mg - 1 capsule every 8 hours for 7 days"
+                  value={rxNotes}
+                  onChange={(e) => setRxNotes(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowRxModal(false)}
+                className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowRxModal(false);
+                  setRxPatientName("");
+                  setRxNotes("");
+                }}
+                className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-blue-600 hover:bg-blue-500 text-white"
+              >
+                Issue Rx Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
