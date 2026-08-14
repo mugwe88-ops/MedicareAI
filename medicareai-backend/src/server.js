@@ -82,7 +82,7 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
-app.use("/api/results", resultsRoutes);
+app.use("/api/doctor", doctorRoutes); 
 
 // NEW: Dynamic Multi-Department Doctor Seeding Utility Route
 app.get("/api/seed-test-doctors", async (req, res) => {
