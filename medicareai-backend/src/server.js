@@ -64,7 +64,7 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], // Added PATCH method for status updates
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], 
   allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Requested-With"]
 }));
 
@@ -97,18 +97,15 @@ app.get("/api/seed-test-doctors", async (req, res) => {
   try {
     console.log("🌱 Seeding comprehensive medical specialists into PostgreSQL...");
     
-    // Static safe bcrypt string representing password: 'Password123'
     const mockHash = "$2b$10$76hZ6uFByZ02S6vY7WkXb.NlZ64GjDmsE7m05Wk47U24L6f6YbeoK";
 
     for (const doc of sampleDoctors) {
-      // 1. Ensure registration numbers bypass the system verification table
       await pool.query(
         `INSERT INTO verified_kmpdc (registration_number, doctor_name) 
          VALUES ($1, $2) ON CONFLICT (registration_number) DO NOTHING`,
         [doc.lic, doc.name]
       );
 
-      // 2. Insert clinical specialist profiles cleanly into users registry
       await pool.query(
         `INSERT INTO users (name, email, password, role, specialization, license_number, city, phone)
          VALUES ($1, $2, $3, 'doctor', $4, $5, 'Juja', $6)
@@ -116,18 +113,6 @@ app.get("/api/seed-test-doctors", async (req, res) => {
         [doc.name, doc.email, mockHash, doc.spec, doc.lic, doc.phone]
       );
     }
-
-    // Prescriptions Registry
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS prescriptions (
-    id SERIAL PRIMARY KEY,
-    doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    patient_name VARCHAR(255) NOT NULL,
-    medication_details TEXT NOT NULL,
-    status VARCHAR(50) DEFAULT 'issued',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
-`);
 
     return res.json({ 
       status: "success", 
@@ -223,7 +208,7 @@ async function initDatabase() {
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Available';" // Added status column migration
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Available';"
     ];
     for (const query of migrations) { await pool.query(query); }
 
@@ -250,7 +235,7 @@ async function initDatabase() {
       );
     `);
 
-    // Appointments (Enforces direct relationship anchoring for telehealth gates)
+    // Appointments
     await pool.query(`
       CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
@@ -265,8 +250,19 @@ async function initDatabase() {
       );
     `);
 
-    // Ensure appointment dynamic schema has doctor_id safely tied
     await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
+
+    // Prescriptions Registry (Added here to initialize reliably on deployment boot)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS prescriptions (
+        id SERIAL PRIMARY KEY,
+        doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        patient_name VARCHAR(255) NOT NULL,
+        medication_details TEXT NOT NULL,
+        status VARCHAR(50) DEFAULT 'issued',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
     // KMPDC Verification
     await pool.query(`
