@@ -64,7 +64,7 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], // Added PATCH method for status updates
   allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Requested-With"]
 }));
 
@@ -210,7 +210,8 @@ async function initDatabase() {
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(255);",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);"
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Available';" // Added status column migration
     ];
     for (const query of migrations) { await pool.query(query); }
 
