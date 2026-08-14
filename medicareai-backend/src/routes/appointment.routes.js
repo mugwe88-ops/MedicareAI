@@ -4,8 +4,7 @@ import pool from "../utils/db.js";
 
 const router = express.Router();
 
-/* ================= GET DOCTOR SPECIFIC APPOINTMENTS (FIXED) ================= */
-// This handles the GET request to /api/appointments/doctor called by the dashboard
+/* ================= GET DOCTOR SPECIFIC APPOINTMENTS ================= */
 router.get("/doctor", async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
@@ -16,15 +15,23 @@ router.get("/doctor", async (req, res) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
 
-    // Double check that the authenticated user is actually a doctor
     if (decoded.role?.toLowerCase() !== "doctor") {
       return res.status(403).json({ error: "Access forbidden. Account requires doctor privileges." });
     }
 
-    // Query appointments where the doctor_id matches the logged-in doctor's user ID
+    const doctorId = parseInt(decoded.id, 10);
+
+    // Join with users table to fall back to registered user details if direct fields are empty
     const result = await pool.query(
-      "SELECT * FROM appointments WHERE doctor_id = $1 ORDER BY appointment_time DESC",
-      [decoded.id]
+      `SELECT 
+        a.*, 
+        COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
+        COALESCE(a.phone, u.phone, 'N/A') AS phone
+       FROM appointments a
+       LEFT JOIN users u ON a.patient_id = u.id
+       WHERE a.doctor_id = $1 OR a.doctor_id IS NULL
+       ORDER BY a.appointment_time DESC`,
+      [doctorId]
     );
 
     return res.json(result.rows || []);
@@ -40,85 +47,104 @@ router.post("/", async (req, res) => {
     const { patient_name, phone, appointment_time, doctor_id, reason, patient_id } = req.body;
 
     if (!patient_name || !phone || !appointment_time) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({ error: "Missing required fields: patient_name, phone, and appointment_time." });
     }
 
     const parsedDoctorId = doctor_id ? parseInt(doctor_id, 10) : null;
     const parsedPatientId = patient_id ? parseInt(patient_id, 10) : null;
 
-    console.log(`Attempting booking for: ${patient_name} at ${appointment_time}`);
-
     const result = await pool.query(
       `INSERT INTO appointments (patient_name, phone, appointment_time, doctor_id, patient_id, reason, status) 
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending') RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, 'Pending') 
+       RETURNING *`,
       [patient_name, phone, appointment_time, parsedDoctorId, parsedPatientId, reason || 'General Consultation']
     );
 
-    res.status(201).json(result.rows[0]);
+    return res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("CRITICAL DB ERROR:", err.message); 
-    res.status(500).json({ error: "Booking failed", details: err.message });
+    return res.status(500).json({ error: "Booking failed", details: err.message });
   }
 });
 
-/* ================= GET FILTERED APPOINTMENTS (The Privacy Fix) ================= */
+/* ================= GET FILTERED APPOINTMENTS ================= */
 router.get("/", async (req, res) => {
   const { patient_id, doctor_id } = req.query;
 
   try {
-    let query = "SELECT * FROM appointments";
+    let query = `
+      SELECT 
+        a.*, 
+        COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
+        COALESCE(a.phone, u.phone, 'N/A') AS phone
+      FROM appointments a
+      LEFT JOIN users u ON a.patient_id = u.id
+    `;
     let params = [];
 
-    // If a patient_id is provided, only show their appointments
     if (patient_id) {
-      query += " WHERE patient_id = $1";
-      params.push(patient_id);
-    } 
-    // If a doctor_id is provided, only show their appointments
-    else if (doctor_id) {
-      query += " WHERE doctor_id = $1";
-      params.push(doctor_id);
+      query += " WHERE a.patient_id = $1";
+      params.push(parseInt(patient_id, 10));
+    } else if (doctor_id) {
+      query += " WHERE a.doctor_id = $1";
+      params.push(parseInt(doctor_id, 10));
     }
 
-    query += " ORDER BY appointment_time DESC";
+    query += " ORDER BY a.appointment_time DESC";
     
     const result = await pool.query(query, params);
-    res.json(result.rows);
+    return res.json(result.rows);
   } catch (err) {
     console.error("Fetch Error:", err.message);
-    res.status(500).json({ error: "Could not fetch appointments" });
+    return res.status(500).json({ error: "Could not fetch appointments" });
   }
 });
 
-/* ================= UPDATE STATUS ================= */
-router.put("/:id", async (req, res) => {
+/* ================= UPDATE STATUS (Supports PUT /:id and PATCH /:id/status) ================= */
+const handleStatusUpdate = async (req, res) => {
   try {
+    const { id } = req.params;
     const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: "Status value is required." });
+    }
+
     const result = await pool.query(
       "UPDATE appointments SET status=$1 WHERE id=$2 RETURNING *",
-      [status, req.params.id]
+      [status, parseInt(id, 10)]
     );
-    if (result.rows.length === 0) {
+
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: "Appointment not found" });
     }
-    res.json(result.rows[0]);
+
+    return res.json(result.rows[0]);
   } catch (err) {
     console.error("Update Error:", err.message);
-    res.status(500).json({ error: "Update failed" });
+    return res.status(500).json({ error: "Update failed" });
   }
-});
+};
+
+router.put("/:id", handleStatusUpdate);
+router.patch("/:id/status", handleStatusUpdate);
 
 /* ================= DELETE APPOINTMENT ================= */
 router.delete("/:id", async (req, res) => {
   try {
-    const result = await pool.query("DELETE FROM appointments WHERE id=$1 RETURNING *", [req.params.id]);
+    const result = await pool.query(
+      "DELETE FROM appointments WHERE id=$1 RETURNING *", 
+      [parseInt(req.params.id, 10)]
+    );
+
     if (result.rowCount === 0) {
       return res.status(404).json({ error: "Appointment not found" });
     }
-    res.json({ message: "Appointment deleted successfully" });
+
+    return res.json({ message: "Appointment deleted successfully" });
   } catch (err) {
     console.error("Delete Error:", err.message);
-    res.status(500).json({ error: "Deletion failed" });
+    return res.status(500).json({ error: "Deletion failed" });
   }
 });
 
