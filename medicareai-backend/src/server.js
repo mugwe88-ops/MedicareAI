@@ -328,7 +328,7 @@ async function initDatabase() {
       );
     `);
 
-    // Schema Migrations (Fixes missing columns on pre-existing live database tables)
+    // Schema Migrations (Ensures pre-existing database tables match expected column names & data types)
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
@@ -340,7 +340,8 @@ async function initDatabase() {
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_date DATE;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_time TIME;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reason TEXT;",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending';"
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending';",
+      "ALTER TABLE appointments ALTER COLUMN appointment_time TYPE TIME USING appointment_time::time;"
     ];
 
     for (const query of migrations) { 
