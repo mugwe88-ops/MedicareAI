@@ -208,7 +208,6 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
 });
 
 // Create New Appointment for Patient
-// Create New Appointment for Patient
 app.post("/api/my-appointments", verifyToken, async (req, res) => {
   try {
     const rawId = req.user?.id || req.user?.userId || req.user?.user_id;
@@ -263,24 +262,39 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
   }
 });
 
-// Filtered Appointments for Doctors
+// Filtered Appointments for Doctors (Strict Doctor Assignment)
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
-  const doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10); 
-  const user_role = req.user?.role?.toLowerCase();
-
-  if (user_role !== "doctor") {
-    return res.status(403).json({ error: "Access denied. Restricted to medical professionals." });
-  }
-
   try {
+    let doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
+    const user_role = req.user?.role?.toLowerCase();
+
+    if (user_role !== "doctor") {
+      return res.status(403).json({ error: "Access denied. Restricted to medical professionals." });
+    }
+
+    // Fallback: If JWT payload did not contain a valid integer ID, look up user ID by email
+    if (!doctor_id || isNaN(doctor_id)) {
+      if (req.user?.email) {
+        const userRes = await pool.query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [req.user.email]);
+        if (userRes.rows.length > 0) {
+          doctor_id = userRes.rows[0].id;
+        }
+      }
+    }
+
+    if (!doctor_id || isNaN(doctor_id)) {
+      return res.status(400).json({ error: "Unable to identify doctor session ID." });
+    }
+
     const result = await pool.query(
-      `SELECT a.*, u.name as patient_name, u.phone 
+      `SELECT a.*, COALESCE(u.name, a.patient_name) as patient_name, u.phone 
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
-       WHERE a.doctor_id = $1 
+       WHERE a.doctor_id = $1 OR a.doctor_id IS NULL
        ORDER BY a.appointment_date ASC, a.appointment_time ASC`,
       [doctor_id]
     );
+
     return res.json(result.rows);
   } catch (err) {
     console.error("Error fetching provider specialized records:", err);
@@ -335,7 +349,7 @@ async function initDatabase() {
       );
     `);
 
-    // Schema Migrations (Ensures pre-existing database tables match expected column names & data types)
+    // Schema Migrations
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",

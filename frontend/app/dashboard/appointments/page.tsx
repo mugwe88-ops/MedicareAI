@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, Clock, Plus, AlertCircle, CheckCircle, X, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Calendar, Clock, Plus, AlertCircle, CheckCircle, X, User, Video } from "lucide-react";
 
 interface Appointment {
   id: number;
   department?: string;
   doctor_name?: string;
+  doctor_id?: number;
   appointment_date?: string;
   appointment_time?: string;
   reason?: string;
@@ -20,6 +22,7 @@ interface Doctor {
 }
 
 export default function AppointmentsPage() {
+  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -101,6 +104,12 @@ export default function AppointmentsPage() {
     e.preventDefault();
     setSubmitting(true);
     setBookingError(null);
+
+    if (!formData.doctor_id) {
+      setBookingError("Please select a specific doctor for your consultation.");
+      setSubmitting(false);
+      return;
+    }
 
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -191,41 +200,51 @@ export default function AppointmentsPage() {
           {appointments.map((apt) => (
             <div
               key={apt.id}
-              className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition space-y-3"
+              className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition flex flex-col justify-between space-y-4"
             >
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">
-                    {apt.department || "General Consultation"}
-                  </h3>
-                  {apt.doctor_name && (
-                    <p className="text-xs font-semibold text-blue-600 flex items-center gap-1 mt-0.5">
-                      <User size={12} /> Dr. {apt.doctor_name}
+              <div className="space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base">
+                      {apt.department || "General Consultation"}
+                    </h3>
+                    {apt.doctor_name && (
+                      <p className="text-xs font-semibold text-blue-600 flex items-center gap-1 mt-0.5">
+                        <User size={12} /> Dr. {apt.doctor_name}
+                      </p>
+                    )}
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 capitalize">
+                    <CheckCircle size={12} /> {apt.status || "Confirmed"}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-xs text-slate-500">
+                  <p className="flex items-center gap-2">
+                    <Clock size={14} className="text-slate-400" />
+                    {apt.appointment_date ? new Date(apt.appointment_date).toLocaleDateString() : "Date Pending"} at {apt.appointment_time || "Time Pending"}
+                  </p>
+                  {apt.reason && (
+                    <p className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-slate-600 text-xs mt-2">
+                      <span className="font-semibold text-slate-700">Reason:</span> {apt.reason}
                     </p>
                   )}
                 </div>
-                <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 capitalize">
-                  <CheckCircle size={12} /> {apt.status || "Confirmed"}
-                </span>
               </div>
 
-              <div className="space-y-1.5 text-xs text-slate-500">
-                <p className="flex items-center gap-2">
-                  <Clock size={14} className="text-slate-400" />
-                  {apt.appointment_date ? new Date(apt.appointment_date).toLocaleDateString() : "Date Pending"} at {apt.appointment_time || "Time Pending"}
-                </p>
-                {apt.reason && (
-                  <p className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-slate-600 text-xs mt-2">
-                    <span className="font-semibold text-slate-700">Reason:</span> {apt.reason}
-                  </p>
-                )}
-              </div>
+              {/* Action Button */}
+              <button
+                onClick={() => router.push(`/telehealth/${apt.id}`)}
+                className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition shadow-sm"
+              >
+                <Video size={14} className="text-blue-400" /> Join Video Consultation
+              </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* Modal */}
+      {/* Booking Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100">
@@ -268,19 +287,28 @@ export default function AppointmentsPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Select Doctor (Optional)
+                  Select Doctor <span className="text-rose-500">*</span>
                 </label>
                 <select
+                  required
                   value={formData.doctor_id}
                   onChange={(e) => setFormData({ ...formData, doctor_id: e.target.value })}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                 >
-                  <option value="">Any Available Specialist</option>
-                  {doctors.map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      Dr. {doc.name}
+                  <option value="" disabled>
+                    -- Select an available doctor --
+                  </option>
+                  {doctors.length === 0 ? (
+                    <option value="" disabled>
+                      No doctors currently available in this department
                     </option>
-                  ))}
+                  ) : (
+                    doctors.map((doc) => (
+                      <option key={doc.id} value={doc.id}>
+                        Dr. {doc.name} {doc.specialization ? `(${doc.specialization})` : ""}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
