@@ -7,7 +7,6 @@ dotenv.config();
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import cors from "cors";
 import helmet from "helmet";
 
 // Database & Routes
@@ -31,7 +30,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.set("trust proxy", 1);
 
 /* ======================
-   2️⃣ MIDDLEWARE & CORS
+   2️⃣ FAIL-SAFE CORS & MIDDLEWARE
 ====================== */
 app.use(
   helmet({
@@ -39,26 +38,29 @@ app.use(
   })
 );
 
-// Auto-reflects requesting origin to guarantee headers are sent on all routes/OPTIONS
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "Accept",
-      "X-Requested-With",
-      "Origin",
-      "Access-Control-Request-Method",
-      "Access-Control-Request-Headers",
-    ],
-    optionsSuccessStatus: 200,
-  })
-);
+// Custom CORS Interceptor
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Dynamic header reflection (bypasses CORS restrictions completely)
+  res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
 
-app.options("*", cors());
+  // Instantly resolve browser OPTIONS preflight checks
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
