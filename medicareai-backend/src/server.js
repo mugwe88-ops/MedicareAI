@@ -95,7 +95,7 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 
-// GET All Active Doctors (Flexible matching by specialization, trimmed strings & partial matching)
+// GET All Active Doctors
 app.get("/api/doctors-list", verifyToken, async (req, res) => {
   try {
     const { specialization } = req.query;
@@ -115,6 +115,35 @@ app.get("/api/doctors-list", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Error fetching doctors:", err);
     return res.status(500).json({ error: "Failed to fetch doctors list" });
+  }
+});
+
+// Update Appointment Status (Completed / Cancelled)
+app.patch("/api/appointments/:id/status", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !["completed", "cancelled", "confirmed", "pending"].includes(status.toLowerCase())) {
+      return res.status(400).json({ error: "Invalid or missing status value." });
+    }
+
+    const result = await pool.query(
+      `UPDATE appointments 
+       SET status = $1 
+       WHERE id = $2 
+       RETURNING *`,
+      [status.toLowerCase(), id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Appointment record not found." });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error updating appointment status:", err);
+    return res.status(500).json({ error: "Failed to update appointment status." });
   }
 });
 
@@ -218,7 +247,6 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Invalid user session. Please re-login." });
     }
 
-    // 1️⃣ Fetch patient name automatically from database
     const userResult = await pool.query("SELECT name FROM users WHERE id = $1", [patient_id]);
     const patient_name = userResult.rows[0]?.name || "Anonymous Patient";
 
@@ -232,7 +260,6 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
       appointment_time = `${appointment_time}:00`;
     }
 
-    // 2️⃣ Resolve doctor_id to integer (preferring highest active user ID on duplicate doctor names)
     let safeDoctorId = doctor_id && !isNaN(parseInt(doctor_id, 10)) ? parseInt(doctor_id, 10) : null;
 
     const searchTarget = doctor_name || (isNaN(parseInt(doctor_id, 10)) ? doctor_id : null);
@@ -256,7 +283,6 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
     const safeDept = department || "General Medicine";
     const safeReason = reason || "";
 
-    // 3️⃣ Store appointment mapped to verified doctor integer ID
     const query = `
       INSERT INTO appointments (patient_id, patient_name, doctor_id, department, appointment_date, appointment_time, reason, status)
       VALUES ($1, $2, $3, $4, $5::date, $6::time, $7, 'confirmed')
@@ -283,7 +309,7 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
   }
 });
 
-// Filtered Appointments for Doctors (Strictly routed by doctor_id OR unassigned department matching doctor's specialization)
+// Filtered Appointments for Doctors
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
   try {
     let doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -293,7 +319,6 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
       return res.status(403).json({ error: "Access denied. Restricted to medical professionals." });
     }
 
-    // Fallback: If JWT payload did not contain a valid integer ID, look up user ID by email
     if (!doctor_id || isNaN(doctor_id)) {
       if (req.user?.email) {
         const userRes = await pool.query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [req.user.email]);
@@ -307,7 +332,6 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Unable to identify doctor session ID." });
     }
 
-    // Fetch doctor's specialization to route unassigned department appointments accurately
     const docSpecRes = await pool.query("SELECT specialization FROM users WHERE id = $1", [doctor_id]);
     const specialization = docSpecRes.rows[0]?.specialization || "";
 
@@ -377,7 +401,6 @@ async function initDatabase() {
       );
     `);
 
-    // Schema Migrations
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
