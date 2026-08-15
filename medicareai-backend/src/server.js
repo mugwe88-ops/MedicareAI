@@ -182,25 +182,54 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
 });
 
 // Create New Appointment for Patient
+// Create New Appointment for Patient
 app.post("/api/my-appointments", verifyToken, async (req, res) => {
-  const patient_id = parseInt(req.user.id, 10);
-  const { department, appointment_date, appointment_time, reason } = req.body;
-
-  if (!appointment_date || !appointment_time) {
-    return res.status(400).json({ error: "Date and time are required." });
-  }
-
   try {
-    const result = await pool.query(
-      `INSERT INTO appointments (patient_id, department, appointment_date, appointment_time, reason, status)
-       VALUES ($1, $2, $3, $4, $5, 'confirmed')
-       RETURNING *`,
-      [patient_id, department || "General Medicine", appointment_date, appointment_time, reason || ""]
-    );
-    res.status(201).json(result.rows[0]);
+    const rawId = req.user?.id || req.user?.userId || req.user?.user_id;
+    const patient_id = parseInt(rawId, 10);
+
+    if (!patient_id || isNaN(patient_id)) {
+      return res.status(400).json({ 
+        error: "Invalid user session. Please log out and sign in again." 
+      });
+    }
+
+    let { department, appointment_date, appointment_time, reason } = req.body;
+
+    if (!appointment_date || !appointment_time) {
+      return res.status(400).json({ error: "Date and time are required." });
+    }
+
+    // Ensure appointment_time has seconds appended if missing (e.g. "09:00" -> "09:00:00")
+    if (appointment_time.length === 5) {
+      appointment_time = `${appointment_time}:00`;
+    }
+
+    // Sanitize values
+    const safeDept = department || "General Medicine";
+    const safeReason = reason || "";
+
+    const query = `
+      INSERT INTO appointments (patient_id, department, appointment_date, appointment_time, reason, status)
+      VALUES ($1, $2, $3::date, $4::time, $5, 'confirmed')
+      RETURNING *;
+    `;
+
+    const result = await pool.query(query, [
+      patient_id,
+      safeDept,
+      appointment_date,
+      appointment_time,
+      safeReason
+    ]);
+
+    return res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error("Error creating appointment:", err);
-    res.status(500).json({ error: "Failed to book appointment." });
+    console.error("❌ DB Insert Error on /api/my-appointments:", err);
+    return res.status(500).json({ 
+      error: "Failed to book appointment.", 
+      details: err.message || "Database query failure" 
+    });
   }
 });
 
