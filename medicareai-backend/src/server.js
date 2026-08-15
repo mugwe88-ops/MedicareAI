@@ -208,6 +208,7 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
 });
 
 // Create New Appointment for Patient
+// Create New Appointment for Patient
 app.post("/api/my-appointments", verifyToken, async (req, res) => {
   try {
     const rawId = req.user?.id || req.user?.userId || req.user?.user_id;
@@ -216,6 +217,10 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
     if (!patient_id || isNaN(patient_id)) {
       return res.status(400).json({ error: "Invalid user session. Please re-login." });
     }
+
+    // 1️⃣ Fetch patient name automatically from the database using patient_id
+    const userResult = await pool.query("SELECT name FROM users WHERE id = $1", [patient_id]);
+    const patient_name = userResult.rows[0]?.name || "Anonymous Patient";
 
     let { department, doctor_id, appointment_date, appointment_time, reason } = req.body;
 
@@ -231,14 +236,16 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
     const safeReason = reason || "";
     const safeDoctorId = doctor_id ? parseInt(doctor_id, 10) : null;
 
+    // 2️⃣ Include patient_name in the query
     const query = `
-      INSERT INTO appointments (patient_id, doctor_id, department, appointment_date, appointment_time, reason, status)
-      VALUES ($1, $2, $3, $4::date, $5::time, $6, 'confirmed')
+      INSERT INTO appointments (patient_id, patient_name, doctor_id, department, appointment_date, appointment_time, reason, status)
+      VALUES ($1, $2, $3, $4, $5::date, $6::time, $7, 'confirmed')
       RETURNING *;
     `;
 
     const result = await pool.query(query, [
       patient_id,
+      patient_name,
       safeDoctorId,
       safeDept,
       appointment_date,
