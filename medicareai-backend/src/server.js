@@ -263,6 +263,7 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
 });
 
 // Filtered Appointments for Doctors (Strict Doctor Assignment)
+// Filtered Appointments for Doctors (Sorted by Most Recent First)
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
   try {
     let doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -287,11 +288,13 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT a.*, COALESCE(u.name, a.patient_name) as patient_name, u.phone 
+      `SELECT a.*, 
+              COALESCE(u.name, a.patient_name, 'Anonymous Patient') as patient_name, 
+              u.phone 
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
        WHERE a.doctor_id = $1 OR a.doctor_id IS NULL
-       ORDER BY a.appointment_date ASC, a.appointment_time ASC`,
+       ORDER BY a.created_at DESC, a.appointment_date DESC, a.appointment_time DESC`,
       [doctor_id]
     );
 
