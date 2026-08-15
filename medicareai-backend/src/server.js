@@ -103,6 +103,24 @@ app.use("/api/bookings", bookingRoutes);
 // ==========================================
 // DOCTOR PRESCRIPTION ROUTES (MUST PRECEDE GENERAL ROUTER)
 // ==========================================
+// Medical Records & Prescriptions for Logged-In Patient
+app.get("/api/records", verifyToken, async (req, res) => {
+  const patient_id = req.user.id;
+  try {
+    const result = await pool.query(
+      `SELECT p.* 
+       FROM prescriptions p
+       JOIN users u ON LOWER(p.patient_name) = LOWER(u.name)
+       WHERE u.id = $1
+       ORDER BY p.created_at DESC`,
+      [patient_id]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching medical records:", err);
+    return res.status(500).json({ error: "Failed to fetch medical records" });
+  }
+});
 
 // 1. GET Prescriptions (Scoped strictly to the logged-in doctor)
 app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
