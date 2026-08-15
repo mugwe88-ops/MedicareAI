@@ -82,6 +82,55 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
+
+// ==========================================
+// DOCTOR PRESCRIPTION ROUTES (MUST PRECEDE GENERAL ROUTER)
+// ==========================================
+
+// 1. GET Prescriptions (Scoped strictly to the logged-in doctor)
+app.get('/api/doctor/prescriptions', verifyToken, async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+
+    const result = await pool.query(
+      `SELECT * FROM prescriptions 
+       WHERE doctor_id = $1 
+       ORDER BY created_at DESC`,
+      [doctorId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching prescriptions:', err);
+    res.status(500).json({ error: 'Server error fetching prescriptions.' });
+  }
+});
+
+// 2. POST New Prescription (Attaches logged-in doctor's ID)
+app.post('/api/doctor/prescriptions', verifyToken, async (req, res) => {
+  const { patient_name, medication_details } = req.body;
+  const doctorId = req.user.id;
+
+  if (!patient_name || !medication_details) {
+    return res.status(400).json({ error: 'Patient name and medication details are required.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO prescriptions (doctor_id, patient_name, medication_details, status)
+       VALUES ($1, $2, $3, 'Issued') 
+       RETURNING *`,
+      [doctorId, patient_name, medication_details]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating prescription:', err);
+    res.status(500).json({ error: 'Server error saving prescription.' });
+  }
+});
+
+// General doctor router mounted AFTER specific routes
 app.use("/api/doctor", doctorRoutes); 
 
 // NEW: Dynamic Multi-Department Doctor Seeding Utility Route
@@ -162,53 +211,6 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Error fetching provider specialized records:", err);
     return res.status(500).json({ error: "Internal server error reading appointment ledger" });
-  }
-});
-
-// ==========================================
-// DOCTOR PRESCRIPTION ROUTES
-// ==========================================
-
-// 1. GET Prescriptions (Scoped strictly to the logged-in doctor)
-app.get('/api/doctor/prescriptions', verifyToken, async (req, res) => {
-  try {
-    const doctorId = req.user.id; // Extracted from JWT token via verifyToken
-
-    const result = await pool.query(
-      `SELECT * FROM prescriptions 
-       WHERE doctor_id = $1 
-       ORDER BY created_at DESC`,
-      [doctorId]
-    );
-
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching prescriptions:', err);
-    res.status(500).json({ error: 'Server error fetching prescriptions.' });
-  }
-});
-
-// 2. POST New Prescription (Attaches logged-in doctor's ID)
-app.post('/api/doctor/prescriptions', verifyToken, async (req, res) => {
-  const { patient_name, medication_details } = req.body;
-  const doctorId = req.user.id; // Extracted from JWT token via verifyToken
-
-  if (!patient_name || !medication_details) {
-    return res.status(400).json({ error: 'Patient name and medication details are required.' });
-  }
-
-  try {
-    const result = await pool.query(
-      `INSERT INTO prescriptions (doctor_id, patient_name, medication_details, status)
-       VALUES ($1, $2, $3, 'Issued') 
-       RETURNING *`,
-      [doctorId, patient_name, medication_details]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Error creating prescription:', err);
-    res.status(500).json({ error: 'Server error saving prescription.' });
   }
 });
 
