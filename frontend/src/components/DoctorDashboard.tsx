@@ -54,7 +54,7 @@ export default function DoctorDashboard() {
       }
     } catch (err) {
       console.error('Fetch Error:', err);
-    } font-normal {
+    } finally {
       setLoading(false);
     }
   };
