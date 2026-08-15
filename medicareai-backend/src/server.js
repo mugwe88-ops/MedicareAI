@@ -35,9 +35,11 @@ app.set("trust proxy", 1);
 /* ======================
    2️⃣ MIDDLEWARE & CORS
 ====================== */
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 const allowedOrigins = [
   "https://medicare-ai-two.vercel.app",
@@ -47,28 +49,44 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
   /\.github\.dev$/,
-  /\.vercel\.app$/ 
+  /\.vercel\.app$/,
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
     if (!origin) return callback(null, true);
-    const isAllowed = allowedOrigins.some((allowed) => 
+
+    const isAllowed = allowedOrigins.some((allowed) =>
       typeof allowed === "string" ? allowed === origin : allowed.test(origin)
     );
+
     if (isAllowed) {
       callback(null, true);
     } else {
-      console.error(`CORS blocked for origin: ${origin}`);
-      callback(new Error("CORS blocked this origin"));
+      console.warn(`⚠️ CORS Access requested from untrusted origin: ${origin}`);
+      // Return false instead of throwing an Error object to allow CORS to handle preflight headers properly
+      callback(null, false);
     }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], 
-  allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Requested-With"]
-}));
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Accept",
+    "X-Requested-With",
+    "Origin",
+    "Access-Control-Request-Method",
+    "Access-Control-Request-Headers",
+  ],
+  optionsSuccessStatus: 200, // Important for legacy browsers / IE11
+};
 
-app.options("*", cors());
+// Apply CORS globally and handle Preflight OPTIONS requests across all routes
+app.use(cors(corsOptions));
+app.options(/(.*)/, cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -81,14 +99,13 @@ app.use("/api/appointments", appointmentRoutes);
 app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
-app.use("/api/doctors", doctorRoutes);
 
 // ==========================================
 // DOCTOR PRESCRIPTION ROUTES (MUST PRECEDE GENERAL ROUTER)
 // ==========================================
 
 // 1. GET Prescriptions (Scoped strictly to the logged-in doctor)
-app.get('/api/doctor/prescriptions', verifyToken, async (req, res) => {
+app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   try {
     const doctorId = req.user.id;
 
@@ -101,18 +118,18 @@ app.get('/api/doctor/prescriptions', verifyToken, async (req, res) => {
 
     res.json(result.rows);
   } catch (err) {
-    console.error('Error fetching prescriptions:', err);
-    res.status(500).json({ error: 'Server error fetching prescriptions.' });
+    console.error("Error fetching prescriptions:", err);
+    res.status(500).json({ error: "Server error fetching prescriptions." });
   }
 });
 
 // 2. POST New Prescription (Attaches logged-in doctor's ID)
-app.post('/api/doctor/prescriptions', verifyToken, async (req, res) => {
+app.post("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   const { patient_name, medication_details } = req.body;
   const doctorId = req.user.id;
 
   if (!patient_name || !medication_details) {
-    return res.status(400).json({ error: 'Patient name and medication details are required.' });
+    return res.status(400).json({ error: "Patient name and medication details are required." });
   }
 
   try {
@@ -125,13 +142,13 @@ app.post('/api/doctor/prescriptions', verifyToken, async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('Error creating prescription:', err);
-    res.status(500).json({ error: 'Server error saving prescription.' });
+    console.error("Error creating prescription:", err);
+    res.status(500).json({ error: "Server error saving prescription." });
   }
 });
 
 // General doctor router mounted AFTER specific routes
-app.use("/api/doctor", doctorRoutes); 
+app.use("/api/doctor", doctorRoutes);
 
 // NEW: Dynamic Multi-Department Doctor Seeding Utility Route
 app.get("/api/seed-test-doctors", async (req, res) => {

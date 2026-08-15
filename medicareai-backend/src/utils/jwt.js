@@ -25,31 +25,32 @@ export function signAccessToken(user) {
 export function verifyToken(req, res, next) {
   try {
     const authHeader = req.headers.authorization || req.headers.Authorization;
+    
+    console.log("--- AUTH CHECK ---");
+    console.log("Incoming Auth Header:", authHeader);
 
     if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
-      console.error("AUTH ERROR: Missing or malformed Bearer token");
+      console.error("401 REASON: Missing or malformed Bearer header");
       return res.status(401).json({ error: "No token provided" });
     }
 
-    // Extract token cleanly regardless of extra spacing
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    console.log("Extracted Token:", token.substring(0, 15) + "...");
+    console.log("Using Secret Key:", JWT_SECRET ? "SECRET_PRESENT" : "NO_SECRET_DEFINED");
 
-    // Verify token flexible on issuer/audience to prevent immediate 401 on legacy tokens
-    const decoded = jwt.verify(token, JWT_SECRET, {
-      issuer: JWT_ISSUER,
-      audience: JWT_AUDIENCE,
-    });
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
 
-    // Attach decoded details to request object
     req.user = {
       id: decoded.sub || decoded.id,
       email: decoded.email,
       role: decoded.role,
     };
 
+    console.log("AUTH SUCCESS for User ID:", req.user.id);
     next();
   } catch (err) {
-    console.error("JWT VERIFICATION FAILED:", err.message);
+    console.error("401 REASON (jwt.verify failed):", err.message);
     return res.status(401).json({ error: "Invalid or expired session" });
   }
 }
