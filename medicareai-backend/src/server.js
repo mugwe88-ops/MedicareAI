@@ -217,7 +217,7 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Invalid user session. Please re-login." });
     }
 
-    // 1️⃣ Fetch patient name automatically from the database using patient_id
+    // 1️⃣ Fetch patient name automatically from database
     const userResult = await pool.query("SELECT name FROM users WHERE id = $1", [patient_id]);
     const patient_name = userResult.rows[0]?.name || "Anonymous Patient";
 
@@ -231,29 +231,31 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
       appointment_time = `${appointment_time}:00`;
     }
 
-    // Resolve doctor_id to an integer if a doctor's name or string ID was sent
-    let safeDoctorId = doctor_id ? parseInt(doctor_id, 10) : null;
+    // 2️⃣ Resolve doctor_id to integer (preferring highest active user ID on duplicate doctor names)
+    let safeDoctorId = doctor_id && !isNaN(parseInt(doctor_id, 10)) ? parseInt(doctor_id, 10) : null;
 
-    if (isNaN(safeDoctorId) || !safeDoctorId) {
-      const searchTarget = doctor_name || doctor_id;
-      if (searchTarget) {
-        const docRes = await pool.query(
-          `SELECT id FROM users 
-           WHERE LOWER(role) = 'doctor' 
-             AND (LOWER(name) LIKE LOWER($1) OR id::text = $2) 
-           LIMIT 1`,
-          [`%${String(searchTarget).replace(/^dr\.\s*/i, '')}%`, String(searchTarget)]
-        );
-        if (docRes.rows.length > 0) {
-          safeDoctorId = docRes.rows[0].id;
-        }
+    const searchTarget = doctor_name || (isNaN(parseInt(doctor_id, 10)) ? doctor_id : null);
+    
+    if (searchTarget) {
+      const cleanName = String(searchTarget).replace(/^dr\.\s*/i, '').trim();
+      const docRes = await pool.query(
+        `SELECT id FROM users 
+         WHERE LOWER(role) = 'doctor' 
+           AND (LOWER(name) LIKE LOWER($1) OR id::text = $2) 
+         ORDER BY id DESC 
+         LIMIT 1`,
+        [`%${cleanName}%`, cleanName]
+      );
+      
+      if (docRes.rows.length > 0) {
+        safeDoctorId = docRes.rows[0].id;
       }
     }
 
     const safeDept = department || "General Medicine";
     const safeReason = reason || "";
 
-    // 2️⃣ Include patient_name in the query
+    // 3️⃣ Store appointment mapped to verified doctor integer ID
     const query = `
       INSERT INTO appointments (patient_id, patient_name, doctor_id, department, appointment_date, appointment_time, reason, status)
       VALUES ($1, $2, $3, $4, $5::date, $6::time, $7, 'confirmed')
