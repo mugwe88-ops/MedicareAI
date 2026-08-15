@@ -1,24 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, Clock, Plus, AlertCircle, CheckCircle, X } from "lucide-react";
+import { Calendar, Clock, Plus, AlertCircle, CheckCircle, X, User } from "lucide-react";
 
 interface Appointment {
   id: number;
   department?: string;
+  doctor_name?: string;
   appointment_date?: string;
   appointment_time?: string;
   reason?: string;
   status: string;
-  patient_name?: string;
+}
+
+interface Doctor {
+  id: number;
+  name: string;
+  specialization?: string;
 }
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Booking Modal States
+  // Modal States
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -30,6 +37,7 @@ export default function AppointmentsPage() {
 
   const [formData, setFormData] = useState({
     department: "General Medicine",
+    doctor_id: "",
     appointment_date: getTodayString(),
     appointment_time: "09:00",
     reason: "",
@@ -39,13 +47,17 @@ export default function AppointmentsPage() {
     fetchAppointments();
   }, []);
 
+  useEffect(() => {
+    if (isModalOpen) {
+      fetchDoctors(formData.department);
+    }
+  }, [formData.department, isModalOpen]);
+
   const fetchAppointments = async () => {
     setLoading(true);
     setError(null);
-
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
       const res = await fetch("https://medicareai-1.onrender.com/api/my-appointments", {
         headers: {
           Authorization: `Bearer ${token || ""}`,
@@ -53,18 +65,35 @@ export default function AppointmentsPage() {
         },
       });
 
-      if (!res.ok) {
-        throw new Error(`Server returned ${res.status}`);
-      }
-
+      if (!res.ok) throw new Error(`Server status ${res.status}`);
       const data = await res.json();
       setAppointments(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      console.error("Failed to load appointments:", err);
-      setError("Unable to retrieve appointments. Please check your backend connection.");
-      setAppointments([]);
+      console.error("Failed to fetch appointments:", err);
+      setError("Unable to retrieve appointments. Please check your network connection.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDoctors = async (dept: string) => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const res = await fetch(
+        `https://medicareai-1.onrender.com/api/doctors-list?specialization=${encodeURIComponent(dept)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token || ""}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setDoctors(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Failed to load doctors:", err);
     }
   };
 
@@ -94,6 +123,7 @@ export default function AppointmentsPage() {
       setIsModalOpen(false);
       setFormData({
         department: "General Medicine",
+        doctor_id: "",
         appointment_date: getTodayString(),
         appointment_time: "09:00",
         reason: "",
@@ -127,7 +157,7 @@ export default function AppointmentsPage() {
         </button>
       </div>
 
-      {/* Main Content */}
+      {/* List Content */}
       {loading ? (
         <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3 shadow-sm">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
@@ -164,9 +194,16 @@ export default function AppointmentsPage() {
               className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition space-y-3"
             >
               <div className="flex justify-between items-start">
-                <h3 className="font-bold text-slate-900 text-base">
-                  {apt.department || "General Consultation"}
-                </h3>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    {apt.department || "General Consultation"}
+                  </h3>
+                  {apt.doctor_name && (
+                    <p className="text-xs font-semibold text-blue-600 flex items-center gap-1 mt-0.5">
+                      <User size={12} /> Dr. {apt.doctor_name}
+                    </p>
+                  )}
+                </div>
                 <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 capitalize">
                   <CheckCircle size={12} /> {apt.status || "Confirmed"}
                 </span>
@@ -188,7 +225,7 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {/* Booking Modal */}
+      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100">
@@ -216,7 +253,9 @@ export default function AppointmentsPage() {
                 </label>
                 <select
                   value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, department: e.target.value, doctor_id: "" })
+                  }
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                 >
                   <option value="General Medicine">General Medicine</option>
@@ -227,6 +266,24 @@ export default function AppointmentsPage() {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Select Doctor (Optional)
+                </label>
+                <select
+                  value={formData.doctor_id}
+                  onChange={(e) => setFormData({ ...formData, doctor_id: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                >
+                  <option value="">Any Available Specialist</option>
+                  {doctors.map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      Dr. {doc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Date</label>
@@ -234,7 +291,9 @@ export default function AppointmentsPage() {
                     type="date"
                     required
                     value={formData.appointment_date}
-                    onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, appointment_date: e.target.value })
+                    }
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                   />
                 </div>
@@ -244,7 +303,9 @@ export default function AppointmentsPage() {
                     type="time"
                     required
                     value={formData.appointment_time}
-                    onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, appointment_time: e.target.value })
+                    }
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                   />
                 </div>
@@ -256,7 +317,7 @@ export default function AppointmentsPage() {
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Describe your symptoms or reason for consultation..."
+                  placeholder="Describe your symptoms..."
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 resize-none"

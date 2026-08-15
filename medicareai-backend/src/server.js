@@ -95,9 +95,31 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 
+// GET All Active Doctors (Filterable by specialization)
+app.get("/api/doctors-list", verifyToken, async (req, res) => {
+  try {
+    const { specialization } = req.query;
+    let query = `SELECT id, name, specialization, city, status FROM users WHERE LOWER(role) = 'doctor'`;
+    let values = [];
+
+    if (specialization) {
+      query += ` AND LOWER(specialization) = LOWER($1)`;
+      values.push(specialization);
+    }
+
+    query += ` ORDER BY name ASC`;
+
+    const result = await pool.query(query, values);
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching doctors:", err);
+    return res.status(500).json({ error: "Failed to fetch doctors list" });
+  }
+});
+
 // Medical Records & Prescriptions for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
-  const patientId = parseInt(req.user.id, 10);
+  const patientId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
   try {
     const userResult = await pool.query("SELECT name FROM users WHERE id = $1", [patientId]);
@@ -124,7 +146,7 @@ app.get("/api/records", verifyToken, async (req, res) => {
 // GET Doctor Prescriptions
 app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   try {
-    const doctorId = parseInt(req.user.id, 10);
+    const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
     const result = await pool.query(
       `SELECT * FROM prescriptions 
@@ -143,7 +165,7 @@ app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
 // POST New Prescription
 app.post("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   const { patient_name, medication_details } = req.body;
-  const doctorId = parseInt(req.user.id, 10);
+  const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
   if (!patient_name || !medication_details) {
     return res.status(400).json({ error: "Patient name and medication details are required." });
@@ -168,10 +190,14 @@ app.use("/api/doctor", doctorRoutes);
 
 // Filtered Appointments for Logged-In Patients
 app.get("/api/my-appointments", verifyToken, async (req, res) => {
-  const patient_id = parseInt(req.user.id, 10); 
+  const patient_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10); 
   try {
     const result = await pool.query(
-      "SELECT * FROM appointments WHERE patient_id = $1 ORDER BY created_at DESC",
+      `SELECT a.*, d.name as doctor_name 
+       FROM appointments a 
+       LEFT JOIN users d ON a.doctor_id = d.id 
+       WHERE a.patient_id = $1 
+       ORDER BY a.created_at DESC`,
       [patient_id]
     );
     res.json(result.rows);
@@ -182,41 +208,38 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
 });
 
 // Create New Appointment for Patient
-// Create New Appointment for Patient
 app.post("/api/my-appointments", verifyToken, async (req, res) => {
   try {
     const rawId = req.user?.id || req.user?.userId || req.user?.user_id;
     const patient_id = parseInt(rawId, 10);
 
     if (!patient_id || isNaN(patient_id)) {
-      return res.status(400).json({ 
-        error: "Invalid user session. Please log out and sign in again." 
-      });
+      return res.status(400).json({ error: "Invalid user session. Please re-login." });
     }
 
-    let { department, appointment_date, appointment_time, reason } = req.body;
+    let { department, doctor_id, appointment_date, appointment_time, reason } = req.body;
 
     if (!appointment_date || !appointment_time) {
       return res.status(400).json({ error: "Date and time are required." });
     }
 
-    // Ensure appointment_time has seconds appended if missing (e.g. "09:00" -> "09:00:00")
-    if (appointment_time.length === 5) {
+    if (appointment_time && appointment_time.length === 5) {
       appointment_time = `${appointment_time}:00`;
     }
 
-    // Sanitize values
     const safeDept = department || "General Medicine";
     const safeReason = reason || "";
+    const safeDoctorId = doctor_id ? parseInt(doctor_id, 10) : null;
 
     const query = `
-      INSERT INTO appointments (patient_id, department, appointment_date, appointment_time, reason, status)
-      VALUES ($1, $2, $3::date, $4::time, $5, 'confirmed')
+      INSERT INTO appointments (patient_id, doctor_id, department, appointment_date, appointment_time, reason, status)
+      VALUES ($1, $2, $3, $4::date, $5::time, $6, 'confirmed')
       RETURNING *;
     `;
 
     const result = await pool.query(query, [
       patient_id,
+      safeDoctorId,
       safeDept,
       appointment_date,
       appointment_time,
@@ -235,8 +258,8 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
 
 // Filtered Appointments for Doctors
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
-  const doctor_id = parseInt(req.user.id, 10); 
-  const user_role = req.user.role?.toLowerCase();
+  const doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10); 
+  const user_role = req.user?.role?.toLowerCase();
 
   if (user_role !== "doctor") {
     return res.status(403).json({ error: "Access denied. Restricted to medical professionals." });
@@ -280,15 +303,6 @@ async function initDatabase() {
       );
     `);
 
-    const migrations = [
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(255);",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Available';"
-    ];
-    for (const query of migrations) { await pool.query(query); }
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
@@ -313,6 +327,20 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    const migrations = [
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(255);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Available';",
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS department VARCHAR(100);",
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;"
+    ];
+
+    for (const query of migrations) { 
+      await pool.query(query); 
+    }
 
     console.log("✅ PostgreSQL schema ready and updated");
   } catch (err) {
