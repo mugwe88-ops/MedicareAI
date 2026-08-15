@@ -1,185 +1,132 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Calendar, User, FileText, CheckCircle, Clock } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Calendar, Clock, User, Plus, AlertCircle, CheckCircle } from "lucide-react";
 
-interface Doctor {
+interface Appointment {
   id: number;
-  name: string;
-  specialization: string;
-  city: string;
+  department?: string;
+  appointment_date?: string;
+  appointment_time?: string;
+  reason?: string;
+  status: string;
+  patient_name?: string;
 }
 
-interface UserSession {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-}
-
-export default function PatientAppointmentsPage() {
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
-  const [reason, setReason] = useState('');
-  const [appointmentTime, setAppointmentTime] = useState('');
-  const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
-  
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState({ text: '', isError: false });
+export default function AppointmentsPage() {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setCurrentUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error("Error parsing user session token structure.");
-      }
-    }
-    fetchAllDoctors();
+    fetchAppointments();
   }, []);
 
-  const fetchAllDoctors = async () => {
+  const fetchAppointments = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-1.onrender.com';
-      // Fallback query targets users table or your directory endpoint directly
-      const res = await fetch(`${BACKEND_BASE}/api/auth/me`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       
-      // Temporary stub database matrix array matching Dr. Clinton if system directory is isolated
-      setDoctors([
-        { id: 4, name: "Dr. Clinton", specialization: "General Medicine", city: "Nairobi" }
-      ]);
-    } catch (err) {
-      console.error("Failed parsing medical practitioners list.");
+      const res = await fetch("https://medicareai-1.onrender.com/api/my-appointments", {
+        headers: {
+          Authorization: `Bearer ${token || ""}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
+
+      const data = await res.json();
+      setAppointments(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error("Failed to load appointments:", err);
+      setError("Unable to retrieve appointments. Please check your backend connection.");
+      setAppointments([]);
     } finally {
+      // Guarantees loading state is disabled regardless of API outcome
       setLoading(false);
     }
   };
 
-  const handleBookAppointment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedDoctorId || !appointmentTime || !reason) {
-      setMessage({ text: 'Please complete all form properties.', isError: true });
-      return;
-    }
-
-    setSubmitting(true);
-    setMessage({ text: '', isError: false });
-
-    try {
-      const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-1.onrender.com';
-      const res = await fetch(`${BACKEND_BASE}/api/appointments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          patient_name: currentUser?.name || 'Anonymous Patient',
-          phone: '0712345678', // Default fallback mock phone string mapping
-          appointment_time: appointmentTime,
-          doctor_id: parseInt(selectedDoctorId, 10),
-          patient_id: currentUser?.id || null,
-          reason: reason
-        })
-      });
-
-      if (res.ok) {
-        setMessage({ text: '🎉 Appointment successfully booked into clinical pipeline!', isError: false });
-        setReason('');
-        setAppointmentTime('');
-        setSelectedDoctorId('');
-      } else {
-        const errData = await res.json();
-        setMessage({ text: errData.error || 'Database rejected validation properties.', isError: true });
-      }
-    } catch (err) {
-      setMessage({ text: 'Network pipeline bridge failure.', isError: true });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="p-8 text-center text-slate-400 animate-pulse font-mono text-xs uppercase tracking-wider">
-        Querying Medical Provider Directories...
-      </div>
-    );
-  }
-
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto text-slate-100">
-      <div className="mb-8">
-        <h1 className="text-2xl font-black text-white tracking-tight">Schedule Virtual Triage Session</h1>
-        <p className="text-slate-400 text-sm mt-1">Select an active clinical practitioner to book an appointment.</p>
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">My Appointments</h1>
+          <p className="text-slate-500 text-sm">
+            View and manage your scheduled consultations with healthcare providers.
+          </p>
+        </div>
+        <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition shadow-sm">
+          <Plus size={16} /> Book Appointment
+        </button>
       </div>
 
-      {message.text && (
-        <div className={`p-4 rounded-xl mb-6 text-sm font-semibold border ${
-          message.isError 
-            ? 'bg-red-950/30 text-red-400 border-red-900/40' 
-            : 'bg-green-950/30 text-green-400 border-green-900/40'
-        }`}>
-          {message.text}
+      {/* Main Content */}
+      {loading ? (
+        <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3 shadow-sm">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+          <p className="text-sm font-medium text-slate-500">Querying medical records ledger...</p>
         </div>
-      )}
-
-      <form onSubmit={handleBookAppointment} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 shadow-xl">
-        {/* SELECT CLINICIAN */}
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Assign Clinical Practitioner</label>
-          <div className="relative">
-            <select
-              value={selectedDoctorId}
-              onChange={(e) => setSelectedDoctorId(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 p-6 rounded-2xl flex items-start gap-4 text-red-700">
+          <AlertCircle size={24} className="shrink-0 mt-0.5" />
+          <div className="space-y-2">
+            <p className="font-semibold text-sm">{error}</p>
+            <button
+              onClick={fetchAppointments}
+              className="text-xs bg-red-100 hover:bg-red-200 text-red-800 font-bold px-3 py-1.5 rounded-lg transition"
             >
-              <option value="">-- Choose a Specialist --</option>
-              {doctors.map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  {doc.name} ({doc.specialization}) - {doc.city}
-                </option>
-              ))}
-            </select>
+              Retry Connection
+            </button>
           </div>
         </div>
-
-        {/* TIME STAMP WINDOW */}
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Target Date & Time Window</label>
-          <input
-            type="datetime-local"
-            value={appointmentTime}
-            onChange={(e) => setAppointmentTime(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 color-scheme-dark"
-          />
+      ) : appointments.length === 0 ? (
+        <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 shadow-sm">
+          <Calendar size={48} className="mx-auto text-slate-300" />
+          <div>
+            <h3 className="font-bold text-slate-800 text-lg">No Appointments Scheduled</h3>
+            <p className="text-sm text-slate-500 max-w-sm mx-auto mt-1">
+              You currently have no upcoming or past medical appointments registered.
+            </p>
+          </div>
         </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {appointments.map((apt) => (
+            <div
+              key={apt.id}
+              className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition space-y-3"
+            >
+              <div className="flex justify-between items-start">
+                <h3 className="font-bold text-slate-900 text-base">
+                  {apt.department || "General Consultation"}
+                </h3>
+                <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 capitalize">
+                  <CheckCircle size={12} /> {apt.status || "Confirmed"}
+                </span>
+              </div>
 
-        {/* COMPLAINT DESCRIPTION */}
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Primary Consultation Complaint / Reason</label>
-          <textarea
-            rows={4}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Describe your current physiological symptoms or check-up objectives..."
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 resize-none"
-          />
+              <div className="space-y-1.5 text-xs text-slate-500">
+                <p className="flex items-center gap-2">
+                  <Clock size={14} className="text-slate-400" />
+                  {apt.appointment_date || "Date Pending"} at {apt.appointment_time || "Time Pending"}
+                </p>
+                {apt.reason && (
+                  <p className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-slate-600 text-xs mt-2">
+                    <span className="font-semibold text-slate-700">Reason:</span> {apt.reason}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-
-        {/* DISPATCH ACTION ACTION CARD */}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 text-white font-bold text-sm tracking-wide uppercase py-3.5 px-4 rounded-xl transition-all shadow-lg shadow-blue-950/20"
-        >
-          {submitting ? 'Transmitting Schedule Logs...' : 'Confirm System Booking'}
-        </button>
-      </form>
+      )}
     </div>
   );
 }
