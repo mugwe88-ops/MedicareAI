@@ -111,6 +111,16 @@ export default function DoctorDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0B0F17] text-white p-8">
+      {/* Back Button */}
+      <div className="mb-6">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 px-3.5 py-2 bg-[#131926] border border-gray-800 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg text-xs font-medium transition-colors shadow-sm"
+        >
+          ← Back
+        </button>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
