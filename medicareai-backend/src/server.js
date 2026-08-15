@@ -282,7 +282,7 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
   }
 });
 
-// Filtered Appointments for Doctors (Sorted by Most Recent First)
+// Filtered Appointments for Doctors (Strictly routed by doctor_id OR unassigned department matching doctor's specialization)
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
   try {
     let doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -306,15 +306,20 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Unable to identify doctor session ID." });
     }
 
+    // Fetch doctor's specialization to route unassigned department appointments accurately
+    const docSpecRes = await pool.query("SELECT specialization FROM users WHERE id = $1", [doctor_id]);
+    const specialization = docSpecRes.rows[0]?.specialization || "";
+
     const result = await pool.query(
       `SELECT a.*, 
               COALESCE(u.name, a.patient_name, 'Anonymous Patient') as patient_name, 
               u.phone 
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
-       WHERE a.doctor_id = $1 OR a.doctor_id IS NULL
+       WHERE a.doctor_id = $1 
+          OR (a.doctor_id IS NULL AND LOWER(a.department) = LOWER($2))
        ORDER BY a.created_at DESC, a.appointment_date DESC, a.appointment_time DESC`,
-      [doctor_id]
+      [doctor_id, specialization]
     );
 
     return res.json(result.rows);
