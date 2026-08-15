@@ -7,10 +7,12 @@ const router = express.Router();
 
 // POST /api/auth/signup
 router.post("/signup", async (req, res) => {
-  const { name, email, password, role, specialization, licenseNumber, city, phone } = req.body;
+  const { name, email, password, role, specialization, city } = req.body;
+  const phone = req.body.phone || req.body.phone_number;
+  const licenseNumber = req.body.licenseNumber || req.body.license_number;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password fields are strictly required." });
+  if (!email || !password || !phone) {
+    return res.status(400).json({ error: "Email, password, and phone number are required." });
   }
 
   try {
@@ -22,9 +24,8 @@ router.post("/signup", async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // If name field is missing from frontend card, split email prefix as fallback
     const resolvedName = name && name.trim() !== "" ? name : email.split('@')[0];
-    const resolvedRole = role || "patient";
+    const resolvedRole = role ? role.toLowerCase() : "patient";
     const resolvedSpecialization = resolvedRole === "doctor" && specialization ? specialization : null;
     const resolvedLicense = resolvedRole === "doctor" && licenseNumber && licenseNumber.trim() !== "" ? licenseNumber : null;
     const resolvedCity = city && city.trim() !== "" ? city : null;
@@ -33,7 +34,7 @@ router.post("/signup", async (req, res) => {
     const newUser = await pool.query(
       `INSERT INTO users (name, email, password, role, specialization, license_number, city, phone)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, name, email, role`,
+       RETURNING id, name, email, role, phone`,
       [
         resolvedName, 
         email, 
@@ -51,7 +52,7 @@ router.post("/signup", async (req, res) => {
       process.env.JWT_SECRET || "fallback_secret",
       { 
         expiresIn: "24h",
-        audience: "medicareai-users" // Explicit audience signature fix
+        audience: "medicareai-users"
       }
     );
 
@@ -88,24 +89,23 @@ router.post("/login", async (req, res) => {
 
     const userRow = result.rows[0];
 
-    // Build signed token payload string securely
     const token = jwt.sign(
       { id: userRow.id, role: userRow.role || "patient" },
       process.env.JWT_SECRET || "fallback_secret",
       { 
         expiresIn: "24h",
-        audience: "medicareai-users" // Explicit audience signature fix
+        audience: "medicareai-users"
       }
     );
 
-    // Return full explicit values so role checks don't evaluate to undefined
     return res.json({
       token,
       user: {
         id: userRow.id,
         name: userRow.name || userRow.email.split('@')[0],
         email: userRow.email,
-        role: userRow.role || "patient"
+        role: userRow.role || "patient",
+        phone: userRow.phone || null
       }
     });
   } catch (err) {
@@ -124,7 +124,7 @@ router.get("/me", async (req, res) => {
 
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret", {
-      audience: "medicareai-users" // Confirms inbound authorization checks mirror setup criteria
+      audience: "medicareai-users"
     });
 
     const result = await pool.query(

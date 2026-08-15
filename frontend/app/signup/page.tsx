@@ -10,8 +10,9 @@ export default function SignupPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    phone: "",
     password: "",
-    role: "Patient", // Default to Patient
+    role: "Patient",
     specialization: "",
     license_number: "",
     city: ""
@@ -34,7 +35,7 @@ export default function SignupPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Registration failed.");
+      if (!res.ok) throw new Error(data.error || data.message || "Registration failed.");
 
       setIsSuccess(true);
       setTimeout(() => { window.location.href = "/verify-email-notice"; }, 2000);
@@ -79,6 +80,11 @@ export default function SignupPage() {
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
               <input name="email" type="email" placeholder="email@example.com" required onChange={handleChange} className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">Phone Number</label>
+              <input name="phone" type="tel" placeholder="+254 700 000000" required onChange={handleChange} className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
 
             <div>
