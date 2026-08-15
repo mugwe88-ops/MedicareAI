@@ -95,7 +95,7 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 
-// GET All Active Doctors (Filterable by specialization)
+// GET All Active Doctors (Flexible matching by specialization, trimmed strings & partial matching)
 app.get("/api/doctors-list", verifyToken, async (req, res) => {
   try {
     const { specialization } = req.query;
@@ -103,8 +103,9 @@ app.get("/api/doctors-list", verifyToken, async (req, res) => {
     let values = [];
 
     if (specialization) {
-      query += ` AND LOWER(specialization) = LOWER($1)`;
-      values.push(specialization);
+      const cleanSpec = specialization.trim();
+      query += ` AND (LOWER(TRIM(specialization)) = LOWER($1) OR LOWER(specialization) LIKE LOWER($2))`;
+      values.push(cleanSpec, `%${cleanSpec}%`);
     }
 
     query += ` ORDER BY name ASC`;
