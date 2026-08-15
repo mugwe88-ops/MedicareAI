@@ -9,7 +9,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import cors from "cors";
 import helmet from "helmet";
-import axios from "axios";
 
 // Database & Routes
 import pool from "./utils/db.js";
@@ -19,7 +18,6 @@ import directoryRoutes from "./routes/directory.js";
 import paymentRoutes from "./routes/payments.routes.js";
 import bookingRoutes from "./routes/bookings.routes.js";
 import doctorRoutes from "./routes/doctors.routes.js";
-import resultsRoutes from "./routes/labRoutes.js";
 import telehealthRouter from "./routes/telehealth.js"; 
 import { verifyToken } from "./utils/jwt.js";
 
@@ -54,7 +52,6 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
     if (!origin) return callback(null, true);
 
     const isAllowed = allowedOrigins.some((allowed) =>
@@ -65,7 +62,6 @@ const corsOptions = {
       callback(null, true);
     } else {
       console.warn(`⚠️ CORS Access requested from untrusted origin: ${origin}`);
-      // Return false instead of throwing an Error object to allow CORS to handle preflight headers properly
       callback(null, false);
     }
   },
@@ -80,10 +76,9 @@ const corsOptions = {
     "Access-Control-Request-Method",
     "Access-Control-Request-Headers",
   ],
-  optionsSuccessStatus: 200, // Important for legacy browsers / IE11
+  optionsSuccessStatus: 200,
 };
 
-// Apply CORS globally and handle Preflight OPTIONS requests across all routes
 app.use(cors(corsOptions));
 app.options(/(.*)/, cors(corsOptions));
 
@@ -100,12 +95,9 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 
-// ==========================================
-// DOCTOR PRESCRIPTION ROUTES (MUST PRECEDE GENERAL ROUTER)
-// ==========================================
 // Medical Records & Prescriptions for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
-  const patientId = req.user.id;
+  const patientId = parseInt(req.user.id, 10);
 
   try {
     const userResult = await pool.query("SELECT name FROM users WHERE id = $1", [patientId]);
@@ -129,10 +121,10 @@ app.get("/api/records", verifyToken, async (req, res) => {
   }
 });
 
-// 1. GET Prescriptions (Scoped strictly to the logged-in doctor)
+// GET Doctor Prescriptions
 app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   try {
-    const doctorId = req.user.id;
+    const doctorId = parseInt(req.user.id, 10);
 
     const result = await pool.query(
       `SELECT * FROM prescriptions 
@@ -148,10 +140,10 @@ app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   }
 });
 
-// 2. POST New Prescription (Attaches logged-in doctor's ID)
+// POST New Prescription
 app.post("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   const { patient_name, medication_details } = req.body;
-  const doctorId = req.user.id;
+  const doctorId = parseInt(req.user.id, 10);
 
   if (!patient_name || !medication_details) {
     return res.status(400).json({ error: "Patient name and medication details are required." });
@@ -172,53 +164,11 @@ app.post("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   }
 });
 
-// General doctor router mounted AFTER specific routes
 app.use("/api/doctor", doctorRoutes);
 
-// NEW: Dynamic Multi-Department Doctor Seeding Utility Route
-app.get("/api/seed-test-doctors", async (req, res) => {
-  const sampleDoctors = [
-    { name: "Dr. Paul Kioni", email: "paul.kioni@medicareai.com", spec: "dermatology", phone: "+254711111111", lic: "KMPDC-D921" },
-    { name: "Dr. Faith Njoroge", email: "faith.njoroge@medicareai.com", spec: "cardiology", phone: "+254722222222", lic: "KMPDC-C432" },
-    { name: "Dr. Silas Mwangi", email: "silas.mwangi@medicareai.com", spec: "pediatrics", phone: "+254733333333", lic: "KMPDC-P012" },
-    { name: "Dr. Amina Omondi", email: "amina.omondi@medicareai.com", spec: "general medicine", phone: "+254744444444", lic: "KMPDC-G789" },
-    { name: "Dr. Chloe Kiprop", email: "chloe.kiprop@medicareai.com", spec: "gynaecology", phone: "+254755555555", lic: "KMPDC-O544" }
-  ];
-
-  try {
-    console.log("🌱 Seeding comprehensive medical specialists into PostgreSQL...");
-    
-    const mockHash = "$2b$10$76hZ6uFByZ02S6vY7WkXb.NlZ64GjDmsE7m05Wk47U24L6f6YbeoK";
-
-    for (const doc of sampleDoctors) {
-      await pool.query(
-        `INSERT INTO verified_kmpdc (registration_number, doctor_name) 
-         VALUES ($1, $2) ON CONFLICT (registration_number) DO NOTHING`,
-        [doc.lic, doc.name]
-      );
-
-      await pool.query(
-        `INSERT INTO users (name, email, password, role, specialization, license_number, city, phone)
-         VALUES ($1, $2, $3, 'doctor', $4, $5, 'Juja', $6)
-         ON CONFLICT (email) DO NOTHING`,
-        [doc.name, doc.email, mockHash, doc.spec, doc.lic, doc.phone]
-      );
-    }
-
-    return res.json({ 
-      status: "success", 
-      message: "Doctors for all healthcare departments seeded successfully!",
-      departmentsSeeded: sampleDoctors.map(d => d.spec)
-    });
-  } catch (err) {
-    console.error("❌ Seeding Operation Failed:", err);
-    return res.status(500).json({ error: "Failed to build out provider registry", details: err.message });
-  }
-});
-
-// Filtered Appointments for Patients
+// Filtered Appointments for Logged-In Patients
 app.get("/api/my-appointments", verifyToken, async (req, res) => {
-  const patient_id = req.user.id; 
+  const patient_id = parseInt(req.user.id, 10); 
   try {
     const result = await pool.query(
       "SELECT * FROM appointments WHERE patient_id = $1 ORDER BY created_at DESC",
@@ -231,9 +181,32 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
   }
 });
 
+// Create New Appointment for Patient
+app.post("/api/my-appointments", verifyToken, async (req, res) => {
+  const patient_id = parseInt(req.user.id, 10);
+  const { department, appointment_date, appointment_time, reason } = req.body;
+
+  if (!appointment_date || !appointment_time) {
+    return res.status(400).json({ error: "Date and time are required." });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO appointments (patient_id, department, appointment_date, appointment_time, reason, status)
+       VALUES ($1, $2, $3, $4, $5, 'confirmed')
+       RETURNING *`,
+      [patient_id, department || "General Medicine", appointment_date, appointment_time, reason || ""]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error creating appointment:", err);
+    res.status(500).json({ error: "Failed to book appointment." });
+  }
+});
+
 // Filtered Appointments for Doctors
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
-  const doctor_id = req.user.id; 
+  const doctor_id = parseInt(req.user.id, 10); 
   const user_role = req.user.role?.toLowerCase();
 
   if (user_role !== "doctor") {
@@ -261,27 +234,12 @@ app.get("/api/health", (req, res) => {
 });
 
 /* ======================
-   4️⃣ WHATSAPP WEBHOOKS
-====================== */
-app.get("/api/webhook", (req, res) => {
-  if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
-    return res.send(req.query["hub.challenge"]);
-  }
-  res.sendStatus(403);
-});
-
-app.post("/api/webhook", async (req, res) => {
-  res.sendStatus(200);
-});
-
-/* ======================
-   5️⃣ DATABASE INIT (CORE + MISSING TABLES)
+   4️⃣ DATABASE INIT
 ====================== */
 async function initDatabase() {
   try {
     console.log("⚙️ Initializing database schema...");
 
-    // Users & Roles
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -293,7 +251,6 @@ async function initDatabase() {
       );
     `);
 
-    // Dynamic Migrations
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
@@ -303,30 +260,6 @@ async function initDatabase() {
     ];
     for (const query of migrations) { await pool.query(query); }
 
-    // Analytics Table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS analytics (
-        id SERIAL PRIMARY KEY,
-        doctor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        event_type VARCHAR(50),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Consultants / WhatsApp Integration
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS consultants (
-        id SERIAL PRIMARY KEY,
-        whatsapp_phone_id VARCHAR(255) UNIQUE NOT NULL,
-        whatsapp_access_token TEXT NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        booking_url TEXT NOT NULL,
-        calendar_id VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Appointments
     await pool.query(`
       CREATE TABLE IF NOT EXISTS appointments (
         id SERIAL PRIMARY KEY,
@@ -341,9 +274,6 @@ async function initDatabase() {
       );
     `);
 
-    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
-
-    // Prescriptions Registry
     await pool.query(`
       CREATE TABLE IF NOT EXISTS prescriptions (
         id SERIAL PRIMARY KEY,
@@ -355,21 +285,6 @@ async function initDatabase() {
       );
     `);
 
-    // KMPDC Verification
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS verified_kmpdc (
-        registration_number VARCHAR(50) PRIMARY KEY,
-        doctor_name VARCHAR(255)
-      );
-    `);
-
-    // Seed Troubleshooting Account
-    await pool.query(`
-      INSERT INTO verified_kmpdc (registration_number, doctor_name)
-      VALUES ('TEST-999-MD', 'Troubleshooting Account')
-      ON CONFLICT (registration_number) DO NOTHING;
-    `);
-
     console.log("✅ PostgreSQL schema ready and updated");
   } catch (err) {
     console.error("❌ DB INIT ERROR:", err);
@@ -378,19 +293,20 @@ async function initDatabase() {
 }
 
 /* ======================
-   6️⃣ STATIC & CATCH-ALL
+   5️⃣ STATIC & CATCH-ALL
 ====================== */
-app.use(express.static(path.join(__dirname, "public")));
+const publicPath = path.join(__dirname, "../public");
+app.use(express.static(publicPath));
 
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api")) {
     return res.status(404).json({ error: "API route not found" });
   }
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(publicPath, "index.html"));
 });
 
 /* ======================
-   7️⃣ START SERVER
+   6️⃣ START SERVER
 ====================== */
 async function startServer() {
   try {
