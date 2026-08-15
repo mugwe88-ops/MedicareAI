@@ -111,14 +111,16 @@ export default function DoctorDashboard() {
     }
   };
 
-  // 3. Fetch Prescriptions from Backend API
+  // 3. Fetch Prescriptions from Backend API (Strict Auth Header)
   const fetchPrescriptions = async (authToken?: string) => {
     const token = authToken || localStorage.getItem("token");
+    if (!token) return;
+
     try {
       const res = await fetch(`${BACKEND_BASE}/api/doctor/prescriptions`, {
         method: "GET",
         headers: {
-          ...(token ? { Authorization: `Bearer ${token.trim()}` } : {}),
+          Authorization: `Bearer ${token.trim()}`,
           "Content-Type": "application/json",
         },
       });
@@ -126,6 +128,8 @@ export default function DoctorDashboard() {
       if (res.ok) {
         const data = await res.json();
         setPrescriptions(Array.isArray(data) ? data : []);
+      } else {
+        console.error("Prescriptions fetch error:", res.status);
       }
     } catch (err) {
       console.error("Failed to load prescriptions:", err);
@@ -141,7 +145,7 @@ export default function DoctorDashboard() {
       const res = await fetch(`${BACKEND_BASE}/api/doctor/status`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token || ""}`,
+          Authorization: `Bearer ${token?.trim() || ""}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ status }),
@@ -169,15 +173,20 @@ export default function DoctorDashboard() {
       return;
     }
 
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Session expired. Please log in again.");
+      router.replace("/login");
+      return;
+    }
+
     setSubmittingRx(true);
     try {
-      const token = localStorage.getItem("token");
-
       const res = await fetch(`${BACKEND_BASE}/api/doctor/prescriptions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token.trim()}` } : {}),
+          Authorization: `Bearer ${token.trim()}`,
         },
         body: JSON.stringify({
           doctor_id: doctor?.id ? Number(doctor.id) : null,
@@ -193,7 +202,7 @@ export default function DoctorDashboard() {
         setShowRxModal(false);
         setRxPatientName("");
         setRxNotes("");
-        fetchPrescriptions();
+        fetchPrescriptions(token);
       } else {
         alert(`Server Error (${res.status}): ${data.error || "Could not save prescription"}`);
       }
