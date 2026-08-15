@@ -105,20 +105,27 @@ app.use("/api/bookings", bookingRoutes);
 // ==========================================
 // Medical Records & Prescriptions for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
-  const patient_id = req.user.id;
+  const patientId = req.user.id;
+
   try {
-    const result = await pool.query(
-      `SELECT p.* 
-       FROM prescriptions p
-       JOIN users u ON LOWER(p.patient_name) = LOWER(u.name)
-       WHERE u.id = $1
-       ORDER BY p.created_at DESC`,
-      [patient_id]
+    const userResult = await pool.query("SELECT name FROM users WHERE id = $1", [patientId]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User profile not found" });
+    }
+
+    const userName = userResult.rows[0].name;
+
+    const recordsResult = await pool.query(
+      `SELECT * FROM prescriptions 
+       WHERE LOWER(patient_name) = LOWER($1) 
+       ORDER BY created_at DESC`,
+      [userName || ""]
     );
-    return res.json(result.rows);
+
+    return res.json(recordsResult.rows);
   } catch (err) {
-    console.error("Error fetching medical records:", err);
-    return res.status(500).json({ error: "Failed to fetch medical records" });
+    console.error("❌ Error reading medical records ledger:", err.message);
+    return res.status(500).json({ error: "Failed to load medical records", details: err.message });
   }
 });
 
