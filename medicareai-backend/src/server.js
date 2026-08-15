@@ -286,7 +286,7 @@ app.get("/api/health", (req, res) => {
 });
 
 /* ======================
-   4️⃣ DATABASE INIT
+   4️⃣ DATABASE INIT & MIGRATIONS
 ====================== */
 async function initDatabase() {
   try {
@@ -328,6 +328,7 @@ async function initDatabase() {
       );
     `);
 
+    // Schema Migrations (Fixes missing columns on pre-existing live database tables)
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
@@ -335,14 +336,18 @@ async function initDatabase() {
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Available';",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS department VARCHAR(100);",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;"
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;",
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_date DATE;",
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_time TIME;",
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reason TEXT;",
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending';"
     ];
 
     for (const query of migrations) { 
       await pool.query(query); 
     }
 
-    console.log("✅ PostgreSQL schema ready and updated");
+    console.log("✅ PostgreSQL schema ready and updated with all migrations.");
   } catch (err) {
     console.error("❌ DB INIT ERROR:", err);
     process.exit(1); 
