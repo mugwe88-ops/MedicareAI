@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface Appointment {
   id: number;
@@ -13,6 +14,7 @@ interface Appointment {
 }
 
 export default function DoctorDashboard() {
+  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,7 +39,6 @@ export default function DoctorDashboard() {
     try {
       const token = localStorage.getItem('token');
       
-      // Try backend base API first, fall back to relative route
       let res = await fetch(`${API_BASE}/api/appointments/doctor`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -162,7 +163,10 @@ export default function DoctorDashboard() {
           <button className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm font-medium">
             + New Prescription
           </button>
-          <button className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm font-medium">
+          <button 
+            onClick={() => router.push('/telehealth/quick-consult')}
+            className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm font-medium"
+          >
             Start Quick Consult
           </button>
         </div>
@@ -227,7 +231,10 @@ export default function DoctorDashboard() {
                     <div className="flex gap-2 justify-end">
                       {apt.status?.toLowerCase() !== 'completed' && (
                         <>
-                          <button className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-md">
+                          <button 
+                            onClick={() => router.push(`/telehealth/${apt.id}`)}
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-md"
+                          >
                             🎥 Join Call
                           </button>
                           <button
