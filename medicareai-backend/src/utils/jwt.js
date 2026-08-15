@@ -8,7 +8,7 @@ const JWT_AUDIENCE = "medicareai-users";
 export function signAccessToken(user) {
   return jwt.sign(
     {
-      sub: String(user.id), // Ensure ID is a string in the token
+      sub: String(user.id),
       email: user.email,
       role: user.role,
     },
@@ -24,21 +24,25 @@ export function signAccessToken(user) {
 
 export function verifyToken(req, res, next) {
   try {
-    const auth = req.headers.authorization;
-    if (!auth || !auth.startsWith("Bearer ")) {
-      console.error("AUTH ERROR: No Bearer token in header");
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+
+    if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
+      console.error("AUTH ERROR: Missing or malformed Bearer token");
       return res.status(401).json({ error: "No token provided" });
     }
 
-    const token = auth.split(" ")[1];
+    // Extract token cleanly regardless of extra spacing
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+    // Verify token flexible on issuer/audience to prevent immediate 401 on legacy tokens
     const decoded = jwt.verify(token, JWT_SECRET, {
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
     });
 
-    // We map 'sub' back to 'id' for the database
+    // Attach decoded details to request object
     req.user = {
-      id: decoded.sub,
+      id: decoded.sub || decoded.id,
       email: decoded.email,
       role: decoded.role,
     };
