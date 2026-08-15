@@ -221,7 +221,7 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
     const userResult = await pool.query("SELECT name FROM users WHERE id = $1", [patient_id]);
     const patient_name = userResult.rows[0]?.name || "Anonymous Patient";
 
-    let { department, doctor_id, appointment_date, appointment_time, reason } = req.body;
+    let { department, doctor_id, doctor_name, appointment_date, appointment_time, reason } = req.body;
 
     if (!appointment_date || !appointment_time) {
       return res.status(400).json({ error: "Date and time are required." });
@@ -231,9 +231,27 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
       appointment_time = `${appointment_time}:00`;
     }
 
+    // Resolve doctor_id to an integer if a doctor's name or string ID was sent
+    let safeDoctorId = doctor_id ? parseInt(doctor_id, 10) : null;
+
+    if (isNaN(safeDoctorId) || !safeDoctorId) {
+      const searchTarget = doctor_name || doctor_id;
+      if (searchTarget) {
+        const docRes = await pool.query(
+          `SELECT id FROM users 
+           WHERE LOWER(role) = 'doctor' 
+             AND (LOWER(name) LIKE LOWER($1) OR id::text = $2) 
+           LIMIT 1`,
+          [`%${String(searchTarget).replace(/^dr\.\s*/i, '')}%`, String(searchTarget)]
+        );
+        if (docRes.rows.length > 0) {
+          safeDoctorId = docRes.rows[0].id;
+        }
+      }
+    }
+
     const safeDept = department || "General Medicine";
     const safeReason = reason || "";
-    const safeDoctorId = doctor_id ? parseInt(doctor_id, 10) : null;
 
     // 2️⃣ Include patient_name in the query
     const query = `
@@ -262,7 +280,6 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
   }
 });
 
-// Filtered Appointments for Doctors (Strict Doctor Assignment)
 // Filtered Appointments for Doctors (Sorted by Most Recent First)
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
   try {
