@@ -17,14 +17,21 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Booking Modal States
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
+  const getTodayString = () => {
+    const today = new Date();
+    return today.toISOString().split("T")[0];
+  };
+
   const [formData, setFormData] = useState({
     department: "General Medicine",
-    appointment_date: "",
-    appointment_time: "",
+    appointment_date: getTodayString(),
+    appointment_time: "09:00",
     reason: "",
   });
 
@@ -38,7 +45,7 @@ export default function AppointmentsPage() {
 
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      
+
       const res = await fetch("https://medicareai-1.onrender.com/api/my-appointments", {
         headers: {
           Authorization: `Bearer ${token || ""}`,
@@ -64,6 +71,7 @@ export default function AppointmentsPage() {
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setBookingError(null);
 
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -77,21 +85,22 @@ export default function AppointmentsPage() {
         body: JSON.stringify(formData),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to schedule appointment.");
+        throw new Error(data.details || data.error || "Failed to schedule appointment.");
       }
 
       setIsModalOpen(false);
       setFormData({
         department: "General Medicine",
-        appointment_date: "",
-        appointment_time: "",
+        appointment_date: getTodayString(),
+        appointment_time: "09:00",
         reason: "",
       });
       await fetchAppointments();
     } catch (err: any) {
-      alert(err.message || "An error occurred while booking.");
+      setBookingError(err.message || "An error occurred while booking.");
     } finally {
       setSubmitting(false);
     }
@@ -108,7 +117,10 @@ export default function AppointmentsPage() {
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setBookingError(null);
+            setIsModalOpen(true);
+          }}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition shadow-sm"
         >
           <Plus size={16} /> Book Appointment
@@ -163,7 +175,7 @@ export default function AppointmentsPage() {
               <div className="space-y-1.5 text-xs text-slate-500">
                 <p className="flex items-center gap-2">
                   <Clock size={14} className="text-slate-400" />
-                  {apt.appointment_date || "Date Pending"} at {apt.appointment_time || "Time Pending"}
+                  {apt.appointment_date ? new Date(apt.appointment_date).toLocaleDateString() : "Date Pending"} at {apt.appointment_time || "Time Pending"}
                 </p>
                 {apt.reason && (
                   <p className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-slate-600 text-xs mt-2">
@@ -189,6 +201,13 @@ export default function AppointmentsPage() {
                 <X size={20} />
               </button>
             </div>
+
+            {bookingError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-xs font-semibold flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0" />
+                <span>{bookingError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleCreateAppointment} className="space-y-4">
               <div>
