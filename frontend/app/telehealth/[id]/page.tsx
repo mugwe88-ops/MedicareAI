@@ -1,122 +1,233 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { Mic, MicOff, Video, VideoOff, PhoneOff, ShieldCheck } from "lucide-react";
 
-export default function TelehealthRoom() {
-  const params = useParams();
+export default function TelehealthActiveSession() {
   const router = useRouter();
-  const appointmentId = params?.id;
+  const params = useParams();
+  const appointmentId = params?.id || "active-session";
 
-  const [status, setStatus] = useState('Connecting...');
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "ended">("connecting");
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
 
+  // 1️⃣ Initialize User Media Devices & WebRTC Peer Connection
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.replace('/login');
-      return;
-    }
+    let localStream: MediaStream | null = null;
 
-    // 1. Initialize local media stream (Camera & Microphone)
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        localStreamRef.current = stream;
+    async function initWebRTC() {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+
+        setStream(localStream);
+
         if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.srcObject = localStream;
         }
 
-        // 2. Setup WebRTC Peer Connection with public STUN servers
+        // Initialize RTCPeerConnection with Public STUN servers to pass NAT firewalls across devices
         const pc = new RTCPeerConnection({
           iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
           ],
         });
 
         peerConnectionRef.current = pc;
 
         // Add local tracks to peer connection
-        stream.getTracks().forEach((track) => {
-          pc.addTrack(track, stream);
+        localStream.getTracks().forEach((track) => {
+          if (localStream) pc.addTrack(track, localStream);
         });
 
-        // 3. Handle incoming remote tracks from the other device
+        // Handle remote tracks coming from the other device
         pc.ontrack = (event) => {
           if (remoteVideoRef.current && event.streams[0]) {
             remoteVideoRef.current.srcObject = event.streams[0];
+            setConnectionStatus("connected");
           }
         };
 
-        setStatus('Connected');
-      })
-      .catch((err) => {
-        console.error('Media Device Error:', err);
-        setStatus('Camera/Microphone Permission Denied');
-      });
+        // Generate ICE candidates and send them
+        pc.onicecandidate = async (event) => {
+          if (event.candidate) {
+            await fetch(`/api/telehealth/signal`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ appointmentId, candidate: event.candidate }),
+            }).catch(() => {});
+          }
+        };
 
+        // Create WebRTC Offer
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        // Send Offer to backend signaling endpoint
+        await fetch(`/api/telehealth/signal`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointmentId, offer }),
+        });
+
+        // Poll signaling state to accept incoming Answer/Candidates from peer
+        const pollInterval = setInterval(async () => {
+          try {
+            const res = await fetch(`/api/telehealth/signal?appointmentId=${appointmentId}`);
+            const data = await res.json();
+
+            if (data?.answer && !pc.currentRemoteDescription) {
+              await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+              setConnectionStatus("connected");
+            }
+
+            if (data?.candidate && pc.currentRemoteDescription) {
+              await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+          } catch (e) {
+            // Background polling error catch
+          }
+        }, 3000);
+
+        return () => clearInterval(pollInterval);
+
+      } catch (err) {
+        console.error("Error accessing media devices or setting up WebRTC:", err);
+        setConnectionStatus("connecting");
+      }
+    }
+
+    initWebRTC();
+
+    // Cleanup tracks on component unmount
     return () => {
-      localStreamRef.current?.getTracks().forEach((track) => track.stop());
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+      }
       peerConnectionRef.current?.close();
     };
-  }, [router, appointmentId]);
+  }, [appointmentId]);
+
+  // 2️⃣ Toggle Audio (Mute / Unmute)
+  const toggleMute = () => {
+    if (stream) {
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = !track.enabled;
+      });
+      setIsMuted(!isMuted);
+    }
+  };
+
+  // 3️⃣ Toggle Video (Camera On / Off)
+  const toggleVideo = () => {
+    if (stream) {
+      stream.getVideoTracks().forEach((track) => {
+        track.enabled = !track.enabled;
+      });
+      setIsVideoOff(!isVideoOff);
+    }
+  };
+
+  // 4️⃣ End Call & Cleanup
+  const handleEndCall = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    setConnectionStatus("ended");
+    router.push("/dashboard/appointments");
+  };
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-white p-6 flex flex-col">
-      {/* Top Bar */}
-      <div className="flex justify-between items-center mb-6 bg-[#131926] p-4 rounded-xl border border-gray-800">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between p-4 md:p-6">
+      {/* Top Header */}
+      <div className="flex items-center justify-between bg-slate-900/80 backdrop-blur-md px-6 py-4 rounded-2xl border border-slate-800">
         <div>
           <h1 className="text-lg font-bold">Telehealth Appointment #{appointmentId}</h1>
-          <p className="text-xs text-gray-400">End-to-End Encrypted HIPAA Compliant Session</p>
+          <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+            <ShieldCheck size={14} className="text-emerald-400" />
+            End-to-End Encrypted HIPAA Compliant Session
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-xs font-medium text-emerald-400">{status}</span>
+          <span className={`w-3 h-3 rounded-full ${connectionStatus === "connected" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+          <span className="text-xs font-semibold capitalize text-slate-300">{connectionStatus}</span>
         </div>
       </div>
 
-      {/* Video Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
-        {/* Remote Video Box */}
-        <div className="relative bg-[#131926] border border-gray-800 rounded-2xl overflow-hidden flex items-center justify-center min-h-[400px]">
+      {/* Main Video Grid */}
+      <div className="relative flex-1 my-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center justify-center min-h-[450px]">
+        {/* Remote Video (Doctor / Patient) */}
+        <div className="relative w-full h-full min-h-[350px] bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 flex items-center justify-center">
+          {connectionStatus === "connecting" ? (
+            <div className="text-center p-6">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-sm font-semibold text-slate-300">Connecting to secure participant video feed...</p>
+            </div>
+          ) : null}
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            className="w-full h-full object-cover absolute inset-0"
+            className="w-full h-full object-cover"
           />
-          <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded-md text-xs font-semibold backdrop-blur-md">
+          <div className="absolute bottom-4 left-4 bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-800">
             Remote Participant
           </div>
         </div>
 
-        {/* Local Video Box */}
-        <div className="relative bg-[#131926] border border-gray-800 rounded-2xl overflow-hidden flex items-center justify-center min-h-[400px]">
+        {/* Local Video Feed (Floating / Preview) */}
+        <div className="relative w-full h-full min-h-[350px] bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 flex items-center justify-center">
           <video
             ref={localVideoRef}
             autoPlay
             playsInline
             muted
-            className="w-full h-full object-cover absolute inset-0 transform -scale-x-100"
+            className={`w-full h-full object-cover ${isVideoOff ? "hidden" : "block"}`}
           />
-          <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded-md text-xs font-semibold backdrop-blur-md">
+          {isVideoOff && (
+            <div className="text-center text-slate-500 font-medium text-sm">
+              Camera Disabled
+            </div>
+          )}
+          <div className="absolute bottom-4 left-4 bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-800">
             You (Local Feed)
           </div>
         </div>
       </div>
 
-      {/* Action Controls */}
-      <div className="flex justify-center items-center gap-4 mt-6">
+      {/* Bottom Floating Control Bar */}
+      <div className="flex items-center justify-center gap-4 bg-slate-900/90 backdrop-blur-md py-4 px-8 rounded-3xl w-fit mx-auto border border-slate-800 shadow-2xl">
         <button
-          onClick={() => router.back()}
-          className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-colors"
+          onClick={toggleMute}
+          className={`p-4 rounded-2xl transition-all ${isMuted ? "bg-rose-500/20 text-rose-500 border border-rose-500/30" : "bg-slate-800 text-slate-200 hover:bg-slate-700"}`}
         >
-          End / Leave Call
+          {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+        </button>
+
+        <button
+          onClick={toggleVideo}
+          className={`p-4 rounded-2xl transition-all ${isVideoOff ? "bg-rose-500/20 text-rose-500 border border-rose-500/30" : "bg-slate-800 text-slate-200 hover:bg-slate-700"}`}
+        >
+          {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+        </button>
+
+        <button
+          onClick={handleEndCall}
+          className="p-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition-all shadow-lg shadow-rose-600/30 flex items-center gap-2 px-6"
+        >
+          <PhoneOff size={20} />
+          <span>End Call</span>
         </button>
       </div>
     </div>
