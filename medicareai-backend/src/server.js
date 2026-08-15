@@ -165,28 +165,14 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "API is running" });
-});
-
-/* ======================
-   4️⃣ WHATSAPP WEBHOOKS
-====================== */
-app.get("/api/webhook", (req, res) => {
-  if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
-    return res.send(req.query["hub.challenge"]);
-  }
-  res.sendStatus(403);
-});
-
 // ==========================================
 // DOCTOR PRESCRIPTION ROUTES
 // ==========================================
 
 // 1. GET Prescriptions (Scoped strictly to the logged-in doctor)
-app.get('/api/doctor/prescriptions', authenticateToken, async (req, res) => {
+app.get('/api/doctor/prescriptions', verifyToken, async (req, res) => {
   try {
-    const doctorId = req.user.id; // Extracted from JWT token
+    const doctorId = req.user.id; // Extracted from JWT token via verifyToken
 
     const result = await pool.query(
       `SELECT * FROM prescriptions 
@@ -203,9 +189,9 @@ app.get('/api/doctor/prescriptions', authenticateToken, async (req, res) => {
 });
 
 // 2. POST New Prescription (Attaches logged-in doctor's ID)
-app.post('/api/doctor/prescriptions', authenticateToken, async (req, res) => {
+app.post('/api/doctor/prescriptions', verifyToken, async (req, res) => {
   const { patient_name, medication_details } = req.body;
-  const doctorId = req.user.id; // Extracted from JWT token
+  const doctorId = req.user.id; // Extracted from JWT token via verifyToken
 
   if (!patient_name || !medication_details) {
     return res.status(400).json({ error: 'Patient name and medication details are required.' });
@@ -224,6 +210,20 @@ app.post('/api/doctor/prescriptions', authenticateToken, async (req, res) => {
     console.error('Error creating prescription:', err);
     res.status(500).json({ error: 'Server error saving prescription.' });
   }
+});
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "API is running" });
+});
+
+/* ======================
+   4️⃣ WHATSAPP WEBHOOKS
+====================== */
+app.get("/api/webhook", (req, res) => {
+  if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
+    return res.send(req.query["hub.challenge"]);
+  }
+  res.sendStatus(403);
 });
 
 app.post("/api/webhook", async (req, res) => {
@@ -299,7 +299,7 @@ async function initDatabase() {
 
     await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
 
-    // Prescriptions Registry (Added here to initialize reliably on deployment boot)
+    // Prescriptions Registry
     await pool.query(`
       CREATE TABLE IF NOT EXISTS prescriptions (
         id SERIAL PRIMARY KEY,
