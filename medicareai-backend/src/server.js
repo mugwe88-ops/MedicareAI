@@ -39,48 +39,26 @@ app.use(
   })
 );
 
-const allowedOrigins = [
-  "https://medicare-ai-two.vercel.app",
-  "https://www.medicare-ai-two.vercel.app",
-  "https://medicareai-backend.onrender.com",
-  "https://medicareai-1.onrender.com",
-  "http://localhost:3000",
-  "http://localhost:5173",
-  /\.github\.dev$/,
-  /\.vercel\.app$/,
-];
+// Auto-reflects requesting origin to guarantee headers are sent on all routes/OPTIONS
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Accept",
+      "X-Requested-With",
+      "Origin",
+      "Access-Control-Request-Method",
+      "Access-Control-Request-Headers",
+    ],
+    optionsSuccessStatus: 200,
+  })
+);
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    const isAllowed = allowedOrigins.some((allowed) =>
-      typeof allowed === "string" ? allowed === origin : allowed.test(origin)
-    );
-
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.warn(`⚠️ CORS Access requested from untrusted origin: ${origin}`);
-      callback(null, false);
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "Accept",
-    "X-Requested-With",
-    "Origin",
-    "Access-Control-Request-Method",
-    "Access-Control-Request-Headers",
-  ],
-  optionsSuccessStatus: 200,
-};
-
-app.use(cors(corsOptions));
-app.options(/(.*)/, cors(corsOptions));
+app.options("*", cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
