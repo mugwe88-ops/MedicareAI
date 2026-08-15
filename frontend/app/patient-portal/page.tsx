@@ -1,222 +1,209 @@
 "use client";
+
 import { useState, useEffect } from "react";
-import PatientResultsTable from "../../src/components/PatientResultsTable";
-import HealthTrends from "../../src/components/HealthTrends";
-import AIInsights from "../../src/components/AIInsights";
-import RecordsVault from "../../src/components/RecordsVault";
+import { 
+  Calendar, 
+  Video, 
+  Activity, 
+  FileText, 
+  Clock, 
+  User, 
+  PlusCircle, 
+  CheckCircle2 
+} from "lucide-react";
 
 interface Appointment {
   id: number;
-  patient_name: string;
-  appointment_time: string;
+  patient_name?: string;
+  doctor_name?: string;
+  department?: string;
+  appointment_date?: string;
+  appointment_time?: string;
   status: string;
-  phone: string;
+  phone?: string;
   reason?: string;
 }
 
-interface Doctor {
-  id: number;
-  name: string;
-  specialty: string;
-}
-
 export default function PatientPortal() {
-  const [isBooking, setIsBooking] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [fetchingDoctors, setFetchingDoctors] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-
-  const [bookingData, setBookingData] = useState({
-    doctorId: "",
-    date: "",
-    reason: "",
-    phone: "" 
-  });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<"overview" | "appointments" | "records">("overview");
 
   useEffect(() => {
-    fetchAppointments();
-    // Initial fetch for all doctors
-    fetchDoctors(""); 
+    fetchPatientData();
   }, []);
 
-  // NEW: Effect to fetch doctors whenever the "reason" changes
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (isBooking) {
-        fetchDoctors(bookingData.reason);
-      }
-    }, 500); // 500ms debounce to avoid hitting the API on every single keystroke
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [bookingData.reason, isBooking]);
-
-  const fetchAppointments = async () => {
-    try {
-      const res = await fetch("https://medicareai-1.onrender.com/api/appointments");
-      const data = await res.json();
-      if (Array.isArray(data)) setAppointments(data);
-    } catch (err) {
-      console.error("Fetch Appointments Error:", err);
-    }
-  };
-
-  // UPDATED: Fetch doctors with a specialty/query parameter
-  const fetchDoctors = async (query: string) => {
-    setFetchingDoctors(true);
-    try {
-      // Passes the 'reason' as the 'specialization' query param to your backend
-      const url = `https://medicareai-1.onrender.com/api/doctors?specialization=${encodeURIComponent(query)}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch doctors");
-      const data = await res.json();
-      if (Array.isArray(data)) setDoctors(data);
-    } catch (err) {
-      console.error("Fetch Doctors Error:", err);
-    } finally {
-      setFetchingDoctors(false);
-    }
-  };
-
-  const handleBookAppointment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bookingData.doctorId) return alert("Please select a doctor.");
+  const fetchPatientData = async () => {
     setLoading(true);
-
-    const payload = {
-      patient_name: "William Weru", 
-      phone: bookingData.phone,
-      appointment_time: bookingData.date, 
-      doctor_id: parseInt(bookingData.doctorId),
-      reason: bookingData.reason || "General Consultation"
-    };
-
     try {
-      const res = await fetch("https://medicareai-1.onrender.com/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      const token = localStorage.getItem("token");
+      const res = await fetch("https://medicareai-1.onrender.com/api/my-appointments", {
+        headers: {
+          Authorization: `Bearer ${token || ""}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (res.ok) {
-        alert("Appointment booked!");
-        setIsBooking(false);
-        setBookingData({ doctorId: "", date: "", reason: "", phone: "" });
-        fetchAppointments();
+        const data = await res.json();
+        setAppointments(Array.isArray(data) ? data : []);
+      } else {
+        setAppointments([]);
       }
     } catch (err) {
-       console.error("Booking Error:", err);
+      console.error("Failed to load patient records:", err);
+      setAppointments([]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm sticky top-0 z-40">
-        <h1 className="text-2xl font-black text-blue-600 tracking-tight">Swift MD</h1>
-        <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">W</div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto p-8 space-y-12">
-        <div className="flex justify-between items-center mb-10">
+    <div className="min-h-screen bg-slate-50 p-6 font-sans">
+      <div className="max-w-6xl mx-auto space-y-6">
+        
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">William Weru's Dashboard</h2>
-            <p className="text-slate-500 font-medium mt-1 text-sm">Manage your health and upcoming visits</p>
+            <h1 className="text-2xl font-bold text-slate-900">Patient Care Portal</h1>
+            <p className="text-slate-500 text-sm mt-1">
+              Manage your upcoming consultations, health records, and medical schedules.
+            </p>
           </div>
           <button 
-            onClick={() => setIsBooking(true)}
-            className="px-8 py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 transition transform active:scale-95"
+            onClick={() => setActiveTab("appointments")}
+            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-xl transition shadow-sm"
           >
-            + Book New Appointment
+            <PlusCircle size={18} /> Book Consultation
           </button>
         </div>
 
-        {isBooking && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in duration-300">
-               <h2 className="text-2xl font-black text-slate-900 mb-6">New Appointment</h2>
-               <form onSubmit={handleBookAppointment} className="space-y-4">
-                  <input 
-                    type="tel"
-                    placeholder="Phone Number"
-                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold text-slate-900"
-                    value={bookingData.phone}
-                    onChange={(e) => setBookingData({...bookingData, phone: e.target.value})}
-                    required
-                  />
-                  
-                  {/* Step 1: User types reason/specialty */}
-                  <input 
-                    type="text"
-                    placeholder="Reason (e.g. Dental, Cardiology)"
-                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-200 font-bold text-slate-900 focus:bg-white transition-colors"
-                    value={bookingData.reason}
-                    onChange={(e) => setBookingData({...bookingData, reason: e.target.value})}
-                  />
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-slate-200 gap-6 text-sm font-semibold text-slate-500">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`pb-3 transition-colors ${
+              activeTab === "overview" ? "border-b-2 border-blue-600 text-blue-600" : "hover:text-slate-800"
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab("appointments")}
+            className={`pb-3 transition-colors ${
+              activeTab === "appointments" ? "border-b-2 border-blue-600 text-blue-600" : "hover:text-slate-800"
+            }`}
+          >
+            My Appointments ({appointments.length})
+          </button>
+        </div>
 
-                  {/* Step 2: Dropdown filters based on input above */}
-                  <select 
-                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold text-slate-900"
-                    value={bookingData.doctorId}
-                    onChange={(e) => setBookingData({...bookingData, doctorId: e.target.value})}
-                    required
-                  >
-                    <option value="">{fetchingDoctors ? "Searching doctors..." : "Select Available Doctor"}</option>
-                    {doctors.length > 0 ? (
-                      doctors.map(doc => (
-                        <option key={doc.id} value={doc.id}>
-                          {doc.name} ({doc.specialty})
-                        </option>
-                      ))
-                    ) : (
-                      !fetchingDoctors && <option disabled>No specialists found for "{bookingData.reason}"</option>
-                    )}
-                  </select>
-
-                  <input 
-                    type="datetime-local" 
-                    className="w-full p-4 border border-slate-100 rounded-2xl bg-slate-50 font-bold text-slate-900"
-                    value={bookingData.date}
-                    onChange={(e) => setBookingData({...bookingData, date: e.target.value})}
-                    required
-                  />
-
-                  <div className="flex gap-4 pt-4">
-                    <button type="button" onClick={() => setIsBooking(false)} className="flex-1 font-bold text-slate-400">Cancel</button>
-                    <button type="submit" disabled={loading} className="flex-1 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition disabled:opacity-50">
-                      {loading ? "Confirming..." : "Confirm"}
-                    </button>
-                  </div>
-               </form>
-            </div>
+        {/* Tab Content */}
+        {loading ? (
+          <div className="p-12 text-center text-slate-400 font-medium bg-white rounded-2xl border border-slate-200">
+            Loading your medical portal...
           </div>
-        )}
+        ) : (
+          <>
+            {activeTab === "overview" && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Metric Card 1 */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                    <Calendar size={24} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 font-semibold uppercase">Total Visits</p>
+                    <p className="text-2xl font-bold text-slate-800">{appointments.length}</p>
+                  </div>
+                </div>
 
-        {/* SECTION: Appointments */}
-        <section className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm">
-           <h3 className="text-xl font-bold text-slate-900 mb-6 tracking-tight">Upcoming Appointments</h3>
-           <div className="space-y-4">
-             {appointments.map((apt) => (
-                 <div key={apt.id} className="flex items-center justify-between p-6 border border-slate-50 rounded-3xl bg-slate-50/50">
-                    <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center text-2xl border border-slate-100">🩺</div>
-                      <div>
-                        <p className="font-black text-slate-900 text-lg leading-tight">{apt.patient_name}</p>
-                        <p className="text-sm text-slate-500 font-bold mt-1">{apt.appointment_time}</p>
-                      </div>
+                {/* Metric Card 2 */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 font-semibold uppercase">Active Status</p>
+                    <p className="text-2xl font-bold text-slate-800">Verified</p>
+                  </div>
+                </div>
+
+                {/* Metric Card 3 */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
+                    <Video size={24} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 font-semibold uppercase">Telehealth Room</p>
+                    <p className="text-2xl font-bold text-slate-800">Ready</p>
+                  </div>
+                </div>
+
+                {/* Appointment List Preview */}
+                <div className="md:col-span-3 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-800 mb-4">Recent Medical Activity</h3>
+                  {appointments.length === 0 ? (
+                    <p className="text-sm text-slate-500">No recent consultations logged.</p>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {appointments.slice(0, 5).map((apt) => (
+                        <div key={apt.id} className="py-3.5 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Clock size={16} className="text-slate-400" />
+                            <div>
+                              <p className="text-sm font-semibold text-slate-800">
+                                {apt.department || "General Consultation"}
+                              </p>
+                              <p className="text-xs text-slate-400">
+                                {apt.appointment_date || "Date Pending"}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-600 capitalize">
+                            {apt.status || "Pending"}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                 </div>
-               ))
-             }
-           </div>
-        </section>
+                  )}
+                </div>
+              </div>
+            )}
 
-        <HealthTrends />
-        <AIInsights />
-        <RecordsVault />
-        <PatientResultsTable />
-      </main>
+            {activeTab === "appointments" && (
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <h3 className="text-lg font-bold text-slate-800">Scheduled Appointments</h3>
+                {appointments.length === 0 ? (
+                  <p className="text-sm text-slate-500">No appointments found.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {appointments.map((apt) => (
+                      <div key={apt.id} className="p-4 border border-slate-200 rounded-xl space-y-2 bg-slate-50/50">
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-bold text-slate-800">{apt.department || "General Health"}</h4>
+                          <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700">
+                            {apt.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <Calendar size={14} /> {apt.appointment_date || "N/A"} at {apt.appointment_time || "N/A"}
+                        </p>
+                        {apt.reason && (
+                          <p className="text-xs text-slate-600 bg-white p-2 rounded border border-slate-100">
+                            Note: {apt.reason}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
