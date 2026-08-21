@@ -20,6 +20,7 @@ import bookingRoutes from "./routes/bookings.routes.js";
 import doctorRoutes from "./routes/doctors.routes.js";
 import telehealthRouter from "./routes/telehealth.js"; 
 import { verifyToken } from "./utils/jwt.js";
+import prescriptionRoutes from "./routes/prescription.routes.js";
 // Removed prescriptionRoutes import to avoid path duplication and routing conflicts with inline handlers
 
 /* ======================
@@ -87,6 +88,7 @@ app.use("/api/appointments", appointmentRoutes);
 app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/doctor/prescriptions", prescriptionRoutes);
 
 // Update Patient Personal & Clinical Profile
 app.put("/api/user/profile", verifyToken, async (req, res) => {
@@ -293,6 +295,25 @@ app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Error fetching prescriptions:", err);
     return res.status(500).json({ error: "Server error fetching prescriptions." });
+  }
+});
+
+// GET List of Patients for Doctor Prescriptions Dropdown
+app.get("/api/patients", verifyToken, async (req, res) => {
+  try {
+    const user_role = req.user?.role?.toLowerCase();
+    if (user_role !== "doctor") {
+      return res.status(403).json({ error: "Access denied. Restricted to medical professionals." });
+    }
+
+    const result = await pool.query(
+      `SELECT id, name, email FROM users WHERE LOWER(role) = 'patient' ORDER BY name ASC`
+    );
+
+    return res.json(result.rows || []);
+  } catch (err) {
+    console.error("Error fetching patients list:", err);
+    return res.status(500).json({ error: "Failed to fetch patients list." });
   }
 });
 
