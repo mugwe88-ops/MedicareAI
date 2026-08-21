@@ -108,11 +108,12 @@ export default function DoctorDashboard() {
   };
 
   // Fetch prescriptions for the selected patient/appointment
+// Fetch prescriptions for the selected patient/appointment using the correct path parameter
   const fetchPrescriptionsForAppointment = async (appointmentId: number) => {
     const token = localStorage.getItem("token");
     setLoadingPrescriptions(true);
     try {
-      const res = await fetch(`${API_BASE}/api/prescriptions?appointment_id=${appointmentId}`, {
+      const res = await fetch(`${API_BASE}/api/appointments/${appointmentId}/prescriptions`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -120,14 +121,15 @@ export default function DoctorDashboard() {
       });
       if (res.ok) {
         const data = await res.json();
-        // Filter or accept data depending on how the endpoint returns it (by appointment or patient)
         if (Array.isArray(data)) {
-          const filtered = data.filter((p: Prescription) => Number(p.appointment_id) === Number(appointmentId));
-          setPatientPrescriptions(filtered.length > 0 ? filtered : data);
+          setPatientPrescriptions(data);
         }
+      } else {
+        setPatientPrescriptions([]);
       }
     } catch (err) {
       console.error("Error fetching prescriptions:", err);
+      setPatientPrescriptions([]);
     } finally {
       setLoadingPrescriptions(false);
     }
