@@ -7,6 +7,8 @@ interface RecordItem {
   id: number;
   record_type?: string;
   patient_name?: string;
+  patient_age?: string | number;
+  patient_number?: string;
   medication_details?: string;
   instructions?: string;
   status?: string;
@@ -56,7 +58,6 @@ export default function RecordsPage() {
     const isClinicalNote = rec.record_type === "clinical_note";
     const title = isClinicalNote ? "Doctor's Clinical Note" : `Prescription #${rec.id}`;
     
-    // Create a clean isolated print window for the individual document
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       alert("Please allow popups to download individual PDFs.");
@@ -72,7 +73,9 @@ export default function RecordsPage() {
             .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
             .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
             .badge { background: #eff6ff; color: #2563eb; padding: 6px 12px; border-radius: 9999px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
-            .content-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; margin-top: 20px; }
+            .patient-box { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 13px; }
+            .patient-box div span { display: block; font-weight: bold; color: #0f172a; margin-top: 2px; font-size: 14px; }
+            .content-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; }
             .label { font-weight: bold; color: #0f172a; margin-bottom: 8px; }
             .details { white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: #334155; }
             .footer { margin-top: 40px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 15px; }
@@ -88,7 +91,13 @@ export default function RecordsPage() {
           </div>
 
           <h2>${title}</h2>
-          <p style="font-size: 13px; color: #64748b;">Recorded Date: ${new Date(rec.created_at).toLocaleDateString()}</p>
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 15px;">Recorded Date: ${new Date(rec.created_at).toLocaleDateString()}</p>
+
+          <div class="patient-box">
+            <div>Patient Name: <span>${rec.patient_name || "Valued Patient"}</span></div>
+            <div>Age: <span>${rec.patient_age || "N/A"}</span></div>
+            <div>Hospital Patient ID: <span>${rec.patient_number || `SMD-${rec.id}`}</span></div>
+          </div>
 
           <div class="content-box">
             <div class="label">${isClinicalNote ? "Clinical Summary / Notes:" : "Medication & Dosage Details:"}</div>
@@ -114,7 +123,6 @@ export default function RecordsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Medical Records & Prescriptions</h1>
         <p className="text-slate-500 text-sm">
@@ -122,7 +130,6 @@ export default function RecordsPage() {
         </p>
       </div>
 
-      {/* Main Content */}
       {loading ? (
         <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3 shadow-sm">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
@@ -184,7 +191,7 @@ export default function RecordsPage() {
 
                 <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                   <p className="text-xs text-slate-400 flex items-center gap-1">
-                    <Calendar size={14} /> {new Date(rec.created_at).toLocaleDateString()}
+                    <Calendar size5 size={14} /> {new Date(rec.created_at).toLocaleDateString()}
                   </p>
                   <button
                     onClick={() => handleDownloadSinglePDF(rec)}
