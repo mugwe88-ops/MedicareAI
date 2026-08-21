@@ -294,14 +294,14 @@ const createPrescriptionHandler = async (req, res) => {
     }
 
     if (!safePatientId && resolvedPatientName) {
-      const userRes = await pool.query(
-        "SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1",
-        [resolvedPatientName]
-      );
-      if (userRes.rows.length > 0) {
-        safePatientId = userRes.rows[0].id;
-      }
-    }
+  const userRes = await pool.query(
+    "SELECT id FROM users WHERE LOWER(TRIM(name)) LIKE LOWER(TRIM($1)) LIMIT 1",
+    [`%${resolvedPatientName}%`]
+  );
+  if (userRes.rows.length > 0) {
+    safePatientId = userRes.rows[0].id;
+  }
+}
 
     const finalName = resolvedPatientName && resolvedPatientName.trim() !== "" ? resolvedPatientName : "Anonymous Patient";
 
