@@ -1,15 +1,27 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { 
+  FileText, 
+  Pill, 
+  Video, 
+  CheckCircle, 
+  Trash2, 
+  Plus, 
+  X, 
+  AlertCircle 
+} from "lucide-react";
 
 interface Appointment {
   id: number;
   patient_name: string;
-  phone: string;
+  phone?: string;
   appointment_date: string;
   appointment_time: string;
   status: string;
-  reason: string;
+  reason?: string;
+  patient_id?: number;
+  clinical_notes?: string;
 }
 
 export default function DoctorDashboard() {
@@ -17,6 +29,20 @@ export default function DoctorDashboard() {
   const [loading, setLoading] = useState(true);
   const [doctorName, setDoctorName] = useState<string>("Doctor");
   const router = useRouter();
+
+  // Modals state
+  const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
+  const [modalType, setModalType] = useState<"prescription" | "note" | null>(null);
+  
+  // Form states
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    medication: "",
+    dosage: "",
+    instructions: "",
+  });
+  const [clinicalNote, setClinicalNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
   const API_BASE = "https://medicareai-1.onrender.com";
 
@@ -47,6 +73,7 @@ export default function DoctorDashboard() {
       const res = await fetch(`${API_BASE}/api/appointments/doctor`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -88,9 +115,78 @@ export default function DoctorDashboard() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to cancel this patient appointment?")) return;
-    handleStatusUpdate(id, "cancelled");
+  const handleAddPrescription = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedApt) return;
+    setSubmitting(true);
+    setFeedbackMsg(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/prescriptions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          appointment_id: selectedApt.id,
+          patient_name: selectedApt.patient_name,
+          ...prescriptionForm,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to save prescription");
+
+      setFeedbackMsg("Prescription issued successfully!");
+      setTimeout(() => {
+        setModalType(null);
+        setPrescriptionForm({ medication: "", dosage: "", instructions: "" });
+        setFeedbackMsg(null);
+      }, 1200);
+    } catch (err: any) {
+      setFeedbackMsg(err.message || "Error submitting prescription.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedApt) return;
+    setSubmitting(true);
+    setFeedbackMsg(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/appointments/${selectedApt.id}/notes`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ clinical_notes: clinicalNote }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update clinical notes");
+
+      setAppointments((prev) =>
+        prev.map((apt) =>
+          apt.id === selectedApt.id ? { ...apt, clinical_notes: clinicalNote } : apt
+        )
+      );
+
+      setFeedbackMsg("Clinical note saved!");
+      setTimeout(() => {
+        setModalType(null);
+        setClinicalNote("");
+        setFeedbackMsg(null);
+      }, 1200);
+    } catch (err: any) {
+      setFeedbackMsg(err.message || "Error saving note.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const formatDisplayDate = (dateStr?: string) => {
@@ -208,7 +304,7 @@ export default function DoctorDashboard() {
                         {apt.patient_name || "Anonymous Patient"}
                       </p>
                       <p className="text-sm text-slate-400 font-bold mt-1 tracking-tight">
-                        {apt.phone || "No phone listed"}
+                        {apt.phone || "N/A"}
                       </p>
                     </td>
                     <td className="px-10 py-7">
@@ -236,24 +332,48 @@ export default function DoctorDashboard() {
                       </span>
                     </td>
                     <td className="px-10 py-7 text-right">
-                      <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                      <div className="flex justify-end items-center gap-2">
+                        {/* Telehealth Video Call */}
+                        <button
+                          onClick={() => router.push(`/telehealth/${apt.id}`)}
+                          className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition shadow-sm"
+                          title="Start Video Call"
+                        >
+                          <Video size={16} />
+                        </button>
+
+                        {/* Add Prescription */}
+                        <button
+                          onClick={() => {
+                            setSelectedApt(apt);
+                            setModalType("prescription");
+                          }}
+                          className="p-2.5 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition shadow-sm"
+                          title="Issue Prescription"
+                        >
+                          <Pill size={16} />
+                        </button>
+
+                        {/* Add / Edit Clinical Note */}
+                        <button
+                          onClick={() => {
+                            setSelectedApt(apt);
+                            setClinicalNote(apt.clinical_notes || "");
+                            setModalType("note");
+                          }}
+                          className="p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition shadow-sm"
+                          title="Add Clinical Note"
+                        >
+                          <FileText size={16} />
+                        </button>
+
+                        {/* Mark Complete */}
                         <button
                           onClick={() => handleStatusUpdate(apt.id, "completed")}
-                          className="h-11 w-11 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                          title="Complete Visit"
+                          className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition shadow-sm"
+                          title="Mark Complete"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(apt.id)}
-                          className="h-11 w-11 flex items-center justify-center bg-red-50 text-red-600 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
-                          title="Cancel Appointment"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                          <CheckCircle size={16} />
                         </button>
                       </div>
                     </td>
@@ -264,6 +384,153 @@ export default function DoctorDashboard() {
           </table>
         </div>
       </main>
+
+      {/* Prescription Modal */}
+      {modalType === "prescription" && selectedApt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-900">
+                Issue Prescription for {selectedApt.patient_name}
+              </h3>
+              <button
+                onClick={() => setModalType(null)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {feedbackMsg && (
+              <div className="bg-blue-50 text-blue-700 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
+                <AlertCircle size={16} /> {feedbackMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleAddPrescription} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Medication Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Amoxicillin, Hydrocortisone Cream"
+                  value={prescriptionForm.medication}
+                  onChange={(e) =>
+                    setPrescriptionForm({ ...prescriptionForm, medication: e.target.value })
+                  }
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Dosage</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 500mg, Twice daily for 7 days"
+                  value={prescriptionForm.dosage}
+                  onChange={(e) =>
+                    setPrescriptionForm({ ...prescriptionForm, dosage: e.target.value })
+                  }
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Instructions / Usage Notes
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Take after meals..."
+                  value={prescriptionForm.instructions}
+                  onChange={(e) =>
+                    setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })
+                  }
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 text-slate-800 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setModalType(null)}
+                  className="w-1/2 py-2.5 rounded-xl font-bold text-sm border border-slate-200 text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-1/2 py-2.5 rounded-xl font-bold text-sm bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {submitting ? "Saving..." : "Save Prescription"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Clinical Notes Modal */}
+      {modalType === "note" && selectedApt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-900">
+                Clinical Notes: {selectedApt.patient_name}
+              </h3>
+              <button
+                onClick={() => setModalType(null)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {feedbackMsg && (
+              <div className="bg-amber-50 text-amber-700 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
+                <AlertCircle size={16} /> {feedbackMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveNote} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Diagnosis / Observations
+                </label>
+                <textarea
+                  rows={5}
+                  required
+                  placeholder="Record symptoms, diagnosis, and treatment recommendations..."
+                  value={clinicalNote}
+                  onChange={(e) => setClinicalNote(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 text-slate-800 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setModalType(null)}
+                  className="w-1/2 py-2.5 rounded-xl font-bold text-sm border border-slate-200 text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-1/2 py-2.5 rounded-xl font-bold text-sm bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {submitting ? "Saving..." : "Save Note"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
