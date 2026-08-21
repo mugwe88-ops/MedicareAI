@@ -1,5 +1,5 @@
 /* ======================
-   0️⃣ ENV & IMPORTS
+    0️⃣ ENV & IMPORTS
 ====================== */
 import dotenv from "dotenv";
 dotenv.config();
@@ -23,7 +23,7 @@ import { verifyToken } from "./utils/jwt.js";
 import prescriptionRoutes from "./routes/prescription.routes.js";
 
 /* ======================
-   1️⃣ APP INIT
+    1️⃣ APP INIT
 ====================== */
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,7 +32,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.set("trust proxy", 1);
 
 /* ======================
-   2️⃣ FAIL-SAFE CORS & MIDDLEWARE
+    2️⃣ FAIL-SAFE CORS & MIDDLEWARE
 ====================== */
 app.use(
   helmet({
@@ -79,7 +79,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ======================
-   3️⃣ API ROUTES
+    3️⃣ API ROUTES
 ====================== */
 app.use("/api/telehealth", telehealthRouter);
 app.use("/api/auth", authRoutes);
@@ -240,7 +240,7 @@ const createPrescriptionHandler = async (req, res) => {
   }
 
   try {
-    let resolvedPatientName = patient_name;
+    let resolvedPatientName = patient_name ? String(patient_name).trim() : null;
     let safePatientId = patient_id && !isNaN(parseInt(patient_id, 10)) ? parseInt(patient_id, 10) : null;
 
     if (!resolvedPatientName && safePatientId) {
@@ -256,6 +256,8 @@ const createPrescriptionHandler = async (req, res) => {
       }
     }
 
+    const finalName = resolvedPatientName && resolvedPatientName.length > 0 ? resolvedPatientName : "Anonymous Patient";
+
     const result = await pool.query(
       `INSERT INTO prescriptions (appointment_id, doctor_id, patient_id, patient_name, medication, dosage, instructions, medication_details, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'issued') 
@@ -264,7 +266,7 @@ const createPrescriptionHandler = async (req, res) => {
         appointment_id || null,
         doctorId,
         safePatientId,
-        resolvedPatientName || "Anonymous Patient",
+        finalName,
         medication || null,
         dosage || null,
         instructions || null,
@@ -438,7 +440,7 @@ app.get("/api/health", (req, res) => {
 });
 
 /* ======================
-   4️⃣ DATABASE INIT & MIGRATIONS
+    4️⃣ DATABASE INIT & MIGRATIONS
 ====================== */
 async function initDatabase() {
   try {
@@ -476,7 +478,7 @@ async function initDatabase() {
         appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
         doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         patient_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        patient_name VARCHAR(255),
+        patient_name VARCHAR(255) NOT NULL,
         medication VARCHAR(255),
         dosage VARCHAR(255),
         instructions TEXT,
@@ -518,7 +520,7 @@ async function initDatabase() {
 }
 
 /* ======================
-   5️⃣ STATIC & CATCH-ALL
+    5️⃣ STATIC & CATCH-ALL
 ====================== */
 const publicPath = path.join(__dirname, "../public");
 app.use(express.static(publicPath));
@@ -531,7 +533,7 @@ app.get("*", (req, res) => {
 });
 
 /* ======================
-   6️⃣ START SERVER IMMEDIATELY (FIXES RENDER TIMEOUTS)
+    6️⃣ START SERVER IMMEDIATELY (FIXES RENDER TIMEOUTS)
 ====================== */
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
