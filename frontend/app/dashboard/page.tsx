@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Video, FileText, LogOut } from "lucide-react";
+import { Calendar, Video, FileText, LogOut, UserCheck } from "lucide-react";
 
 interface Appointment {
   id: number;
@@ -17,6 +17,14 @@ export default function PatientDashboard() {
   const [userName, setUserName] = useState("Patient");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Profile form states
+  const [age, setAge] = useState("");
+  const [phone, setPhone] = useState("");
+  const [medicalHistory, setMedicalHistory] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+
   const router = useRouter();
 
   useEffect(() => {
@@ -32,6 +40,9 @@ export default function PatientDashboard() {
       try {
         const parsed = JSON.parse(storedUser);
         if (parsed.name) setUserName(parsed.name);
+        if (parsed.age) setAge(parsed.age.toString());
+        if (parsed.phone) setPhone(parsed.phone);
+        if (parsed.medical_history) setMedicalHistory(parsed.medical_history);
       } catch (e) {
         console.error("Failed parsing profile", e);
       }
@@ -56,6 +67,63 @@ export default function PatientDashboard() {
       console.error("Failed loading appointments", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    setProfileMessage("");
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    try {
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        "https://medicareai-1.onrender.com";
+      
+      const res = await fetch(`${backendUrl}/api/user/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          age: age ? parseInt(age, 10) : null,
+          phone: phone.trim() || null,
+          medical_history: medicalHistory.trim() || null
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update profile");
+      }
+
+      setProfileMessage("Profile updated successfully!");
+
+      // Update local storage user details if stored there
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          parsed.age = age ? parseInt(age, 10) : parsed.age;
+          parsed.phone = phone || parsed.phone;
+          parsed.medical_history = medicalHistory || parsed.medical_history;
+          localStorage.setItem("user", JSON.stringify(parsed));
+        } catch (err) {
+          // ignore parse errors
+        }
+      }
+    } catch (err: any) {
+      console.error("Error updating profile:", err);
+      setProfileMessage(err.message || "Failed to update profile");
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -188,6 +256,73 @@ export default function PatientDashboard() {
               <p className="text-slate-400 text-xs">View issued meds</p>
             </div>
           </div>
+        </div>
+
+        {/* Patient Profile & Clinical Details Form */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 mb-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+              <UserCheck size={20} />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-900 text-lg">Patient Profile & Clinical Details</h3>
+              <p className="text-xs text-slate-400 font-semibold">Update your personal and medical history for your doctors</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleProfileSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Age</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder="Enter your age"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Phone Number</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g., +254700000000"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Medical History & Allergies</label>
+              <textarea
+                rows={3}
+                value={medicalHistory}
+                onChange={(e) => setMedicalHistory(e.target.value)}
+                placeholder="List any chronic conditions, prior surgeries, or allergies..."
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium"
+              ></textarea>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="submit"
+                disabled={savingProfile}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-lg shadow-blue-200 disabled:opacity-50"
+              >
+                {savingProfile ? "Saving..." : "Save Profile Details"}
+              </button>
+              {profileMessage && (
+                <p className={`text-sm font-bold ${profileMessage.includes("success") ? "text-emerald-600" : "text-rose-600"}`}>
+                  {profileMessage}
+                </p>
+              )}
+            </div>
+          </form>
         </div>
 
         {/* Consultations List */}
