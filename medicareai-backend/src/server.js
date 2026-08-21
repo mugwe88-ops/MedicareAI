@@ -8,6 +8,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import helmet from "helmet";
+import cors from "cors";
 
 // Database & Routes
 import pool from "./utils/db.js";
@@ -36,6 +37,19 @@ app.set("trust proxy", 1);
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+// Add CORS before any route handlers
+app.use(
+  cors({
+    origin: [
+      "https://medicare-ai-two.vercel.app",
+      "http://localhost:3000"
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
