@@ -1,13 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, User, Phone, Stethoscope, FileText, ArrowLeft, Send } from "lucide-react";
+import { Send, User, Phone, Stethoscope, FileText } from "lucide-react";
 
 interface Doctor {
   id: number;
   name: string;
   specialization: string;
-  city?: string;
 }
 
 export default function BookAppointmentPage() {
@@ -17,61 +16,59 @@ export default function BookAppointmentPage() {
   const [appointmentDate, setAppointmentDate] = useState("");
   const [appointmentTime, setAppointmentTime] = useState("");
   const [reason, setReason] = useState("");
-  
+
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedSpecialty, setSelectedSpecialty] = useState("");
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
-  
   const [loading, setLoading] = useState(false);
   const [doctorsLoading, setDoctorsLoading] = useState(true);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-backend.onrender.com";
+  const BACKEND_URL =
+    process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-backend.onrender.com";
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
-
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
         if (parsed.name) setFullName(parsed.name);
         if (parsed.phone) setPhone(parsed.phone);
       } catch (e) {
-        console.error("Failed parsing stored user", e);
+        console.error("Failed parsing stored user:", e);
       }
     }
-
-    fetchDoctors(token);
+    loadDoctors();
   }, []);
 
-  const fetchDoctors = async (token: string | null) => {
-    try {
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+  const loadDoctors = async () => {
+    const token = localStorage.getItem("token");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
+    try {
       const res = await fetch(`${BACKEND_URL}/api/doctors-list`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setDoctors(data);
+        console.log("Fetched doctors successfully:", data);
+        setDoctors(Array.isArray(data) ? data : []);
       } else {
-        console.error("Failed fetching doctors, server returned:", res.status);
+        console.error("Failed doctor fetch HTTP status:", res.status);
       }
     } catch (err) {
-      console.error("Failed loading doctors list:", err);
+      console.error("Network error fetching doctors list:", err);
     } finally {
       setDoctorsLoading(false);
     }
   };
 
-  // Extract unique specialties from loaded doctors
-  const rawSpecialties = doctors.map((doc) => doc.specialization || "General Medicine");
-  const specialties = Array.from(new Set(rawSpecialties));
+  const specialties = Array.from(
+    new Set(doctors.map((d) => d.specialization || "General Medicine"))
+  );
 
-  // Filter doctors by selected specialty
   const filteredDoctors = selectedSpecialty
-    ? doctors.filter((doc) => (doc.specialization || "General Medicine") === selectedSpecialty)
+    ? doctors.filter((d) => (d.specialization || "General Medicine") === selectedSpecialty)
     : doctors;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,7 +90,7 @@ export default function BookAppointmentPage() {
       doctor_name: selectedDoc ? selectedDoc.name : null,
       appointment_date: appointmentDate,
       appointment_time: appointmentTime,
-      reason: reason
+      reason: reason,
     };
 
     try {
@@ -101,9 +98,9 @@ export default function BookAppointmentPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -115,8 +112,7 @@ export default function BookAppointmentPage() {
       alert("Appointment booked successfully!");
       router.push("/dashboard");
     } catch (err: any) {
-      alert(err.message || "Submission failed.");
-      console.error("Booking error:", err);
+      alert(err.message || "Booking submission failed.");
     } finally {
       setLoading(false);
     }
@@ -135,7 +131,6 @@ export default function BookAppointmentPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Patient Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
@@ -164,7 +159,6 @@ export default function BookAppointmentPage() {
             </div>
           </div>
 
-          {/* Specialty Dropdown */}
           <div>
             <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
               Medical Specialty
@@ -186,7 +180,6 @@ export default function BookAppointmentPage() {
             </select>
           </div>
 
-          {/* Doctor Dropdown */}
           <div>
             <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
               Select Doctor
@@ -199,7 +192,11 @@ export default function BookAppointmentPage() {
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500 disabled:opacity-50"
             >
               <option value="">
-                {doctorsLoading ? "Loading doctors..." : "-- Select Doctor --"}
+                {doctorsLoading
+                  ? "Loading doctors..."
+                  : filteredDoctors.length === 0
+                  ? "No doctors found"
+                  : "-- Select Doctor --"}
               </option>
               {filteredDoctors.map((doc) => (
                 <option key={doc.id} value={doc.id}>
@@ -209,7 +206,6 @@ export default function BookAppointmentPage() {
             </select>
           </div>
 
-          {/* Date & Time */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
@@ -237,7 +233,6 @@ export default function BookAppointmentPage() {
             </div>
           </div>
 
-          {/* Reason */}
           <div>
             <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
               Reason for Visit
@@ -245,7 +240,7 @@ export default function BookAppointmentPage() {
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Describe your symptoms or reason for consulting..."
+              placeholder="Describe your symptoms..."
               rows={3}
               required
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500 resize-none"

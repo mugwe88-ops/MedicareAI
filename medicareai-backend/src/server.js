@@ -76,11 +76,23 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctor/prescriptions", prescriptionRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
 
-// GET All Active Doctors
-app.get("/api/doctors-list", verifyToken, async (req, res) => {
+// GET All Active Doctors (Public/Authenticated)
+app.get("/api/doctors-list", async (req, res) => {
   try {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    
     const { specialization } = req.query;
-    let query = `SELECT id, name, specialization, city, status FROM users WHERE LOWER(role) = 'doctor'`;
+
+    let query = `
+      SELECT 
+        id, 
+        name, 
+        COALESCE(NULLIF(TRIM(specialization), ''), 'General Medicine') AS specialization, 
+        city, 
+        status 
+      FROM users 
+      WHERE LOWER(TRIM(role)) = 'doctor'
+    `;
     let values = [];
 
     if (specialization) {
@@ -94,7 +106,7 @@ app.get("/api/doctors-list", verifyToken, async (req, res) => {
     const result = await pool.query(query, values);
     return res.json(result.rows);
   } catch (err) {
-    console.error("Error fetching doctors:", err);
+    console.error("Error fetching doctors list:", err);
     return res.status(500).json({ error: "Failed to fetch doctors list" });
   }
 });
@@ -180,35 +192,6 @@ app.get("/api/records", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("❌ Error reading medical records ledger:", err.message);
     return res.status(500).json({ error: "Failed to load medical records", details: err.message });
-  }
-});
-
-// GET All Active Doctors (Fixes empty dropdowns)
-app.get("/api/doctors-list", async (req, res) => {
-  try {
-    const { specialization } = req.query;
-
-    // Retrieve users where role is doctor, regardless of case
-    let query = `
-      SELECT id, name, COALESCE(specialization, 'General Medicine') as specialization, city, status 
-      FROM users 
-      WHERE LOWER(TRIM(role)) = 'doctor'
-    `;
-    let values = [];
-
-    if (specialization) {
-      const cleanSpec = specialization.trim();
-      query += ` AND (LOWER(TRIM(specialization)) = LOWER($1) OR LOWER(specialization) LIKE LOWER($2))`;
-      values.push(cleanSpec, `%${cleanSpec}%`);
-    }
-
-    query += ` ORDER BY name ASC`;
-
-    const result = await pool.query(query, values);
-    return res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching doctors list:", err);
-    return res.status(500).json({ error: "Failed to fetch doctors list" });
   }
 });
 
@@ -538,6 +521,5 @@ app.get("*", (req, res) => {
 ====================== */
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  // Run DB schema updates asynchronously so port checks pass right away
   initDatabase();
 });
