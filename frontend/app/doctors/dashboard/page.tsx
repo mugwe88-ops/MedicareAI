@@ -1,4 +1,4 @@
-"use client";
+// "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
@@ -8,7 +8,11 @@ import {
   CheckCircle, 
   ArrowLeft, 
   X, 
-  AlertCircle 
+  AlertCircle,
+  Calendar,
+  Clock,
+  Plus,
+  Trash2
 } from "lucide-react";
 
 interface Appointment {
@@ -35,11 +39,29 @@ interface Prescription {
   created_at?: string;
 }
 
+interface AvailabilitySlot {
+  id?: number;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+}
+
 export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [doctorName, setDoctorName] = useState<string>("Doctor");
+  const [doctorId, setDoctorId] = useState<number | null>(null);
   
+  // Availability states
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
+  const [newSlot, setNewSlot] = useState<AvailabilitySlot>({
+    day_of_week: "Monday",
+    start_time: "09:00",
+    end_time: "17:00",
+  });
+  const [savingSlot, setSavingSlot] = useState(false);
+  const [availabilityMsg, setAvailabilityMsg] = useState<string | null>(null);
+
   // Drill-down selected patient state
   const [activePatient, setActivePatient] = useState<Appointment | null>(null);
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
@@ -74,6 +96,11 @@ export default function DoctorDashboard() {
       try {
         const parsed = JSON.parse(storedUser);
         if (parsed.name) setDoctorName(parsed.name);
+        const resolvedId = parsed.id || parsed.doctor_id;
+        if (resolvedId) {
+          setDoctorId(Number(resolvedId));
+          fetchAvailability(Number(resolvedId), token);
+        }
       } catch (e) {
         console.error("Failed to parse local user profile", e);
       }
@@ -103,6 +130,72 @@ export default function DoctorDashboard() {
       console.error("Fetch Error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAvailability = async (docId: number, token?: string) => {
+    const authToken = token || localStorage.getItem("token");
+    try {
+      const res = await fetch(`${API_BASE}/api/doctors/${docId}/availability`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setAvailabilitySlots(data);
+      }
+    } catch (err) {
+      console.error("Error fetching availability:", err);
+    }
+  };
+
+  const handleAddAvailability = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!doctorId) return;
+    setSavingSlot(true);
+    setAvailabilityMsg(null);
+
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${API_BASE}/api/doctors/${doctorId}/availability`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newSlot),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Failed to add availability slot");
+
+      setAvailabilityMsg("Availability updated successfully!");
+      fetchAvailability(doctorId, token);
+      setTimeout(() => setAvailabilityMsg(null), 2500);
+    } catch (err: any) {
+      setAvailabilityMsg(err.message || "Error saving availability slot.");
+    } finally {
+      setSavingSlot(false);
+    }
+  };
+
+  const handleDeleteAvailability = async (slotId?: number) => {
+    if (!slotId || !doctorId) return;
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${API_BASE}/api/doctors/availability/${slotId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        setAvailabilitySlots((prev) => prev.filter((s) => s.id !== slotId));
+      }
+    } catch (err) {
+      console.error("Error deleting slot:", err);
     }
   };
 
@@ -172,18 +265,6 @@ export default function DoctorDashboard() {
 
     try {
       const token = localStorage.getItem("token");
-      const storedUser = localStorage.getItem("user");
-      
-      let doctorId = null;
-      if (storedUser) {
-        try {
-          const parsed = JSON.parse(storedUser);
-          doctorId = parsed.id || parsed.doctor_id;
-        } catch (e) {
-          console.error("Error parsing doctor profile", e);
-        }
-      }
-
       const payload = {
         appointment_id: Number(activePatient.id),
         patient_id: activePatient.patient_id ? Number(activePatient.patient_id) : null,
@@ -207,7 +288,6 @@ export default function DoctorDashboard() {
       });
 
       const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
         throw new Error(data.message || data.error || `Server responded with status ${res.status}`);
       }
@@ -310,7 +390,7 @@ export default function DoctorDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-      {/* Practo-style Navbar */}
+      {/* Navbar */}
       <nav className="bg-white border-b border-slate-200 px-6 py-3.5 flex justify-between items-center sticky top-0 z-40 shadow-sm">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold text-blue-600 tracking-tight">
@@ -330,7 +410,7 @@ export default function DoctorDashboard() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {activePatient ? (
           /* --- INDIVIDUAL PATIENT RECORD & CLINICAL WORKSPACE --- */
           <div className="space-y-6">
@@ -342,7 +422,6 @@ export default function DoctorDashboard() {
             </button>
 
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-6">
-              {/* Header profile info */}
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100">
                 <div>
                   <div className="flex items-center gap-3">
@@ -374,9 +453,7 @@ export default function DoctorDashboard() {
                 </div>
               </div>
 
-              {/* Grid content for history & clinical notes */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Patient History & Questionnaire */}
                 <div className="bg-slate-50 p-5 rounded-lg border border-slate-200/70 space-y-4">
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Patient Medical Questionnaire & History
@@ -398,9 +475,7 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
 
-                {/* Clinical Notes & Prescriptions Management */}
                 <div className="bg-slate-50 p-5 rounded-lg border border-slate-200/70 space-y-6">
-                  {/* Clinical Notes Section */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -427,7 +502,6 @@ export default function DoctorDashboard() {
                     </div>
                   </div>
 
-                  {/* Issued Prescriptions Section */}
                   <div className="space-y-2 pt-2 border-t border-slate-200">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -477,9 +551,89 @@ export default function DoctorDashboard() {
             </div>
           </div>
         ) : (
-          /* --- APPOINTMENTS LIST VIEW --- */
+          /* --- APPOINTMENTS LIST & AVAILABILITY MANAGEMENT VIEW --- */
           <>
-            <div className="flex justify-between items-end mb-6">
+            {/* Availability Manager Panel */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="text-blue-600" size={20} />
+                  <h2 className="text-lg font-bold text-slate-900">Manage Practice Availability Slots</h2>
+                </div>
+                <span className="text-xs text-slate-500">Configure schedule visible to patients during booking</span>
+              </div>
+
+              {availabilityMsg && (
+                <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-xs font-medium flex items-center gap-2">
+                  <AlertCircle size={16} /> {availabilityMsg}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Day of Week</label>
+                  <select
+                    value={newSlot.day_of_week}
+                    onChange={(e) => setNewSlot({ ...newSlot, day_of_week: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white text-slate-800"
+                  >
+                    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
+                      <option key={day} value={day}>{day}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Start Time</label>
+                  <input
+                    type="time"
+                    value={newSlot.start_time}
+                    onChange={(e) => setNewSlot({ ...newSlot, start_time: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">End Time</label>
+                  <input
+                    type="time"
+                    value={newSlot.end_time}
+                    onChange={(e) => setNewSlot({ ...newSlot, end_time: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
+                  />
+                </div>
+                <div>
+                  <button
+                    onClick={handleAddAvailability}
+                    disabled={savingSlot}
+                    className="w-full bg-blue-600 text-white font-medium text-sm py-2 px-4 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+                  >
+                    <Plus size={16} /> {savingSlot ? "Adding..." : "Add Slot"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Current Active Availability Chips */}
+              <div className="pt-2">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Current Active Schedule:</p>
+                {availabilitySlots.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">No availability slots added yet. Patients will not see open times for booking.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {availabilitySlots.map((slot) => (
+                      <div key={slot.id || Math.random()} className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700">
+                        <Clock size={14} className="text-blue-500" />
+                        <span>{slot.day_of_week}: {formatDisplayTime(slot.start_time)} - {formatDisplayTime(slot.end_time)}</span>
+                        <button onClick={() => handleDeleteAvailability(slot.id)} className="text-slate-400 hover:text-red-600 transition ml-1">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Appointments Section */}
+            <div className="flex justify-between items-end mb-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
                   Patient Appointments

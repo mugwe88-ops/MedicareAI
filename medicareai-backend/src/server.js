@@ -116,6 +116,30 @@ app.put("/api/user/profile", verifyToken, async (req, res) => {
   }
 });
 
+// Update doctor availability status
+app.put("/api/doctor/availability", authenticateToken, async (req, res) => {
+  try {
+    const { status } = req.body; // 'available', 'scheduled', 'break'
+    if (!['available', 'scheduled', 'break'].includes(status)) {
+      return res.status(400).json({ error: "Invalid availability status" });
+    }
+
+    const result = await pool.query(
+      `UPDATE users SET availability_status = $1 WHERE id = $2 RETURNING id, name, availability_status`,
+      [status, req.user.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Doctor not found" });
+    }
+
+    res.json({ message: "Availability updated successfully", user: result.rows[0] });
+  } catch (err) {
+    console.error("Error updating availability:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // GET All Active Doctors (Public/Authenticated)
 app.get("/api/doctors-list", async (req, res) => {
   try {
