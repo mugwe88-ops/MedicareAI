@@ -184,6 +184,7 @@ app.patch("/api/appointments/:id/notes", verifyToken, async (req, res) => {
 });
 
 // Medical Records & Prescriptions for Logged-In Patient
+// Medical Records & Prescriptions & Clinical Notes for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
   const patientId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
@@ -195,16 +196,48 @@ app.get("/api/records", verifyToken, async (req, res) => {
 
     const userName = userResult.rows[0].name?.trim() || "";
 
-    const recordsResult = await pool.query(
-      `SELECT * FROM prescriptions 
+    // 1. Fetch Prescriptions
+    const prescriptionsResult = await pool.query(
+      `SELECT 
+         id, 
+         'prescription' AS record_type,
+         medication,
+         dosage,
+         instructions,
+         medication_details,
+         status,
+         created_at 
+       FROM prescriptions 
        WHERE patient_id = $1 
           OR LOWER(TRIM(patient_name)) = LOWER(TRIM($2))
-          OR LOWER(patient_name) LIKE LOWER($3)
-       ORDER BY created_at DESC`,
+          OR LOWER(patient_name) LIKE LOWER($3)`,
       [patientId, userName, `%${userName}%`]
     );
 
-    return res.json(recordsResult.rows);
+    // 2. Fetch Clinical Notes from Appointments
+    const clinicalNotesResult = await pool.query(
+      `SELECT 
+         a.id, 
+         'clinical_note' AS record_type,
+         a.clinical_notes AS medication_details,
+         a.reason AS instructions,
+         a.appointment_date AS created_at,
+         d.name AS doctor_name
+       FROM appointments a
+       LEFT JOIN users d ON a.doctor_id = d.id
+       WHERE a.patient_id = $1 
+         AND a.clinical_notes IS NOT NULL 
+         AND TRIM(a.clinical_notes) != ''`,
+      [patientId]
+    );
+
+    // Combine and sort by date descending
+    const combinedRecords = [
+      ...prescriptionsResult.rows,
+      ...clinicalNotesResult.rows
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    return res.json(combinedRecords);
   } catch (err) {
     console.error("❌ Error reading medical records ledger:", err.message);
     return res.status(500).json({ error: "Failed to load medical records", details: err.message });
