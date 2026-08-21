@@ -128,6 +128,35 @@ app.patch("/api/appointments/:id/status", verifyToken, async (req, res) => {
   }
 });
 
+// Update Clinical Notes for Appointment
+app.patch("/api/appointments/:id/notes", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { clinical_notes } = req.body;
+
+    if (clinical_notes === undefined) {
+      return res.status(400).json({ error: "clinical_notes field is required." });
+    }
+
+    const result = await pool.query(
+      `UPDATE appointments 
+       SET clinical_notes = $1 
+       WHERE id = $2 
+       RETURNING *`,
+      [clinical_notes, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Appointment record not found." });
+    }
+
+    return res.json({ message: "Clinical notes updated successfully", appointment: result.rows[0] });
+  } catch (err) {
+    console.error("Error updating clinical notes:", err);
+    return res.status(500).json({ error: "Failed to update clinical notes." });
+  }
+});
+
 // Medical Records & Prescriptions for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
   const patientId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -142,9 +171,9 @@ app.get("/api/records", verifyToken, async (req, res) => {
 
     const recordsResult = await pool.query(
       `SELECT * FROM prescriptions 
-       WHERE LOWER(patient_name) = LOWER($1) 
+       WHERE patient_id = $1 OR LOWER(patient_name) = LOWER($2) 
        ORDER BY created_at DESC`,
-      [userName || ""]
+      [patientId, userName || ""]
     );
 
     return res.json(recordsResult.rows);
@@ -173,29 +202,59 @@ app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   }
 });
 
-// POST New Prescription
-app.post("/api/doctor/prescriptions", verifyToken, async (req, res) => {
-  const { patient_name, medication_details } = req.body;
+// POST New Prescription (Handles both /api/prescriptions & /api/doctor/prescriptions)
+const createPrescriptionHandler = async (req, res) => {
+  const { appointment_id, patient_id, patient_name, medication, dosage, instructions, medication_details } = req.body;
   const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
-  if (!patient_name || !medication_details) {
-    return res.status(400).json({ error: "Patient name and medication details are required." });
+  const finalMedicationDetails = medication_details || [medication, dosage, instructions].filter(Boolean).join(" - ");
+
+  if (!finalMedicationDetails && !medication) {
+    return res.status(400).json({ error: "Medication details or medication name is required." });
   }
 
   try {
+    let resolvedPatientName = patient_name;
+    let safePatientId = patient_id && !isNaN(parseInt(patient_id, 10)) ? parseInt(patient_id, 10) : null;
+
+    if (!resolvedPatientName && safePatientId) {
+      const pRes = await pool.query("SELECT name FROM users WHERE id = $1", [safePatientId]);
+      if (pRes.rows.length > 0) resolvedPatientName = pRes.rows[0].name;
+    }
+
+    if (!resolvedPatientName && appointment_id) {
+      const aptRes = await pool.query("SELECT patient_name, patient_id FROM appointments WHERE id = $1", [appointment_id]);
+      if (aptRes.rows.length > 0) {
+        resolvedPatientName = aptRes.rows[0].patient_name;
+        if (!safePatientId) safePatientId = aptRes.rows[0].patient_id;
+      }
+    }
+
     const result = await pool.query(
-      `INSERT INTO prescriptions (doctor_id, patient_name, medication_details, status)
-       VALUES ($1, $2, $3, 'Issued') 
+      `INSERT INTO prescriptions (appointment_id, doctor_id, patient_id, patient_name, medication, dosage, instructions, medication_details, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'issued') 
        RETURNING *`,
-      [doctorId, patient_name, medication_details]
+      [
+        appointment_id || null,
+        doctorId,
+        safePatientId,
+        resolvedPatientName || "Anonymous Patient",
+        medication || null,
+        dosage || null,
+        instructions || null,
+        finalMedicationDetails
+      ]
     );
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("Error creating prescription:", err);
-    res.status(500).json({ error: "Server error saving prescription." });
+    res.status(500).json({ error: "Server error saving prescription.", details: err.message });
   }
-});
+};
+
+app.post("/api/prescriptions", verifyToken, createPrescriptionHandler);
+app.post("/api/doctor/prescriptions", verifyToken, createPrescriptionHandler);
 
 app.use("/api/doctor", doctorRoutes);
 
@@ -218,7 +277,7 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
   }
 });
 
-// Create New Appointment for Patient (UPDATED WITH OVERLAP CHECK)
+// Create New Appointment for Patient
 app.post("/api/my-appointments", verifyToken, async (req, res) => {
   try {
     const rawId = req.user?.id || req.user?.userId || req.user?.user_id;
@@ -261,7 +320,6 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
       }
     }
 
-    // --- OVERLAP CHECK START ---
     if (safeDoctorId) {
       const collisionCheck = await pool.query(
         `SELECT id FROM appointments 
@@ -278,7 +336,6 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
         });
       }
     }
-    // --- OVERLAP CHECK END ---
 
     const safeDept = department || "General Medicine";
     const safeReason = reason || "";
@@ -309,7 +366,7 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
   }
 });
 
-// Filtered Appointments for Doctors (UPDATED TO STRICT DOCTOR SCOPING)
+// Filtered Appointments for Doctors
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
   try {
     let doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -332,7 +389,6 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Unable to identify doctor session ID." });
     }
 
-    // Strictly fetch appointments linked to this specific doctor_id
     const result = await pool.query(
       `SELECT a.*, 
               COALESCE(u.name, a.patient_name, 'Anonymous Patient') as patient_name, 
@@ -382,6 +438,7 @@ async function initDatabase() {
         appointment_date DATE,
         appointment_time TIME,
         reason TEXT,
+        clinical_notes TEXT,
         status VARCHAR(20) DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -390,9 +447,14 @@ async function initDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS prescriptions (
         id SERIAL PRIMARY KEY,
+        appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
         doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        patient_name VARCHAR(255) NOT NULL,
-        medication_details TEXT NOT NULL,
+        patient_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        patient_name VARCHAR(255),
+        medication VARCHAR(255),
+        dosage VARCHAR(255),
+        instructions TEXT,
+        medication_details TEXT,
         status VARCHAR(50) DEFAULT 'issued',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -409,8 +471,14 @@ async function initDatabase() {
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_date DATE;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_time TIME;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reason TEXT;",
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS clinical_notes TEXT;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending';",
-      "ALTER TABLE appointments ALTER COLUMN appointment_time TYPE TIME USING appointment_time::time;"
+      "ALTER TABLE appointments ALTER COLUMN appointment_time TYPE TIME USING appointment_time::time;",
+      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL;",
+      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS patient_id INTEGER REFERENCES users(id) ON DELETE SET NULL;",
+      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS medication VARCHAR(255);",
+      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS dosage VARCHAR(255);",
+      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS instructions TEXT;"
     ];
 
     for (const query of migrations) { 
