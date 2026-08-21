@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, AlertCircle, Pill, Calendar, Stethoscope } from "lucide-react";
+import { FileText, AlertCircle, Pill, Calendar, Stethoscope, Download, Printer } from "lucide-react";
 
 interface RecordItem {
   id: number;
@@ -52,14 +52,29 @@ export default function RecordsPage() {
     }
   };
 
+  const handleDownloadPDF = () => {
+    window.print();
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Medical Records & Prescriptions</h1>
-        <p className="text-slate-500 text-sm">
-          Access your issued prescriptions and clinical summaries.
-        </p>
+      {/* Header with Print/PDF Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Medical Records & Prescriptions</h1>
+          <p className="text-slate-500 text-sm">
+            Access and download your issued prescriptions and clinical summaries.
+          </p>
+        </div>
+        {records.length > 0 && (
+          <button
+            onClick={handleDownloadPDF}
+            className="print:hidden inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm transition"
+          >
+            <Download size={16} />
+            Download Records (PDF)
+          </button>
+        )}
       </div>
 
       {/* Main Content */}
@@ -98,7 +113,7 @@ export default function RecordsPage() {
             return (
               <div
                 key={rec.id || index}
-                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3"
+                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 break-inside-avoid"
               >
                 <div className="flex justify-between items-start">
                   <div className={`flex items-center gap-2 font-bold ${isClinicalNote ? "text-emerald-600" : "text-blue-600"}`}>
@@ -120,9 +135,11 @@ export default function RecordsPage() {
                   )}
                 </div>
 
-                <p className="text-xs text-slate-400 flex items-center gap-1">
-                  <Calendar size={14} /> Recorded on {new Date(rec.created_at).toLocaleDateString()}
-                </p>
+                <div className="flex justify-between items-center pt-1">
+                  <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <Calendar size={14} /> Recorded on {new Date(rec.created_at).toLocaleDateString()}
+                  </p>
+                </div>
               </div>
             );
           })}
