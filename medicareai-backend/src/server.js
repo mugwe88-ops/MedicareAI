@@ -211,6 +211,7 @@ app.patch("/api/appointments/:id/notes", verifyToken, async (req, res) => {
 });
 
 // Medical Records & Prescriptions & Clinical Notes for Logged-In Patient
+// Medical Records & Prescriptions & Clinical Notes for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
   const patientId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
@@ -221,26 +222,62 @@ app.get("/api/records", verifyToken, async (req, res) => {
     }
 
     const patientUser = userResult.rows[0];
+    const userName = patientUser.name && patientUser.name.trim() !== "" ? patientUser.name : "Valued Patient";
     const patientAge = patientUser.age || "N/A";
     const patientNumber = `SMD-${1000 + patientUser.id}`;
 
-    // 1. Fetch Prescriptions
+    // 1. Fetch Prescriptions (joining users table to guarantee correct patient name)
     const prescriptionsResult = await pool.query(
       `SELECT 
-         id, 
+         p.id, 
          'prescription' AS record_type,
-         patient_name,
+         COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(p.patient_name), ''), 'Valued Patient') AS patient_name,
          ${patientAge !== "N/A" ? patientAge : "NULL"} AS patient_age,
          '${patientNumber}' AS patient_number,
-         medication_details,
-         instructions,
-         status,
-         created_at,
-         (SELECT name FROM users WHERE id = prescriptions.doctor_id) AS doctor_name
-       FROM prescriptions 
-       WHERE patient_id = $1`,
+         p.medication_details,
+         p.instructions,
+         p.status,
+         p.created_at,
+         (SELECT name FROM users WHERE id = p.doctor_id) AS doctor_name
+       FROM prescriptions p
+       LEFT JOIN users u ON p.patient_id = u.id
+       WHERE p.patient_id = $1 OR p.patient_id IS NULL`,
       [patientId]
     );
+
+    // 2. Fetch Clinical Notes from Appointments
+    const clinicalNotesResult = await pool.query(
+      `SELECT 
+         a.id, 
+         'clinical_note' AS record_type,
+         COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(a.patient_name), ''), 'Valued Patient') AS patient_name,
+         ${patientAge !== "N/A" ? patientAge : "NULL"} AS patient_age,
+         '${patientNumber}' AS patient_number,
+         a.clinical_notes AS medication_details,
+         a.reason AS instructions,
+         a.appointment_date AS created_at,
+         d.name AS doctor_name
+       FROM appointments a
+       LEFT JOIN users u ON a.patient_id = u.id
+       LEFT JOIN users d ON a.doctor_id = d.id
+       WHERE a.patient_id = $1 
+         AND a.clinical_notes IS NOT NULL 
+         AND TRIM(a.clinical_notes) != ''`,
+      [patientId]
+    );
+
+    // Combine and sort by date descending
+    const combinedRecords = [
+      ...prescriptionsResult.rows,
+      ...clinicalNotesResult.rows
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    return res.json(combinedRecords);
+  } catch (err) {
+    console.error("❌ Error reading medical records ledger:", err.message);
+    return res.status(500).json({ error: "Failed to load medical records", details: err.message });
+  }
+});
 
     // 2. Fetch Clinical Notes from Appointments
     const clinicalNotesResult = await pool.query(
