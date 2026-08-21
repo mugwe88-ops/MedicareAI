@@ -1,4 +1,4 @@
-// "use client";
+"use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, Video, FileText, LogOut, UserCheck } from "lucide-react";
