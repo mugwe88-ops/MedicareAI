@@ -193,13 +193,15 @@ app.get("/api/records", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "User profile not found" });
     }
 
-    const userName = userResult.rows[0].name;
+    const userName = userResult.rows[0].name?.trim() || "";
 
     const recordsResult = await pool.query(
       `SELECT * FROM prescriptions 
-       WHERE patient_id = $1 OR LOWER(patient_name) = LOWER($2) 
+       WHERE patient_id = $1 
+          OR LOWER(TRIM(patient_name)) = LOWER(TRIM($2))
+          OR LOWER(patient_name) LIKE LOWER($3)
        ORDER BY created_at DESC`,
-      [patientId, userName || ""]
+      [patientId, userName, `%${userName}%`]
     );
 
     return res.json(recordsResult.rows);
@@ -230,7 +232,7 @@ app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
 
 // POST New Prescription (Handles both /api/prescriptions & /api/doctor/prescriptions)
 const createPrescriptionHandler = async (req, res) => {
-  const { appointment_id, patient_id, patient_name, medication, dosage, instructions, medication_details } = req.body;
+  let { appointment_id, patient_id, patient_name, medication, dosage, instructions, medication_details } = req.body;
   const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
   const finalMedicationDetails = medication_details || [medication, dosage, instructions].filter(Boolean).join(" - ") || medication || "Prescription Details";
@@ -243,6 +245,14 @@ const createPrescriptionHandler = async (req, res) => {
     let resolvedPatientName = patient_name ? String(patient_name).trim() : null;
     let safePatientId = patient_id && !isNaN(parseInt(patient_id, 10)) ? parseInt(patient_id, 10) : null;
 
+    if ((!resolvedPatientName || !safePatientId) && appointment_id) {
+      const aptRes = await pool.query("SELECT patient_name, patient_id FROM appointments WHERE id = $1", [appointment_id]);
+      if (aptRes.rows.length > 0) {
+        if (!resolvedPatientName && aptRes.rows[0].patient_name) resolvedPatientName = aptRes.rows[0].patient_name;
+        if (!safePatientId && aptRes.rows[0].patient_id) safePatientId = aptRes.rows[0].patient_id;
+      }
+    }
+
     if (!resolvedPatientName && safePatientId) {
       const pRes = await pool.query("SELECT name FROM users WHERE id = $1", [safePatientId]);
       if (pRes.rows.length > 0 && pRes.rows[0].name) {
@@ -250,11 +260,13 @@ const createPrescriptionHandler = async (req, res) => {
       }
     }
 
-    if (!resolvedPatientName && appointment_id) {
-      const aptRes = await pool.query("SELECT patient_name, patient_id FROM appointments WHERE id = $1", [appointment_id]);
-      if (aptRes.rows.length > 0) {
-        if (aptRes.rows[0].patient_name) resolvedPatientName = aptRes.rows[0].patient_name;
-        if (!safePatientId && aptRes.rows[0].patient_id) safePatientId = aptRes.rows[0].patient_id;
+    if (!safePatientId && resolvedPatientName) {
+      const userRes = await pool.query(
+        "SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1",
+        [resolvedPatientName]
+      );
+      if (userRes.rows.length > 0) {
+        safePatientId = userRes.rows[0].id;
       }
     }
 
