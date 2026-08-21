@@ -296,6 +296,23 @@ app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   }
 });
 
+// GET Prescriptions by Appointment ID (For Doctor View on Specific Appointment Dashboard)
+app.get("/api/appointments/:appointmentId/prescriptions", verifyToken, async (req, res) => {
+  const { appointmentId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM prescriptions 
+       WHERE appointment_id = $1 
+       ORDER BY created_at DESC`,
+      [appointmentId]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching appointment prescriptions:", err);
+    return res.status(500).json({ error: "Failed to fetch prescriptions for this appointment." });
+  }
+});
+
 // POST New Prescription Handler
 const createPrescriptionHandler = async (req, res) => {
   let { appointment_id, patient_id, patient_name, medication, dosage, instructions, medication_details } = req.body;
