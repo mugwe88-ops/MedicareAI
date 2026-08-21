@@ -6,7 +6,8 @@ import { Send, User, Phone, Stethoscope, FileText } from "lucide-react";
 interface Doctor {
   id: number;
   name: string;
-  specialization: string;
+  specialization?: string;
+  specialty?: string;
 }
 
 export default function BookAppointmentPage() {
@@ -52,7 +53,14 @@ export default function BookAppointmentPage() {
       if (res.ok) {
         const data = await res.json();
         console.log("Fetched doctors successfully:", data);
-        setDoctors(Array.isArray(data) ? data : []);
+        
+        // Normalize backend fields to support both specialization and specialty
+        const normalized = (Array.isArray(data) ? data : []).map((doc: any) => ({
+          ...doc,
+          specialization: doc.specialization || doc.specialty || "General Medicine",
+        }));
+        
+        setDoctors(normalized);
       } else {
         console.error("Failed doctor fetch HTTP status:", res.status);
       }
@@ -68,7 +76,11 @@ export default function BookAppointmentPage() {
   );
 
   const filteredDoctors = selectedSpecialty
-    ? doctors.filter((d) => (d.specialization || "General Medicine") === selectedSpecialty)
+    ? doctors.filter(
+        (d) =>
+          (d.specialization || "General Medicine").trim().toLowerCase() ===
+          selectedSpecialty.trim().toLowerCase()
+      )
     : doctors;
 
   const handleSubmit = async (e: React.FormEvent) => {

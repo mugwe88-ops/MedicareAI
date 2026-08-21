@@ -38,16 +38,21 @@ router.patch("/status", updateStatusHandler);
 /**
  * GET /api/doctors
  */
+/**
+ * GET /api/doctors
+ */
 router.get("/", async (req, res) => {
   try {
     const { city, query, q, specialization, specialty } = req.query;
 
     const result = await pool.query(
-      "SELECT id, name, specialty, registration_number, city FROM users WHERE role = 'doctor' ORDER BY name ASC"
+      `SELECT id, name, COALESCE(specialization, 'General Medicine') AS specialization, city 
+       FROM users 
+       WHERE LOWER(role) = 'doctor' 
+       ORDER BY name ASC`
     );
     
     let doctors = result.rows;
-
     const searchTerm = (query || q || specialization || specialty || "").toString().trim().toLowerCase();
     const cityTerm = (city || "").toString().trim().toLowerCase();
 
@@ -57,7 +62,7 @@ router.get("/", async (req, res) => {
 
     if (searchTerm !== "") {
       doctors = doctors.filter(d => 
-        d.specialty?.toLowerCase().includes(searchTerm) || 
+        d.specialization?.toLowerCase().includes(searchTerm) || 
         d.name?.toLowerCase().includes(searchTerm)
       );
     }
@@ -68,7 +73,6 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch doctors" });
   }
 });
-
 /**
  * POST /api/doctors
  */
