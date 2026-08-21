@@ -488,7 +488,6 @@ async function initDatabase() {
     console.log("✅ PostgreSQL schema ready and updated with all migrations.");
   } catch (err) {
     console.error("❌ DB INIT ERROR:", err);
-    process.exit(1); 
   }
 }
 
@@ -506,18 +505,10 @@ app.get("*", (req, res) => {
 });
 
 /* ======================
-   6️⃣ START SERVER
+   6️⃣ START SERVER IMMEDIATELY (FIXES RENDER TIMEOUTS)
 ====================== */
-async function startServer() {
-  try {
-    await initDatabase();
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error("❌ Startup failed:", err);
-    process.exit(1);
-  }
-}
-
-startServer();
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  // Run DB schema updates asynchronously so port checks pass right away
+  initDatabase();
+});
