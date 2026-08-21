@@ -211,7 +211,6 @@ app.patch("/api/appointments/:id/notes", verifyToken, async (req, res) => {
 });
 
 // Medical Records & Prescriptions & Clinical Notes for Logged-In Patient
-// Medical Records & Prescriptions & Clinical Notes for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
   const patientId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
@@ -251,40 +250,6 @@ app.get("/api/records", verifyToken, async (req, res) => {
          a.id, 
          'clinical_note' AS record_type,
          COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(a.patient_name), ''), 'Valued Patient') AS patient_name,
-         ${patientAge !== "N/A" ? patientAge : "NULL"} AS patient_age,
-         '${patientNumber}' AS patient_number,
-         a.clinical_notes AS medication_details,
-         a.reason AS instructions,
-         a.appointment_date AS created_at,
-         d.name AS doctor_name
-       FROM appointments a
-       LEFT JOIN users u ON a.patient_id = u.id
-       LEFT JOIN users d ON a.doctor_id = d.id
-       WHERE a.patient_id = $1 
-         AND a.clinical_notes IS NOT NULL 
-         AND TRIM(a.clinical_notes) != ''`,
-      [patientId]
-    );
-
-    // Combine and sort by date descending
-    const combinedRecords = [
-      ...prescriptionsResult.rows,
-      ...clinicalNotesResult.rows
-    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-    return res.json(combinedRecords);
-  } catch (err) {
-    console.error("❌ Error reading medical records ledger:", err.message);
-    return res.status(500).json({ error: "Failed to load medical records", details: err.message });
-  }
-});
-
-    // 2. Fetch Clinical Notes from Appointments
-    const clinicalNotesResult = await pool.query(
-      `SELECT 
-         a.id, 
-         'clinical_note' AS record_type,
-         COALESCE(u.name, a.patient_name) AS patient_name,
          ${patientAge !== "N/A" ? patientAge : "NULL"} AS patient_age,
          '${patientNumber}' AS patient_number,
          a.clinical_notes AS medication_details,
@@ -372,7 +337,7 @@ const createPrescriptionHandler = async (req, res) => {
       }
     }
 
-    const finalName = resolvedPatientName && resolvedPatientName.trim() !== "" ? resolvedPatientName : "Anonymous Patient";
+    const finalName = resolvedPatientName && resolvedPatientName.trim() !== "" ? resolvedPatientName : "Valued Patient";
 
     const result = await pool.query(
       `INSERT INTO prescriptions (appointment_id, doctor_id, patient_id, patient_name, medication, dosage, instructions, medication_details, status)
@@ -432,7 +397,7 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
     }
 
     const userResult = await pool.query("SELECT name FROM users WHERE id = $1", [patient_id]);
-    const patient_name = userResult.rows[0]?.name || "Anonymous Patient";
+    const patient_name = userResult.rows[0]?.name || "Valued Patient";
 
     let { department, doctor_id, doctor_name, appointment_date, appointment_time, reason } = req.body;
 
@@ -535,7 +500,7 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
 
     const result = await pool.query(
       `SELECT a.*, 
-              COALESCE(u.name, a.patient_name, 'Anonymous Patient') as patient_name, 
+              COALESCE(u.name, a.patient_name, 'Valued Patient') as patient_name, 
               u.phone 
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
@@ -594,7 +559,7 @@ async function initDatabase() {
         appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
         doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         patient_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        patient_name VARCHAR(255) DEFAULT 'Anonymous Patient',
+        patient_name VARCHAR(255) DEFAULT 'Valued Patient',
         medication VARCHAR(255),
         dosage VARCHAR(255),
         instructions TEXT,
@@ -627,7 +592,7 @@ async function initDatabase() {
       "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS instructions TEXT;",
       "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS medication_details TEXT;",
       "ALTER TABLE prescriptions ALTER COLUMN patient_name DROP NOT NULL;",
-      "ALTER TABLE prescriptions ALTER COLUMN patient_name SET DEFAULT 'Anonymous Patient';",
+      "ALTER TABLE prescriptions ALTER COLUMN patient_name SET DEFAULT 'Valued Patient';",
       "ALTER TABLE prescriptions ALTER COLUMN medication_details DROP NOT NULL;"
     ];
 
