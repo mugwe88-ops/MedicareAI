@@ -117,7 +117,7 @@ app.put("/api/user/profile", verifyToken, async (req, res) => {
 });
 
 // Update doctor availability status
-app.put("/api/doctor/availability", authenticateToken, async (req, res) => {
+app.put("/api/doctor/availability", verifyToken, async (req, res) => {
   try {
     const { status } = req.body; // 'available', 'scheduled', 'break'
     if (!['available', 'scheduled', 'break'].includes(status)) {
@@ -126,7 +126,7 @@ app.put("/api/doctor/availability", authenticateToken, async (req, res) => {
 
     const result = await pool.query(
       `UPDATE users SET availability_status = $1 WHERE id = $2 RETURNING id, name, availability_status`,
-      [status, req.user.userId]
+      [status, req.user.userId || req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -646,6 +646,7 @@ async function initDatabase() {
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER;",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS medical_history TEXT;",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Available';",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS availability_status VARCHAR(50) DEFAULT 'available';",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS department VARCHAR(100);",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_date DATE;",
