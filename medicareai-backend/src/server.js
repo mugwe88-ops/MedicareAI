@@ -21,7 +21,6 @@ import doctorRoutes from "./routes/doctors.routes.js";
 import telehealthRouter from "./routes/telehealth.js"; 
 import { verifyToken } from "./utils/jwt.js";
 import prescriptionRoutes from "./routes/prescription.routes.js";
-// Removed prescriptionRoutes import to avoid path duplication and routing conflicts with inline handlers
 
 /* ======================
     1️⃣ APP INIT
