@@ -191,7 +191,7 @@ export default function RecordsPage() {
 
                 <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                   <p className="text-xs text-slate-400 flex items-center gap-1">
-                    <Calendar size5 size={14} /> {new Date(rec.created_at).toLocaleDateString()}
+                    <Calendar size={14} /> {new Date(rec.created_at).toLocaleDateString()}
                   </p>
                   <button
                     onClick={() => handleDownloadSinglePDF(rec)}
