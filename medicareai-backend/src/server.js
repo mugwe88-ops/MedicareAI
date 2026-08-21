@@ -245,18 +245,20 @@ const createPrescriptionHandler = async (req, res) => {
 
     if (!resolvedPatientName && safePatientId) {
       const pRes = await pool.query("SELECT name FROM users WHERE id = $1", [safePatientId]);
-      if (pRes.rows.length > 0) resolvedPatientName = pRes.rows[0].name;
+      if (pRes.rows.length > 0 && pRes.rows[0].name) {
+        resolvedPatientName = pRes.rows[0].name;
+      }
     }
 
     if (!resolvedPatientName && appointment_id) {
       const aptRes = await pool.query("SELECT patient_name, patient_id FROM appointments WHERE id = $1", [appointment_id]);
       if (aptRes.rows.length > 0) {
-        resolvedPatientName = aptRes.rows[0].patient_name;
-        if (!safePatientId) safePatientId = aptRes.rows[0].patient_id;
+        if (aptRes.rows[0].patient_name) resolvedPatientName = aptRes.rows[0].patient_name;
+        if (!safePatientId && aptRes.rows[0].patient_id) safePatientId = aptRes.rows[0].patient_id;
       }
     }
 
-    const finalName = resolvedPatientName && resolvedPatientName.length > 0 ? resolvedPatientName : "Anonymous Patient";
+    const finalName = resolvedPatientName && resolvedPatientName.trim() !== "" ? resolvedPatientName : "Anonymous Patient";
 
     const result = await pool.query(
       `INSERT INTO prescriptions (appointment_id, doctor_id, patient_id, patient_name, medication, dosage, instructions, medication_details, status)
@@ -270,7 +272,7 @@ const createPrescriptionHandler = async (req, res) => {
         medication || null,
         dosage || null,
         instructions || null,
-        finalMedicationDetails
+        finalMedicationDetails || null
       ]
     );
 
@@ -478,7 +480,7 @@ async function initDatabase() {
         appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
         doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         patient_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        patient_name VARCHAR(255) NOT NULL,
+        patient_name VARCHAR(255) DEFAULT 'Anonymous Patient',
         medication VARCHAR(255),
         dosage VARCHAR(255),
         instructions TEXT,
@@ -506,7 +508,9 @@ async function initDatabase() {
       "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS patient_id INTEGER REFERENCES users(id) ON DELETE SET NULL;",
       "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS medication VARCHAR(255);",
       "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS dosage VARCHAR(255);",
-      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS instructions TEXT;"
+      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS instructions TEXT;",
+      "ALTER TABLE prescriptions ALTER COLUMN patient_name DROP NOT NULL;",
+      "ALTER TABLE prescriptions ALTER COLUMN patient_name SET DEFAULT 'Anonymous Patient';"
     ];
 
     for (const query of migrations) { 
