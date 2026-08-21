@@ -233,7 +233,7 @@ const createPrescriptionHandler = async (req, res) => {
   const { appointment_id, patient_id, patient_name, medication, dosage, instructions, medication_details } = req.body;
   const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
-  const finalMedicationDetails = medication_details || [medication, dosage, instructions].filter(Boolean).join(" - ");
+  const finalMedicationDetails = medication_details || [medication, dosage, instructions].filter(Boolean).join(" - ") || medication || "Prescription Details";
 
   if (!finalMedicationDetails && !medication) {
     return res.status(400).json({ error: "Medication details or medication name is required." });
@@ -272,7 +272,7 @@ const createPrescriptionHandler = async (req, res) => {
         medication || null,
         dosage || null,
         instructions || null,
-        finalMedicationDetails || null
+        finalMedicationDetails
       ]
     );
 
@@ -509,8 +509,10 @@ async function initDatabase() {
       "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS medication VARCHAR(255);",
       "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS dosage VARCHAR(255);",
       "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS instructions TEXT;",
+      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS medication_details TEXT;",
       "ALTER TABLE prescriptions ALTER COLUMN patient_name DROP NOT NULL;",
-      "ALTER TABLE prescriptions ALTER COLUMN patient_name SET DEFAULT 'Anonymous Patient';"
+      "ALTER TABLE prescriptions ALTER COLUMN patient_name SET DEFAULT 'Anonymous Patient';",
+      "ALTER TABLE prescriptions ALTER COLUMN medication_details DROP NOT NULL;"
     ];
 
     for (const query of migrations) { 
