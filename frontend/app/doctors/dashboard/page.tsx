@@ -24,6 +24,17 @@ interface Appointment {
   medical_history?: string;
 }
 
+interface Prescription {
+  id: number;
+  appointment_id: number;
+  medication?: string;
+  medication_name?: string;
+  drug_name?: string;
+  dosage: string;
+  instructions?: string;
+  created_at?: string;
+}
+
 export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +42,8 @@ export default function DoctorDashboard() {
   
   // Drill-down selected patient state
   const [activePatient, setActivePatient] = useState<Appointment | null>(null);
+  const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
+  const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
 
   // Modals state
   const [modalType, setModalType] = useState<"prescription" | "note" | null>(null);
@@ -94,6 +107,38 @@ export default function DoctorDashboard() {
     }
   };
 
+  // Fetch prescriptions for the selected patient/appointment
+  const fetchPrescriptionsForAppointment = async (appointmentId: number) => {
+    const token = localStorage.getItem("token");
+    setLoadingPrescriptions(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/prescriptions?appointment_id=${appointmentId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Filter or accept data depending on how the endpoint returns it (by appointment or patient)
+        if (Array.isArray(data)) {
+          const filtered = data.filter((p: Prescription) => Number(p.appointment_id) === Number(appointmentId));
+          setPatientPrescriptions(filtered.length > 0 ? filtered : data);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching prescriptions:", err);
+    } finally {
+      setLoadingPrescriptions(false);
+    }
+  };
+
+  // When clicking a patient record, load their prescriptions
+  const handleSelectPatient = (apt: Appointment) => {
+    setActivePatient(apt);
+    fetchPrescriptionsForAppointment(apt.id);
+  };
+
   const handleStatusUpdate = async (id: number, newStatus: string) => {
     const token = localStorage.getItem("token");
     try {
@@ -148,9 +193,10 @@ export default function DoctorDashboard() {
         patient_name: activePatient.patient_name || "Anonymous Patient",
         medication: prescriptionForm.medication,
         medication_name: prescriptionForm.medication,
+        drug_name: prescriptionForm.medication,
         dosage: prescriptionForm.dosage,
         instructions: prescriptionForm.instructions || "",
-        duration: "N/A",
+        duration: "7 days",
       };
 
       const res = await fetch(`${API_BASE}/api/prescriptions`, {
@@ -165,10 +211,14 @@ export default function DoctorDashboard() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(data.message || data.error || `Server responded with ${res.status}`);
+        throw new Error(data.message || data.error || `Server responded with status ${res.status}`);
       }
 
       setFeedbackMsg("Prescription issued successfully!");
+      
+      // Refresh the prescriptions list immediately
+      fetchPrescriptionsForAppointment(activePatient.id);
+
       setTimeout(() => {
         setModalType(null);
         setPrescriptionForm({ medication: "", dosage: "", instructions: "" });
@@ -308,7 +358,6 @@ export default function DoctorDashboard() {
                   </p>
                 </div>
 
-                {/* Telehealth Call Action moved inside patient record */}
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => router.push(`/telehealth/${activePatient.id}`)}
@@ -346,24 +395,13 @@ export default function DoctorDashboard() {
                 </div>
 
                 {/* Clinical Notes & Prescriptions Management */}
-                <div className="bg-slate-50/50 p-6 rounded-3xl border border-slate-100 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">
-                      Clinical Documentation
-                    </h3>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setModalType("prescription")}
-                        className="px-4 py-2 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition font-black text-xs flex items-center gap-1.5"
-                      >
-                        <Pill size={14} /> Issue Prescription
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                <div className="bg-slate-50/50 p-6 rounded-3xl border border-slate-100 space-y-6">
+                  {/* Clinical Notes Section */}
+                  <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <p className="text-xs font-bold text-slate-500 uppercase">Doctor's Clinical Notes:</p>
+                      <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                        Clinical Documentation
+                      </h3>
                       <button
                         onClick={() => {
                           setClinicalNote(activePatient.clinical_notes || "");
@@ -375,9 +413,58 @@ export default function DoctorDashboard() {
                       </button>
                     </div>
 
-                    <div className="p-4 bg-amber-50/40 rounded-xl border border-amber-100 text-slate-800 text-sm font-medium min-h-[100px]">
-                      {activePatient.clinical_notes || (
-                        <span className="text-slate-400 italic">No clinical notes recorded for this session yet. Click 'Add Clinical Note' above to record observations.</span>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Doctor's Clinical Notes:</p>
+                      <div className="text-slate-800 text-sm font-medium min-h-[60px]">
+                        {activePatient.clinical_notes || (
+                          <span className="text-slate-400 italic">No clinical notes recorded yet.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Issued Prescriptions Section */}
+                  <div className="space-y-3 pt-2 border-t border-slate-200/60">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                        Issued Prescriptions
+                      </h3>
+                      <button
+                        onClick={() => setModalType("prescription")}
+                        className="px-3.5 py-1.5 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition font-black text-xs flex items-center gap-1.5"
+                      >
+                        <Pill size={14} /> Issue Prescription
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto">
+                      {loadingPrescriptions ? (
+                        <p className="text-xs text-slate-400 italic">Loading prescriptions...</p>
+                      ) : patientPrescriptions.length === 0 ? (
+                        <div className="bg-white p-4 rounded-2xl border border-slate-100 text-xs text-slate-400 italic">
+                          No prescriptions issued for this visit yet.
+                        </div>
+                      ) : (
+                        patientPrescriptions.map((rx) => (
+                          <div key={rx.id} className="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-black text-purple-900 text-sm">
+                                {rx.medication || rx.medication_name || rx.drug_name || "Medication"}
+                              </p>
+                              <p className="text-xs font-bold text-slate-600 mt-0.5">
+                                Dosage: {rx.dosage}
+                              </p>
+                              {rx.instructions && (
+                                <p className="text-xs text-slate-500 mt-1 italic">
+                                  Instructions: {rx.instructions}
+                                </p>
+                              )}
+                            </div>
+                            <span className="px-2.5 py-1 bg-purple-50 text-purple-700 font-extrabold text-[10px] rounded-lg uppercase">
+                              Active
+                            </span>
+                          </div>
+                        ))
                       )}
                     </div>
                   </div>
@@ -437,7 +524,7 @@ export default function DoctorDashboard() {
                     appointments.map((apt) => (
                       <tr 
                         key={apt.id} 
-                        onClick={() => setActivePatient(apt)}
+                        onClick={() => handleSelectPatient(apt)}
                         className="hover:bg-blue-50/40 transition-all cursor-pointer group"
                       >
                         <td className="px-10 py-7">
