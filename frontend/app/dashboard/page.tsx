@@ -21,11 +21,26 @@ export default function PatientDashboard() {
   // Profile form states
   const [age, setAge] = useState("");
   const [phone, setPhone] = useState("");
-  const [medicalHistory, setMedicalHistory] = useState("");
+  
+  // Questionnaire states
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [allergies, setAllergies] = useState("");
+  const [hasSurgeries, setHasSurgeries] = useState("no");
+  const [surgeryDetails, setSurgeryDetails] = useState("");
+
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
 
   const router = useRouter();
+
+  const commonConditions = [
+    "Hypertension",
+    "Diabetes",
+    "Asthma",
+    "Heart Disease",
+    "Epilepsy",
+    "None"
+  ];
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -42,7 +57,10 @@ export default function PatientDashboard() {
         if (parsed.name) setUserName(parsed.name);
         if (parsed.age) setAge(parsed.age.toString());
         if (parsed.phone) setPhone(parsed.phone);
-        if (parsed.medical_history) setMedicalHistory(parsed.medical_history);
+        if (parsed.medical_history) {
+          // If you want to pre-fill or parse back, you can handle string here
+          setAllergies(parsed.medical_history);
+        }
       } catch (e) {
         console.error("Failed parsing profile", e);
       }
@@ -70,6 +88,22 @@ export default function PatientDashboard() {
     }
   };
 
+  const handleConditionToggle = (condition: string) => {
+    if (condition === "None") {
+      setSelectedConditions(["None"]);
+      return;
+    }
+    
+    // Remove "None" if another condition is selected
+    const filtered = selectedConditions.filter(c => c !== "None");
+
+    if (filtered.includes(condition)) {
+      setSelectedConditions(filtered.filter(c => c !== condition));
+    } else {
+      setSelectedConditions([...filtered, condition]);
+    }
+  };
+
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingProfile(true);
@@ -80,6 +114,9 @@ export default function PatientDashboard() {
       router.push("/login");
       return;
     }
+
+    // Compile questionnaire answers into a clean formatted string for the medical_history column
+    const compiledMedicalHistory = `Conditions: ${selectedConditions.join(", ") || "None"} | Allergies: ${allergies || "None"} | Surgeries: ${hasSurgeries === "yes" ? surgeryDetails : "None"}`;
 
     try {
       const backendUrl =
@@ -95,7 +132,7 @@ export default function PatientDashboard() {
         body: JSON.stringify({
           age: age ? parseInt(age, 10) : null,
           phone: phone.trim() || null,
-          medical_history: medicalHistory.trim() || null
+          medical_history: compiledMedicalHistory
         })
       });
 
@@ -104,20 +141,17 @@ export default function PatientDashboard() {
         throw new Error(data.error || "Failed to update profile");
       }
 
-      setProfileMessage("Profile updated successfully!");
+      setProfileMessage("Questionnaire submitted successfully!");
 
-      // Update local storage user details if stored there
       const storedUser = localStorage.getItem("user");
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
           parsed.age = age ? parseInt(age, 10) : parsed.age;
           parsed.phone = phone || parsed.phone;
-          parsed.medical_history = medicalHistory || parsed.medical_history;
+          parsed.medical_history = compiledMedicalHistory;
           localStorage.setItem("user", JSON.stringify(parsed));
-        } catch (err) {
-          // ignore parse errors
-        }
+        } catch (err) {}
       }
     } catch (err: any) {
       console.error("Error updating profile:", err);
@@ -258,20 +292,21 @@ export default function PatientDashboard() {
           </div>
         </div>
 
-        {/* Patient Profile & Clinical Details Form */}
+        {/* Patient Profile & Clinical Questionnaire */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 mb-10">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
               <UserCheck size={20} />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-lg">Patient Profile & Clinical Details</h3>
-              <p className="text-xs text-slate-400 font-semibold">Update your personal and medical history for your doctors</p>
+              <h3 className="font-black text-slate-900 text-lg">Patient Medical Questionnaire</h3>
+              <p className="text-xs text-slate-400 font-semibold">Please complete your health profile details for your doctors</p>
             </div>
           </div>
 
           <form onSubmit={handleProfileSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Personal Data Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-slate-100">
               <div>
                 <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Age</label>
                 <input
@@ -297,27 +332,100 @@ export default function PatientDashboard() {
               </div>
             </div>
 
+            {/* Questionnaire Section: Chronic Conditions */}
             <div>
-              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Medical History & Allergies</label>
-              <textarea
-                rows={3}
-                value={medicalHistory}
-                onChange={(e) => setMedicalHistory(e.target.value)}
-                placeholder="List any chronic conditions, prior surgeries, or allergies..."
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium"
-              ></textarea>
+              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-3">
+                1. Do you have any of the following chronic conditions? (Check all that apply)
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {commonConditions.map((cond) => (
+                  <button
+                    type="button"
+                    key={cond}
+                    onClick={() => handleConditionToggle(cond)}
+                    className={`px-4 py-3 rounded-xl border text-sm font-bold text-left transition flex items-center justify-between ${
+                      selectedConditions.includes(cond)
+                        ? "bg-blue-50 border-blue-600 text-blue-700"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span>{cond}</span>
+                    <span className={`w-4 h-4 rounded-full border flex items-center justify-center text-[10px] ${
+                      selectedConditions.includes(cond) ? "bg-blue-600 border-blue-600 text-white" : "border-slate-300"
+                    }`}>
+                      {selectedConditions.includes(cond) ? "✓" : ""}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            {/* Questionnaire Section: Allergies */}
+            <div>
+              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">
+                2. Do you have any drug or food allergies? (e.g., Sulphur, Penicillin, Dust)
+              </label>
+              <input
+                type="text"
+                value={allergies}
+                onChange={(e) => setAllergies(e.target.value)}
+                placeholder="List allergies or type 'None'"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium"
+              />
+            </div>
+
+            {/* Questionnaire Section: Past Surgeries */}
+            <div>
+              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">
+                3. Have you had any past major surgeries or hospitalizations?
+              </label>
+              <div className="flex gap-4 mb-3">
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-sm">
+                  <input
+                    type="radio"
+                    name="surgeries"
+                    value="no"
+                    checked={hasSurgeries === "no"}
+                    onChange={() => setHasSurgeries("no")}
+                    className="accent-blue-600"
+                  />
+                  No
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-sm">
+                  <input
+                    type="radio"
+                    name="surgeries"
+                    value="yes"
+                    checked={hasSurgeries === "yes"}
+                    onChange={() => setHasSurgeries("yes")}
+                    className="accent-blue-600"
+                  />
+                  Yes
+                </label>
+              </div>
+
+              {hasSurgeries === "yes" && (
+                <input
+                  type="text"
+                  value={surgeryDetails}
+                  onChange={(e) => setSurgeryDetails(e.target.value)}
+                  placeholder="Please specify surgeries and approximate dates..."
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium animate-fadeIn"
+                />
+              )}
+            </div>
+
+            {/* Submit Bar */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
               <button
                 type="submit"
                 disabled={savingProfile}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-lg shadow-blue-200 disabled:opacity-50"
               >
-                {savingProfile ? "Saving..." : "Save Profile Details"}
+                {savingProfile ? "Submitting..." : "Save Questionnaire Details"}
               </button>
               {profileMessage && (
-                <p className={`text-sm font-bold ${profileMessage.includes("success") ? "text-emerald-600" : "text-rose-600"}`}>
+                <p className={`text-sm font-bold ${profileMessage.includes("successfully") ? "text-emerald-600" : "text-rose-600"}`}>
                   {profileMessage}
                 </p>
               )}
