@@ -1,4 +1,4 @@
-"use client";
+// "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
@@ -22,6 +22,7 @@ interface Appointment {
   reason?: string;
   patient_id?: number;
   clinical_notes?: string;
+  medical_history?: string; // Added to capture questionnaire details
 }
 
 export default function DoctorDashboard() {
@@ -332,6 +333,15 @@ export default function DoctorDashboard() {
                       <p className="text-sm text-slate-400 font-bold mt-1 tracking-tight">
                         {apt.phone || "N/A"}
                       </p>
+                      {/* Questionnaire / Medical History Display */}
+                      {apt.medical_history && (
+                        <div className="mt-3 text-xs bg-blue-50 text-blue-900 p-3 rounded-2xl border border-blue-100 font-medium">
+                          <span className="font-black block text-[10px] uppercase tracking-wider text-blue-600 mb-1">
+                            Medical Questionnaire:
+                          </span>
+                          {apt.medical_history}
+                        </div>
+                      )}
                     </td>
                     <td className="px-10 py-7">
                       <p className="font-black text-slate-700">
