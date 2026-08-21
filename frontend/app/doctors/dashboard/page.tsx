@@ -123,27 +123,45 @@ export default function DoctorDashboard() {
 
     try {
       const token = localStorage.getItem("token");
+      const storedUser = localStorage.getItem("user");
+      
+      let doctorId = null;
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          doctorId = parsed.id || parsed.doctor_id;
+        } catch (e) {
+          console.error("Error parsing doctor profile", e);
+        }
+      }
+
+      const patientName = selectedApt.patient_name || "Anonymous Patient";
+
+      const payload = {
+        appointment_id: Number(selectedApt.id),
+        patient_id: selectedApt.patient_id ? Number(selectedApt.patient_id) : null,
+        doctor_id: doctorId ? Number(doctorId) : null,
+        patient_name: patientName,
+        medication: prescriptionForm.medication,
+        medication_name: prescriptionForm.medication,
+        dosage: prescriptionForm.dosage,
+        instructions: prescriptionForm.instructions || "",
+        duration: "N/A",
+      };
+
       const res = await fetch(`${API_BASE}/api/prescriptions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          appointment_id: selectedApt.id,
-          patient_id: selectedApt.patient_id,
-          patient_name: selectedApt.patient_name,
-          medication: prescriptionForm.medication,
-          medication_name: prescriptionForm.medication,
-          dosage: prescriptionForm.dosage,
-          instructions: prescriptionForm.instructions,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(data.message || data.error || "Failed to save prescription");
+        throw new Error(data.message || data.error || `Server responded with ${res.status}`);
       }
 
       setFeedbackMsg("Prescription issued successfully!");
