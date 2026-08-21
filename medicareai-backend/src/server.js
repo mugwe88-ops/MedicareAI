@@ -183,6 +183,35 @@ app.get("/api/records", verifyToken, async (req, res) => {
   }
 });
 
+// GET All Active Doctors (Fixes empty dropdowns)
+app.get("/api/doctors-list", async (req, res) => {
+  try {
+    const { specialization } = req.query;
+
+    // Retrieve users where role is doctor, regardless of case
+    let query = `
+      SELECT id, name, COALESCE(specialization, 'General Medicine') as specialization, city, status 
+      FROM users 
+      WHERE LOWER(TRIM(role)) = 'doctor'
+    `;
+    let values = [];
+
+    if (specialization) {
+      const cleanSpec = specialization.trim();
+      query += ` AND (LOWER(TRIM(specialization)) = LOWER($1) OR LOWER(specialization) LIKE LOWER($2))`;
+      values.push(cleanSpec, `%${cleanSpec}%`);
+    }
+
+    query += ` ORDER BY name ASC`;
+
+    const result = await pool.query(query, values);
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching doctors list:", err);
+    return res.status(500).json({ error: "Failed to fetch doctors list" });
+  }
+});
+
 // GET Doctor Prescriptions
 app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   try {

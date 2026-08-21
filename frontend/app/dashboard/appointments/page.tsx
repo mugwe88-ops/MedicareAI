@@ -18,7 +18,6 @@ export default function BookAppointmentPage() {
   const [appointmentTime, setAppointmentTime] = useState("");
   const [reason, setReason] = useState("");
   
-  // Doctor & Specialty selection states
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedSpecialty, setSelectedSpecialty] = useState("");
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
@@ -32,11 +31,6 @@ export default function BookAppointmentPage() {
     const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
 
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
@@ -48,16 +42,21 @@ export default function BookAppointmentPage() {
     }
 
     fetchDoctors(token);
-  }, [router]);
+  }, []);
 
-  const fetchDoctors = async (token: string) => {
+  const fetchDoctors = async (token: string | null) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/doctors-list`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${BACKEND_URL}/api/doctors-list`, { headers });
       if (res.ok) {
         const data = await res.json();
         setDoctors(data);
+      } else {
+        console.error("Failed fetching doctors, server returned:", res.status);
       }
     } catch (err) {
       console.error("Failed loading doctors list:", err);
@@ -66,14 +65,13 @@ export default function BookAppointmentPage() {
     }
   };
 
-  // Get list of unique specialties from active doctors
-  const specialties = Array.from(
-    new Set(doctors.map((doc) => doc.specialization).filter(Boolean))
-  );
+  // Extract unique specialties from loaded doctors
+  const rawSpecialties = doctors.map((doc) => doc.specialization || "General Medicine");
+  const specialties = Array.from(new Set(rawSpecialties));
 
-  // Filter doctors based on selected specialty
+  // Filter doctors by selected specialty
   const filteredDoctors = selectedSpecialty
-    ? doctors.filter((doc) => doc.specialization === selectedSpecialty)
+    ? doctors.filter((doc) => (doc.specialization || "General Medicine") === selectedSpecialty)
     : doctors;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -99,7 +97,6 @@ export default function BookAppointmentPage() {
     };
 
     try {
-      // POST to /api/my-appointments with full Bearer Authorization
       const res = await fetch(`${BACKEND_URL}/api/my-appointments`, {
         method: "POST",
         headers: {
@@ -118,177 +115,151 @@ export default function BookAppointmentPage() {
       alert("Appointment booked successfully!");
       router.push("/dashboard");
     } catch (err: any) {
-      alert(err.message || "Submission failed. Please check clinical logs.");
-      console.error("Booking submission error:", err);
+      alert(err.message || "Submission failed.");
+      console.error("Booking error:", err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 font-sans text-slate-800">
-      <div className="max-w-2xl mx-auto">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-blue-600 mb-6 transition"
-        >
-          <ArrowLeft size={18} /> Back to Dashboard
-        </button>
+    <div className="p-6 max-w-4xl mx-auto font-sans text-slate-800">
+      <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
+        <div className="mb-8 border-b border-slate-100 pb-5">
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+            Book Appointment
+          </h1>
+          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
+            Secure Clinical Entry
+          </p>
+        </div>
 
-        <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
-          <div className="mb-8 border-b border-slate-100 pb-5">
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-              Book Appointment
-            </h1>
-            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
-              Secure Clinical Entry
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Patient Name */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Patient Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
                 Full Name
               </label>
-              <div className="relative">
-                <User className="absolute left-4 top-3.5 text-slate-400" size={18} />
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                />
-              </div>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+              />
             </div>
-
-            {/* Phone Number */}
             <div>
               <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
                 Phone Number
               </label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-3.5 text-slate-400" size={18} />
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 0723503988"
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                />
-              </div>
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="e.g. 0723503988"
+                required
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+              />
             </div>
+          </div>
 
-            {/* Specialty Selection */}
-            <div>
-              <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
-                Medical Specialty
-              </label>
-              <div className="relative">
-                <Stethoscope className="absolute left-4 top-3.5 text-slate-400" size={18} />
-                <select
-                  value={selectedSpecialty}
-                  onChange={(e) => {
-                    setSelectedSpecialty(e.target.value);
-                    setSelectedDoctorId(""); // Reset doctor selection on specialty change
-                  }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">All Specialties</option>
-                  {specialties.map((spec) => (
-                    <option key={spec} value={spec}>
-                      {spec}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Doctor Selection */}
-            <div>
-              <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
-                Select Doctor
-              </label>
-              <div className="relative">
-                <User className="absolute left-4 top-3.5 text-slate-400" size={18} />
-                <select
-                  value={selectedDoctorId}
-                  onChange={(e) => setSelectedDoctorId(e.target.value)}
-                  required
-                  disabled={doctorsLoading}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                >
-                  <option value="">
-                    {doctorsLoading ? "Loading doctors..." : "-- Select Doctor --"}
-                  </option>
-                  {filteredDoctors.map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      Dr. {doc.name} ({doc.specialization || "General Medicine"})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Date & Time Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
-                  Preferred Date
-                </label>
-                <input
-                  type="date"
-                  value={appointmentDate}
-                  onChange={(e) => setAppointmentDate(e.target.value)}
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
-                  Preferred Time
-                </label>
-                <input
-                  type="time"
-                  value={appointmentTime}
-                  onChange={(e) => setAppointmentTime(e.target.value)}
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Reason for Visit */}
-            <div>
-              <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
-                Reason for Visit
-              </label>
-              <div className="relative">
-                <FileText className="absolute left-4 top-3.5 text-slate-400" size={18} />
-                <textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="Describe your symptoms or reason for consulting..."
-                  rows={3}
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500 resize-none"
-                />
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2 uppercase tracking-wider text-sm disabled:opacity-50"
+          {/* Specialty Dropdown */}
+          <div>
+            <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
+              Medical Specialty
+            </label>
+            <select
+              value={selectedSpecialty}
+              onChange={(e) => {
+                setSelectedSpecialty(e.target.value);
+                setSelectedDoctorId("");
+              }}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
             >
-              {loading ? "Processing..." : "Confirm Booking"} <Send size={16} />
-            </button>
-          </form>
-        </div>
+              <option value="">All Specialties</option>
+              {specialties.map((spec) => (
+                <option key={spec} value={spec}>
+                  {spec}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Doctor Dropdown */}
+          <div>
+            <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
+              Select Doctor
+            </label>
+            <select
+              value={selectedDoctorId}
+              onChange={(e) => setSelectedDoctorId(e.target.value)}
+              required
+              disabled={doctorsLoading}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+            >
+              <option value="">
+                {doctorsLoading ? "Loading doctors..." : "-- Select Doctor --"}
+              </option>
+              {filteredDoctors.map((doc) => (
+                <option key={doc.id} value={doc.id}>
+                  Dr. {doc.name} ({doc.specialization || "General Medicine"})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date & Time */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
+                Preferred Date
+              </label>
+              <input
+                type="date"
+                value={appointmentDate}
+                onChange={(e) => setAppointmentDate(e.target.value)}
+                required
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
+                Preferred Time
+              </label>
+              <input
+                type="time"
+                value={appointmentTime}
+                onChange={(e) => setAppointmentTime(e.target.value)}
+                required
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Reason */}
+          <div>
+            <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
+              Reason for Visit
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Describe your symptoms or reason for consulting..."
+              rows={3}
+              required
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-slate-800 focus:outline-none focus:border-blue-500 resize-none"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2 uppercase tracking-wider text-sm disabled:opacity-50"
+          >
+            {loading ? "Processing..." : "Confirm Booking"} <Send size={16} />
+          </button>
+        </form>
       </div>
     </div>
   );
