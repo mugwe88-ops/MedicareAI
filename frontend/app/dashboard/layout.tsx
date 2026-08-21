@@ -25,10 +25,12 @@ export default function DashboardLayout({
         <div>
           {/* App Logo/Header */}
           <div className="mb-8 flex items-center gap-2">
-            <div className="bg-blue-600 w-8 h-8 rounded flex items-center justify-center font-bold text-sm">
+            <div className="bg-blue-600 w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white">
               S
             </div>
-            <span className="text-xl font-bold tracking-wider text-slate-100">SWIFT MD</span>
+            <span className="text-xl font-bold tracking-wider text-slate-100">
+              SWIFT MD
+            </span>
           </div>
 
           {/* Dynamic Navigation Map */}

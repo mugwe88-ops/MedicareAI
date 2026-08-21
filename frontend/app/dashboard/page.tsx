@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Video, FileText, LogOut, Clock, Activity } from "lucide-react";
+import { Calendar, Video, FileText, LogOut } from "lucide-react";
 
 interface Appointment {
   id: number;
@@ -88,10 +88,10 @@ export default function PatientDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-      {/* Modern Top Navigation Bar */}
+      {/* Top Header Bar */}
       <nav className="bg-white border-b border-slate-100 px-8 py-5 flex justify-between items-center sticky top-0 z-40">
         <h1 className="text-2xl font-black text-blue-600 tracking-tighter">
-          MedicareAI <span className="text-slate-900 font-light italic">Pro</span>
+          SWIFT MD
         </h1>
         
         <div className="flex items-center gap-6">
@@ -117,11 +117,11 @@ export default function PatientDashboard() {
         </div>
       </nav>
 
-      {/* Main Content Area */}
+      {/* Content Body */}
       <main className="max-w-6xl mx-auto p-8">
         <div className="mb-8">
           <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-            Patient Dashboard
+            Welcome Back, {userName}
           </h2>
           <p className="text-slate-400 font-bold mt-1">
             Assigned Records: {appointments.length}
@@ -170,7 +170,7 @@ export default function PatientDashboard() {
           </div>
         </div>
 
-        {/* Appointments Table Section matching Doctor's View */}
+        {/* Consultations List */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-8 py-6 border-b border-slate-50 flex justify-between items-center">
             <h3 className="font-black text-slate-900 text-lg">Your Consultations</h3>
