@@ -258,7 +258,7 @@ export default function PatientDashboard() {
                       <td className="py-5 px-8 text-right">
                         <button
                           onClick={() =>
-                            router.push(`/dashboard/telehealth/${apt.id}`)
+                            router.push(`/telehealth/${apt.id}`)
                           }
                           className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center"
                           title="Join Call"
