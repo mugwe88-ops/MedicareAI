@@ -131,12 +131,20 @@ export default function DoctorDashboard() {
         },
         body: JSON.stringify({
           appointment_id: selectedApt.id,
+          patient_id: selectedApt.patient_id,
           patient_name: selectedApt.patient_name,
-          ...prescriptionForm,
+          medication: prescriptionForm.medication,
+          medication_name: prescriptionForm.medication,
+          dosage: prescriptionForm.dosage,
+          instructions: prescriptionForm.instructions,
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to save prescription");
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || data.error || "Failed to save prescription");
+      }
 
       setFeedbackMsg("Prescription issued successfully!");
       setTimeout(() => {
