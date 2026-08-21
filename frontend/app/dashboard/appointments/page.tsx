@@ -105,51 +105,56 @@ export default function AppointmentsPage() {
     }
   };
 
-  const handleCreateAppointment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setBookingError(null);
+const handleCreateAppointment = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setSubmitting(true);
+  setBookingError(null);
 
-    if (!formData.doctor_id) {
-      setBookingError("Please select a specific doctor for your consultation.");
-      setSubmitting(false);
-      return;
+  if (!formData.doctor_id) {
+    setBookingError("Please select a specific doctor for your consultation.");
+    setSubmitting(false);
+    return;
+  }
+
+  try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+    // Convert string doctor_id from select element to integer
+    const payload = {
+      ...formData,
+      doctor_id: parseInt(formData.doctor_id, 10),
+    };
+
+    const res = await fetch("https://medicareai-1.onrender.com/api/my-appointments", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token || ""}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || data.details || "Failed to schedule appointment.");
     }
 
-    try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
-      const res = await fetch("https://medicareai-1.onrender.com/api/my-appointments", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token || ""}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        // Prioritize structured validation errors over raw details
-        throw new Error(data.error || data.details || "Failed to schedule appointment.");
-      }
-
-      setIsModalOpen(false);
-      setFormData({
-        department: "General Medicine",
-        doctor_id: "",
-        appointment_date: getTodayString(),
-        appointment_time: "09:00",
-        reason: "",
-      });
-      await fetchAppointments();
-    } catch (err: any) {
-      setBookingError(err.message || "An error occurred while booking.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    setIsModalOpen(false);
+    setFormData({
+      department: "General Medicine",
+      doctor_id: "",
+      appointment_date: getTodayString(),
+      appointment_time: "09:00",
+      reason: "",
+    });
+    await fetchAppointments();
+  } catch (err: any) {
+    setBookingError(err.message || "An error occurred while booking.");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const formatDisplayDate = (dateStr?: string) => {
     if (!dateStr) return "Date Pending";
