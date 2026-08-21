@@ -42,9 +42,11 @@ export default function PatientDashboard() {
 
   const fetchAppointments = async (token: string) => {
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-backend.onrender.com";
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        "https://medicareai-1.onrender.com";
       const res = await fetch(`${backendUrl}/api/my-appointments`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
@@ -52,7 +54,7 @@ export default function PatientDashboard() {
       }
     } catch (err) {
       console.error("Failed loading appointments", err);
-    } finally {
+    } fontally {
       setLoading(false);
     }
   };
@@ -75,15 +77,31 @@ export default function PatientDashboard() {
   const getStatusBadge = (status: string) => {
     const s = status ? status.toLowerCase() : "pending";
     if (s === "confirmed") {
-      return <span className="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-xs font-bold uppercase tracking-wider">Confirmed</span>;
+      return (
+        <span className="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-xs font-bold uppercase tracking-wider">
+          Confirmed
+        </span>
+      );
     }
     if (s === "completed") {
-      return <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-xs font-bold uppercase tracking-wider">Completed</span>;
+      return (
+        <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-xs font-bold uppercase tracking-wider">
+          Completed
+        </span>
+      );
     }
     if (s === "cancelled" || s === "rejected") {
-      return <span className="px-3 py-1 bg-rose-100 text-rose-600 rounded-full text-xs font-bold uppercase tracking-wider">{s}</span>;
+      return (
+        <span className="px-3 py-1 bg-rose-100 text-rose-600 rounded-full text-xs font-bold uppercase tracking-wider">
+          {s}
+        </span>
+      );
     }
-    return <span className="px-3 py-1 bg-amber-100 text-amber-600 rounded-full text-xs font-bold uppercase tracking-wider">Pending</span>;
+    return (
+      <span className="px-3 py-1 bg-amber-100 text-amber-600 rounded-full text-xs font-bold uppercase tracking-wider">
+        Pending
+      </span>
+    );
   };
 
   return (
@@ -93,11 +111,13 @@ export default function PatientDashboard() {
         <h1 className="text-2xl font-black text-blue-600 tracking-tighter">
           SWIFT MD
         </h1>
-        
+
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-base font-black text-slate-900 leading-none">{userName}</p>
+              <p className="text-base font-black text-slate-900 leading-none">
+                {userName}
+              </p>
               <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">
                 PATIENT
               </p>
@@ -131,7 +151,7 @@ export default function PatientDashboard() {
         {/* Quick Action Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <div
-            onClick={() => router.push("/appointments")}
+            onClick={() => router.push("/dashboard/appointments")}
             className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition group flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition">
@@ -144,7 +164,7 @@ export default function PatientDashboard() {
           </div>
 
           <div
-            onClick={() => router.push("/telehealth")}
+            onClick={() => router.push("/dashboard/telehealth")}
             className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition group flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition">
@@ -157,7 +177,7 @@ export default function PatientDashboard() {
           </div>
 
           <div
-            onClick={() => router.push("/records")}
+            onClick={() => router.push("/dashboard/prescriptions")}
             className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition group flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
@@ -173,11 +193,15 @@ export default function PatientDashboard() {
         {/* Consultations List */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-8 py-6 border-b border-slate-50 flex justify-between items-center">
-            <h3 className="font-black text-slate-900 text-lg">Your Consultations</h3>
+            <h3 className="font-black text-slate-900 text-lg">
+              Your Consultations
+            </h3>
           </div>
 
           {loading ? (
-            <div className="p-12 text-center text-slate-400 font-bold">Loading records...</div>
+            <div className="p-12 text-center text-slate-400 font-bold">
+              Loading records...
+            </div>
           ) : appointments.length === 0 ? (
             <div className="p-12 text-center text-slate-400 font-medium">
               No appointments scheduled yet.
@@ -196,20 +220,32 @@ export default function PatientDashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {appointments.map((apt) => (
-                    <tr key={apt.id} className="hover:bg-slate-50/50 transition">
+                    <tr
+                      key={apt.id}
+                      className="hover:bg-slate-50/50 transition"
+                    >
                       <td className="py-5 px-8">
-                        <p className="font-bold text-slate-900">{apt.doctor_name || "General Practitioner"}</p>
-                        <p className="text-xs text-slate-400 font-semibold">{apt.department || "General Health"}</p>
+                        <p className="font-bold text-slate-900">
+                          {apt.doctor_name || "General Practitioner"}
+                        </p>
+                        <p className="text-xs text-slate-400 font-semibold">
+                          {apt.department || "General Health"}
+                        </p>
                       </td>
                       <td className="py-5 px-6">
                         <p className="font-bold text-slate-900">
-                          {new Date(apt.appointment_date).toLocaleDateString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric"
-                          })}
+                          {new Date(apt.appointment_date).toLocaleDateString(
+                            "en-GB",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            }
+                          )}
                         </p>
-                        <p className="text-xs text-blue-600 font-bold">{apt.appointment_time}</p>
+                        <p className="text-xs text-blue-600 font-bold">
+                          {apt.appointment_time}
+                        </p>
                       </td>
                       <td className="py-5 px-6">
                         <span className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg italic">
@@ -221,7 +257,9 @@ export default function PatientDashboard() {
                       </td>
                       <td className="py-5 px-8 text-right">
                         <button
-                          onClick={() => router.push(`/telehealth/${apt.id}`)}
+                          onClick={() =>
+                            router.push(`/dashboard/telehealth/${apt.id}`)
+                          }
                           className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center"
                           title="Join Call"
                         >
