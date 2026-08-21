@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, AlertCircle, Pill, Calendar, Stethoscope, Download, Printer } from "lucide-react";
+import { FileText, AlertCircle, Pill, Calendar, Stethoscope, Download } from "lucide-react";
 
 interface RecordItem {
   id: number;
@@ -52,29 +52,74 @@ export default function RecordsPage() {
     }
   };
 
-  const handleDownloadPDF = () => {
-    window.print();
+  const handleDownloadSinglePDF = (rec: RecordItem) => {
+    const isClinicalNote = rec.record_type === "clinical_note";
+    const title = isClinicalNote ? "Doctor's Clinical Note" : `Prescription #${rec.id}`;
+    
+    // Create a clean isolated print window for the individual document
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to download individual PDFs.");
+      return;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${title} - Swift MD</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #1e293b; padding: 40px; max-width: 700px; margin: 0 auto; }
+            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+            .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
+            .badge { background: #eff6ff; color: #2563eb; padding: 6px 12px; border-radius: 9999px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+            .content-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; margin-top: 20px; }
+            .label { font-weight: bold; color: #0f172a; margin-bottom: 8px; }
+            .details { white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: #334155; }
+            .footer { margin-top: 40px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="logo">SWIFT MD</div>
+              <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Official Medical Document</p>
+            </div>
+            <div class="badge">${rec.status || (isClinicalNote ? "Logged" : "Issued")}</div>
+          </div>
+
+          <h2>${title}</h2>
+          <p style="font-size: 13px; color: #64748b;">Recorded Date: ${new Date(rec.created_at).toLocaleDateString()}</p>
+
+          <div class="content-box">
+            <div class="label">${isClinicalNote ? "Clinical Summary / Notes:" : "Medication & Dosage Details:"}</div>
+            <div class="details">${rec.medication_details || "No details provided."}</div>
+            ${rec.doctor_name ? `<p style="margin-top: 15px; font-weight: bold; font-size: 13px; color: #475569;">Attending Doctor: Dr. ${rec.doctor_name}</p>` : ""}
+          </div>
+
+          <div class="footer">
+            <p>Generated securely via Swift MD Healthcare Platform.</p>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+              window.close();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header with Print/PDF Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Medical Records & Prescriptions</h1>
-          <p className="text-slate-500 text-sm">
-            Access and download your issued prescriptions and clinical summaries.
-          </p>
-        </div>
-        {records.length > 0 && (
-          <button
-            onClick={handleDownloadPDF}
-            className="print:hidden inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm transition"
-          >
-            <Download size={16} />
-            Download Records (PDF)
-          </button>
-        )}
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Medical Records & Prescriptions</h1>
+        <p className="text-slate-500 text-sm">
+          Access your issued prescriptions and clinical summaries. Click download on any card to export it as an individual PDF.
+        </p>
       </div>
 
       {/* Main Content */}
@@ -113,32 +158,41 @@ export default function RecordsPage() {
             return (
               <div
                 key={rec.id || index}
-                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 break-inside-avoid"
+                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 flex flex-col justify-between"
               >
-                <div className="flex justify-between items-start">
-                  <div className={`flex items-center gap-2 font-bold ${isClinicalNote ? "text-emerald-600" : "text-blue-600"}`}>
-                    {isClinicalNote ? <Stethoscope size={18} /> : <Pill size={18} />}
-                    <span>{isClinicalNote ? "Doctor's Clinical Note" : `Prescription #${rec.id}`}</span>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div className={`flex items-center gap-2 font-bold ${isClinicalNote ? "text-emerald-600" : "text-blue-600"}`}>
+                      {isClinicalNote ? <Stethoscope size={18} /> : <Pill size={18} />}
+                      <span>{isClinicalNote ? "Doctor's Clinical Note" : `Prescription #${rec.id}`}</span>
+                    </div>
+                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full capitalize ${isClinicalNote ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"}`}>
+                      {rec.status || (isClinicalNote ? "Logged" : "Issued")}
+                    </span>
                   </div>
-                  <span className={`px-2.5 py-1 text-xs font-semibold rounded-full capitalize ${isClinicalNote ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"}`}>
-                    {rec.status || (isClinicalNote ? "Logged" : "Issued")}
-                  </span>
+
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-1">
+                    <p className="font-semibold text-slate-900">
+                      {isClinicalNote ? "Clinical Summary / Notes:" : "Medication Details:"}
+                    </p>
+                    <p className="whitespace-pre-wrap">{rec.medication_details || "No details provided."}</p>
+                    {rec.doctor_name && (
+                      <p className="text-slate-500 pt-1 font-medium">Doctor: Dr. {rec.doctor_name}</p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-1">
-                  <p className="font-semibold text-slate-900">
-                    {isClinicalNote ? "Clinical Summary / Notes:" : "Medication Details:"}
-                  </p>
-                  <p className="whitespace-pre-wrap">{rec.medication_details || "No details provided."}</p>
-                  {rec.doctor_name && (
-                    <p className="text-slate-500 pt-1 font-medium">Doctor: Dr. {rec.doctor_name}</p>
-                  )}
-                </div>
-
-                <div className="flex justify-between items-center pt-1">
+                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                   <p className="text-xs text-slate-400 flex items-center gap-1">
-                    <Calendar size={14} /> Recorded on {new Date(rec.created_at).toLocaleDateString()}
+                    <Calendar size={14} /> {new Date(rec.created_at).toLocaleDateString()}
                   </p>
+                  <button
+                    onClick={() => handleDownloadSinglePDF(rec)}
+                    className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-sm"
+                  >
+                    <Download size={14} />
+                    Download PDF
+                  </button>
                 </div>
               </div>
             );
