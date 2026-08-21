@@ -25,7 +25,7 @@ export default function BookAppointmentPage() {
   const [doctorsLoading, setDoctorsLoading] = useState(true);
 
   const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-backend.onrender.com";
+    process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-1.onrender.com";
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -49,7 +49,13 @@ export default function BookAppointmentPage() {
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/doctors-list`, { headers });
+      let res = await fetch(`${BACKEND_URL}/api/doctors-list`, { headers });
+      
+      // Fallback: Retry unauthenticated if the token headers fail
+      if (!res.ok) {
+        res = await fetch(`${BACKEND_URL}/api/doctors-list`);
+      }
+
       if (res.ok) {
         const data = await res.json();
         console.log("Fetched doctors successfully:", data);
