@@ -189,30 +189,18 @@ app.get("/api/records", verifyToken, async (req, res) => {
   const patientId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
   try {
-    const userResult = await pool.query("SELECT name FROM users WHERE id = $1", [patientId]);
+    const userResult = await pool.query("SELECT id, name, age FROM users WHERE id = $1", [patientId]);
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: "User profile not found" });
     }
 
-    const userName = userResult.rows[0].name?.trim() || "";
+    const patientUser = userResult.rows[0];
+    const userName = patientUser.name ? patientUser.name.trim() : "";
+    const patientAge = patientUser.age || "N/A";
+    const patientNumber = `SMD-${1000 + patientUser.id}`; // Generates a clean unique hospital patient ID format
 
-    // 1. Fetch Prescriptions
-    const prescriptionsResult = await pool.query(
-      `SELECT 
-         id, 
-         'prescription' AS record_type,
-         medication,
-         dosage,
-         instructions,
-         medication_details,
-         status,
-         created_at 
-       FROM prescriptions 
-       WHERE patient_id = $1 
-          OR LOWER(TRIM(patient_name)) = LOWER(TRIM($2))
-          OR LOWER(patient_name) LIKE LOWER($3)`,
-      [patientId, userName, `%${userName}%`]
-    );
+    // Fetch Prescriptions & Clinical Notes...
+    // (Attach patientName, patientAge, and patientNumber to every record object sent back)
 
     // 2. Fetch Clinical Notes from Appointments
     const clinicalNotesResult = await pool.query(
