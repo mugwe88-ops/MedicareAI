@@ -1,4 +1,4 @@
-import express from "express";
+// import express from "express";
 import jwt from "jsonwebtoken";
 import pool from "../utils/db.js";
 
@@ -22,7 +22,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 /* ================= GET DOCTOR ISSUED PRESCRIPTIONS ================= */
-router.get("/doctor", authenticateToken, async (req, res) => {
+router.get("/", authenticateToken, async (req, res) => {
   try {
     if (req.user.role?.toLowerCase() !== "doctor") {
       return res.status(403).json({ error: "Access forbidden. Requires doctor privileges." });
