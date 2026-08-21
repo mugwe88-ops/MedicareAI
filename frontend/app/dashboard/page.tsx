@@ -1,4 +1,4 @@
-"use client";
+// "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, Video, FileText, LogOut, UserCheck } from "lucide-react";
@@ -58,7 +58,6 @@ export default function PatientDashboard() {
         if (parsed.age) setAge(parsed.age.toString());
         if (parsed.phone) setPhone(parsed.phone);
         if (parsed.medical_history) {
-          // If you want to pre-fill or parse back, you can handle string here
           setAllergies(parsed.medical_history);
         }
       } catch (e) {
@@ -94,7 +93,6 @@ export default function PatientDashboard() {
       return;
     }
     
-    // Remove "None" if another condition is selected
     const filtered = selectedConditions.filter(c => c !== "None");
 
     if (filtered.includes(condition)) {
@@ -115,7 +113,6 @@ export default function PatientDashboard() {
       return;
     }
 
-    // Compile questionnaire answers into a clean formatted string for the medical_history column
     const compiledMedicalHistory = `Conditions: ${selectedConditions.join(", ") || "None"} | Allergies: ${allergies || "None"} | Surgeries: ${hasSurgeries === "yes" ? surgeryDetails : "None"}`;
 
     try {
@@ -260,7 +257,7 @@ export default function PatientDashboard() {
               <Calendar size={22} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900">Book Appointment</h3>
+              <h3 className="font-bold text-slate-900">Schedule Visit</h3>
               <p className="text-slate-400 text-xs">Schedule new visit</p>
             </div>
           </div>
@@ -286,7 +283,7 @@ export default function PatientDashboard() {
               <FileText size={22} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900">Prescriptions</h3>
+              <h3 className="font-bold text-slate-900">View Prescriptions</h3>
               <p className="text-slate-400 text-xs">View issued meds</p>
             </div>
           </div>
