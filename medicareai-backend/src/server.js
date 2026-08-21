@@ -41,17 +41,35 @@ app.use(
 );
 
 // Add CORS before any route handlers
+// Add CORS before any route handlers
 app.use(
   cors({
     origin: [
       "https://medicare-ai-two.vercel.app",
-      "http://localhost:3000"
+      "https://medicare-ai-yb5c.vercel.app",
+      "http://localhost:3000",
+      "https://miniature-fortnight-4j47qw7rq4w4h9wp.github.dev"
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// Custom CORS Interceptor for dynamic preview domains
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (origin.endsWith('.github.dev') || origin.endsWith('.vercel.app') || origin.includes('localhost'))) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // Custom CORS Interceptor
 app.use((req, res, next) => {
