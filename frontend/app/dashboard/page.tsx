@@ -54,7 +54,7 @@ export default function PatientDashboard() {
       }
     } catch (err) {
       console.error("Failed loading appointments", err);
-    } fontally {
+    } finally {
       setLoading(false);
     }
   };
