@@ -90,6 +90,33 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctor/prescriptions", prescriptionRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
 
+// Update Patient Personal & Clinical Profile
+app.put("/api/user/profile", verifyToken, async (req, res) => {
+  const userId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
+  const { age, phone, medical_history } = req.body;
+
+  try {
+    const updateRes = await pool.query(
+      `UPDATE users 
+       SET age = COALESCE($1, age), 
+           phone = COALESCE($2, phone), 
+           medical_history = COALESCE($3, medical_history) 
+       WHERE id = $4 
+       RETURNING id, name, email, age, phone, medical_history`,
+      [age ? parseInt(age, 10) : null, phone, medical_history, userId]
+    );
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: "User profile not found" });
+    }
+
+    return res.json({ message: "Profile updated successfully", user: updateRes.rows[0] });
+  } catch (err) {
+    console.error("Error updating profile:", err);
+    return res.status(500).json({ error: "Server error updating profile", details: err.message });
+  }
+});
+
 // GET All Active Doctors (Public/Authenticated)
 app.get("/api/doctors-list", async (req, res) => {
   try {
@@ -183,7 +210,6 @@ app.patch("/api/appointments/:id/notes", verifyToken, async (req, res) => {
   }
 });
 
-// Medical Records & Prescriptions for Logged-In Patient
 // Medical Records & Prescriptions & Clinical Notes for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
   const patientId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -195,23 +221,41 @@ app.get("/api/records", verifyToken, async (req, res) => {
     }
 
     const patientUser = userResult.rows[0];
-    const userName = patientUser.name ? patientUser.name.trim() : "";
     const patientAge = patientUser.age || "N/A";
-    const patientNumber = `SMD-${1000 + patientUser.id}`; // Generates a clean unique hospital patient ID format
+    const patientNumber = `SMD-${1000 + patientUser.id}`;
 
-    // Fetch Prescriptions & Clinical Notes...
-    // (Attach patientName, patientAge, and patientNumber to every record object sent back)
+    // 1. Fetch Prescriptions
+    const prescriptionsResult = await pool.query(
+      `SELECT 
+         id, 
+         'prescription' AS record_type,
+         patient_name,
+         ${patientAge !== "N/A" ? patientAge : "NULL"} AS patient_age,
+         '${patientNumber}' AS patient_number,
+         medication_details,
+         instructions,
+         status,
+         created_at,
+         (SELECT name FROM users WHERE id = prescriptions.doctor_id) AS doctor_name
+       FROM prescriptions 
+       WHERE patient_id = $1`,
+      [patientId]
+    );
 
     // 2. Fetch Clinical Notes from Appointments
     const clinicalNotesResult = await pool.query(
       `SELECT 
          a.id, 
          'clinical_note' AS record_type,
+         COALESCE(u.name, a.patient_name) AS patient_name,
+         ${patientAge !== "N/A" ? patientAge : "NULL"} AS patient_age,
+         '${patientNumber}' AS patient_number,
          a.clinical_notes AS medication_details,
          a.reason AS instructions,
          a.appointment_date AS created_at,
          d.name AS doctor_name
        FROM appointments a
+       LEFT JOIN users u ON a.patient_id = u.id
        LEFT JOIN users d ON a.doctor_id = d.id
        WHERE a.patient_id = $1 
          AND a.clinical_notes IS NOT NULL 
@@ -244,14 +288,14 @@ app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
       [doctorId]
     );
 
-    res.json(result.rows);
+    return res.json(result.rows);
   } catch (err) {
     console.error("Error fetching prescriptions:", err);
-    res.status(500).json({ error: "Server error fetching prescriptions." });
+    return res.status(500).json({ error: "Server error fetching prescriptions." });
   }
 });
 
-// POST New Prescription (Handles both /api/prescriptions & /api/doctor/prescriptions)
+// POST New Prescription
 const createPrescriptionHandler = async (req, res) => {
   let { appointment_id, patient_id, patient_name, medication, dosage, instructions, medication_details } = req.body;
   const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -282,14 +326,14 @@ const createPrescriptionHandler = async (req, res) => {
     }
 
     if (!safePatientId && resolvedPatientName) {
-  const userRes = await pool.query(
-    "SELECT id FROM users WHERE LOWER(TRIM(name)) LIKE LOWER(TRIM($1)) LIMIT 1",
-    [`%${resolvedPatientName}%`]
-  );
-  if (userRes.rows.length > 0) {
-    safePatientId = userRes.rows[0].id;
-  }
-}
+      const userRes = await pool.query(
+        "SELECT id FROM users WHERE LOWER(TRIM(name)) LIKE LOWER(TRIM($1)) LIMIT 1",
+        [`%${resolvedPatientName}%`]
+      );
+      if (userRes.rows.length > 0) {
+        safePatientId = userRes.rows[0].id;
+      }
+    }
 
     const finalName = resolvedPatientName && resolvedPatientName.trim() !== "" ? resolvedPatientName : "Anonymous Patient";
 
@@ -309,10 +353,10 @@ const createPrescriptionHandler = async (req, res) => {
       ]
     );
 
-    res.status(201).json(result.rows[0]);
+    return res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("Error creating prescription:", err);
-    res.status(500).json({ error: "Server error saving prescription.", details: err.message });
+    return res.status(500).json({ error: "Server error saving prescription.", details: err.message });
   }
 };
 
@@ -333,10 +377,10 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
        ORDER BY a.created_at DESC`,
       [patient_id]
     );
-    res.json(result.rows);
+    return res.json(result.rows);
   } catch (err) {
     console.error("Error fetching filtered appointments:", err);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -471,7 +515,7 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "API is running" });
+  return res.json({ status: "ok", message: "API is running" });
 });
 
 /* ======================
@@ -528,6 +572,8 @@ async function initDatabase() {
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(255);",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS medical_history TEXT;",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Available';",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS department VARCHAR(100);",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;",
@@ -568,11 +614,11 @@ app.get("*", (req, res) => {
   if (req.path.startsWith("/api")) {
     return res.status(404).json({ error: "API route not found" });
   }
-  res.sendFile(path.join(publicPath, "index.html"));
+  return res.sendFile(path.join(publicPath, "index.html"));
 });
 
 /* ======================
-    6️⃣ START SERVER IMMEDIATELY (FIXES RENDER TIMEOUTS)
+    6️⃣ START SERVER IMMEDIATELY
 ====================== */
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
