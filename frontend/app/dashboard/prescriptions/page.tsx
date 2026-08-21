@@ -58,11 +58,18 @@ export default function DoctorPrescriptionsPage() {
     fetchPatients();
   }, []);
 
+  const getValidToken = () => {
+    if (typeof window === "undefined") return null;
+    const token = localStorage.getItem("token");
+    if (!token || token === "undefined" || token === "null") return null;
+    return token;
+  };
+
   const fetchPrescriptions = async () => {
     setLoading(true);
     setError(null);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token = getValidToken();
       if (!token) {
         router.push("/login");
         return;
@@ -75,12 +82,16 @@ export default function DoctorPrescriptionsPage() {
         },
       });
 
-      if (!res.ok) throw new Error(`Server returned status ${res.status}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Server returned status ${res.status}`);
+      }
+      
       const data = await res.json();
       setPrescriptions(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error("Failed to load prescriptions:", err);
-      setError("Unable to retrieve prescriptions. Please verify your connection.");
+      setError(err.message || "Unable to retrieve prescriptions. Please verify your connection.");
     } finally {
       setLoading(false);
     }
@@ -88,10 +99,12 @@ export default function DoctorPrescriptionsPage() {
 
   const fetchPatients = async () => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token = getValidToken();
+      if (!token) return;
+
       const res = await fetch("https://medicareai-1.onrender.com/api/patients", {
         headers: {
-          Authorization: `Bearer ${token || ""}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -116,18 +129,28 @@ export default function DoctorPrescriptionsPage() {
     }
 
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token = getValidToken();
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      // Convert patient_id to a number for proper database mapping
+      const payload = {
+        ...formData,
+        patient_id: Number(formData.patient_id),
+      };
 
       const res = await fetch("https://medicareai-1.onrender.com/api/doctor/prescriptions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token || ""}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         throw new Error(data.error || data.details || "Failed to create prescription.");
