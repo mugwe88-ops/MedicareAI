@@ -6,8 +6,7 @@ import {
   Pill, 
   Video, 
   CheckCircle, 
-  Trash2, 
-  Plus, 
+  ArrowLeft, 
   X, 
   AlertCircle 
 } from "lucide-react";
@@ -22,17 +21,18 @@ interface Appointment {
   reason?: string;
   patient_id?: number;
   clinical_notes?: string;
-  medical_history?: string; // Added to capture questionnaire details
+  medical_history?: string;
 }
 
 export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [doctorName, setDoctorName] = useState<string>("Doctor");
-  const router = useRouter();
+  
+  // Drill-down selected patient state
+  const [activePatient, setActivePatient] = useState<Appointment | null>(null);
 
   // Modals state
-  const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [modalType, setModalType] = useState<"prescription" | "note" | null>(null);
   
   // Form states
@@ -66,7 +66,9 @@ export default function DoctorDashboard() {
     }
 
     fetchAppointments(token);
-  }, [router]);
+  }, []);
+
+  const router = useRouter();
 
   const fetchAppointments = async (authToken?: string) => {
     const token = authToken || localStorage.getItem("token");
@@ -108,6 +110,9 @@ export default function DoctorDashboard() {
         setAppointments((prev) =>
           prev.map((apt) => (apt.id === id ? { ...apt, status: newStatus } : apt))
         );
+        if (activePatient && activePatient.id === id) {
+          setActivePatient((prev) => prev ? { ...prev, status: newStatus } : null);
+        }
       } else {
         alert("Failed to update status");
       }
@@ -118,7 +123,7 @@ export default function DoctorDashboard() {
 
   const handleAddPrescription = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedApt) return;
+    if (!activePatient) return;
     setSubmitting(true);
     setFeedbackMsg(null);
 
@@ -136,13 +141,11 @@ export default function DoctorDashboard() {
         }
       }
 
-      const patientName = selectedApt.patient_name || "Anonymous Patient";
-
       const payload = {
-        appointment_id: Number(selectedApt.id),
-        patient_id: selectedApt.patient_id ? Number(selectedApt.patient_id) : null,
+        appointment_id: Number(activePatient.id),
+        patient_id: activePatient.patient_id ? Number(activePatient.patient_id) : null,
         doctor_id: doctorId ? Number(doctorId) : null,
-        patient_name: patientName,
+        patient_name: activePatient.patient_name || "Anonymous Patient",
         medication: prescriptionForm.medication,
         medication_name: prescriptionForm.medication,
         dosage: prescriptionForm.dosage,
@@ -180,13 +183,13 @@ export default function DoctorDashboard() {
 
   const handleSaveNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedApt) return;
+    if (!activePatient) return;
     setSubmitting(true);
     setFeedbackMsg(null);
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/appointments/${selectedApt.id}/notes`, {
+      const res = await fetch(`${API_BASE}/api/appointments/${activePatient.id}/notes`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -199,14 +202,14 @@ export default function DoctorDashboard() {
 
       setAppointments((prev) =>
         prev.map((apt) =>
-          apt.id === selectedApt.id ? { ...apt, clinical_notes: clinicalNote } : apt
+          apt.id === activePatient.id ? { ...apt, clinical_notes: clinicalNote } : apt
         )
       );
+      setActivePatient((prev) => prev ? { ...prev, clinical_notes: clinicalNote } : null);
 
       setFeedbackMsg("Clinical note saved!");
       setTimeout(() => {
         setModalType(null);
-        setClinicalNote("");
         setFeedbackMsg(null);
       }, 1200);
     } catch (err: any) {
@@ -278,161 +281,217 @@ export default function DoctorDashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto p-8">
-        <div className="flex justify-between items-end mb-10">
-          <div>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter">
-              Patient Appointments
-            </h2>
-            <p className="text-slate-500 font-bold mt-2">
-              Assigned Records: {appointments.length}
-            </p>
-          </div>
-        </div>
+        {activePatient ? (
+          /* --- INDIVIDUAL PATIENT RECORD & CLINICAL WORKSPACE --- */
+          <div className="space-y-6">
+            <button
+              onClick={() => setActivePatient(null)}
+              className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-blue-600 transition"
+            >
+              <ArrowLeft size={16} /> Back to Appointments List
+            </button>
 
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/40 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50/50">
-              <tr className="border-b border-slate-100">
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  Patient Profile
-                </th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  Visit Timing
-                </th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  Medical Reason
-                </th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  Status
-                </th>
-                <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">
-                  Clinical Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="py-20 text-center font-black text-slate-300 italic text-xl">
-                    Accessing secure records...
-                  </td>
-                </tr>
-              ) : appointments.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-20 text-center font-bold text-slate-400 text-base">
-                    No appointments assigned to your schedule.
-                  </td>
-                </tr>
-              ) : (
-                appointments.map((apt) => (
-                  <tr key={apt.id} className="hover:bg-blue-50/30 transition-all group">
-                    <td className="px-10 py-7">
-                      <p className="font-black text-slate-900 text-lg leading-tight">
-                        {apt.patient_name || "Anonymous Patient"}
-                      </p>
-                      <p className="text-sm text-slate-400 font-bold mt-1 tracking-tight">
-                        {apt.phone || "N/A"}
-                      </p>
-                      {/* Questionnaire / Medical History Display */}
-                      {apt.medical_history && (
-                        <div className="mt-3 text-xs bg-blue-50 text-blue-900 p-3 rounded-2xl border border-blue-100 font-medium">
-                          <span className="font-black block text-[10px] uppercase tracking-wider text-blue-600 mb-1">
-                            Medical Questionnaire:
-                          </span>
-                          {apt.medical_history}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-10 py-7">
-                      <p className="font-black text-slate-700">
-                        {formatDisplayDate(apt.appointment_date)}
-                      </p>
-                      <p className="text-xs font-black text-blue-500 uppercase mt-0.5">
-                        {formatDisplayTime(apt.appointment_time)}
-                      </p>
-                    </td>
-                    <td className="px-10 py-7">
-                      <div className="px-4 py-2 bg-slate-100 rounded-xl inline-block">
-                        <p className="text-xs text-slate-500 font-black italic uppercase tracking-tighter">
-                          "{apt.reason || "General Consultation"}"
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-10 py-7">
-                      <span
-                        className={`px-4 py-1.5 text-[9px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(
-                          apt.status
-                        )}`}
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/40 p-8 space-y-8">
+              {/* Header profile info */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+                      {activePatient.patient_name || "Anonymous Patient"}
+                    </h2>
+                    <span className={`px-4 py-1.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(activePatient.status)}`}>
+                      {activePatient.status || "Scheduled"}
+                    </span>
+                  </div>
+                  <p className="text-sm font-bold text-slate-400 mt-1">
+                    Phone: {activePatient.phone || "N/A"} • Visit Timing: {formatDisplayDate(activePatient.appointment_date)} at {formatDisplayTime(activePatient.appointment_time)}
+                  </p>
+                </div>
+
+                {/* Telehealth Call Action moved inside patient record */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => router.push(`/telehealth/${activePatient.id}`)}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition font-black text-sm shadow-lg shadow-blue-100"
+                  >
+                    <Video size={18} /> Start Video Consultation
+                  </button>
+                  <button
+                    onClick={() => handleStatusUpdate(activePatient.id, "completed")}
+                    className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition font-black text-sm border border-emerald-100"
+                  >
+                    <CheckCircle size={18} /> Complete
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid content for history & clinical notes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Patient History & Questionnaire */}
+                <div className="bg-slate-50/50 p-6 rounded-3xl border border-slate-100 space-y-4">
+                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                    Patient Medical Questionnaire & History
+                  </h3>
+                  <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-500 uppercase">Chief Reason for Visit:</p>
+                    <p className="text-sm font-black text-slate-800 mt-1 mb-4">
+                      "{activePatient.reason || "General Consultation"}"
+                    </p>
+
+                    <p className="text-xs font-bold text-slate-500 uppercase">Questionnaire Response Profile:</p>
+                    <div className="text-sm text-slate-700 font-medium mt-1 whitespace-pre-wrap">
+                      {activePatient.medical_history || "No prior questionnaire data submitted."}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Clinical Notes & Prescriptions Management */}
+                <div className="bg-slate-50/50 p-6 rounded-3xl border border-slate-100 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                      Clinical Documentation
+                    </h3>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setModalType("prescription")}
+                        className="px-4 py-2 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition font-black text-xs flex items-center gap-1.5"
                       >
-                        {apt.status || "Scheduled"}
-                      </span>
-                    </td>
-                    <td className="px-10 py-7 text-right">
-                      <div className="flex justify-end items-center gap-2">
-                        {/* Telehealth Video Call */}
-                        <button
-                          onClick={() => router.push(`/telehealth/${apt.id}`)}
-                          className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition shadow-sm"
-                          title="Start Video Call"
-                        >
-                          <Video size={16} />
-                        </button>
+                        <Pill size={14} /> Issue Prescription
+                      </button>
+                    </div>
+                  </div>
 
-                        {/* Add Prescription */}
-                        <button
-                          onClick={() => {
-                            setSelectedApt(apt);
-                            setModalType("prescription");
-                          }}
-                          className="p-2.5 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition shadow-sm"
-                          title="Issue Prescription"
-                        >
-                          <Pill size={16} />
-                        </button>
+                  <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs font-bold text-slate-500 uppercase">Doctor's Clinical Notes:</p>
+                      <button
+                        onClick={() => {
+                          setClinicalNote(activePatient.clinical_notes || "");
+                          setModalType("note");
+                        }}
+                        className="text-xs font-black text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        <FileText size={14} /> {activePatient.clinical_notes ? "Edit Note" : "Add Clinical Note"}
+                      </button>
+                    </div>
 
-                        {/* Add / Edit Clinical Note */}
-                        <button
-                          onClick={() => {
-                            setSelectedApt(apt);
-                            setClinicalNote(apt.clinical_notes || "");
-                            setModalType("note");
-                          }}
-                          className="p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition shadow-sm"
-                          title="Add Clinical Note"
-                        >
-                          <FileText size={16} />
-                        </button>
+                    <div className="p-4 bg-amber-50/40 rounded-xl border border-amber-100 text-slate-800 text-sm font-medium min-h-[100px]">
+                      {activePatient.clinical_notes || (
+                        <span className="text-slate-400 italic">No clinical notes recorded for this session yet. Click 'Add Clinical Note' above to record observations.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* --- APPOINTMENTS LIST VIEW --- */
+          <>
+            <div className="flex justify-between items-end mb-10">
+              <div>
+                <h2 className="text-4xl font-black text-slate-900 tracking-tighter">
+                  Patient Appointments
+                </h2>
+                <p className="text-slate-500 font-bold mt-2">
+                  Assigned Records: {appointments.length} (Click a patient to view full history)
+                </p>
+              </div>
+            </div>
 
-                        {/* Mark Complete */}
-                        <button
-                          onClick={() => handleStatusUpdate(apt.id, "completed")}
-                          className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition shadow-sm"
-                          title="Mark Complete"
-                        >
-                          <CheckCircle size={16} />
-                        </button>
-                      </div>
-                    </td>
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/40 overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50/50">
+                  <tr className="border-b border-slate-100">
+                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      Patient Profile
+                    </th>
+                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      Visit Timing
+                    </th>
+                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      Medical Reason
+                    </th>
+                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      Status
+                    </th>
+                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">
+                      Action
+                    </th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="py-20 text-center font-black text-slate-300 italic text-xl">
+                        Accessing secure records...
+                      </td>
+                    </tr>
+                  ) : appointments.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-20 text-center font-bold text-slate-400 text-base">
+                        No appointments assigned to your schedule.
+                      </td>
+                    </tr>
+                  ) : (
+                    appointments.map((apt) => (
+                      <tr 
+                        key={apt.id} 
+                        onClick={() => setActivePatient(apt)}
+                        className="hover:bg-blue-50/40 transition-all cursor-pointer group"
+                      >
+                        <td className="px-10 py-7">
+                          <p className="font-black text-slate-900 text-lg leading-tight group-hover:text-blue-600 transition">
+                            {apt.patient_name || "Anonymous Patient"}
+                          </p>
+                          <p className="text-sm text-slate-400 font-bold mt-1 tracking-tight">
+                            {apt.phone || "N/A"}
+                          </p>
+                        </td>
+                        <td className="px-10 py-7">
+                          <p className="font-black text-slate-700">
+                            {formatDisplayDate(apt.appointment_date)}
+                          </p>
+                          <p className="text-xs font-black text-blue-500 uppercase mt-0.5">
+                            {formatDisplayTime(apt.appointment_time)}
+                          </p>
+                        </td>
+                        <td className="px-10 py-7">
+                          <div className="px-4 py-2 bg-slate-100 rounded-xl inline-block">
+                            <p className="text-xs text-slate-500 font-black italic uppercase tracking-tighter">
+                              "{apt.reason || "General Consultation"}"
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-10 py-7">
+                          <span className={`px-4 py-1.5 text-[9px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(apt.status)}`}>
+                            {apt.status || "Scheduled"}
+                          </span>
+                        </td>
+                        <td className="px-10 py-7 text-right">
+                          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition">
+                            View Record &rarr;
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </main>
 
       {/* Prescription Modal */}
-      {modalType === "prescription" && selectedApt && (
+      {modalType === "prescription" && activePatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-lg font-black text-slate-900">
-                Issue Prescription for {selectedApt.patient_name}
+                Issue Prescription for {activePatient.patient_name}
               </h3>
-              <button
-                onClick={() => setModalType(null)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
+              <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X size={20} />
               </button>
             </div>
@@ -445,17 +504,13 @@ export default function DoctorDashboard() {
 
             <form onSubmit={handleAddPrescription} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Medication Name
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Medication Name</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Amoxicillin, Hydrocortisone Cream"
                   value={prescriptionForm.medication}
-                  onChange={(e) =>
-                    setPrescriptionForm({ ...prescriptionForm, medication: e.target.value })
-                  }
+                  onChange={(e) => setPrescriptionForm({ ...prescriptionForm, medication: e.target.value })}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 text-slate-800"
                 />
               </div>
@@ -467,24 +522,18 @@ export default function DoctorDashboard() {
                   required
                   placeholder="e.g. 500mg, Twice daily for 7 days"
                   value={prescriptionForm.dosage}
-                  onChange={(e) =>
-                    setPrescriptionForm({ ...prescriptionForm, dosage: e.target.value })
-                  }
+                  onChange={(e) => setPrescriptionForm({ ...prescriptionForm, dosage: e.target.value })}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 text-slate-800"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Instructions / Usage Notes
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Instructions / Usage Notes</label>
                 <textarea
                   rows={3}
                   placeholder="Take after meals..."
                   value={prescriptionForm.instructions}
-                  onChange={(e) =>
-                    setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })
-                  }
+                  onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 text-slate-800 resize-none"
                 />
               </div>
@@ -511,17 +560,14 @@ export default function DoctorDashboard() {
       )}
 
       {/* Clinical Notes Modal */}
-      {modalType === "note" && selectedApt && (
+      {modalType === "note" && activePatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-lg font-black text-slate-900">
-                Clinical Notes: {selectedApt.patient_name}
+                Clinical Notes: {activePatient.patient_name}
               </h3>
-              <button
-                onClick={() => setModalType(null)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
+              <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X size={20} />
               </button>
             </div>
@@ -534,9 +580,7 @@ export default function DoctorDashboard() {
 
             <form onSubmit={handleSaveNote} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Diagnosis / Observations
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Diagnosis / Observations</label>
                 <textarea
                   rows={5}
                   required
