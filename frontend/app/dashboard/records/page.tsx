@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, AlertCircle, Pill, Calendar, Clock } from "lucide-react";
+import { FileText, AlertCircle, Pill, Calendar, Stethoscope } from "lucide-react";
 
 interface RecordItem {
   id: number;
-  patient_name: string;
-  medication_details: string;
-  status: string;
+  record_type?: string;
+  patient_name?: string;
+  medication_details?: string;
+  instructions?: string;
+  status?: string;
+  doctor_name?: string;
   created_at: string;
 }
 
@@ -90,31 +93,39 @@ export default function RecordsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {records.map((rec) => (
-            <div
-              key={rec.id}
-              className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3"
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2 text-blue-600 font-bold">
-                  <Pill size={18} />
-                  <span>Prescription #{rec.id}</span>
+          {records.map((rec, index) => {
+            const isClinicalNote = rec.record_type === "clinical_note";
+            return (
+              <div
+                key={rec.id || index}
+                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3"
+              >
+                <div className="flex justify-between items-start">
+                  <div className={`flex items-center gap-2 font-bold ${isClinicalNote ? "text-emerald-600" : "text-blue-600"}`}>
+                    {isClinicalNote ? <Stethoscope size={18} /> : <Pill size={18} />}
+                    <span>{isClinicalNote ? "Doctor's Clinical Note" : `Prescription #${rec.id}`}</span>
+                  </div>
+                  <span className={`px-2.5 py-1 text-xs font-semibold rounded-full capitalize ${isClinicalNote ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"}`}>
+                    {rec.status || (isClinicalNote ? "Logged" : "Issued")}
+                  </span>
                 </div>
-                <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-600 capitalize">
-                  {rec.status || "Issued"}
-                </span>
-              </div>
 
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-700">
-                <p className="font-semibold text-slate-900 mb-1">Medication Details:</p>
-                <p className="whitespace-pre-wrap">{rec.medication_details}</p>
-              </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-1">
+                  <p className="font-semibold text-slate-900">
+                    {isClinicalNote ? "Clinical Summary / Notes:" : "Medication Details:"}
+                  </p>
+                  <p className="whitespace-pre-wrap">{rec.medication_details || "No details provided."}</p>
+                  {rec.doctor_name && (
+                    <p className="text-slate-500 pt-1 font-medium">Doctor: Dr. {rec.doctor_name}</p>
+                  )}
+                </div>
 
-              <p className="text-xs text-slate-400 flex items-center gap-1">
-                <Calendar size={14} /> Issued on {new Date(rec.created_at).toLocaleDateString()}
-              </p>
-            </div>
-          ))}
+                <p className="text-xs text-slate-400 flex items-center gap-1">
+                  <Calendar size={14} /> Recorded on {new Date(rec.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
