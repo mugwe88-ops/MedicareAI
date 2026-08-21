@@ -61,9 +61,14 @@ export default function AppointmentsPage() {
     setError(null);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
       const res = await fetch("https://medicareai-1.onrender.com/api/my-appointments", {
         headers: {
-          Authorization: `Bearer ${token || ""}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -126,7 +131,8 @@ export default function AppointmentsPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.details || data.error || "Failed to schedule appointment.");
+        // Prioritize structured validation errors over raw details
+        throw new Error(data.error || data.details || "Failed to schedule appointment.");
       }
 
       setIsModalOpen(false);
@@ -145,8 +151,27 @@ export default function AppointmentsPage() {
     }
   };
 
+  const formatDisplayDate = (dateStr?: string) => {
+    if (!dateStr) return "Date Pending";
+    const cleanDate = dateStr.split("T")[0];
+    const [year, month, day] = cleanDate.split("-");
+    if (!year || !month || !day) return dateStr;
+    const dateObj = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    return dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  const formatDisplayTime = (timeStr?: string) => {
+    if (!timeStr) return "Time Pending";
+    const [hours, minutes] = timeStr.split(":");
+    if (!hours || !minutes) return timeStr;
+    const h = parseInt(hours, 10);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const formattedHours = h % 12 || 12;
+    return `${formattedHours}:${minutes} ${ampm}`;
+  };
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -222,7 +247,7 @@ export default function AppointmentsPage() {
                 <div className="space-y-1.5 text-xs text-slate-500">
                   <p className="flex items-center gap-2">
                     <Clock size={14} className="text-slate-400" />
-                    {apt.appointment_date ? new Date(apt.appointment_date).toLocaleDateString() : "Date Pending"} at {apt.appointment_time || "Time Pending"}
+                    {formatDisplayDate(apt.appointment_date)} at {formatDisplayTime(apt.appointment_time)}
                   </p>
                   {apt.reason && (
                     <p className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-slate-600 text-xs mt-2">
