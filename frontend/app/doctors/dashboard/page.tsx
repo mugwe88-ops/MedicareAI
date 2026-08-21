@@ -172,7 +172,7 @@ export default function DoctorDashboard() {
       if (!res.ok) throw new Error(data.message || "Failed to add availability slot");
 
       setAvailabilityMsg("Availability updated successfully!");
-      fetchAvailability(doctorId, token);
+      fetchAvailability(doctorId as string, token)
       setTimeout(() => setAvailabilityMsg(null), 2500);
     } catch (err: any) {
       setAvailabilityMsg(err.message || "Error saving availability slot.");
