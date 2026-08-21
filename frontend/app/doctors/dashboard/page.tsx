@@ -59,6 +59,7 @@ export default function DoctorDashboard() {
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
   const API_BASE = "https://medicareai-1.onrender.com";
+  const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -80,8 +81,6 @@ export default function DoctorDashboard() {
 
     fetchAppointments(token);
   }, []);
-
-  const router = useRouter();
 
   const fetchAppointments = async (authToken?: string) => {
     const token = authToken || localStorage.getItem("token");
@@ -107,8 +106,6 @@ export default function DoctorDashboard() {
     }
   };
 
-  // Fetch prescriptions for the selected patient/appointment
-// Fetch prescriptions for the selected patient/appointment using the correct path parameter
   const fetchPrescriptionsForAppointment = async (appointmentId: number) => {
     const token = localStorage.getItem("token");
     setLoadingPrescriptions(true);
@@ -135,7 +132,6 @@ export default function DoctorDashboard() {
     }
   };
 
-  // When clicking a patient record, load their prescriptions
   const handleSelectPatient = (apt: Appointment) => {
     setActivePatient(apt);
     fetchPrescriptionsForAppointment(apt.id);
@@ -217,8 +213,6 @@ export default function DoctorDashboard() {
       }
 
       setFeedbackMsg("Prescription issued successfully!");
-      
-      // Refresh the prescriptions list immediately
       fetchPrescriptionsForAppointment(activePatient.id);
 
       setTimeout(() => {
@@ -292,14 +286,15 @@ export default function DoctorDashboard() {
   const getStatusStyles = (status: string) => {
     switch (status?.toLowerCase()) {
       case "pending":
-        return "bg-amber-100 text-amber-700 border-amber-200";
+      case "confirmed":
+        return "bg-amber-50 text-amber-700 border-amber-200";
       case "completed":
-        return "bg-emerald-100 text-emerald-700 border-emerald-200";
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
       case "cancelled":
       case "rejected":
-        return "bg-red-100 text-red-700 border-red-200";
+        return "bg-red-50 text-red-700 border-red-200";
       default:
-        return "bg-blue-100 text-blue-700 border-blue-200";
+        return "bg-blue-50 text-blue-700 border-blue-200";
     }
   };
 
@@ -314,94 +309,101 @@ export default function DoctorDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40">
-        <h1 className="text-2xl font-black text-blue-600 tracking-tighter">
-          MedicareAI <span className="text-slate-900 font-light italic">Pro</span>
-        </h1>
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+      {/* Practo-style Navbar */}
+      <nav className="bg-white border-b border-slate-200 px-6 py-3.5 flex justify-between items-center sticky top-0 z-40 shadow-sm">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-blue-600 tracking-tight">
+            SWIFT <span className="text-slate-800 font-normal">MD</span>
+          </h1>
+        </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-sm font-black text-slate-900 leading-none">{doctorName}</p>
-            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">
+            <p className="text-sm font-semibold text-slate-900 leading-tight">{doctorName}</p>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">
               Medical Specialist
             </p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-black shadow-lg shadow-blue-100">
+          <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm shadow-sm">
             {getInitials(doctorName)}
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto p-8">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         {activePatient ? (
           /* --- INDIVIDUAL PATIENT RECORD & CLINICAL WORKSPACE --- */
           <div className="space-y-6">
             <button
               onClick={() => setActivePatient(null)}
-              className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-blue-600 transition"
+              className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-600 transition"
             >
               <ArrowLeft size={16} /> Back to Appointments List
             </button>
 
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/40 p-8 space-y-8">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-6">
               {/* Header profile info */}
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
                       {activePatient.patient_name || "Anonymous Patient"}
                     </h2>
-                    <span className={`px-4 py-1.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(activePatient.status)}`}>
+                    <span className={`px-3 py-1 text-[10px] font-semibold rounded-full uppercase tracking-wider border ${getStatusStyles(activePatient.status)}`}>
                       {activePatient.status || "Scheduled"}
                     </span>
                   </div>
-                  <p className="text-sm font-bold text-slate-400 mt-1">
-                    Phone: {activePatient.phone || "N/A"} • Visit Timing: {formatDisplayDate(activePatient.appointment_date)} at {formatDisplayTime(activePatient.appointment_time)}
+                  <p className="text-sm text-slate-500 mt-1">
+                    Phone: <span className="font-medium text-slate-700">{activePatient.phone || "N/A"}</span> • Visit Timing: <span className="font-medium text-slate-700">{formatDisplayDate(activePatient.appointment_date)} at {formatDisplayTime(activePatient.appointment_time)}</span>
                   </p>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => router.push(`/telehealth/${activePatient.id}`)}
-                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition font-black text-sm shadow-lg shadow-blue-100"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm shadow-sm"
                   >
-                    <Video size={18} /> Start Video Consultation
+                    <Video size={16} /> Start Video Consultation
                   </button>
                   <button
                     onClick={() => handleStatusUpdate(activePatient.id, "completed")}
-                    className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition font-black text-sm border border-emerald-100"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-lg hover:bg-emerald-50 transition font-medium text-sm border border-emerald-200"
                   >
-                    <CheckCircle size={18} /> Complete
+                    <CheckCircle size={16} /> Complete Visit
                   </button>
                 </div>
               </div>
 
               {/* Grid content for history & clinical notes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Patient History & Questionnaire */}
-                <div className="bg-slate-50/50 p-6 rounded-3xl border border-slate-100 space-y-4">
-                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                <div className="bg-slate-50 p-5 rounded-lg border border-slate-200/70 space-y-4">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Patient Medical Questionnaire & History
                   </h3>
-                  <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="text-xs font-bold text-slate-500 uppercase">Chief Reason for Visit:</p>
-                    <p className="text-sm font-black text-slate-800 mt-1 mb-4">
-                      "{activePatient.reason || "General Consultation"}"
-                    </p>
+                  <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-3">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase">Chief Reason for Visit</p>
+                      <p className="text-sm font-medium text-slate-800 mt-0.5">
+                        {activePatient.reason || "General Consultation"}
+                      </p>
+                    </div>
 
-                    <p className="text-xs font-bold text-slate-500 uppercase">Questionnaire Response Profile:</p>
-                    <div className="text-sm text-slate-700 font-medium mt-1 whitespace-pre-wrap">
-                      {activePatient.medical_history || "No prior questionnaire data submitted."}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase">Questionnaire Response Profile</p>
+                      <div className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">
+                        {activePatient.medical_history || "No prior questionnaire data submitted."}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Clinical Notes & Prescriptions Management */}
-                <div className="bg-slate-50/50 p-6 rounded-3xl border border-slate-100 space-y-6">
+                <div className="bg-slate-50 p-5 rounded-lg border border-slate-200/70 space-y-6">
                   {/* Clinical Notes Section */}
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                         Clinical Documentation
                       </h3>
                       <button
@@ -409,15 +411,15 @@ export default function DoctorDashboard() {
                           setClinicalNote(activePatient.clinical_notes || "");
                           setModalType("note");
                         }}
-                        className="text-xs font-black text-blue-600 hover:underline flex items-center gap-1"
+                        className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1"
                       >
                         <FileText size={14} /> {activePatient.clinical_notes ? "Edit Note" : "Add Clinical Note"}
                       </button>
                     </div>
 
-                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Doctor's Clinical Notes:</p>
-                      <div className="text-slate-800 text-sm font-medium min-h-[60px]">
+                    <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Doctor's Clinical Notes:</p>
+                      <div className="text-slate-700 text-sm min-h-[50px]">
                         {activePatient.clinical_notes || (
                           <span className="text-slate-400 italic">No clinical notes recorded yet.</span>
                         )}
@@ -426,35 +428,35 @@ export default function DoctorDashboard() {
                   </div>
 
                   {/* Issued Prescriptions Section */}
-                  <div className="space-y-3 pt-2 border-t border-slate-200/60">
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                         Issued Prescriptions
                       </h3>
                       <button
                         onClick={() => setModalType("prescription")}
-                        className="px-3.5 py-1.5 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition font-black text-xs flex items-center gap-1.5"
+                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition font-semibold text-xs flex items-center gap-1"
                       >
                         <Pill size={14} /> Issue Prescription
                       </button>
                     </div>
 
-                    <div className="space-y-2 max-h-[220px] overflow-y-auto">
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
                       {loadingPrescriptions ? (
                         <p className="text-xs text-slate-400 italic">Loading prescriptions...</p>
                       ) : patientPrescriptions.length === 0 ? (
-                        <div className="bg-white p-4 rounded-2xl border border-slate-100 text-xs text-slate-400 italic">
+                        <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-400 italic">
                           No prescriptions issued for this visit yet.
                         </div>
                       ) : (
                         patientPrescriptions.map((rx) => (
-                          <div key={rx.id} className="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm flex items-start justify-between gap-3">
+                          <div key={rx.id} className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm flex items-start justify-between gap-3">
                             <div>
-                              <p className="font-black text-purple-900 text-sm">
+                              <p className="font-semibold text-slate-900 text-sm">
                                 {rx.medication || rx.medication_name || rx.drug_name || "Medication"}
                               </p>
-                              <p className="text-xs font-bold text-slate-600 mt-0.5">
-                                Dosage: {rx.dosage}
+                              <p className="text-xs text-slate-600 mt-0.5">
+                                Dosage: <span className="font-medium">{rx.dosage}</span>
                               </p>
                               {rx.instructions && (
                                 <p className="text-xs text-slate-500 mt-1 italic">
@@ -462,7 +464,7 @@ export default function DoctorDashboard() {
                                 </p>
                               )}
                             </div>
-                            <span className="px-2.5 py-1 bg-purple-50 text-purple-700 font-extrabold text-[10px] rounded-lg uppercase">
+                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-medium text-[10px] rounded uppercase">
                               Active
                             </span>
                           </div>
@@ -477,48 +479,48 @@ export default function DoctorDashboard() {
         ) : (
           /* --- APPOINTMENTS LIST VIEW --- */
           <>
-            <div className="flex justify-between items-end mb-10">
+            <div className="flex justify-between items-end mb-6">
               <div>
-                <h2 className="text-4xl font-black text-slate-900 tracking-tighter">
+                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
                   Patient Appointments
                 </h2>
-                <p className="text-slate-500 font-bold mt-2">
-                  Assigned Records: {appointments.length} (Click a patient to view full history)
+                <p className="text-slate-500 text-sm mt-1">
+                  Assigned Records: <span className="font-semibold text-slate-700">{appointments.length}</span> (Click a patient to view full history)
                 </p>
               </div>
             </div>
 
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/40 overflow-hidden">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50/50">
-                  <tr className="border-b border-slate-100">
-                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Patient Profile
                     </th>
-                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Visit Timing
                     </th>
-                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Medical Reason
                     </th>
-                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
                       Action
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="py-20 text-center font-black text-slate-300 italic text-xl">
+                      <td colSpan={5} className="py-16 text-center font-medium text-slate-400 text-sm">
                         Accessing secure records...
                       </td>
                     </tr>
                   ) : appointments.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-20 text-center font-bold text-slate-400 text-base">
+                      <td colSpan={5} className="py-16 text-center font-medium text-slate-500 text-sm">
                         No appointments assigned to your schedule.
                       </td>
                     </tr>
@@ -527,38 +529,36 @@ export default function DoctorDashboard() {
                       <tr 
                         key={apt.id} 
                         onClick={() => handleSelectPatient(apt)}
-                        className="hover:bg-blue-50/40 transition-all cursor-pointer group"
+                        className="hover:bg-slate-50/80 transition cursor-pointer group"
                       >
-                        <td className="px-10 py-7">
-                          <p className="font-black text-slate-900 text-lg leading-tight group-hover:text-blue-600 transition">
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-slate-900 text-sm group-hover:text-blue-600 transition">
                             {apt.patient_name || "Anonymous Patient"}
                           </p>
-                          <p className="text-sm text-slate-400 font-bold mt-1 tracking-tight">
+                          <p className="text-xs text-slate-500 mt-0.5">
                             {apt.phone || "N/A"}
                           </p>
                         </td>
-                        <td className="px-10 py-7">
-                          <p className="font-black text-slate-700">
+                        <td className="px-6 py-4">
+                          <p className="font-medium text-slate-800 text-sm">
                             {formatDisplayDate(apt.appointment_date)}
                           </p>
-                          <p className="text-xs font-black text-blue-500 uppercase mt-0.5">
+                          <p className="text-xs text-blue-600 font-medium mt-0.5">
                             {formatDisplayTime(apt.appointment_time)}
                           </p>
                         </td>
-                        <td className="px-10 py-7">
-                          <div className="px-4 py-2 bg-slate-100 rounded-xl inline-block">
-                            <p className="text-xs text-slate-500 font-black italic uppercase tracking-tighter">
-                              "{apt.reason || "General Consultation"}"
-                            </p>
-                          </div>
+                        <td className="px-6 py-4">
+                          <span className="text-xs text-slate-600 font-medium bg-slate-100 px-2.5 py-1 rounded-md inline-block">
+                            {apt.reason || "General Consultation"}
+                          </span>
                         </td>
-                        <td className="px-10 py-7">
-                          <span className={`px-4 py-1.5 text-[9px] font-black rounded-full uppercase tracking-widest border ${getStatusStyles(apt.status)}`}>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 text-[10px] font-semibold rounded-full uppercase tracking-wider border ${getStatusStyles(apt.status)}`}>
                             {apt.status || "Scheduled"}
                           </span>
                         </td>
-                        <td className="px-10 py-7 text-right">
-                          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition">
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-xs font-semibold text-blue-600 hover:underline">
                             View Record &rarr;
                           </span>
                         </td>
@@ -574,71 +574,71 @@ export default function DoctorDashboard() {
 
       {/* Prescription Modal */}
       {modalType === "prescription" && activePatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-              <h3 className="text-lg font-black text-slate-900">
-                Issue Prescription for {activePatient.patient_name}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">
+                Issue Prescription
               </h3>
               <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600 p-1">
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
             {feedbackMsg && (
-              <div className="bg-blue-50 text-blue-700 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
+              <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-xs font-medium flex items-center gap-2">
                 <AlertCircle size={16} /> {feedbackMsg}
               </div>
             )}
 
             <form onSubmit={handleAddPrescription} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Medication Name</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Medication Name</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Amoxicillin, Hydrocortisone Cream"
+                  placeholder="e.g. Amoxicillin"
                   value={prescriptionForm.medication}
                   onChange={(e) => setPrescriptionForm({ ...prescriptionForm, medication: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 text-slate-800"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Dosage</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Dosage</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 500mg, Twice daily for 7 days"
+                  placeholder="e.g. 500mg, Twice daily"
                   value={prescriptionForm.dosage}
                   onChange={(e) => setPrescriptionForm({ ...prescriptionForm, dosage: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 text-slate-800"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Instructions / Usage Notes</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Instructions / Usage Notes</label>
                 <textarea
                   rows={3}
                   placeholder="Take after meals..."
                   value={prescriptionForm.instructions}
                   onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 text-slate-800 resize-none"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalType(null)}
-                  className="w-1/2 py-2.5 rounded-xl font-bold text-sm border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  className="w-1/2 py-2 rounded-lg font-medium text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-1/2 py-2.5 rounded-xl font-bold text-sm bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+                  className="w-1/2 py-2 rounded-lg font-medium text-sm bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   {submitting ? "Saving..." : "Save Prescription"}
                 </button>
@@ -650,48 +650,48 @@ export default function DoctorDashboard() {
 
       {/* Clinical Notes Modal */}
       {modalType === "note" && activePatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-              <h3 className="text-lg font-black text-slate-900">
-                Clinical Notes: {activePatient.patient_name}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">
+                Clinical Notes
               </h3>
               <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600 p-1">
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
             {feedbackMsg && (
-              <div className="bg-amber-50 text-amber-700 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
+              <div className="bg-amber-50 text-amber-700 p-3 rounded-lg text-xs font-medium flex items-center gap-2">
                 <AlertCircle size={16} /> {feedbackMsg}
               </div>
             )}
 
             <form onSubmit={handleSaveNote} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Diagnosis / Observations</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Diagnosis / Observations</label>
                 <textarea
                   rows={5}
                   required
                   placeholder="Record symptoms, diagnosis, and treatment recommendations..."
                   value={clinicalNote}
                   onChange={(e) => setClinicalNote(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 text-slate-800 resize-none"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalType(null)}
-                  className="w-1/2 py-2.5 rounded-xl font-bold text-sm border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  className="w-1/2 py-2 rounded-lg font-medium text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-1/2 py-2.5 rounded-xl font-bold text-sm bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                  className="w-1/2 py-2 rounded-lg font-medium text-sm bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   {submitting ? "Saving..." : "Save Note"}
                 </button>
