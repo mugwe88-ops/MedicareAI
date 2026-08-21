@@ -19,6 +19,7 @@ import bookingRoutes from "./routes/bookings.routes.js";
 import doctorRoutes from "./routes/doctors.routes.js";
 import telehealthRouter from "./routes/telehealth.js"; 
 import { verifyToken } from "./utils/jwt.js";
+import prescriptionRoutes from "./routes/prescription.routes.js";
 
 /* ======================
    1️⃣ APP INIT
@@ -72,6 +73,8 @@ app.use("/api/appointments", appointmentRoutes);
 app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/doctor/prescriptions", prescriptionRoutes);
+app.use("/api/prescriptions", prescriptionRoutes);
 
 // GET All Active Doctors
 app.get("/api/doctors-list", verifyToken, async (req, res) => {
