@@ -42,7 +42,6 @@ app.use(
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Dynamic header reflection (bypasses CORS restrictions completely)
   res.setHeader("Access-Control-Allow-Origin", origin || "*");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader(
@@ -54,7 +53,6 @@ app.use((req, res, next) => {
     "Origin, X-Requested-With, Content-Type, Accept, Authorization"
   );
 
-  // Instantly resolve browser OPTIONS preflight checks
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -217,7 +215,7 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
   }
 });
 
-// Create New Appointment for Patient
+// Create New Appointment for Patient (UPDATED WITH OVERLAP CHECK)
 app.post("/api/my-appointments", verifyToken, async (req, res) => {
   try {
     const rawId = req.user?.id || req.user?.userId || req.user?.user_id;
@@ -244,7 +242,7 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
 
     const searchTarget = doctor_name || (isNaN(parseInt(doctor_id, 10)) ? doctor_id : null);
     
-    if (searchTarget) {
+    if (searchTarget && !safeDoctorId) {
       const cleanName = String(searchTarget).replace(/^dr\.\s*/i, '').trim();
       const docRes = await pool.query(
         `SELECT id FROM users 
@@ -259,6 +257,25 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
         safeDoctorId = docRes.rows[0].id;
       }
     }
+
+    // --- OVERLAP CHECK START ---
+    if (safeDoctorId) {
+      const collisionCheck = await pool.query(
+        `SELECT id FROM appointments 
+         WHERE doctor_id = $1 
+           AND appointment_date = $2::date 
+           AND appointment_time = $3::time 
+           AND LOWER(status) NOT IN ('cancelled', 'rejected')`,
+        [safeDoctorId, appointment_date, appointment_time]
+      );
+
+      if (collisionCheck.rows.length > 0) {
+        return res.status(409).json({ 
+          error: "This time slot is already booked for this doctor. Please select a different time." 
+        });
+      }
+    }
+    // --- OVERLAP CHECK END ---
 
     const safeDept = department || "General Medicine";
     const safeReason = reason || "";
@@ -289,7 +306,7 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
   }
 });
 
-// Filtered Appointments for Doctors
+// Filtered Appointments for Doctors (UPDATED TO STRICT DOCTOR SCOPING)
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
   try {
     let doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -312,9 +329,7 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Unable to identify doctor session ID." });
     }
 
-    const docSpecRes = await pool.query("SELECT specialization FROM users WHERE id = $1", [doctor_id]);
-    const specialization = docSpecRes.rows[0]?.specialization || "";
-
+    // Strictly fetch appointments linked to this specific doctor_id
     const result = await pool.query(
       `SELECT a.*, 
               COALESCE(u.name, a.patient_name, 'Anonymous Patient') as patient_name, 
@@ -322,9 +337,8 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
        WHERE a.doctor_id = $1 
-          OR (a.doctor_id IS NULL AND LOWER(a.department) = LOWER($2))
        ORDER BY a.created_at DESC, a.appointment_date DESC, a.appointment_time DESC`,
-      [doctor_id, specialization]
+      [doctor_id]
     );
 
     return res.json(result.rows);
