@@ -219,16 +219,15 @@ app.get("/api/records", verifyToken, async (req, res) => {
     }
 
     const patientUser = userResult.rows[0];
-    const userName = patientUser.name && patientUser.name.trim() !== "" ? patientUser.name : "Valued Patient";
     const patientAge = patientUser.age || "N/A";
     const patientNumber = `SMD-${1000 + patientUser.id}`;
 
-    // 1. Fetch Prescriptions (joining users table to guarantee correct patient name)
+    // 1. Fetch Prescriptions (joining users and appointments table to guarantee correct patient name lookup)
     const prescriptionsResult = await pool.query(
       `SELECT 
           p.id, 
           'prescription' AS record_type,
-          COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(p.patient_name), ''), 'Valued Patient') AS patient_name,
+          COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(p.patient_name), ''), NULLIF(TRIM(apt_u.name), ''), $2, 'Valued Patient') AS patient_name,
           ${patientAge !== "N/A" ? patientAge : "NULL"} AS patient_age,
           '${patientNumber}' AS patient_number,
           p.medication_details,
@@ -238,8 +237,10 @@ app.get("/api/records", verifyToken, async (req, res) => {
           (SELECT name FROM users WHERE id = p.doctor_id) AS doctor_name
         FROM prescriptions p
         LEFT JOIN users u ON p.patient_id = u.id
-        WHERE p.patient_id = $1 OR p.patient_id IS NULL`,
-      [patientId]
+        LEFT JOIN appointments a ON p.appointment_id = a.id
+        LEFT JOIN users apt_u ON a.patient_id = apt_u.id
+        WHERE p.patient_id = $1 OR p.appointment_id IN (SELECT id FROM appointments WHERE patient_id = $1) OR p.patient_id IS NULL`,
+      [patientId, patientUser.name]
     );
 
     // 2. Fetch Clinical Notes from Appointments
@@ -247,7 +248,7 @@ app.get("/api/records", verifyToken, async (req, res) => {
       `SELECT 
           a.id, 
           'clinical_note' AS record_type,
-          COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(a.patient_name), ''), 'Valued Patient') AS patient_name,
+          COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(a.patient_name), ''), $2, 'Valued Patient') AS patient_name,
           ${patientAge !== "N/A" ? patientAge : "NULL"} AS patient_age,
           '${patientNumber}' AS patient_number,
           a.clinical_notes AS medication_details,
@@ -260,7 +261,7 @@ app.get("/api/records", verifyToken, async (req, res) => {
         WHERE a.patient_id = $1 
           AND a.clinical_notes IS NOT NULL 
           AND TRIM(a.clinical_notes) != ''`,
-      [patientId]
+      [patientId, patientUser.name]
     );
 
     // Combine and sort by date descending
@@ -310,14 +311,22 @@ const createPrescriptionHandler = async (req, res) => {
     let resolvedPatientName = patient_name ? String(patient_name).trim() : null;
     let safePatientId = patient_id && !isNaN(parseInt(patient_id, 10)) ? parseInt(patient_id, 10) : null;
 
+    // 1. Resolve name or ID from appointment if missing
     if ((!resolvedPatientName || !safePatientId) && appointment_id) {
-      const aptRes = await pool.query("SELECT patient_name, patient_id FROM appointments WHERE id = $1", [appointment_id]);
+      const aptRes = await pool.query(
+        `SELECT a.patient_name, a.patient_id, u.name as user_name 
+         FROM appointments a 
+         LEFT JOIN users u ON a.patient_id = u.id 
+         WHERE a.id = $1`, 
+        [appointment_id]
+      );
       if (aptRes.rows.length > 0) {
-        if (!resolvedPatientName && aptRes.rows[0].patient_name) resolvedPatientName = aptRes.rows[0].patient_name;
-        if (!safePatientId && aptRes.rows[0].patient_id) safePatientId = aptRes.rows[0].patient_id;
+        if (!resolvedPatientName) resolvedPatientName = aptRes.rows[0].user_name || aptRes.rows[0].patient_name;
+        if (!safePatientId) safePatientId = aptRes.rows[0].patient_id;
       }
     }
 
+    // 2. Resolve name from users table using safePatientId
     if (!resolvedPatientName && safePatientId) {
       const pRes = await pool.query("SELECT name FROM users WHERE id = $1", [safePatientId]);
       if (pRes.rows.length > 0 && pRes.rows[0].name) {
@@ -325,6 +334,7 @@ const createPrescriptionHandler = async (req, res) => {
       }
     }
 
+    // 3. Resolve ID from users table using resolvedPatientName if ID is missing
     if (!safePatientId && resolvedPatientName) {
       const userRes = await pool.query(
         "SELECT id FROM users WHERE LOWER(TRIM(name)) LIKE LOWER(TRIM($1)) LIMIT 1",
