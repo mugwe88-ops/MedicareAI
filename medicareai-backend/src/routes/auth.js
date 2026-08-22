@@ -1,5 +1,11 @@
-import nodemailer from "nodemailer";
+import express from "express";
+import pool from "../config/db.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer"; // <--- FIXED: Uncommented
 import crypto from "crypto";
+
+const router = express.Router(); // (Make sure this router definition exists at the top)
 
 // Configure Nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -148,3 +154,5 @@ router.post("/login", async (req, res) => {
     return res.status(500).json({ error: "Server login error" });
   }
 });
+
+export default router; // <--- FIXED: Must be at the very bottom of auth.js
