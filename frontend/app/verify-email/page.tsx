@@ -1,38 +1,60 @@
 "use client";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { MailCheck } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
-export default function VerifyEmailNotice() {
+function VerifyContent() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+  const router = useRouter();
+  
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [message, setMessage] = useState("Verifying your email...");
+
+  useEffect(() => {
+    if (!token) {
+      setStatus("error");
+      setMessage("No verification token provided.");
+      return;
+    }
+
+    fetch(`https://medicareai-1.onrender.com/api/auth/verify?token=${token}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Verification failed");
+        setStatus("success");
+        setMessage("Email verified successfully! Redirecting to login...");
+        setTimeout(() => router.push("/login"), 3000);
+      })
+      .catch((err) => {
+        setStatus("error");
+        setMessage(err.message);
+      });
+  }, [token, router]);
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-6">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-12 px-10 shadow-2xl rounded-3xl border border-gray-100 text-center">
-          <div className="inline-flex p-4 rounded-full bg-blue-50 text-blue-600 mb-6">
-            <MailCheck size={48} />
-          </div>
-          
-          <h2 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">
-            Check your email
-          </h2>
-          
-          <p className="text-slate-600 mb-8 font-medium leading-relaxed">
-            We’ve sent a verification link to your inbox. Please click the link to activate your account and access MedicareAI.
-          </p>
-
-          <div className="space-y-4">
-            <Link 
-              href="/login" 
-              className="block w-full py-4 px-4 rounded-xl shadow-lg shadow-blue-200 text-sm font-black text-white bg-blue-600 hover:bg-blue-700 transition-all transform active:scale-[0.98]"
-            >
-              Back to Login
-            </Link>
-            
-            <p className="text-xs text-slate-400">
-              Didn't receive an email? Check your spam folder or contact support.
-            </p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-6">
+      <div className="max-w-md w-full bg-white p-10 shadow-2xl rounded-3xl text-center">
+        {status === "loading" && <Loader2 className="animate-spin text-blue-600 mx-auto mb-4" size={48} />}
+        {status === "success" && <CheckCircle2 className="text-emerald-600 mx-auto mb-4" size={48} />}
+        {status === "error" && <XCircle className="text-rose-600 mx-auto mb-4" size={48} />}
+        
+        <h2 className="text-2xl font-black text-slate-900 mb-2">Email Verification</h2>
+        <p className="text-slate-600 mb-6 font-medium">{message}</p>
+        
+        <Link href="/login" className="inline-block py-3 px-6 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700">
+          Go to Login
+        </Link>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-20">Loading...</div>}>
+      <VerifyContent />
+    </Suspense>
   );
 }

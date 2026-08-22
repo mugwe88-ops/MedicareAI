@@ -1,11 +1,18 @@
-import express from "express";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import pool from "../utils/db.js";
+import nodemailer from "nodemailer";
+import crypto from "crypto";
 
-const router = express.Router();
+// Configure Nodemailer transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || "smtp.gmail.com",
+  port: process.env.EMAIL_PORT || 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
-// POST /api/auth/signup
+// --- UPDATED SIGNUP ROUTE ---
 router.post("/signup", async (req, res) => {
   const { name, email, password, role, specialization, city } = req.body;
   const phone = req.body.phone || req.body.phone_number;
@@ -24,6 +31,9 @@ router.post("/signup", async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Generate a secure random verification token
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+
     const resolvedName = name && name.trim() !== "" ? name : email.split('@')[0];
     const resolvedRole = role ? role.toLowerCase() : "patient";
     const resolvedSpecialization = resolvedRole === "doctor" && specialization ? specialization : null;
@@ -31,44 +41,67 @@ router.post("/signup", async (req, res) => {
     const resolvedCity = city && city.trim() !== "" ? city : null;
     const resolvedPhone = phone && phone.trim() !== "" ? phone : null;
 
+    // Insert user with is_verified = false
     const newUser = await pool.query(
-      `INSERT INTO users (name, email, password, role, specialization, license_number, city, phone)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO users (name, email, password, role, specialization, license_number, city, phone, is_verified, verification_token)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, $9)
        RETURNING id, name, email, role, phone`,
-      [
-        resolvedName, 
-        email, 
-        hashedPassword, 
-        resolvedRole, 
-        resolvedSpecialization, 
-        resolvedLicense, 
-        resolvedCity, 
-        resolvedPhone
-      ]
+      [resolvedName, email, hashedPassword, resolvedRole, resolvedSpecialization, resolvedLicense, resolvedCity, resolvedPhone, verificationToken]
     );
 
-    const token = jwt.sign(
-      { id: newUser.rows[0].id, role: newUser.rows[0].role },
-      process.env.JWT_SECRET || "fallback_secret",
-      { 
-        expiresIn: "24h",
-        audience: "medicareai-users"
-      }
-    );
+    // Send Verification Email
+    const verificationUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/verify-email?token=${verificationToken}`;
+    
+    await transporter.sendMail({
+      from: '"SwiftMD Support" <no-reply@swiftmd.com>',
+      to: email,
+      subject: "Verify Your SwiftMD Account",
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2>Welcome to SwiftMD, ${resolvedName}!</h2>
+          <p>Please click the button below to verify your email address and activate your account:</p>
+          <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">Verify Email</a>
+          <p>If you didn't request this, please ignore this email.</p>
+        </div>
+      `,
+    });
 
     return res.status(201).json({
-      message: "Registration completed successfully!",
-      token,
-      user: newUser.rows[0]
+      message: "Registration successful! Please check your email to verify your account before logging in.",
     });
 
   } catch (err) {
-    console.error("Signup validation breakdown:", err);
-    return res.status(400).json({ error: "Database rejected values. Verify registration schema fields." });
+    console.error("Signup error:", err);
+    return res.status(500).json({ error: "Server error during registration." });
   }
 });
 
-// POST /api/auth/login
+// --- NEW VERIFICATION ROUTE ---
+router.get("/verify", async (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.status(400).json({ error: "Verification token is missing." });
+  }
+
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE verification_token = $1", [token]);
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid or expired verification token." });
+    }
+
+    await pool.query(
+      "UPDATE users SET is_verified = true, verification_token = NULL WHERE verification_token = $1",
+      [token]
+    );
+
+    return res.json({ message: "Email verified successfully! You can now log in." });
+  } catch (err) {
+    console.error("Verification error:", err);
+    return res.status(500).json({ error: "Server error during verification." });
+  }
+});
+
+// --- UPDATED LOGIN ROUTE (Blocks unverified users) ---
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   
@@ -82,20 +115,22 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Invalid credentials" });
     }
 
-    const isMatch = await bcrypt.compare(password, result.rows[0].password);
+    const userRow = result.rows[0];
+
+    // BLOCK LOGIN IF NOT VERIFIED
+    if (!userRow.is_verified) {
+      return res.status(403).json({ error: "Please verify your email address before logging in. Check your inbox for the verification link." });
+    }
+
+    const isMatch = await bcrypt.compare(password, userRow.password);
     if (!isMatch) {
       return res.status(400).json({ error: "Invalid credentials" });
     }
 
-    const userRow = result.rows[0];
-
     const token = jwt.sign(
       { id: userRow.id, role: userRow.role || "patient" },
       process.env.JWT_SECRET || "fallback_secret",
-      { 
-        expiresIn: "24h",
-        audience: "medicareai-users"
-      }
+      { expiresIn: "24h", audience: "medicareai-users" }
     );
 
     return res.json({
@@ -113,34 +148,3 @@ router.post("/login", async (req, res) => {
     return res.status(500).json({ error: "Server login error" });
   }
 });
-
-// GET /api/auth/me
-router.get("/me", async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access denied. No token provided." });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret", {
-      audience: "medicareai-users"
-    });
-
-    const result = await pool.query(
-      "SELECT id, name, email, role, specialization, license_number, city, phone FROM users WHERE id = $1",
-      [decoded.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User profile not found." });
-    }
-
-    return res.json(result.rows[0]);
-  } catch (err) {
-    console.error("Profile verification session failure:", err);
-    return res.status(401).json({ error: "Session expired or invalid credentials." });
-  }
-});
-
-export default router;
