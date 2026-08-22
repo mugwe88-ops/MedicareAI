@@ -172,7 +172,7 @@ export default function DoctorDashboard() {
       if (!res.ok) throw new Error(data.message || "Failed to add availability slot");
 
       setAvailabilityMsg("Availability updated successfully!");
-      fetchAvailability(Number(doctorId), token)
+      fetchAvailability(Number(doctorId), token); // Fixed: cast to Number to match argument type
       setTimeout(() => setAvailabilityMsg(null), 2500);
     } catch (err: any) {
       setAvailabilityMsg(err.message || "Error saving availability slot.");
@@ -771,30 +771,30 @@ export default function DoctorDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Instructions / Usage Notes</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Instructions (Optional)</label>
                 <textarea
-                  rows={3}
-                  placeholder="Take after meals..."
+                  placeholder="e.g. Take with food"
+                  rows={2}
                   value={prescriptionForm.instructions}
                   onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalType(null)}
-                  className="w-1/2 py-2 rounded-lg font-medium text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-1/2 py-2 rounded-lg font-medium text-sm bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
                 >
-                  {submitting ? "Saving..." : "Save Prescription"}
+                  {submitting ? "Issuing..." : "Issue Prescription"}
                 </button>
               </div>
             </form>
@@ -802,13 +802,13 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* Clinical Notes Modal */}
+      {/* Clinical Note Modal */}
       {modalType === "note" && activePatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">
-                Clinical Notes
+                Clinical Documentation Note
               </h3>
               <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X size={18} />
@@ -816,36 +816,36 @@ export default function DoctorDashboard() {
             </div>
 
             {feedbackMsg && (
-              <div className="bg-amber-50 text-amber-700 p-3 rounded-lg text-xs font-medium flex items-center gap-2">
+              <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-xs font-medium flex items-center gap-2">
                 <AlertCircle size={16} /> {feedbackMsg}
               </div>
             )}
 
             <form onSubmit={handleSaveNote} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Diagnosis / Observations</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Notes & Observations</label>
                 <textarea
-                  rows={5}
                   required
-                  placeholder="Record symptoms, diagnosis, and treatment recommendations..."
+                  rows={4}
+                  placeholder="Enter diagnosis, treatment plan, or observations..."
                   value={clinicalNote}
                   onChange={(e) => setClinicalNote(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalType(null)}
-                  className="w-1/2 py-2 rounded-lg font-medium text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-1/2 py-2 rounded-lg font-medium text-sm bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   {submitting ? "Saving..." : "Save Note"}
                 </button>
