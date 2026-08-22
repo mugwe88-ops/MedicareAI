@@ -134,7 +134,7 @@ export default function DoctorDashboard() {
   };
 
   const fetchAvailability = async (docId: number, token?: string) => {
-    const authToken = token || localStorage.getItem("token");
+    const authToken = token || localStorage.getItem("token") || undefined;
     try {
       const res = await fetch(`${API_BASE}/api/doctors/${docId}/availability`, {
         headers: {
@@ -172,7 +172,7 @@ export default function DoctorDashboard() {
       if (!res.ok) throw new Error(data.message || "Failed to add availability slot");
 
       setAvailabilityMsg("Availability updated successfully!");
-      fetchAvailability(Number(doctorId), token); // Fixed: cast to Number to match argument type
+      fetchAvailability(Number(doctorId), token || undefined); // Fixed: handle null token safely
       setTimeout(() => setAvailabilityMsg(null), 2500);
     } catch (err: any) {
       setAvailabilityMsg(err.message || "Error saving availability slot.");
