@@ -598,7 +598,7 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT a., 
+      `SELECT a.*, 
              COALESCE(u.name, a.patient_name, 'Valued Patient') as patient_name, 
              u.phone 
        FROM appointments a
