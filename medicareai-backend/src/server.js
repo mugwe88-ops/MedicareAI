@@ -40,58 +40,36 @@ app.use(
   })
 );
 
-// Add CORS before any route handlers
-// Add CORS before any route handlers
+// Allowed origins list for production & development previews
+const allowedOrigins = [
+  "https://medicare-ai-two.vercel.app",
+  "https://medicare-ai-yb5c.vercel.app",
+  "http://localhost:3000",
+];
+
 app.use(
   cors({
-    origin: [
-      "https://medicare-ai-two.vercel.app",
-      "https://medicare-ai-yb5c.vercel.app",
-      "http://localhost:3000",
-      "https://miniature-fortnight-4j47qw7rq4w4h9wp.github.dev"
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like Postman, mobile apps, or server-to-server curl)
+      if (!origin) return callback(null, true);
+
+      // Check if the origin is explicitly allowed or matches dynamic development patterns (.github.dev or localhost)
+      const isAllowed = 
+        allowedOrigins.includes(origin) || 
+        origin.endsWith('.github.dev') || 
+        origin.includes('localhost');
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error("Blocked by CORS policy: This origin is not authorized."));
+      }
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Origin", "X-Requested-With", "Accept"],
   })
 );
-
-// Custom CORS Interceptor for dynamic preview domains
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin && (origin.endsWith('.github.dev') || origin.endsWith('.vercel.app') || origin.includes('localhost'))) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
-// Custom CORS Interceptor
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  res.setHeader("Access-Control-Allow-Origin", origin || "*");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  
-  next();
-});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -265,7 +243,7 @@ app.get("/api/records", verifyToken, async (req, res) => {
     const patientAge = patientUser.age || "N/A";
     const patientNumber = `SMD-${1000 + patientUser.id}`;
 
-    // 1. Fetch Prescriptions (joining users and appointments table to guarantee correct patient name lookup)
+    // 1. Fetch Prescriptions
     const prescriptionsResult = await pool.query(
       `SELECT 
           p.id, 
@@ -307,7 +285,6 @@ app.get("/api/records", verifyToken, async (req, res) => {
       [patientId, patientUser.name]
     );
 
-    // Combine and sort by date descending
     const combinedRecords = [
       ...prescriptionsResult.rows,
       ...clinicalNotesResult.rows
@@ -358,7 +335,7 @@ app.get("/api/patients", verifyToken, async (req, res) => {
   }
 });
 
-// GET Prescriptions by Appointment ID (For Doctor View on Specific Appointment Dashboard)
+// GET Prescriptions by Appointment ID
 app.get("/api/appointments/:appointmentId/prescriptions", verifyToken, async (req, res) => {
   const { appointmentId } = req.params;
   try {
@@ -390,7 +367,6 @@ const createPrescriptionHandler = async (req, res) => {
     let resolvedPatientName = patient_name ? String(patient_name).trim() : null;
     let safePatientId = patient_id && !isNaN(parseInt(patient_id, 10)) ? parseInt(patient_id, 10) : null;
 
-    // 1. Resolve name or ID from appointment if missing
     if ((!resolvedPatientName || !safePatientId) && appointment_id) {
       const aptRes = await pool.query(
         `SELECT a.patient_name, a.patient_id, u.name as user_name 
@@ -405,7 +381,6 @@ const createPrescriptionHandler = async (req, res) => {
       }
     }
 
-    // 2. Resolve name from users table using safePatientId
     if (!resolvedPatientName && safePatientId) {
       const pRes = await pool.query("SELECT name FROM users WHERE id = $1", [safePatientId]);
       if (pRes.rows.length > 0 && pRes.rows[0].name) {
@@ -413,7 +388,6 @@ const createPrescriptionHandler = async (req, res) => {
       }
     }
 
-    // 3. Resolve ID from users table using resolvedPatientName if ID is missing
     if (!safePatientId && resolvedPatientName) {
       const userRes = await pool.query(
         "SELECT id FROM users WHERE LOWER(TRIM(name)) LIKE LOWER(TRIM($1)) LIMIT 1",
@@ -497,7 +471,6 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
     }
 
     let safeDoctorId = doctor_id && !isNaN(parseInt(doctor_id, 10)) ? parseInt(doctor_id, 10) : null;
-
     const searchTarget = doctor_name || (isNaN(parseInt(doctor_id, 10)) ? doctor_id : null);
     
     if (searchTarget && !safeDoctorId) {
@@ -665,6 +638,8 @@ async function initDatabase() {
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS medical_history TEXT;",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Available';",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS availability_status VARCHAR(50) DEFAULT 'available';",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS department VARCHAR(100);",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_date DATE;",
@@ -710,7 +685,7 @@ app.get("*", (req, res) => {
 /* ======================
     6️⃣ START SERVER IMMEDIATELY
 ====================== */
-app.listen(PORT, "0.0.0.0", () => {
+app.appListen = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
   initDatabase();
 });
