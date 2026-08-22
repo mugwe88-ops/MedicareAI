@@ -85,6 +85,45 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctor/prescriptions", prescriptionRoutes);
 
+// GET Doctor Availability Slots
+app.get("/api/doctors/:id/availability", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM doctor_availability WHERE doctor_id = $1 ORDER BY id DESC`,
+      [id]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching availability slots:", err);
+    return res.status(500).json({ error: "Failed to fetch availability slots." });
+  }
+});
+
+// POST Add Doctor Availability Slot
+app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { day_of_week, start_time, end_time } = req.body;
+
+  if (!day_of_week || !start_time || !end_time) {
+    return res.status(400).json({ error: "Day of week, start time, and end time are required." });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO doctor_availability (doctor_id, day_of_week, start_time, end_time)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [id, day_of_week, start_time, end_time]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error adding availability slot:", err);
+    return res.status(500).json({ error: "Failed to save availability slot.", details: err.message });
+  }
+});
+
 // Update Patient Personal & Clinical Profile
 app.put("/api/user/profile", verifyToken, async (req, res) => {
   const userId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -559,9 +598,9 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT a.*, 
-              COALESCE(u.name, a.patient_name, 'Valued Patient') as patient_name, 
-              u.phone 
+      `SELECT a., 
+             COALESCE(u.name, a.patient_name, 'Valued Patient') as patient_name, 
+             u.phone 
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
        WHERE a.doctor_id = $1 
@@ -625,6 +664,17 @@ async function initDatabase() {
         instructions TEXT,
         medication_details TEXT,
         status VARCHAR(50) DEFAULT 'issued',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS doctor_availability (
+        id SERIAL PRIMARY KEY,
+        doctor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        day_of_week VARCHAR(20) NOT NULL,
+        start_time VARCHAR(20) NOT NULL,
+        end_time VARCHAR(20) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
