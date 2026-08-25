@@ -35,13 +35,12 @@ export default function BookAppointmentPage() {
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [successMsg, setSuccessMsg] = useState<string>("");
 
-  // Base API Host (Uses Next.js rewrite or direct Render URL)
-  const API_BASE = "https://medicareai-backend.onrender.com";
+  const API_BASE = "https://medicareai-1.onrender.com";
 
   // 1. Load Doctor List on Mount
   useEffect(() => {
     setLoadingDoctors(true);
-    fetch(`${API_BASE}/api/doctors`)
+    fetch(`${API_BASE}/api/doctors-list`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load doctor list");
         return res.json();
@@ -52,12 +51,12 @@ export default function BookAppointmentPage() {
       })
       .catch((err) => {
         console.error("Doctor Fetch Error:", err);
-        setErrorMsg("Unable to load doctors list. Please check backend API.");
+        setErrorMsg("Unable to load doctors list. Please check backend connection.");
         setLoadingDoctors(false);
       });
   }, []);
 
-  // 2. Fetch Active Schedule when a Doctor is Selected
+  // 2. Fetch Active Schedule when Doctor is Selected
   const handleDoctorSelect = async (doctorId: string) => {
     setSelectedDoctorId(doctorId);
     setSelectedDate("");
@@ -83,7 +82,7 @@ export default function BookAppointmentPage() {
     }
   };
 
-  // 3. Compute Time Slots when Date changes
+  // 3. Compute Available Hourly Time Slots when Date Changes
   useEffect(() => {
     if (!selectedDate || availability.length === 0) {
       setAvailableTimeSlots([]);
@@ -147,7 +146,7 @@ export default function BookAppointmentPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Booking failed");
 
-      setSuccessMsg("Appointment booked! Redirecting...");
+      setSuccessMsg("Appointment booked successfully! Redirecting...");
       setTimeout(() => router.push("/dashboard"), 1500);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to issue appointment.");
@@ -218,7 +217,7 @@ export default function BookAppointmentPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-amber-400">
+              <p className="text-xs text-amber-400 font-medium">
                 ⚠️ Doctor has not set availability hours yet.
               </p>
             )}
