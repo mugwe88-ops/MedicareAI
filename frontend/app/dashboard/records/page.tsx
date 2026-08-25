@@ -1,11 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, AlertCircle, Pill, Calendar, Stethoscope, Download } from "lucide-react";
+import { 
+  FileText, 
+  AlertCircle, 
+  Pill, 
+  Calendar, 
+  Stethoscope, 
+  Download, 
+  Activity, 
+  ShieldAlert, 
+  FileCheck, 
+  Syringe, 
+  TestTube 
+} from "lucide-react";
 
 interface RecordItem {
   id: number;
-  record_type?: string;
+  record_type?: string; // "clinical_note" | "prescription" | "lab_result" | "vaccination" | "sick_leave" | "allergy" | "vitals" | "referral"
   patient_name?: string;
   patient_age?: string | number;
   patient_number?: string;
@@ -20,6 +32,7 @@ export default function RecordsPage() {
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<string>("all");
 
   useEffect(() => {
     fetchMedicalRecords();
@@ -54,10 +67,31 @@ export default function RecordsPage() {
     }
   };
 
+  // Helper to determine metadata title & icon styling based on record type
+  const getRecordConfig = (rec: RecordItem) => {
+    switch (rec.record_type) {
+      case "clinical_note":
+        return { title: "Doctor's Clinical Note", icon: <Stethoscope size={18} />, color: "text-emerald-600", bg: "bg-emerald-50 text-emerald-600", label: "Clinical Summary / Notes:" };
+      case "lab_result":
+        return { title: "Lab & Diagnostic Result", icon: <TestTube size={18} />, color: "text-purple-600", bg: "bg-purple-50 text-purple-600", label: "Test Results & Findings:" };
+      case "vaccination":
+        return { title: "Immunization Record", icon: <Syringe size={18} />, color: "text-cyan-600", bg: "bg-cyan-50 text-cyan-600", label: "Vaccine & Dosage Details:" };
+      case "sick_leave":
+        return { title: "Medical Leave Certificate", icon: <FileCheck size={18} />, color: "text-amber-600", bg: "bg-amber-50 text-amber-600", label: "Leave Period & Terms:" };
+      case "allergy":
+        return { title: "Allergy & Reaction Profile", icon: <ShieldAlert size={18} />, color: "text-rose-600", bg: "bg-rose-50 text-rose-600", label: "Allergen & Severity Details:" };
+      case "vitals":
+        return { title: "Vital Signs Summary", icon: <Activity size={18} />, color: "text-indigo-600", bg: "bg-indigo-50 text-indigo-600", label: "Biometric Metrics:" };
+      case "referral":
+        return { title: "Specialist Referral Letter", icon: <FileText size={18} />, color: "text-teal-600", bg: "bg-teal-50 text-teal-600", label: "Referral & Specialist Notes:" };
+      case "prescription":
+      default:
+        return { title: `Prescription #${rec.id}`, icon: <Pill size={18} />, color: "text-blue-600", bg: "bg-blue-50 text-blue-600", label: "Medication Details:" };
+    }
+  };
+
   const handleDownloadSinglePDF = (rec: RecordItem) => {
-    const isClinicalNote = rec.record_type === "clinical_note";
-    const title = isClinicalNote ? "Doctor's Clinical Note" : `Prescription #${rec.id}`;
-    
+    const config = getRecordConfig(rec);
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       alert("Please allow popups to download individual PDFs.");
@@ -67,7 +101,7 @@ export default function RecordsPage() {
     printWindow.document.write(`
       <html>
         <head>
-          <title>${title} - Swift MD</title>
+          <title>${config.title} - Swift MD</title>
           <style>
             body { font-family: Arial, sans-serif; color: #1e293b; padding: 40px; max-width: 700px; margin: 0 auto; }
             .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
@@ -87,10 +121,10 @@ export default function RecordsPage() {
               <div class="logo">SWIFT MD</div>
               <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Official Medical Document</p>
             </div>
-            <div class="badge">${rec.status || (isClinicalNote ? "Logged" : "Issued")}</div>
+            <div class="badge">${rec.status || "Verified"}</div>
           </div>
 
-          <h2>${title}</h2>
+          <h2>${config.title}</h2>
           <p style="font-size: 13px; color: #64748b; margin-bottom: 15px;">Recorded Date: ${new Date(rec.created_at).toLocaleDateString()}</p>
 
           <div class="patient-box">
@@ -100,9 +134,9 @@ export default function RecordsPage() {
           </div>
 
           <div class="content-box">
-            <div class="label">${isClinicalNote ? "Clinical Summary / Notes:" : "Medication & Dosage Details:"}</div>
+            <div class="label">${config.label}</div>
             <div class="details">${rec.medication_details || "No details provided."}</div>
-            ${rec.doctor_name ? `<p style="margin-top: 15px; font-weight: bold; font-size: 13px; color: #475569;">Attending Doctor: Dr. ${rec.doctor_name}</p>` : ""}
+            ${rec.doctor_name ? `<p style="margin-top: 15px; font-weight: bold; font-size: 13px; color: #475569;">Attending Doctor / Lab: Dr. ${rec.doctor_name}</p>` : ""}
           </div>
 
           <div class="footer">
@@ -121,13 +155,44 @@ export default function RecordsPage() {
     printWindow.document.close();
   };
 
+  const filteredRecords = filterType === "all" 
+    ? records 
+    : records.filter(r => (r.record_type || "prescription") === filterType);
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Medical Records & Prescriptions</h1>
         <p className="text-slate-500 text-sm">
-          Access your issued prescriptions and clinical summaries. Click download on any card to export it as an individual PDF.
+          Access your issued prescriptions, lab results, vaccination certificates, and clinical summaries. Click download on any card to export as a PDF.
         </p>
+      </div>
+
+      {/* FILTER TABS */}
+      <div className="flex flex-wrap gap-2 pb-2 border-b border-slate-200">
+        {[
+          { id: "all", label: "All Records" },
+          { id: "prescription", label: "Prescriptions" },
+          { id: "clinical_note", label: "Clinical Notes" },
+          { id: "lab_result", label: "Lab Results" },
+          { id: "vaccination", label: "Vaccinations" },
+          { id: "sick_leave", label: "Sick Leave" },
+          { id: "allergy", label: "Allergies" },
+          { id: "vitals", label: "Vitals" },
+          { id: "referral", label: "Referrals" },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setFilterType(tab.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              filterType === tab.id 
+                ? "bg-blue-600 text-white shadow-sm" 
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -148,20 +213,20 @@ export default function RecordsPage() {
             </button>
           </div>
         </div>
-      ) : records.length === 0 ? (
+      ) : filteredRecords.length === 0 ? (
         <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 shadow-sm">
           <FileText size={48} className="mx-auto text-slate-300" />
           <div>
-            <h3 className="font-bold text-slate-800 text-lg">No Medical Records Found</h3>
+            <h3 className="font-bold text-slate-800 text-lg">No Records Found</h3>
             <p className="text-sm text-slate-500 max-w-sm mx-auto mt-1">
-              No prescriptions or lab records have been issued under your profile yet.
+              No medical documents match this filter category under your profile yet.
             </p>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {records.map((rec, index) => {
-            const isClinicalNote = rec.record_type === "clinical_note";
+          {filteredRecords.map((rec, index) => {
+            const config = getRecordConfig(rec);
             return (
               <div
                 key={rec.id || index}
@@ -169,22 +234,22 @@ export default function RecordsPage() {
               >
                 <div className="space-y-3">
                   <div className="flex justify-between items-start">
-                    <div className={`flex items-center gap-2 font-bold ${isClinicalNote ? "text-emerald-600" : "text-blue-600"}`}>
-                      {isClinicalNote ? <Stethoscope size={18} /> : <Pill size={18} />}
-                      <span>{isClinicalNote ? "Doctor's Clinical Note" : `Prescription #${rec.id}`}</span>
+                    <div className={`flex items-center gap-2 font-bold ${config.color}`}>
+                      {config.icon}
+                      <span>{config.title}</span>
                     </div>
-                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full capitalize ${isClinicalNote ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"}`}>
-                      {rec.status || (isClinicalNote ? "Logged" : "Issued")}
+                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full capitalize ${config.bg}`}>
+                      {rec.status || "Verified"}
                     </span>
                   </div>
 
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-1">
                     <p className="font-semibold text-slate-900">
-                      {isClinicalNote ? "Clinical Summary / Notes:" : "Medication Details:"}
+                      {config.label}
                     </p>
                     <p className="whitespace-pre-wrap">{rec.medication_details || "No details provided."}</p>
                     {rec.doctor_name && (
-                      <p className="text-slate-500 pt-1 font-medium">Doctor: Dr. {rec.doctor_name}</p>
+                      <p className="text-slate-500 pt-1 font-medium">Clinician / Issuer: Dr. {rec.doctor_name}</p>
                     )}
                   </div>
                 </div>
