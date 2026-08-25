@@ -668,6 +668,61 @@ async function initDatabase() {
       );
     `);
 
+    /* ======================
+   AVAILABILITY ROUTES & DB SCHEMAS
+====================== */
+
+// Add table to initDatabase() in server.js
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS doctor_availability (
+    id SERIAL PRIMARY KEY,
+    doctor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    day_of_week VARCHAR(20) NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// GET Doctor Availability (Public / Patient Accessible)
+app.get("/api/doctors/:doctorId/availability", async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const result = await pool.query(
+      "SELECT day_of_week, start_time, end_time FROM doctor_availability WHERE doctor_id = $1",
+      [doctorId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching availability:", err);
+    res.status(500).json({ error: "Failed to load availability" });
+  }
+});
+
+// POST Doctor Availability (Doctor Only)
+app.post("/api/doctor/availability", verifyToken, async (req, res) => {
+  try {
+    const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
+    const { day_of_week, start_time, end_time } = req.body;
+
+    if (!day_of_week || !start_time || !end_time) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO doctor_availability (doctor_id, day_of_week, start_time, end_time)
+       VALUES ($1, $2, $3::time, $4::time)
+       RETURNING *`,
+      [doctorId, day_of_week, start_time, end_time]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error saving availability slot:", err);
+    res.status(500).json({ error: "Failed to save availability slot" });
+  }
+});
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS doctor_availability (
         id SERIAL PRIMARY KEY,
