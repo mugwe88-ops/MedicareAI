@@ -26,6 +26,15 @@ interface Consultation {
   telehealth_room_url?: string;
 }
 
+const COMMON_SYMPTOMS = [
+  "Fever",
+  "Fatigue / Weakness",
+  "Shortness of Breath",
+  "Dizziness",
+  "Nausea",
+  "Acute Pain",
+];
+
 export default function AppointmentsPage() {
   const router = useRouter();
 
@@ -38,9 +47,12 @@ export default function AppointmentsPage() {
   const [selectedSlot, setSelectedSlot] = useState<{ day: string; time: string } | null>(null);
   const [reason, setReason] = useState<string>("");
 
-  // Quick-Symptom Pre-Screening State
+  // Enhanced Quick-Symptom Pre-Screening State
   const [symptomSeverity, setSymptomSeverity] = useState<string>("Moderate");
   const [symptomDuration, setSymptomDuration] = useState<string>("1-3 days");
+  const [bodySystem, setBodySystem] = useState<string>("General / Systemic");
+  const [associatedSymptoms, setAssociatedSymptoms] = useState<string[]>([]);
+  const [painScale, setPainScale] = useState<number>(3);
 
   // Booked Consultations State
   const [consultations, setConsultations] = useState<Consultation[]>([]);
@@ -84,10 +96,17 @@ export default function AppointmentsPage() {
     const startDateTime = `${cleanDate}T${cleanTime}`;
     
     const title = encodeURIComponent(`Consultation with Dr. ${doctorName}`);
-    const details = encodeURIComponent(`Reason for visit: ${visitReason}. Join via MedicareAI.`);
+    const details = encodeURIComponent(`Reason for visit: ${visitReason}. Body System: ${bodySystem}. Pain Level: ${painScale}/10. Join via MedicareAI.`);
     const location = encodeURIComponent("MedicareAI Telehealth Room");
 
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDateTime}/${startDateTime}&details=${details}&location=${location}`;
+  };
+
+  // Toggle associated symptom checkboxes
+  const handleSymptomToggle = (sym: string) => {
+    setAssociatedSymptoms((prev) =>
+      prev.includes(sym) ? prev.filter((s) => s !== sym) : [...prev, sym]
+    );
   };
 
   // 1. Load Doctor List & Booked Consultations on Mount & Verify Session Token
@@ -195,6 +214,9 @@ export default function AppointmentsPage() {
           reason: reason.trim() || "General Consultation",
           symptom_severity: symptomSeverity,
           symptom_duration: symptomDuration,
+          body_system: bodySystem,
+          associated_symptoms: associatedSymptoms,
+          pain_scale: painScale,
         }),
       });
 
@@ -332,8 +354,26 @@ export default function AppointmentsPage() {
             </div>
           )}
 
-          {/* QUICK-SYMPTOM PRE-SCREENING QUESTIONNAIRE */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          {/* ADVANCED SYMPTOMS CHECKER: BODY SYSTEM & SEVERITY / DURATION */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+                Body System
+              </label>
+              <select
+                value={bodySystem}
+                onChange={(e) => setBodySystem(e.target.value)}
+                className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+              >
+                <option value="General / Systemic">General / Systemic</option>
+                <option value="Respiratory">Respiratory</option>
+                <option value="Cardiovascular">Cardiovascular</option>
+                <option value="Gastrointestinal">Gastrointestinal</option>
+                <option value="Neurological">Neurological</option>
+                <option value="Musculoskeletal">Musculoskeletal</option>
+                <option value="Dermatological">Dermatological</option>
+              </select>
+            </div>
             <div>
               <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
                 Symptom Severity
@@ -363,6 +403,63 @@ export default function AppointmentsPage() {
                 <option value="3-7 days">3-7 days</option>
                 <option value="1+ weeks">1+ weeks</option>
               </select>
+            </div>
+          </div>
+
+          {/* COMMON ASSOCIATED SYMPTOMS QUICK TOGGLES */}
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+              Common Associated Symptoms (Select all that apply)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {COMMON_SYMPTOMS.map((sym) => {
+                const active = associatedSymptoms.includes(sym);
+                return (
+                  <button
+                    key={sym}
+                    type="button"
+                    onClick={() => handleSymptomToggle(sym)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                      active
+                        ? "bg-blue-600 border-blue-400 text-white shadow-md shadow-blue-500/20"
+                        : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600"
+                    }`}
+                  >
+                    {active ? "✓ " : "+ "} {sym}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* PAIN SCALE SLIDER (0 - 10) */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-xs font-bold uppercase text-slate-400">
+                Pain Scale (0 = None, 10 = Unbearable)
+              </label>
+              <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-md ${
+                painScale <= 3 ? "bg-emerald-950 text-emerald-300 border border-emerald-800" :
+                painScale <= 6 ? "bg-amber-950 text-amber-300 border border-amber-800" :
+                "bg-red-950 text-red-300 border border-red-800"
+              }`}>
+                Level: {painScale} / 10
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              value={painScale}
+              onChange={(e) => setPainScale(parseInt(e.target.value, 10))}
+              className="w-full accent-blue-500 bg-slate-800 cursor-pointer h-2 rounded-lg"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+              <span>0 (None)</span>
+              <span>3 (Mild)</span>
+              <span>6 (Moderate)</span>
+              <span>8 (Severe)</span>
+              <span>10 (Emergency)</span>
             </div>
           </div>
 
