@@ -13,7 +13,10 @@ import {
   Users, 
   Settings, 
   UserPlus, 
-  LogOut 
+  LogOut,
+  CreditCard,
+  FlaskConical,
+  AlertCircle
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -39,7 +42,7 @@ export default function DashboardLayout({
     }
   }, []);
 
-  // Base navigation items for patients
+  // Base navigation items for patients including Billing, Lab Results, and Emergency SOS
   const baseNavItems = [
     { name: "MY DASHBOARD", href: "/dashboard", icon: LayoutDashboard },
     { name: "MY APPOINTMENTS", href: "/dashboard/appointments", icon: Calendar },
@@ -48,6 +51,8 @@ export default function DashboardLayout({
     { name: "DOCTOR DIRECTORY", href: "/dashboard/doctors", icon: Users },
     { name: "PHARMACY STORE", href: "/dashboard/pharmacy", icon: ShoppingBag },
     { name: "MEDICAL RECORDS", href: "/dashboard/records", icon: FileText },
+    { name: "LAB RESULTS", href: "/dashboard/labs", icon: FlaskConical },
+    { name: "BILLING & PAYMENTS", href: "/dashboard/billing", icon: CreditCard },
     { name: "ACCOUNT SETTINGS", href: "/dashboard/settings", icon: Settings },
   ];
 
@@ -90,7 +95,7 @@ export default function DashboardLayout({
       >
         <div>
           {/* App Logo/Header (Desktop) */}
-          <div className="hidden md:flex mb-8 items-center gap-3">
+          <div className="hidden md:flex mb-6 items-center gap-3">
             <div className="bg-blue-600 w-10 h-10 rounded-2xl flex items-center justify-center font-black text-base text-white shadow-lg shadow-blue-600/30">
               S
             </div>
@@ -104,8 +109,20 @@ export default function DashboardLayout({
             </div>
           </div>
 
+          {/* Emergency SOS Banner Button */}
+          <div className="mb-6">
+            <Link
+              href="/dashboard/telehealth"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-400 rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-rose-950/50 group"
+            >
+              <AlertCircle size={16} className="text-rose-500 animate-pulse" />
+              <span>Emergency SOS</span>
+            </Link>
+          </div>
+
           {/* Dynamic Navigation Map */}
-          <nav className="space-y-1.5">
+          <nav className="space-y-1.5 max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               const IconComponent = item.icon;
@@ -129,7 +146,7 @@ export default function DashboardLayout({
         </div>
 
         {/* Logout Action at Bottom */}
-        <div className="mt-8 md:mt-auto pt-6 border-t border-slate-800/80">
+        <div className="mt-4 pt-4 border-t border-slate-800/80">
           <button 
             onClick={() => {
               localStorage.clear();
