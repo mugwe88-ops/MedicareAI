@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 export default function DashboardLayout({
   children,
@@ -9,6 +10,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { name: "MY DASHBOARD", href: "/dashboard" },
@@ -19,12 +21,35 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 text-white p-6 border-r border-slate-800 flex flex-col justify-between shrink-0">
+    <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row overflow-x-hidden">
+      
+      {/* Mobile Header Bar */}
+      <div className="md:hidden bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between z-20">
+        <div className="flex items-center gap-2">
+          <div className="bg-blue-600 w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white">
+            S
+          </div>
+          <span className="text-lg font-bold tracking-wider text-slate-100">
+            SWIFT MD
+          </span>
+        </div>
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="text-slate-300 p-2 focus:outline-none hover:text-white"
+        >
+          {mobileMenuOpen ? "✕ Close" : "☰ Menu"}
+        </button>
+      </div>
+
+      {/* Sidebar for Desktop & Mobile Toggle */}
+      <aside
+        className={`${
+          mobileMenuOpen ? "block" : "hidden"
+        } md:block w-full md:w-64 bg-slate-900 text-white p-6 border-r border-slate-800 flex flex-col justify-between shrink-0 z-10`}
+      >
         <div>
-          {/* App Logo/Header */}
-          <div className="mb-8 flex items-center gap-2">
+          {/* App Logo/Header (Desktop) */}
+          <div className="hidden md:flex mb-8 items-center gap-2">
             <div className="bg-blue-600 w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white">
               S
             </div>
@@ -41,6 +66,7 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center px-4 py-3 rounded-lg text-xs font-semibold tracking-wide transition-all ${
                     isActive
                       ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
@@ -55,7 +81,7 @@ export default function DashboardLayout({
         </div>
 
         {/* Logout Action at Bottom */}
-        <div className="mt-auto">
+        <div className="mt-8 md:mt-auto">
           <button 
             onClick={() => {
               localStorage.clear();
@@ -69,8 +95,10 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Page Content Render Target */}
-      <main className="flex-1 overflow-y-auto p-8">
-        {children}
+      <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-950">
+        <div className="max-w-7xl mx-auto">
+          {children}
+        </div>
       </main>
     </div>
   );
