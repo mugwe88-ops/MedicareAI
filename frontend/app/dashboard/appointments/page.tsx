@@ -58,6 +58,19 @@ export default function BookAppointmentPage() {
     return `${year}-${month}-${day}`;
   };
 
+  // Helper function to generate a direct Google Calendar URL
+  const getGoogleCalendarUrl = (doctorName: string, date: string, time: string, visitReason: string) => {
+    const cleanDate = date.replace(/-/g, ""); // e.g. 20260901
+    const cleanTime = time.replace(/:/g, "") + "00"; // e.g. 100000
+    const startDateTime = `${cleanDate}T${cleanTime}`;
+    
+    const title = encodeURIComponent(`Consultation with Dr. ${doctorName}`);
+    const details = encodeURIComponent(`Reason for visit: ${visitReason}. Join via MedicareAI.`);
+    const location = encodeURIComponent("MedicareAI Telehealth Room");
+
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDateTime}/${startDateTime}&details=${details}&location=${location}`;
+  };
+
   // 1. Load Doctor List on Mount & Verify Session Token
   useEffect(() => {
     const token = localStorage.getItem("token") || localStorage.getItem("jwt");
@@ -169,8 +182,34 @@ export default function BookAppointmentPage() {
       )}
 
       {successMsg && (
-        <div className="mb-6 p-4 bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-sm rounded-xl">
-          ✅ {successMsg}
+        <div className="mb-6 p-4 bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-sm rounded-xl space-y-3">
+          <p>✅ {successMsg}</p>
+
+          {selectedSlot && selectedDoctorId && (
+            <div>
+              {(() => {
+                const doc = doctors.find((d) => String(d.id) === selectedDoctorId);
+                const docName = doc ? doc.name : "Doctor";
+                const calUrl = getGoogleCalendarUrl(
+                  docName,
+                  getNextDateForDay(selectedSlot.day),
+                  selectedSlot.time,
+                  reason || "General Consultation"
+                );
+
+                return (
+                  <a
+                    href={calUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-900 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-all border border-emerald-700 shadow-md"
+                  >
+                    📅 Add to Google Calendar
+                  </a>
+                );
+              })()}
+            </div>
+          )}
         </div>
       )}
 
