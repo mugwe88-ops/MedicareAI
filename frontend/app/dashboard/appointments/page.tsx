@@ -306,13 +306,16 @@ export default function BookAppointmentPage() {
         <button
           type="submit"
           disabled={!selectedDoctorId || !selectedSlot || isSubmitting}
-          className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-600/30 disabled:shadow-none"
+          className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer"
         >
-          {isSubmitting
-            ? "BOOKING..."
-            : selectedSlot
-            ? `CONFIRM BOOKING FOR ${selectedSlot.day.toUpperCase()} @ ${selectedSlot.time} 🚀`
-            : "SELECT A SLOT TO BOOK 🚀"}
+          {isSubmitting ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              Booking Appointment...
+            </>
+          ) : (
+            "Confirm & Book Appointment"
+          )}
         </button>
       </form>
     </div>
