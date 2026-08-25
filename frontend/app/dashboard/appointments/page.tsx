@@ -15,7 +15,18 @@ interface AvailabilitySlot {
   end_time: string;
 }
 
-export default function BookAppointmentPage() {
+interface Consultation {
+  id: number | string;
+  doctor_name?: string;
+  department?: string;
+  appointment_date: string;
+  appointment_time?: string;
+  reason: string;
+  status: string;
+  telehealth_room_url?: string;
+}
+
+export default function AppointmentsPage() {
   const router = useRouter();
 
   // Form & Data State
@@ -26,6 +37,10 @@ export default function BookAppointmentPage() {
   // Directly selected schedule info
   const [selectedSlot, setSelectedSlot] = useState<{ day: string; time: string } | null>(null);
   const [reason, setReason] = useState<string>("");
+
+  // Booked Consultations State
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [loadingConsultations, setLoadingConsultations] = useState<boolean>(true);
 
   // UI State
   const [loadingDoctors, setLoadingDoctors] = useState<boolean>(true);
@@ -71,7 +86,7 @@ export default function BookAppointmentPage() {
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDateTime}/${startDateTime}&details=${details}&location=${location}`;
   };
 
-  // 1. Load Doctor List on Mount & Verify Session Token
+  // 1. Load Doctor List & Booked Consultations on Mount & Verify Session Token
   useEffect(() => {
     const token = localStorage.getItem("token") || localStorage.getItem("jwt");
     if (!token) {
@@ -80,6 +95,7 @@ export default function BookAppointmentPage() {
       return;
     }
 
+    // Fetch Doctors List
     setLoadingDoctors(true);
     fetch(`${API_BASE}/api/doctors-list`)
       .then((res) => {
@@ -94,6 +110,26 @@ export default function BookAppointmentPage() {
         console.error("Doctor Fetch Error:", err);
         setErrorMsg("Unable to load doctors list. Please check backend connection.");
         setLoadingDoctors(false);
+      });
+
+    // Fetch User's Booked Consultations
+    setLoadingConsultations(true);
+    fetch(`${API_BASE}/api/appointments`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load consultations");
+        return res.json();
+      })
+      .then((data) => {
+        setConsultations(Array.isArray(data) ? data : []);
+        setLoadingConsultations(false);
+      })
+      .catch((err) => {
+        console.error("Consultations Fetch Error:", err);
+        setLoadingConsultations(false);
       });
   }, [router]);
 
@@ -160,7 +196,7 @@ export default function BookAppointmentPage() {
       if (!res.ok) throw new Error(data.error || "Booking failed");
 
       setSuccessMsg(`Appointment booked for ${selectedSlot.day} (${calculatedDate}) at ${selectedSlot.time}!`);
-      setTimeout(() => router.push("/dashboard/appointments"), 1500);
+      setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to issue appointment.");
     } finally {
@@ -169,155 +205,218 @@ export default function BookAppointmentPage() {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 sm:p-8 bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl my-4 sm:my-8">
-      <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Book Appointment</h2>
-      <p className="text-xs sm:text-sm text-blue-400 mb-6 font-medium uppercase tracking-wide">
-        Secure Clinical Entry
-      </p>
+    <div className="w-full max-w-4xl mx-auto p-4 sm:p-8 space-y-8 my-4 sm:my-8">
+      {/* BOOK APPOINTMENT CARD */}
+      <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl p-6 sm:p-8">
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Book Appointment</h2>
+        <p className="text-xs sm:text-sm text-blue-400 mb-6 font-medium uppercase tracking-wide">
+          Secure Clinical Entry
+        </p>
 
-      {errorMsg && (
-        <div className="mb-6 p-4 bg-red-950/80 border border-red-800 text-red-300 text-sm rounded-xl">
-          ⚠️ {errorMsg}
-        </div>
-      )}
+        {errorMsg && (
+          <div className="mb-6 p-4 bg-red-950/80 border border-red-800 text-red-300 text-sm rounded-xl">
+            ⚠️ {errorMsg}
+          </div>
+        )}
 
-      {successMsg && (
-        <div className="mb-6 p-4 bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-sm rounded-xl space-y-3">
-          <p>✅ {successMsg}</p>
+        {successMsg && (
+          <div className="mb-6 p-4 bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-sm rounded-xl space-y-3">
+            <p>✅ {successMsg}</p>
 
-          {selectedSlot && selectedDoctorId && (
-            <div>
-              {(() => {
-                const doc = doctors.find((d) => String(d.id) === selectedDoctorId);
-                const docName = doc ? doc.name : "Doctor";
-                const calUrl = getGoogleCalendarUrl(
-                  docName,
-                  getNextDateForDay(selectedSlot.day),
-                  selectedSlot.time,
-                  reason || "General Consultation"
-                );
-
-                return (
-                  <a
-                    href={calUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-900 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-all border border-emerald-700 shadow-md"
-                  >
-                    📅 Add to Google Calendar
-                  </a>
-                );
-              })()}
-            </div>
-          )}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* SELECT DOCTOR */}
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-            Select Doctor
-          </label>
-          <select
-            value={selectedDoctorId}
-            onChange={(e) => handleDoctorSelect(e.target.value)}
-            disabled={loadingDoctors}
-            className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-sm sm:text-base"
-          >
-            <option value="">
-              {loadingDoctors ? "Loading doctor list..." : "-- Select Doctor --"}
-            </option>
-            {doctors.map((doc) => (
-              <option key={doc.id} value={doc.id}>
-                Dr. {doc.name} ({doc.specialization || "General Medicine"})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* CLICK-TO-SELECT PRACTICE SCHEDULE */}
-        {selectedDoctorId && (
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-              📅 Click Available Slot to Book
-            </label>
-            {loadingSchedule ? (
-              <p className="text-xs text-slate-400 animate-pulse p-3.5 bg-slate-800/40 rounded-xl border border-slate-700/50">
-                Loading availability...
-              </p>
-            ) : availability.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {availability.map((s, idx) => {
-                  const startTimeClean = s.start_time.slice(0, 5);
-                  const isSelected =
-                    selectedSlot?.day === s.day_of_week && selectedSlot?.time === startTimeClean;
+            {selectedSlot && selectedDoctorId && (
+              <div>
+                {(() => {
+                  const doc = doctors.find((d) => String(d.id) === selectedDoctorId);
+                  const docName = doc ? doc.name : "Doctor";
+                  const calUrl = getGoogleCalendarUrl(
+                    docName,
+                    getNextDateForDay(selectedSlot.day),
+                    selectedSlot.time,
+                    reason || "General Consultation"
+                  );
 
                   return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() =>
-                        setSelectedSlot({
-                          day: s.day_of_week,
-                          time: startTimeClean,
-                        })
-                      }
-                      className={`p-4 rounded-xl text-left border transition-all flex flex-col justify-between ${
-                        isSelected
-                          ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400"
-                          : "bg-slate-800 border-slate-700 text-slate-300 hover:border-blue-500/60 hover:bg-slate-750"
-                      }`}
+                    <a
+                      href={calUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-900 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-all border border-emerald-700 shadow-md"
                     >
-                      <span className="text-sm font-bold flex items-center justify-between">
-                        <span>🕒 {s.day_of_week}</span>
-                        {isSelected && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-md font-semibold">Selected</span>}
-                      </span>
-                      <span className="text-xs text-slate-400 mt-1 font-mono">
-                        {startTimeClean} - {s.end_time.slice(0, 5)}
-                      </span>
-                    </button>
+                      📅 Add to Google Calendar
+                    </a>
                   );
-                })}
+                })()}
               </div>
-            ) : (
-              <p className="text-xs text-amber-400 font-medium p-3.5 bg-slate-800/40 rounded-xl border border-slate-700/50">
-                ⚠️ Doctor has not set availability hours yet.
-              </p>
             )}
           </div>
         )}
 
-        {/* REASON FOR VISIT */}
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-            Reason for Visit
-          </label>
-          <textarea
-            rows={3}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Describe your symptoms..."
-            className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm sm:text-base"
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* SELECT DOCTOR */}
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+              Select Doctor
+            </label>
+            <select
+              value={selectedDoctorId}
+              onChange={(e) => handleDoctorSelect(e.target.value)}
+              disabled={loadingDoctors}
+              className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-sm sm:text-base"
+            >
+              <option value="">
+                {loadingDoctors ? "Loading doctor list..." : "-- Select Doctor --"}
+              </option>
+              {doctors.map((doc) => (
+                <option key={doc.id} value={doc.id}>
+                  Dr. {doc.name} ({doc.specialization || "General Medicine"})
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* SUBMIT BUTTON */}
-        <button
-          type="submit"
-          disabled={!selectedDoctorId || !selectedSlot || isSubmitting}
-          className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer"
-        >
-          {isSubmitting ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              Booking Appointment...
-            </>
-          ) : (
-            "Confirm & Book Appointment"
+          {/* CLICK-TO-SELECT PRACTICE SCHEDULE */}
+          {selectedDoctorId && (
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+                📅 Click Available Slot to Book
+              </label>
+              {loadingSchedule ? (
+                <p className="text-xs text-slate-400 animate-pulse p-3.5 bg-slate-800/40 rounded-xl border border-slate-700/50">
+                  Loading availability...
+                </p>
+              ) : availability.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {availability.map((s, idx) => {
+                    const startTimeClean = s.start_time.slice(0, 5);
+                    const isSelected =
+                      selectedSlot?.day === s.day_of_week && selectedSlot?.time === startTimeClean;
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() =>
+                          setSelectedSlot({
+                            day: s.day_of_week,
+                            time: startTimeClean,
+                          })
+                        }
+                        className={`p-4 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                          isSelected
+                            ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400"
+                            : "bg-slate-800 border-slate-700 text-slate-300 hover:border-blue-500/60 hover:bg-slate-750"
+                        }`}
+                      >
+                        <span className="text-sm font-bold flex items-center justify-between">
+                          <span>🕒 {s.day_of_week}</span>
+                          {isSelected && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-md font-semibold">Selected</span>}
+                        </span>
+                        <span className="text-xs text-slate-400 mt-1 font-mono">
+                          {startTimeClean} - {s.end_time.slice(0, 5)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-400 font-medium p-3.5 bg-slate-800/40 rounded-xl border border-slate-700/50">
+                  ⚠️ Doctor has not set availability hours yet.
+                </p>
+              )}
+            </div>
           )}
-        </button>
-      </form>
+
+          {/* REASON FOR VISIT */}
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+              Reason for Visit
+            </label>
+            <textarea
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Describe your symptoms..."
+              className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm sm:text-base"
+            />
+          </div>
+
+          {/* SUBMIT BUTTON */}
+          <button
+            type="submit"
+            disabled={!selectedDoctorId || !selectedSlot || isSubmitting}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {isSubmitting ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                Booking Appointment...
+              </>
+            ) : (
+              "Confirm & Book Appointment"
+            )}
+          </button>
+        </form>
+      </div>
+
+      {/* YOUR CONSULTATIONS CARD */}
+      <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl p-6 sm:p-8">
+        <h3 className="text-xl font-bold text-white mb-4">Your Consultations</h3>
+
+        {loadingConsultations ? (
+          <p className="text-xs text-slate-400 animate-pulse">Loading your booked consultations...</p>
+        ) : consultations.length === 0 ? (
+          <p className="text-xs text-slate-400">No booked appointments found.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-xs text-slate-400 border-b border-slate-800">
+                  <th className="pb-3 font-medium">DOCTOR / DEPT</th>
+                  <th className="pb-3 font-medium">VISIT TIMING</th>
+                  <th className="pb-3 font-medium">MEDICAL REASON</th>
+                  <th className="pb-3 font-medium">STATUS</th>
+                  <th className="pb-3 font-medium text-right">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-sm text-slate-300">
+                {consultations.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-800/50">
+                    <td className="py-4 font-semibold text-white">
+                      {item.doctor_name || "Doctor"}
+                      <span className="block text-xs font-normal text-slate-400">{item.department || "General Medicine"}</span>
+                    </td>
+                    <td className="py-4 text-slate-300 text-xs">
+                      {item.appointment_date ? new Date(item.appointment_date).toLocaleString() : 'Not Scheduled'}
+                    </td>
+                    <td className="py-4">
+                      <span className="bg-slate-800 text-slate-300 px-3 py-1 rounded-full text-xs italic">
+                        "{item.reason}"
+                      </span>
+                    </td>
+                    <td className="py-4">
+                      <span className="bg-blue-950 text-blue-300 border border-blue-800 px-3 py-1 rounded-full text-xs font-bold uppercase">
+                        {item.status || 'CONFIRMED'}
+                      </span>
+                    </td>
+                    <td className="py-4 text-right">
+                      {item.telehealth_room_url && (
+                        <a
+                          href={item.telehealth_room_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition"
+                        >
+                          📹 Join Room
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
