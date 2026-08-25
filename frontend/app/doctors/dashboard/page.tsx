@@ -128,7 +128,7 @@ export default function DoctorDashboard() {
       if (Array.isArray(data)) setAppointments(data);
     } catch (err) {
       console.error("Fetch Error:", err);
-    } finally {
+    } fontinally {
       setLoading(false);
     }
   };
@@ -771,7 +771,7 @@ export default function DoctorDashboard() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 500mg, Twice daily"
+                  placeholder="e.g. 500mg, twice daily"
                   value={prescriptionForm.dosage}
                   onChange={(e) => setPrescriptionForm({ ...prescriptionForm, dosage: e.target.value })}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
@@ -779,28 +779,28 @@ export default function DoctorDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Instructions</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Instructions / Notes</label>
                 <textarea
                   rows={3}
-                  placeholder="e.g. Take with meals for 7 days"
+                  placeholder="e.g. Take with food for 7 days"
                   value={prescriptionForm.instructions}
                   onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalType(null)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition disabled:opacity-50 shadow-sm"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   {submitting ? "Submitting..." : "Issue Prescription"}
                 </button>
@@ -810,13 +810,13 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* Note Modal */}
+      {/* Clinical Note Modal */}
       {modalType === "note" && activePatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
+          <div className="bg-white rounded-xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">
-                Clinical Notes
+                Clinical Note ({activePatient.patient_name || "Patient"})
               </h3>
               <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X size={18} />
@@ -831,29 +831,29 @@ export default function DoctorDashboard() {
 
             <form onSubmit={handleSaveNote} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Notes</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Clinical Assessment & Notes</label>
                 <textarea
-                  rows={5}
+                  rows={6}
                   required
-                  placeholder="Record symptoms, diagnosis, treatment plan..."
+                  placeholder="Record symptoms, diagnosis, treatment plans, or observation notes..."
                   value={clinicalNote}
                   onChange={(e) => setClinicalNote(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
+                  className="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalType(null)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition disabled:opacity-50 shadow-sm"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   {submitting ? "Saving..." : "Save Note"}
                 </button>
