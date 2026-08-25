@@ -145,4 +145,25 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// DELETE an availability slot by slot ID
+app.delete("/api/doctors/availability/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      "DELETE FROM doctor_availability WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Availability slot not found." });
+    }
+
+    res.json({ message: "Availability slot deleted successfully." });
+  } catch (error) {
+    console.error("Error deleting availability slot:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 export default router;

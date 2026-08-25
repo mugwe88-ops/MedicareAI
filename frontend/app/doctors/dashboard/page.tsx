@@ -128,7 +128,7 @@ export default function DoctorDashboard() {
       if (Array.isArray(data)) setAppointments(data);
     } catch (err) {
       console.error("Fetch Error:", err);
-    } finally {
+    } font-medium finally {
       setLoading(false);
     }
   };
@@ -172,7 +172,7 @@ export default function DoctorDashboard() {
       if (!res.ok) throw new Error(data.message || "Failed to add availability slot");
 
       setAvailabilityMsg("Availability updated successfully!");
-      fetchAvailability(Number(doctorId), token || undefined); // Fixed: handle null token safely
+      fetchAvailability(Number(doctorId), token || undefined);
       setTimeout(() => setAvailabilityMsg(null), 2500);
     } catch (err: any) {
       setAvailabilityMsg(err.message || "Error saving availability slot.");
@@ -181,21 +181,30 @@ export default function DoctorDashboard() {
     }
   };
 
+  // UPDATED FRONTEND DELETE HANDLER
   const handleDeleteAvailability = async (slotId?: number) => {
     if (!slotId || !doctorId) return;
     const token = localStorage.getItem("token");
+
+    // Optimistically state update
+    setAvailabilitySlots((prev) => prev.filter((s) => s.id !== slotId));
+
     try {
-      const res = await fetch(`${API_BASE}/api/doctors/availability/${slotId}`, {
+      const res = await fetch(`${API_BASE}/api/doctors/${doctorId}/availability/${slotId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
-      if (res.ok) {
-        setAvailabilitySlots((prev) => prev.filter((s) => s.id !== slotId));
+
+      if (!res.ok) {
+        throw new Error("Failed to delete availability slot.");
       }
     } catch (err) {
       console.error("Error deleting slot:", err);
+      // Revert back if backend call fails
+      fetchAvailability(doctorId, token || undefined);
     }
   };
 
@@ -771,30 +780,30 @@ export default function DoctorDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Instructions (Optional)</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Instructions</label>
                 <textarea
-                  placeholder="e.g. Take with food"
-                  rows={2}
+                  rows={3}
+                  placeholder="e.g. Take with meals for 7 days"
                   value={prescriptionForm.instructions}
                   onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setModalType(null)}
-                  className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition disabled:opacity-50 shadow-sm"
                 >
-                  {submitting ? "Issuing..." : "Issue Prescription"}
+                  {submitting ? "Submitting..." : "Issue Prescription"}
                 </button>
               </div>
             </form>
@@ -802,13 +811,13 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* Clinical Note Modal */}
+      {/* Note Modal */}
       {modalType === "note" && activePatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">
-                Clinical Documentation Note
+                Clinical Notes
               </h3>
               <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X size={18} />
@@ -823,29 +832,29 @@ export default function DoctorDashboard() {
 
             <form onSubmit={handleSaveNote} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Notes & Observations</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Notes</label>
                 <textarea
+                  rows={5}
                   required
-                  rows={4}
-                  placeholder="Enter diagnosis, treatment plan, or observations..."
+                  placeholder="Record symptoms, diagnosis, treatment plan..."
                   value={clinicalNote}
                   onChange={(e) => setClinicalNote(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setModalType(null)}
-                  className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition disabled:opacity-50 shadow-sm"
                 >
                   {submitting ? "Saving..." : "Save Note"}
                 </button>
