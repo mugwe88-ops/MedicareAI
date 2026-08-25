@@ -77,14 +77,16 @@ export default function TelehealthSession() {
           pc.addTrack(track, stream);
         });
 
-        // 4. Handle Remote Stream Arrival
+        // 4. Handle Remote Stream Arrival with stream construction fallback
         pc.ontrack = (event) => {
-          console.log('🎥 Received Remote Feed Track');
-          if (remoteVideoRef.current && event.streams[0]) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-            setConnecting(false);
-            setCallActive(true);
+          console.log('🎥 Received Remote Feed Track:', event.streams);
+          const incomingStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+          
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = incomingStream;
           }
+          setConnecting(false);
+          setCallActive(true);
         };
 
         // 5. Send ICE Candidates to Peer via Socket
@@ -114,11 +116,15 @@ export default function TelehealthSession() {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('answer', { roomId: appointmentId, answer });
+          setConnecting(false);
+          setCallActive(true);
         });
 
         socket.on('answer', async (data) => {
           console.log('📩 Received WebRTC answer, finalizing peer connection');
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          setConnecting(false);
+          setCallActive(true);
         });
 
         socket.on('ice-candidate', async (data) => {
