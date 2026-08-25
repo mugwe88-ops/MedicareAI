@@ -4,10 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 
+// Corrected STUN Server Configuration
 const ICE_SERVERS = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19020' },
-    { urls: 'stun:stun1.l.google.com:19020' },
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
   ],
 };
 
@@ -28,20 +30,34 @@ export default function TelehealthSession() {
   const socketRef = useRef<Socket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-1.onrender.com';
+  // Fallback chain for target Socket backend URL
+  const SOCKET_URL = 
+    process.env.NEXT_PUBLIC_SOCKET_URL || 
+    process.env.NEXT_PUBLIC_API_URL || 
+    'https://medicareai-yb5c.onrender.com';
 
   useEffect(() => {
     if (!appointmentId) return;
 
-    // Initialize Socket.io connection
-    const socket = io(API_BASE, {
-      transports: ['websocket'],
+    // 1. Initialize Socket.io connection with fallback transport & credentials
+    const socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+      reconnectionAttempts: 5,
     });
     socketRef.current = socket;
 
+    socket.on('connect', () => {
+      console.log('⚡ Connected to Telehealth Signaling Server:', socket.id);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('❌ Socket Connection Error:', err.message);
+    });
+
     async function initWebRTC() {
       try {
-        // 1. Get Local Media Stream
+        // 2. Get Local Media Stream
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
@@ -52,7 +68,7 @@ export default function TelehealthSession() {
           localVideoRef.current.srcObject = stream;
         }
 
-        // 2. Initialize PeerConnection
+        // 3. Initialize PeerConnection
         const pc = new RTCPeerConnection(ICE_SERVERS);
         peerConnection.current = pc;
 
@@ -61,8 +77,9 @@ export default function TelehealthSession() {
           pc.addTrack(track, stream);
         });
 
-        // 3. Handle Remote Stream
+        // 4. Handle Remote Stream Arrival
         pc.ontrack = (event) => {
+          console.log('🎥 Received Remote Feed Track');
           if (remoteVideoRef.current && event.streams[0]) {
             remoteVideoRef.current.srcObject = event.streams[0];
             setConnecting(false);
@@ -70,48 +87,48 @@ export default function TelehealthSession() {
           }
         };
 
-        // 4. Send ICE Candidates to Peer via Socket
+        // 5. Send ICE Candidates to Peer via Socket
         pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            socket.emit('ice-candidate', {
+          if (event.candidate && socketRef.current) {
+            socketRef.current.emit('ice-candidate', {
               roomId: appointmentId,
               candidate: event.candidate,
             });
           }
         };
 
-        // 5. Join Telehealth Room
+        // 6. Join Telehealth Room
         socket.emit('join-room', { roomId: appointmentId });
 
-        // Handle peer joined event (Trigger Offer)
+        // Signaling Event Handlers
         socket.on('user-joined', async () => {
+          console.log('👤 Participant joined room, generating WebRTC offer...');
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           socket.emit('offer', { roomId: appointmentId, offer });
         });
 
-        // Handle incoming Offer
         socket.on('offer', async (data) => {
+          console.log('📩 Received WebRTC offer, generating answer...');
           await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('answer', { roomId: appointmentId, answer });
         });
 
-        // Handle incoming Answer
         socket.on('answer', async (data) => {
+          console.log('📩 Received WebRTC answer, finalizing peer connection');
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
         });
 
-        // Handle incoming ICE Candidates
         socket.on('ice-candidate', async (data) => {
-          if (data.candidate) {
+          if (data.candidate && pc.remoteDescription) {
             await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
           }
         });
 
       } catch (err) {
-        console.error('Telehealth connection error:', err);
+        console.error('Telehealth WebRTC setup error:', err);
         setConnecting(false);
       }
     }
@@ -119,7 +136,7 @@ export default function TelehealthSession() {
     initWebRTC();
 
     return () => {
-      // Clean up media and sockets on unmount
+      // Clean up media streams and socket connection on unmount
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -130,7 +147,7 @@ export default function TelehealthSession() {
         socketRef.current.disconnect();
       }
     };
-  }, [appointmentId, API_BASE]);
+  }, [appointmentId, SOCKET_URL]);
 
   const toggleMic = () => {
     if (localStreamRef.current) {
@@ -165,7 +182,7 @@ export default function TelehealthSession() {
 
   return (
     <div className="min-h-screen bg-[#0B0F17] text-white p-6 flex flex-col">
-      {/* Top Bar with Back Button */}
+      {/* Top Bar */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <button
