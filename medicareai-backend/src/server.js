@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import helmet from "helmet";
@@ -23,13 +25,40 @@ import { verifyToken } from "./utils/jwt.js";
 import prescriptionRoutes from "./routes/prescription.routes.js";
 
 /* ======================
-    1️⃣ APP INIT
+    1️⃣ APP & SOCKET.IO INIT
 ====================== */
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 app.set("trust proxy", 1);
+
+// Allowed origins list for production & development previews
+const allowedOrigins = [
+  "https://medicare-ai-two.vercel.app",
+  "https://medicare-ai-yb5c.vercel.app",
+  "http://localhost:3000",
+];
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".github.dev") ||
+        origin.includes("localhost");
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error("Socket.io blocked by CORS policy."));
+      }
+    },
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
 
 /* ======================
     2️⃣ FAIL-SAFE CORS & MIDDLEWARE
@@ -39,13 +68,6 @@ app.use(
     crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
-
-// Allowed origins list for production & development previews
-const allowedOrigins = [
-  "https://medicare-ai-two.vercel.app",
-  "https://medicare-ai-yb5c.vercel.app",
-  "http://localhost:3000",
-];
 
 app.use(
   cors({
@@ -73,7 +95,35 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ======================
-    3️⃣ API ROUTES
+    3️⃣ WEBRTC SIGNALING HANDLERS
+====================== */
+io.on("connection", (socket) => {
+  console.log("⚡ Telehealth Socket connected:", socket.id);
+
+  socket.on("join-room", ({ roomId }) => {
+    socket.join(roomId);
+    socket.to(roomId).emit("user-joined");
+  });
+
+  socket.on("offer", ({ roomId, offer }) => {
+    socket.to(roomId).emit("offer", { offer });
+  });
+
+  socket.on("answer", ({ roomId, answer }) => {
+    socket.to(roomId).emit("answer", { answer });
+  });
+
+  socket.on("ice-candidate", ({ roomId, candidate }) => {
+    socket.to(roomId).emit("ice-candidate", { candidate });
+  });
+
+  socket.on("disconnect", () => {
+    console.log("❌ Telehealth Socket disconnected:", socket.id);
+  });
+});
+
+/* ======================
+    4️⃣ API ROUTES
 ====================== */
 app.use("/api/telehealth", telehealthRouter);
 app.use("/api/auth", authRoutes);
@@ -124,12 +174,11 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
 
 // Add this line in server.js near app.post("/api/my-appointments", ...)
 app.post("/api/appointments/book", verifyToken, async (req, res) => {
-  // Re-use your existing booking handler or redirect internally
   req.url = "/api/my-appointments";
   return app._router.handle(req, res);
 });
 
-// DELETE Doctor Availability Slot (ADDED FIX FOR 404 NOT FOUND)
+// DELETE Doctor Availability Slot
 app.delete("/api/doctors/:doctorId/availability/:slotId", verifyToken, async (req, res) => {
   const { doctorId, slotId } = req.params;
 
@@ -201,7 +250,7 @@ app.put("/api/doctor/availability", verifyToken, async (req, res) => {
   }
 });
 
-// GET All Active Doctors (Public/Authenticated)
+// GET All Active Doctors
 app.get("/api/doctors-list", async (req, res) => {
   try {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -236,7 +285,7 @@ app.get("/api/doctors-list", async (req, res) => {
   }
 });
 
-// Update Appointment Status (Completed / Cancelled)
+// Update Appointment Status
 app.patch("/api/appointments/:id/status", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -294,7 +343,7 @@ app.patch("/api/appointments/:id/notes", verifyToken, async (req, res) => {
   }
 });
 
-// Medical Records & Prescriptions & Clinical Notes for Logged-In Patient
+// Medical Records for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
   const patientId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
@@ -329,7 +378,7 @@ app.get("/api/records", verifyToken, async (req, res) => {
       [patientId, patientUser.name]
     );
 
-    // 2. Fetch Clinical Notes from Appointments
+    // 2. Fetch Clinical Notes
     const clinicalNotesResult = await pool.query(
       `SELECT 
           a.id, 
@@ -381,7 +430,7 @@ app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
   }
 });
 
-// GET List of Patients for Doctor Prescriptions Dropdown
+// GET List of Patients
 app.get("/api/patients", verifyToken, async (req, res) => {
   try {
     const user_role = req.user?.role?.toLowerCase();
@@ -646,7 +695,7 @@ app.get("/api/health", (req, res) => {
 });
 
 /* ======================
-    4️⃣ DATABASE INIT & MIGRATIONS
+    5️⃣ DATABASE INIT & MIGRATIONS
 ====================== */
 async function initDatabase() {
   try {
@@ -746,7 +795,7 @@ async function initDatabase() {
 }
 
 /* ======================
-    5️⃣ STATIC & CATCH-ALL
+    6️⃣ STATIC & CATCH-ALL
 ====================== */
 const publicPath = path.join(__dirname, "../public");
 app.use(express.static(publicPath));
@@ -759,9 +808,9 @@ app.get("*", (req, res) => {
 });
 
 /* ======================
-    6️⃣ START SERVER IMMEDIATELY
+    7️⃣ START HTTP SERVER (WITH SOCKET.IO)
 ====================== */
-app.appListen = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+httpServer.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server & WebSockets running on port ${PORT}`);
   initDatabase();
 });
