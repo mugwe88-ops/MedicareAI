@@ -4,12 +4,22 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 
-// Corrected STUN Server Configuration
-const ICE_SERVERS = {
+// STUN & TURN Server Configuration for Cross-Network Traversal
+const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelay',
+      credential: 'openrelay',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelay',
+      credential: 'openrelay',
+    },
   ],
 };
 
@@ -25,15 +35,15 @@ export default function TelehealthSession() {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  
+
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
-  // Fallback chain for target Socket backend URL
-  const SOCKET_URL = 
-    process.env.NEXT_PUBLIC_SOCKET_URL || 
-    process.env.NEXT_PUBLIC_API_URL || 
+  // Target Socket backend URL
+  const SOCKET_URL =
+    process.env.NEXT_PUBLIC_SOCKET_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
     'https://medicareai-yb5c.onrender.com';
 
   useEffect(() => {
@@ -82,8 +92,11 @@ export default function TelehealthSession() {
         // 4. Handle Remote Stream Arrival
         pc.ontrack = (event) => {
           console.log('🎥 Received Remote Feed Track:', event.streams);
-          const incomingStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
-          
+          const incomingStream =
+            event.streams && event.streams[0]
+              ? event.streams[0]
+              : new MediaStream([event.track]);
+
           if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = incomingStream;
           }
@@ -134,7 +147,7 @@ export default function TelehealthSession() {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('answer', { roomId: appointmentId, answer });
-          
+
           setConnecting(false);
           setCallActive(true);
         });
@@ -143,7 +156,7 @@ export default function TelehealthSession() {
           console.log('📩 Received WebRTC answer, finalizing peer connection');
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
           await processIceQueue();
-          
+
           setConnecting(false);
           setCallActive(true);
         });
@@ -160,7 +173,6 @@ export default function TelehealthSession() {
 
         // 6. Join Room AFTER registering event listeners
         socket.emit('join-room', { roomId: appointmentId });
-
       } catch (err) {
         console.error('Telehealth WebRTC setup error:', err);
         setConnecting(false);
@@ -231,7 +243,11 @@ export default function TelehealthSession() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`w-2.5 h-2.5 rounded-full ${callActive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+          <span
+            className={`w-2.5 h-2.5 rounded-full ${
+              callActive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+            }`}
+          ></span>
           <span className="text-xs text-gray-300 font-medium">
             {connecting ? 'Connecting...' : callActive ? 'Connected' : 'Disconnected'}
           </span>
@@ -252,7 +268,9 @@ export default function TelehealthSession() {
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            className={`w-full h-full object-cover absolute inset-0 ${connecting ? 'hidden' : 'block'}`}
+            className={`w-full h-full object-cover absolute inset-0 ${
+              connecting ? 'hidden' : 'block'
+            }`}
           />
           <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded-md text-xs font-medium backdrop-blur-sm z-10">
             Remote Participant
