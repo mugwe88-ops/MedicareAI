@@ -254,7 +254,7 @@ export default function PatientDashboard() {
         {/* Quick Action Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <div
-            onClick={() => router.push("/dashboard/appointments")}
+            onClick={() => router.push("/patient/dashboard/appointments")}
             className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition group flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition">
@@ -267,7 +267,7 @@ export default function PatientDashboard() {
           </div>
 
           <div
-            onClick={() => router.push("/dashboard/telehealth")}
+            onClick={() => router.push("/patient/dashboard/telehealth")}
             className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition group flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition">
@@ -280,7 +280,7 @@ export default function PatientDashboard() {
           </div>
 
           <div
-            onClick={() => router.push("/dashboard/prescriptions")}
+            onClick={() => router.push("/patient/dashboard/prescriptions")}
             className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition group flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
@@ -502,7 +502,7 @@ export default function PatientDashboard() {
                       <td className="py-5 px-8 text-right">
                         <button
                           onClick={() =>
-                            router.push(`/telehealth/${apt.id}`)
+                            router.push(`/patient/dashboard/telehealth/${apt.id}`)
                           }
                           className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center"
                           title="Join Call"
