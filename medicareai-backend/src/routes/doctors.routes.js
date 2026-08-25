@@ -1,6 +1,6 @@
 import express from "express";
 import pool from "../utils/db.js";
-import { authenticateToken } from "../utils/auth.js";
+import { verifyToken as authenticateToken } from "../utils/jwt.js";
 
 const router = express.Router();
 
