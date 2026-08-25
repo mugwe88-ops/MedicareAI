@@ -8,6 +8,7 @@ const JWT_AUDIENCE = "medicareai-users";
 export function signAccessToken(user) {
   return jwt.sign(
     {
+      userId: user.id,
       sub: String(user.id),
       email: user.email,
       role: user.role,
@@ -41,8 +42,12 @@ export function verifyToken(req, res, next) {
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
 
+    // FIX: Check decoded.userId first, then sub, then id
+    const resolvedId = decoded.userId || decoded.sub || decoded.id;
+
     req.user = {
-      id: decoded.sub || decoded.id,
+      id: resolvedId,
+      userId: resolvedId,
       email: decoded.email,
       role: decoded.role,
     };
