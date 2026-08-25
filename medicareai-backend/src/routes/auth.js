@@ -7,6 +7,31 @@ import { sendVerificationEmail } from "../utils/sendEmail.js"; // Import Resend 
 
 const router = express.Router();
 
+// --- VERIFICATION ROUTE ---
+router.get("/verify", async (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.status(400).json({ error: "Verification token is missing." });
+  }
+
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE verification_token = $1", [token]);
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid or expired verification token." });
+    }
+
+    await pool.query(
+      "UPDATE users SET is_verified = true, verification_token = NULL WHERE verification_token = $1",
+      [token]
+    );
+
+    return res.json({ message: "Email verified successfully! You can now log in." });
+  } catch (err) {
+    console.error("Verification error:", err);
+    return res.status(500).json({ error: "Server error during verification." });
+  }
+});
+
 // --- UPDATED SIGNUP ROUTE ---
 router.post("/signup", async (req, res) => {
   const { name, email, password, role, specialization, city } = req.body;
