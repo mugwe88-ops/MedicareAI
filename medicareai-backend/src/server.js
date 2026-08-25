@@ -102,6 +102,18 @@ io.on("connection", (socket) => {
 
   socket.on("join-room", ({ roomId }) => {
     socket.join(roomId);
+
+    const room = io.sockets.adapter.rooms.get(roomId);
+    const numClients = room ? room.size : 0;
+
+    console.log(`👤 Client ${socket.id} joined room: ${roomId} (Total: ${numClients})`);
+
+    // Notify joining user if someone is already in the room
+    if (numClients > 1) {
+      socket.emit("room-ready");
+    }
+
+    // Inform existing participants that someone joined
     socket.to(roomId).emit("user-joined");
   });
 

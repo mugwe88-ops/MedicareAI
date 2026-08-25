@@ -39,13 +39,15 @@ export default function TelehealthSession() {
   useEffect(() => {
     if (!appointmentId) return;
 
-    // 1. Initialize Socket.io connection with fallback transport & credentials
+    // 1. Initialize Socket.io connection
     const socket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       withCredentials: true,
       reconnectionAttempts: 5,
     });
     socketRef.current = socket;
+
+    const iceCandidatesQueue: RTCIceCandidateInit[] = [];
 
     socket.on('connect', () => {
       console.log('⚡ Connected to Telehealth Signaling Server:', socket.id);
@@ -77,7 +79,7 @@ export default function TelehealthSession() {
           pc.addTrack(track, stream);
         });
 
-        // 4. Handle Remote Stream Arrival with stream construction fallback
+        // 4. Handle Remote Stream Arrival
         pc.ontrack = (event) => {
           console.log('🎥 Received Remote Feed Track:', event.streams);
           const incomingStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
@@ -99,10 +101,19 @@ export default function TelehealthSession() {
           }
         };
 
-        // 6. Join Telehealth Room
-        socket.emit('join-room', { roomId: appointmentId });
+        // Helper function to drain ICE candidate queue
+        const processIceQueue = async () => {
+          while (iceCandidatesQueue.length > 0) {
+            const candidate = iceCandidatesQueue.shift();
+            if (candidate) {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+          }
+        };
 
         // Signaling Event Handlers
+
+        // Executed when a new participant joins after us
         socket.on('user-joined', async () => {
           console.log('👤 Participant joined room, generating WebRTC offer...');
           const offer = await pc.createOffer();
@@ -110,12 +121,20 @@ export default function TelehealthSession() {
           socket.emit('offer', { roomId: appointmentId, offer });
         });
 
+        // Executed if we joined a room that already has a participant
+        socket.on('room-ready', async () => {
+          console.log('👥 Joined existing room, waiting for offer...');
+        });
+
         socket.on('offer', async (data) => {
           console.log('📩 Received WebRTC offer, generating answer...');
           await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+          await processIceQueue();
+
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('answer', { roomId: appointmentId, answer });
+          
           setConnecting(false);
           setCallActive(true);
         });
@@ -123,15 +142,24 @@ export default function TelehealthSession() {
         socket.on('answer', async (data) => {
           console.log('📩 Received WebRTC answer, finalizing peer connection');
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          await processIceQueue();
+          
           setConnecting(false);
           setCallActive(true);
         });
 
         socket.on('ice-candidate', async (data) => {
-          if (data.candidate && pc.remoteDescription) {
-            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+          if (data.candidate) {
+            if (pc.remoteDescription && pc.remoteDescription.type) {
+              await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } else {
+              iceCandidatesQueue.push(data.candidate);
+            }
           }
         });
+
+        // 6. Join Room AFTER registering event listeners
+        socket.emit('join-room', { roomId: appointmentId });
 
       } catch (err) {
         console.error('Telehealth WebRTC setup error:', err);
