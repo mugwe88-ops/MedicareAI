@@ -2,7 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { 
+  LayoutDashboard, 
+  Calendar, 
+  Video, 
+  ShoppingBag, 
+  FileText, 
+  Bot, 
+  Users, 
+  Settings, 
+  UserPlus, 
+  LogOut 
+} from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -11,31 +23,60 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string>("");
 
-  const navItems = [
-    { name: "MY DASHBOARD", href: "/dashboard" },
-    { name: "MY APPOINTMENTS", href: "/dashboard/appointments" },
-    { name: "TELEHEALTH ROOM", href: "/dashboard/telehealth" },
-    { name: "PHARMACY STORE", href: "/dashboard/pharmacy" },
-    { name: "MEDICAL RECORDS", href: "/dashboard/records" },
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.role) {
+          setUserRole(parsed.role.toLowerCase());
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse user role from storage", e);
+    }
+  }, []);
+
+  // Base navigation items for patients
+  const baseNavItems = [
+    { name: "MY DASHBOARD", href: "/dashboard", icon: LayoutDashboard },
+    { name: "MY APPOINTMENTS", href: "/dashboard/appointments", icon: Calendar },
+    { name: "TELEHEALTH ROOM", href: "/dashboard/telehealth", icon: Video },
+    { name: "AI SYMPTOM CHECKER", href: "/dashboard/ai-checker", icon: Bot },
+    { name: "DOCTOR DIRECTORY", href: "/dashboard/doctors", icon: Users },
+    { name: "PHARMACY STORE", href: "/dashboard/pharmacy", icon: ShoppingBag },
+    { name: "MEDICAL RECORDS", href: "/dashboard/records", icon: FileText },
+    { name: "ACCOUNT SETTINGS", href: "/dashboard/settings", icon: Settings },
   ];
 
+  // If user is a doctor or admin, add management features
+  const navItems = [...baseNavItems];
+  if (userRole === "doctor" || userRole === "admin") {
+    navItems.push({
+      name: "MANAGE DOCTORS",
+      href: "/dashboard/add-doctor",
+      icon: UserPlus,
+    });
+  }
+
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row overflow-x-hidden">
+    <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row overflow-x-hidden font-sans">
       
       {/* Mobile Header Bar */}
       <div className="md:hidden bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between z-20">
         <div className="flex items-center gap-2">
-          <div className="bg-blue-600 w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white">
+          <div className="bg-blue-600 w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm text-white shadow-md shadow-blue-600/30">
             S
           </div>
-          <span className="text-lg font-bold tracking-wider text-slate-100">
+          <span className="text-lg font-black tracking-wider text-slate-100">
             SWIFT MD
           </span>
         </div>
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="text-slate-300 p-2 focus:outline-none hover:text-white"
+          className="text-slate-300 p-2 focus:outline-none hover:text-white font-bold text-xs bg-slate-800 rounded-lg px-3 py-2"
         >
           {mobileMenuOpen ? "✕ Close" : "☰ Menu"}
         </button>
@@ -45,35 +86,42 @@ export default function DashboardLayout({
       <aside
         className={`${
           mobileMenuOpen ? "block" : "hidden"
-        } md:block w-full md:w-64 bg-slate-900 text-white p-6 border-r border-slate-800 flex flex-col justify-between shrink-0 z-10`}
+        } md:block w-full md:w-72 bg-slate-900 text-white p-6 border-r border-slate-800 flex flex-col justify-between shrink-0 z-10`}
       >
         <div>
           {/* App Logo/Header (Desktop) */}
-          <div className="hidden md:flex mb-8 items-center gap-2">
-            <div className="bg-blue-600 w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white">
+          <div className="hidden md:flex mb-8 items-center gap-3">
+            <div className="bg-blue-600 w-10 h-10 rounded-2xl flex items-center justify-center font-black text-base text-white shadow-lg shadow-blue-600/30">
               S
             </div>
-            <span className="text-xl font-bold tracking-wider text-slate-100">
-              SWIFT MD
-            </span>
+            <div>
+              <span className="text-xl font-black tracking-wider text-slate-100 block leading-none">
+                SWIFT MD
+              </span>
+              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mt-1 block">
+                Healthcare Suite
+              </span>
+            </div>
           </div>
 
           {/* Dynamic Navigation Map */}
-          <nav className="space-y-2">
+          <nav className="space-y-1.5">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
+              const IconComponent = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center px-4 py-3 rounded-lg text-xs font-semibold tracking-wide transition-all ${
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all ${
                     isActive
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
-                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25"
+                      : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                   }`}
                 >
-                  {item.name}
+                  <IconComponent size={18} className={isActive ? "text-white" : "text-slate-400"} />
+                  <span>{item.name}</span>
                 </Link>
               );
             })}
@@ -81,15 +129,16 @@ export default function DashboardLayout({
         </div>
 
         {/* Logout Action at Bottom */}
-        <div className="mt-8 md:mt-auto">
+        <div className="mt-8 md:mt-auto pt-6 border-t border-slate-800/80">
           <button 
             onClick={() => {
               localStorage.clear();
               window.location.href = "/login";
             }}
-            className="w-full flex items-center px-4 py-3 rounded-lg text-xs font-semibold tracking-wide text-slate-400 hover:bg-red-950/30 hover:text-red-400 transition-all"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold tracking-wide text-slate-400 hover:bg-rose-950/30 hover:text-rose-400 transition-all group"
           >
-            LOGOUT
+            <LogOut size={18} className="text-slate-400 group-hover:text-rose-400 transition-colors" />
+            <span>LOGOUT</span>
           </button>
         </div>
       </aside>
