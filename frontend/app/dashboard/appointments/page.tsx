@@ -156,9 +156,9 @@ export default function BookAppointmentPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-8 bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl">
-      <h2 className="text-3xl font-extrabold text-white">Book Appointment</h2>
-      <p className="text-sm text-blue-400 mb-6 font-medium uppercase tracking-wide">
+    <div className="w-full max-w-2xl mx-auto p-4 sm:p-8 bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl my-4 sm:my-8">
+      <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Book Appointment</h2>
+      <p className="text-xs sm:text-sm text-blue-400 mb-6 font-medium uppercase tracking-wide">
         Secure Clinical Entry
       </p>
 
@@ -184,7 +184,7 @@ export default function BookAppointmentPage() {
             value={selectedDoctorId}
             onChange={(e) => handleDoctorSelect(e.target.value)}
             disabled={loadingDoctors}
-            className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-sm sm:text-base"
           >
             <option value="">
               {loadingDoctors ? "Loading doctor list..." : "-- Select Doctor --"}
@@ -259,7 +259,7 @@ export default function BookAppointmentPage() {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Describe your symptoms..."
-            className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm sm:text-base"
           />
         </div>
 
@@ -267,7 +267,7 @@ export default function BookAppointmentPage() {
         <button
           type="submit"
           disabled={!selectedDoctorId || !selectedSlot || isSubmitting}
-          className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-600/30 disabled:shadow-none"
+          className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-600/30 disabled:shadow-none"
         >
           {isSubmitting
             ? "BOOKING..."
