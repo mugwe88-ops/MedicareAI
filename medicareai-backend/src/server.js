@@ -367,7 +367,11 @@ app.patch("/api/appointments/:id/notes", verifyToken, async (req, res) => {
 
 // Medical Records for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
-  const patientId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
+  const userId = req.user?.id;
+  if (!userId || isNaN(userId)) {
+    return res.status(400).json({ error: "Invalid user session or ID." });
+  }
+  const patientId = parseInt(userId, 10);
 
   try {
     const userResult = await pool.query("SELECT id, name, age FROM users WHERE id = $1", [patientId]);
@@ -564,10 +568,15 @@ app.post("/api/doctor/prescriptions", verifyToken, createPrescriptionHandler);
 
 app.use("/api/doctor", doctorRoutes);
 
-// Filtered Appointments for Logged-In Patients
+// Filtered Appointments for Logged-In Patients (FIXED LINE 571)
 app.get("/api/my-appointments", verifyToken, async (req, res) => {
-  const patient_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10); 
   try {
+    const userId = req.user?.id;
+    if (!userId || isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user session or ID." });
+    }
+    const patient_id = parseInt(userId, 10);
+
     const result = await pool.query(
       `SELECT a.*, d.name as doctor_name 
        FROM appointments a 
