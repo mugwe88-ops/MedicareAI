@@ -28,7 +28,8 @@ router.get("/doctor", authenticateToken, async (req, res) => {
       return res.status(403).json({ error: "Access forbidden. Account requires doctor privileges." });
     }
 
-    const doctorId = parseInt(req.user.id, 10);
+    // FIXED: Use req.user.userId instead of req.user.id
+    const doctorId = parseInt(req.user.userId, 10);
 
     const result = await pool.query(
       `SELECT 
@@ -53,7 +54,9 @@ router.get("/doctor", authenticateToken, async (req, res) => {
 router.post("/", authenticateToken, async (req, res) => {
   try {
     const { department, doctor_id, appointment_date, appointment_time, reason, patient_name, phone } = req.body;
-    const patientId = parseInt(req.user.id, 10);
+    
+    // FIXED: Use req.user.userId instead of req.user.id
+    const patientId = parseInt(req.user.userId, 10);
 
     if (!appointment_date || !appointment_time) {
       return res.status(400).json({ error: "Missing required fields: appointment_date and appointment_time." });
@@ -128,8 +131,8 @@ router.get("/", authenticateToken, async (req, res) => {
     `;
     let params = [];
 
-    // Prioritize caller's authenticated patient ID if no admin override query
-    const targetPatientId = patient_id ? parseInt(patient_id, 10) : parseInt(req.user.id, 10);
+    // FIXED: Use req.user.userId instead of req.user.id
+    const targetPatientId = patient_id ? parseInt(patient_id, 10) : parseInt(req.user.userId, 10);
 
     if (req.user.role?.toLowerCase() === "patient") {
       query += " WHERE a.patient_id = $1";
