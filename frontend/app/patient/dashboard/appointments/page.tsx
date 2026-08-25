@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface Doctor {
   id: number;
@@ -519,7 +520,12 @@ export default function AppointmentsPage() {
                 {consultations.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-800/50">
                     <td className="py-4 font-semibold text-white">
-                      {item.doctor_name || "Doctor"}
+                      <Link 
+                        href={`/patient/dashboard/appointments/${item.id}`}
+                        className="hover:text-blue-400 transition"
+                      >
+                        {item.doctor_name || "Doctor"}
+                      </Link>
                       <span className="block text-xs font-normal text-slate-400">{item.department || "General Medicine"}</span>
                     </td>
                     <td className="py-4 text-slate-300 text-xs">
@@ -535,17 +541,19 @@ export default function AppointmentsPage() {
                         {item.status || 'CONFIRMED'}
                       </span>
                     </td>
-                    <td className="py-4 text-right">
-                      {item.telehealth_room_url && (
-                        <a
-                          href={item.telehealth_room_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition"
-                        >
-                          📹 Join Room
-                        </a>
-                      )}
+                    <td className="py-4 text-right space-x-2">
+                      <Link
+                        href={`/patient/dashboard/appointments/${item.id}`}
+                        className="inline-flex items-center px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition border border-slate-700"
+                      >
+                        Details
+                      </Link>
+                      <Link
+                        href={`/patient/dashboard/telehealth/${item.id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+                      >
+                        📹 Join Room
+                      </Link>
                     </td>
                   </tr>
                 ))}
