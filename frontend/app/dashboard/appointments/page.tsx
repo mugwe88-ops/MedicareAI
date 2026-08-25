@@ -38,6 +38,10 @@ export default function AppointmentsPage() {
   const [selectedSlot, setSelectedSlot] = useState<{ day: string; time: string } | null>(null);
   const [reason, setReason] = useState<string>("");
 
+  // Quick-Symptom Pre-Screening State
+  const [symptomSeverity, setSymptomSeverity] = useState<string>("Moderate");
+  const [symptomDuration, setSymptomDuration] = useState<string>("1-3 days");
+
   // Booked Consultations State
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [loadingConsultations, setLoadingConsultations] = useState<boolean>(true);
@@ -189,6 +193,8 @@ export default function AppointmentsPage() {
           appointment_date: calculatedDate,
           appointment_time: selectedSlot.time,
           reason: reason.trim() || "General Consultation",
+          symptom_severity: symptomSeverity,
+          symptom_duration: symptomDuration,
         }),
       });
 
@@ -326,16 +332,50 @@ export default function AppointmentsPage() {
             </div>
           )}
 
+          {/* QUICK-SYMPTOM PRE-SCREENING QUESTIONNAIRE */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+                Symptom Severity
+              </label>
+              <select
+                value={symptomSeverity}
+                onChange={(e) => setSymptomSeverity(e.target.value)}
+                className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+              >
+                <option value="Mild">Mild</option>
+                <option value="Moderate">Moderate</option>
+                <option value="Severe">Severe</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+                Symptom Duration
+              </label>
+              <select
+                value={symptomDuration}
+                onChange={(e) => setSymptomDuration(e.target.value)}
+                className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+              >
+                <option value="Less than 24 hours">Less than 24 hours</option>
+                <option value="1-3 days">1-3 days</option>
+                <option value="3-7 days">3-7 days</option>
+                <option value="1+ weeks">1+ weeks</option>
+              </select>
+            </div>
+          </div>
+
           {/* REASON FOR VISIT */}
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-              Reason for Visit
+              Reason for Visit / Detailed Symptoms
             </label>
             <textarea
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Describe your symptoms..."
+              placeholder="Describe your symptoms in detail..."
               className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm sm:text-base"
             />
           </div>
