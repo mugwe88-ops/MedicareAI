@@ -42,7 +42,7 @@ export default function DashboardLayout({
     }
   }, []);
 
-  // Base navigation items for patients including Billing, Lab Results, and Emergency SOS
+  // Base navigation items for patients
   const baseNavItems = [
     { name: "MY DASHBOARD", href: "/dashboard", icon: LayoutDashboard },
     { name: "MY APPOINTMENTS", href: "/dashboard/appointments", icon: Calendar },
@@ -51,7 +51,7 @@ export default function DashboardLayout({
     { name: "DOCTOR DIRECTORY", href: "/dashboard/doctors", icon: Users },
     { name: "PHARMACY STORE", href: "/dashboard/pharmacy", icon: ShoppingBag },
     { name: "MEDICAL RECORDS", href: "/dashboard/records", icon: FileText },
-    { name: "LAB RESULTS", href: "/dashboard/labs", icon: FlaskConical },
+    { name: "LAB TESTS", href: "/dashboard/labs", icon: FlaskConical },
     { name: "BILLING & PAYMENTS", href: "/dashboard/billing", icon: CreditCard },
     { name: "ACCOUNT SETTINGS", href: "/dashboard/settings", icon: Settings },
   ];
