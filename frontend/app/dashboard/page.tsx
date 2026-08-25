@@ -57,8 +57,34 @@ export default function PatientDashboard() {
         if (parsed.name) setUserName(parsed.name);
         if (parsed.age) setAge(parsed.age.toString());
         if (parsed.phone) setPhone(parsed.phone);
+        
+        // Parse compiled medical history back into individual states if present
         if (parsed.medical_history) {
-          setAllergies(parsed.medical_history);
+          const hist = parsed.medical_history;
+          
+          // Extract Conditions
+          const condMatch = hist.match(/Conditions: ([^|]+)/);
+          if (condMatch && condMatch[1]) {
+            const conds = condMatch[1].trim().split(", ").map((c: string) => c.trim());
+            setSelectedConditions(conds);
+          }
+
+          // Extract Allergies
+          const allergyMatch = hist.match(/Allergies: ([^|]+)/);
+          if (allergyMatch && allergyMatch[1]) {
+            const alg = allergyMatch[1].trim();
+            if (alg !== "None") setAllergies(alg);
+          }
+
+          // Extract Surgeries
+          const surgMatch = hist.match(/Surgeries: (.+)/);
+          if (surgMatch && surgMatch[1]) {
+            const surg = surgMatch[1].trim();
+            if (surg !== "None") {
+              setHasSurgeries("yes");
+              setSurgeryDetails(surg);
+            }
+          }
         }
       } catch (e) {
         console.error("Failed parsing profile", e);
@@ -113,7 +139,7 @@ export default function PatientDashboard() {
       return;
     }
 
-    const compiledMedicalHistory = `Conditions: ${selectedConditions.join(", ") || "None"} | Allergies: ${allergies || "None"} | Surgeries: ${hasSurgeries === "yes" ? surgeryDetails : "None"}`;
+    const compiledMedicalHistory = `Conditions: ${selectedConditions.join(", ") || "None"} | Allergies: ${allergies.trim() || "None"} | Surgeries: ${hasSurgeries === "yes" && surgeryDetails.trim() ? surgeryDetails.trim() : "None"}`;
 
     try {
       const backendUrl =
@@ -158,12 +184,6 @@ export default function PatientDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    router.push("/login");
-  };
-
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -205,46 +225,30 @@ export default function PatientDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-      {/* Top Header Bar */}
-      <nav className="bg-white border-b border-slate-100 px-8 py-5 flex justify-between items-center sticky top-0 z-40">
-        <h1 className="text-2xl font-black text-blue-600 tracking-tighter">
-          SWIFT MD
-        </h1>
-
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-base font-black text-slate-900 leading-none">
+      {/* Content Body */}
+      <main className="max-w-6xl mx-auto p-8">
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tight">
+              Welcome Back, {userName}
+            </h2>
+            <p className="text-slate-400 font-bold mt-1">
+              Assigned Records: {appointments.length}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-black shadow-md shadow-blue-200">
+              {getInitials(userName)}
+            </div>
+            <div>
+              <p className="text-sm font-black text-slate-900 leading-none">
                 {userName}
               </p>
               <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">
                 PATIENT
               </p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-black shadow-md shadow-blue-200">
-              {getInitials(userName)}
-            </div>
           </div>
-
-          <button
-            onClick={handleLogout}
-            className="p-2 text-slate-400 hover:text-rose-600 transition"
-            title="Log Out"
-          >
-            <LogOut size={20} />
-          </button>
-        </div>
-      </nav>
-
-      {/* Content Body */}
-      <main className="max-w-6xl mx-auto p-8">
-        <div className="mb-8">
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-            Welcome Back, {userName}
-          </h2>
-          <p className="text-slate-400 font-bold mt-1">
-            Assigned Records: {appointments.length}
-          </p>
         </div>
 
         {/* Quick Action Navigation */}
