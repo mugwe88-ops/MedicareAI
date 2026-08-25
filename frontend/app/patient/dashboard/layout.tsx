@@ -42,18 +42,18 @@ export default function DashboardLayout({
     }
   }, []);
 
-  // Base navigation items for patients
+  // Base navigation items for patients - updated to use /patient/dashboard prefixes
   const baseNavItems = [
-    { name: "MY DASHBOARD", href: "/dashboard", icon: LayoutDashboard },
-    { name: "MY APPOINTMENTS", href: "/dashboard/appointments", icon: Calendar },
-    { name: "TELEHEALTH ROOM", href: "/dashboard/telehealth", icon: Video },
-    { name: "AI SYMPTOM CHECKER", href: "/dashboard/ai-checker", icon: Bot },
-    { name: "DOCTOR DIRECTORY", href: "/dashboard/doctors", icon: Users },
-    { name: "PHARMACY STORE", href: "/dashboard/pharmacy", icon: ShoppingBag },
-    { name: "MEDICAL RECORDS", href: "/dashboard/records", icon: FileText },
-    { name: "LAB TESTS", href: "/dashboard/labs", icon: FlaskConical },
-    { name: "BILLING & PAYMENTS", href: "/dashboard/billing", icon: CreditCard },
-    { name: "ACCOUNT SETTINGS", href: "/dashboard/settings", icon: Settings },
+    { name: "MY DASHBOARD", href: "/patient/dashboard", icon: LayoutDashboard },
+    { name: "MY APPOINTMENTS", href: "/patient/dashboard/appointments", icon: Calendar },
+    { name: "TELEHEALTH ROOM", href: "/patient/telehealth", icon: Video },
+    { name: "AI SYMPTOM CHECKER", href: "/patient/dashboard/ai-checker", icon: Bot },
+    { name: "DOCTOR DIRECTORY", href: "/patient/dashboard/doctors", icon: Users },
+    { name: "PHARMACY STORE", href: "/patient/dashboard/pharmacy", icon: ShoppingBag },
+    { name: "MEDICAL RECORDS", href: "/patient/dashboard/records", icon: FileText },
+    { name: "LAB TESTS", href: "/patient/dashboard/labs", icon: FlaskConical },
+    { name: "BILLING & PAYMENTS", href: "/patient/dashboard/billing", icon: CreditCard },
+    { name: "ACCOUNT SETTINGS", href: "/patient/dashboard/settings", icon: Settings },
   ];
 
   // If user is a doctor or admin, add management features
@@ -61,7 +61,7 @@ export default function DashboardLayout({
   if (userRole === "doctor" || userRole === "admin") {
     navItems.push({
       name: "MANAGE DOCTORS",
-      href: "/dashboard/add-doctor",
+      href: "/patient/dashboard/add-doctor",
       icon: UserPlus,
     });
   }
@@ -112,7 +112,7 @@ export default function DashboardLayout({
           {/* Emergency SOS Banner Button */}
           <div className="mb-6">
             <Link
-              href="/dashboard/telehealth"
+              href="/patient/telehealth"
               onClick={() => setMobileMenuOpen(false)}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-400 rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-rose-950/50 group"
             >
