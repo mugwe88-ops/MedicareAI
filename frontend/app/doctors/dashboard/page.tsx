@@ -128,7 +128,7 @@ export default function DoctorDashboard() {
       if (Array.isArray(data)) setAppointments(data);
     } catch (err) {
       console.error("Fetch Error:", err);
-    } fontinally {
+    } finally {
       setLoading(false);
     }
   };
