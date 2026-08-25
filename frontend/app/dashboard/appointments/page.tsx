@@ -23,9 +23,8 @@ export default function BookAppointmentPage() {
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   
-  const [selectedDate, setSelectedDate] = useState<string>("");
-  const [selectedTime, setSelectedTime] = useState<string>("");
-  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
+  // Directly selected schedule info
+  const [selectedSlot, setSelectedSlot] = useState<{ day: string; time: string } | null>(null);
   const [reason, setReason] = useState<string>("");
 
   // UI State
@@ -36,6 +35,28 @@ export default function BookAppointmentPage() {
   const [successMsg, setSuccessMsg] = useState<string>("");
 
   const API_BASE = "https://medicareai-1.onrender.com";
+
+  // Helper function to calculate the next calendar date matching a day name (e.g. "Tuesday")
+  const getNextDateForDay = (dayName: string): string => {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const targetDayIndex = days.findIndex(
+      (d) => d.toLowerCase() === dayName.toLowerCase()
+    );
+    if (targetDayIndex === -1) return new Date().toISOString().split("T")[0];
+
+    const today = new Date();
+    const currentDayIndex = today.getDay();
+    let distance = targetDayIndex - currentDayIndex;
+    if (distance <= 0) distance += 7; // Target next upcoming instance of that day
+
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + distance);
+
+    const year = nextDate.getFullYear();
+    const month = String(nextDate.getMonth() + 1).padStart(2, "0");
+    const day = String(nextDate.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
   // 1. Load Doctor List on Mount
   useEffect(() => {
@@ -59,9 +80,7 @@ export default function BookAppointmentPage() {
   // 2. Fetch Active Schedule when Doctor is Selected
   const handleDoctorSelect = async (doctorId: string) => {
     setSelectedDoctorId(doctorId);
-    setSelectedDate("");
-    setSelectedTime("");
-    setAvailableTimeSlots([]);
+    setSelectedSlot(null);
     setErrorMsg("");
 
     if (!doctorId) {
@@ -82,50 +101,23 @@ export default function BookAppointmentPage() {
     }
   };
 
-  // 3. Compute Available Hourly Time Slots when Date Changes
-  useEffect(() => {
-    if (!selectedDate || availability.length === 0) {
-      setAvailableTimeSlots([]);
-      setSelectedTime("");
-      return;
-    }
-
-    const [year, month, day] = selectedDate.split("-").map(Number);
-    const dateObj = new Date(year, month - 1, day);
-    const dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" });
-
-    const activeSlots = availability.filter(
-      (s) => s.day_of_week.toLowerCase() === dayName.toLowerCase()
-    );
-
-    if (activeSlots.length === 0) {
-      setAvailableTimeSlots([]);
-      setSelectedTime("");
-      return;
-    }
-
-    const slots: string[] = [];
-    activeSlots.forEach((slot) => {
-      const start = parseInt(slot.start_time.split(":")[0], 10);
-      const end = parseInt(slot.end_time.split(":")[0], 10);
-      for (let h = start; h < end; h++) {
-        slots.push(`${h.toString().padStart(2, "0")}:00`);
-      }
-    });
-
-    setAvailableTimeSlots(slots);
-  }, [selectedDate, availability]);
-
-  // 4. Submit Appointment Booking
+  // 3. Handle Appointment Booking Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+
+    if (!selectedSlot) {
+      setErrorMsg("Please select a time slot from the schedule.");
+      return;
+    }
 
     const token = localStorage.getItem("token") || localStorage.getItem("jwt");
     if (!token) {
       setErrorMsg("Session expired. Please log in again.");
       return;
     }
+
+    const calculatedDate = getNextDateForDay(selectedSlot.day);
 
     setIsSubmitting(true);
     try {
@@ -137,8 +129,8 @@ export default function BookAppointmentPage() {
         },
         body: JSON.stringify({
           doctor_id: parseInt(selectedDoctorId, 10),
-          appointment_date: selectedDate,
-          appointment_time: selectedTime,
+          appointment_date: calculatedDate,
+          appointment_time: selectedSlot.time,
           reason: reason.trim(),
         }),
       });
@@ -146,7 +138,7 @@ export default function BookAppointmentPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Booking failed");
 
-      setSuccessMsg("Appointment booked successfully! Redirecting...");
+      setSuccessMsg(`Appointment booked for ${selectedSlot.day} (${calculatedDate}) at ${selectedSlot.time}!`);
       setTimeout(() => router.push("/dashboard"), 1500);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to issue appointment.");
@@ -197,79 +189,57 @@ export default function BookAppointmentPage() {
           </select>
         </div>
 
-        {/* ACTIVE PRACTICE HOURS SUMMARY */}
+        {/* CLICK-TO-SELECT PRACTICE SCHEDULE */}
         {selectedDoctorId && (
-          <div className="p-4 bg-slate-800/50 border border-slate-700/60 rounded-xl">
-            <span className="text-xs font-bold uppercase text-slate-400 block mb-2">
-              📅 Active Practice Schedule
-            </span>
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+              📅 Click Available Slot to Book
+            </label>
             {loadingSchedule ? (
-              <p className="text-xs text-slate-400 animate-pulse">Loading availability...</p>
+              <p className="text-xs text-slate-400 animate-pulse p-3.5 bg-slate-800/40 rounded-xl border border-slate-700/50">
+                Loading availability...
+              </p>
             ) : availability.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {availability.map((s, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-blue-950 border border-blue-700/50 text-blue-300 text-xs rounded-full font-medium"
-                  >
-                    🕒 {s.day_of_week}: {s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)}
-                  </span>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {availability.map((s, idx) => {
+                  const startTimeClean = s.start_time.slice(0, 5);
+                  const isSelected =
+                    selectedSlot?.day === s.day_of_week && selectedSlot?.time === startTimeClean;
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() =>
+                        setSelectedSlot({
+                          day: s.day_of_week,
+                          time: startTimeClean,
+                        })
+                      }
+                      className={`p-4 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                        isSelected
+                          ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400"
+                          : "bg-slate-800 border-slate-700 text-slate-300 hover:border-blue-500/60 hover:bg-slate-750"
+                      }`}
+                    >
+                      <span className="text-sm font-bold flex items-center justify-between">
+                        <span>🕒 {s.day_of_week}</span>
+                        {isSelected && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-md font-semibold">Selected</span>}
+                      </span>
+                      <span className="text-xs text-slate-400 mt-1 font-mono">
+                        {startTimeClean} - {s.end_time.slice(0, 5)}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             ) : (
-              <p className="text-xs text-amber-400 font-medium">
+              <p className="text-xs text-amber-400 font-medium p-3.5 bg-slate-800/40 rounded-xl border border-slate-700/50">
                 ⚠️ Doctor has not set availability hours yet.
               </p>
             )}
           </div>
         )}
-
-        {/* PREFERRED DATE */}
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-            Preferred Date
-          </label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            disabled={!selectedDoctorId}
-            className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
-          />
-        </div>
-
-        {/* DYNAMIC TIME SLOTS */}
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-            Available Time Slots
-          </label>
-          {availableTimeSlots.length > 0 ? (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
-              {availableTimeSlots.map((time) => (
-                <button
-                  key={time}
-                  type="button"
-                  onClick={() => setSelectedTime(time)}
-                  className={`py-2.5 px-4 rounded-xl text-xs font-semibold border transition-all ${
-                    selectedTime === time
-                      ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-500/30"
-                      : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500"
-                  }`}
-                >
-                  {time}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="p-3.5 bg-slate-800/40 border border-slate-700/50 rounded-xl text-xs text-slate-400">
-              {!selectedDoctorId
-                ? "Select a doctor first to view available time slots."
-                : !selectedDate
-                ? "Select a date matching the doctor's active days above."
-                : "❌ Doctor is not available on this day. Pick another date."}
-            </div>
-          )}
-        </div>
 
         {/* REASON FOR VISIT */}
         <div>
@@ -288,10 +258,14 @@ export default function BookAppointmentPage() {
         {/* SUBMIT BUTTON */}
         <button
           type="submit"
-          disabled={!selectedDoctorId || !selectedDate || !selectedTime || !reason.trim() || isSubmitting}
+          disabled={!selectedDoctorId || !selectedSlot || !reason.trim() || isSubmitting}
           className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-600/30 disabled:shadow-none"
         >
-          {isSubmitting ? "BOOKING..." : "CONFIRM BOOKING 🚀"}
+          {isSubmitting
+            ? "BOOKING..."
+            : selectedSlot
+            ? `CONFIRM BOOKING FOR ${selectedSlot.day.toUpperCase()} @ ${selectedSlot.time} 🚀`
+            : "SELECT A SLOT TO BOOK 🚀"}
         </button>
       </form>
     </div>
