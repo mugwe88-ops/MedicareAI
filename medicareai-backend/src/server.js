@@ -95,6 +95,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ======================
+    2.5 ⚡ USER CONTEXT NORMALIZER (Fixes NaN / Undefined IDs)
+====================== */
+app.use((req, res, next) => {
+  if (req.user) {
+    const rawId = req.user.id || req.user.userId || req.user.user_id;
+    const parsedId = rawId ? parseInt(rawId, 10) : null;
+    if (parsedId && !isNaN(parsedId)) {
+      req.user.id = parsedId;
+      req.user.userId = parsedId;
+      req.user.user_id = parsedId;
+    }
+  }
+  next();
+});
+
+/* ======================
     3️⃣ WEBRTC SIGNALING HANDLERS
 ====================== */
 io.on("connection", (socket) => {
@@ -655,7 +671,7 @@ const createAppointmentHandler = async (req, res) => {
   }
 };
 
-// Aliased Route Definitions (Fixes direct router forwarding anti-pattern)
+// Aliased Route Definitions
 app.post("/api/my-appointments", verifyToken, createAppointmentHandler);
 app.post("/api/appointments/book", verifyToken, createAppointmentHandler);
 
@@ -683,7 +699,7 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT a.*, 
+      `SELECT a *, 
               COALESCE(u.name, a.patient_name, 'Valued Patient') as patient_name, 
               u.phone 
        FROM appointments a
