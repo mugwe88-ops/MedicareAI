@@ -32,7 +32,56 @@ router.get("/verify", async (req, res) => {
   }
 });
 
-// --- UPDATED SIGNUP ROUTE ---
+// --- LOGIN ROUTE ---
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required." });
+  }
+
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid email or password." });
+    }
+
+    const user = result.rows[0];
+
+    // Check if email is verified
+    if (!user.is_verified) {
+      return res.status(403).json({ error: "Please verify your email before logging in." });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Invalid email or password." });
+    }
+
+    // Create JWT Token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET || "fallback_secret",
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({ error: "Server error during login." });
+  }
+});
+
+// --- SIGNUP ROUTE ---
 router.post("/signup", async (req, res) => {
   const { name, email, password, role, specialization, city } = req.body;
   const phone = req.body.phone || req.body.phone_number;
