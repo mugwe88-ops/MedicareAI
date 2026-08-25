@@ -122,6 +122,13 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
   }
 });
 
+// Add this line in server.js near app.post("/api/my-appointments", ...)
+app.post("/api/appointments/book", verifyToken, async (req, res) => {
+  // Re-use your existing booking handler or redirect internally
+  req.url = "/api/my-appointments";
+  return app._router.handle(req, res);
+});
+
 // DELETE Doctor Availability Slot (ADDED FIX FOR 404 NOT FOUND)
 app.delete("/api/doctors/:doctorId/availability/:slotId", verifyToken, async (req, res) => {
   const { doctorId, slotId } = req.params;
