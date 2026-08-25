@@ -1,45 +1,54 @@
-import pkg from 'pg';
-const { Pool } = pkg;
+import pg from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Use the environment variable for security, falling back to your string only if necessary
+const { Pool } = pg;
+
+// Connection string from environment variables
 const connectionString = process.env.DATABASE_URL;
 
-const pool = new Pool({
+// Initialize PostgreSQL Pool
+export const pool = new Pool({
   connectionString: connectionString,
   ssl: {
-    // REQUIRED for Neon/Render connection success
-    rejectUnauthorized: false 
+    // Required for Neon / Render PostgreSQL connections
+    rejectUnauthorized: false
   },
-  connectionTimeoutMillis: 10000, // 10 seconds timeout
+  connectionTimeoutMillis: 10000, // 10-second timeout
 });
 
 // --- CONNECTION HEALTH CHECK ---
-pool.connect((err, client, release) => {
-  if (err) {
-    return console.error('❌ DB CONNECTION ERROR:', err.message);
-  }
-  
-  console.log('✅ DATABASE HANDSHAKE SUCCESSFUL');
+(async () => {
+  let client;
+  try {
+    client = await pool.connect();
+    console.log('✅ DATABASE HANDSHAKE SUCCESSFUL');
 
-  // Specific check to see if the table is visible in the public schema
-  client.query(
-    "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'appointments')",
-    (qErr, res) => {
-      release();
-      if (qErr) {
-        console.error('❌ TABLE CHECK FAILED:', qErr.message);
-      } else {
-        const exists = res.rows[0].exists;
-        console.log(exists 
-          ? '🚀 TABLE "appointments" IS LIVE AND VISIBLE' 
-          : '⚠️ TABLE "appointments" NOT FOUND. Run CREATE TABLE in Neon SQL editor.'
-        );
-      }
+    // Check if the appointments table exists in the public schema
+    const checkQuery = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+          AND table_name = 'appointments'
+      );
+    `;
+    const res = await client.query(checkQuery);
+    const exists = res.rows[0].exists;
+
+    console.log(
+      exists
+        ? '🚀 TABLE "appointments" IS LIVE AND VISIBLE'
+        : '⚠️ TABLE "appointments" NOT FOUND. Run CREATE TABLE in Neon SQL editor.'
+    );
+  } catch (err) {
+    console.error('❌ DB CONNECTION ERROR:', err.message);
+  } finally {
+    if (client) {
+      client.release();
     }
-  );
-});
+  }
+})();
 
+// Default export for default import compatibility
 export default pool;

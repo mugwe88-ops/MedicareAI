@@ -184,12 +184,6 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
   }
 });
 
-// Add this line in server.js near app.post("/api/my-appointments", ...)
-app.post("/api/appointments/book", verifyToken, async (req, res) => {
-  req.url = "/api/my-appointments";
-  return app._router.handle(req, res);
-});
-
 // DELETE Doctor Availability Slot
 app.delete("/api/doctors/:doctorId/availability/:slotId", verifyToken, async (req, res) => {
   const { doctorId, slotId } = req.params;
@@ -573,8 +567,8 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
   }
 });
 
-// Create New Appointment for Patient
-app.post("/api/my-appointments", verifyToken, async (req, res) => {
+// Reusable Appointment Booking Controller Handler
+const createAppointmentHandler = async (req, res) => {
   try {
     const rawId = req.user?.id || req.user?.userId || req.user?.user_id;
     const patient_id = parseInt(rawId, 10);
@@ -653,13 +647,17 @@ app.post("/api/my-appointments", verifyToken, async (req, res) => {
 
     return res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error("❌ DB Insert Error on /api/my-appointments:", err);
+    console.error("❌ DB Insert Error on appointment handler:", err);
     return res.status(500).json({ 
       error: "Failed to book appointment.", 
       details: err.message || "Database query failure" 
     });
   }
-});
+};
+
+// Aliased Route Definitions (Fixes direct router forwarding anti-pattern)
+app.post("/api/my-appointments", verifyToken, createAppointmentHandler);
+app.post("/api/appointments/book", verifyToken, createAppointmentHandler);
 
 // Filtered Appointments for Doctors
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
@@ -686,8 +684,8 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
 
     const result = await pool.query(
       `SELECT a.*, 
-             COALESCE(u.name, a.patient_name, 'Valued Patient') as patient_name, 
-             u.phone 
+              COALESCE(u.name, a.patient_name, 'Valued Patient') as patient_name, 
+              u.phone 
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
        WHERE a.doctor_id = $1 
