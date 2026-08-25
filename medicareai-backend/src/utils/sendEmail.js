@@ -1,9 +1,9 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Safeguard instance creation if key is temporarily missing during setup
+const resend = new Resend(process.env.RESEND_API_KEY || 'temp_key');
 
 export const sendVerificationEmail = async (email, token) => {
-  // Strip trailing slashes to guarantee clean URL construction
   const rawUrl = process.env.FRONTEND_URL || 'https://medicare-ai-two.vercel.app';
   const frontendUrl = rawUrl.replace(/\/+$/, '');
   const verificationUrl = `${frontendUrl}/verify-email?token=${token}`;
