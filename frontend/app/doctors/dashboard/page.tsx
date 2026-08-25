@@ -128,7 +128,7 @@ export default function DoctorDashboard() {
       if (Array.isArray(data)) setAppointments(data);
     } catch (err) {
       console.error("Fetch Error:", err);
-    } font-medium finally {
+    } finally {
       setLoading(false);
     }
   };
@@ -181,12 +181,11 @@ export default function DoctorDashboard() {
     }
   };
 
-  // UPDATED FRONTEND DELETE HANDLER
   const handleDeleteAvailability = async (slotId?: number) => {
     if (!slotId || !doctorId) return;
     const token = localStorage.getItem("token");
 
-    // Optimistically state update
+    // Optimistic state update
     setAvailabilitySlots((prev) => prev.filter((s) => s.id !== slotId));
 
     try {
