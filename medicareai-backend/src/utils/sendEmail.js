@@ -1,10 +1,11 @@
 import { Resend } from 'resend';
 
-// Initialize Resend with fallback check
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendVerificationEmail = async (email, token) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://medicare-ai-two.vercel.app';
+  // Strip trailing slashes to guarantee clean URL construction
+  const rawUrl = process.env.FRONTEND_URL || 'https://medicare-ai-two.vercel.app';
+  const frontendUrl = rawUrl.replace(/\/+$/, '');
   const verificationUrl = `${frontendUrl}/verify-email?token=${token}`;
 
   if (!process.env.RESEND_API_KEY) {
@@ -14,18 +15,18 @@ export const sendVerificationEmail = async (email, token) => {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'MedicareAI Security <onboarding@resend.dev>',
+      from: 'SwiftMD Support <onboarding@resend.dev>',
       to: [email],
-      subject: 'Verify your MedicareAI account',
+      subject: 'Verify Your SwiftMD Account',
       html: `
         <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;">
-          <h2>Welcome to MedicareAI</h2>
+          <h2>Welcome to SwiftMD</h2>
           <p>Please click the button below to verify your email address and activate your account:</p>
           <a href="${verificationUrl}" 
-             style="background-color: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; margin: 16px 0;">
+             style="background-color: #2563eb; color: #ffffff; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; margin: 16px 0;">
             Verify Email Address
           </a>
-          <p style="font-size: 12px; color: #666;">If you didn't create an account, you can safely ignore this email.</p>
+          <p style="font-size: 12px; color: #666;">If you didn't request this, please ignore this email.</p>
         </div>
       `,
     });
