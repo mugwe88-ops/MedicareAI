@@ -1,4 +1,4 @@
-"use client";
+// "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -58,8 +58,15 @@ export default function BookAppointmentPage() {
     return `${year}-${month}-${day}`;
   };
 
-  // 1. Load Doctor List on Mount
+  // 1. Load Doctor List on Mount & Verify Session Token
   useEffect(() => {
+    const token = localStorage.getItem("token") || localStorage.getItem("jwt");
+    if (!token) {
+      setErrorMsg("No active session found. Please log in again.");
+      setTimeout(() => router.push("/login"), 2000);
+      return;
+    }
+
     setLoadingDoctors(true);
     fetch(`${API_BASE}/api/doctors-list`)
       .then((res) => {
@@ -75,7 +82,7 @@ export default function BookAppointmentPage() {
         setErrorMsg("Unable to load doctors list. Please check backend connection.");
         setLoadingDoctors(false);
       });
-  }, []);
+  }, [router]);
 
   // 2. Fetch Active Schedule when Doctor is Selected
   const handleDoctorSelect = async (doctorId: string) => {
@@ -114,6 +121,7 @@ export default function BookAppointmentPage() {
     const token = localStorage.getItem("token") || localStorage.getItem("jwt");
     if (!token) {
       setErrorMsg("Session expired. Please log in again.");
+      setTimeout(() => router.push("/login"), 1500);
       return;
     }
 
@@ -131,7 +139,7 @@ export default function BookAppointmentPage() {
           doctor_id: parseInt(selectedDoctorId, 10),
           appointment_date: calculatedDate,
           appointment_time: selectedSlot.time,
-          reason: reason.trim(),
+          reason: reason.trim() || "General Consultation",
         }),
       });
 
@@ -139,7 +147,7 @@ export default function BookAppointmentPage() {
       if (!res.ok) throw new Error(data.error || "Booking failed");
 
       setSuccessMsg(`Appointment booked for ${selectedSlot.day} (${calculatedDate}) at ${selectedSlot.time}!`);
-      setTimeout(() => router.push("/dashboard"), 1500);
+      setTimeout(() => router.push("/dashboard/appointments"), 1500);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to issue appointment.");
     } finally {
@@ -258,7 +266,7 @@ export default function BookAppointmentPage() {
         {/* SUBMIT BUTTON */}
         <button
           type="submit"
-          disabled={!selectedDoctorId || !selectedSlot || !reason.trim() || isSubmitting}
+          disabled={!selectedDoctorId || !selectedSlot || isSubmitting}
           className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-600/30 disabled:shadow-none"
         >
           {isSubmitting
