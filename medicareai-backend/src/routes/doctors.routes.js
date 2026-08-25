@@ -1,168 +1,113 @@
 import express from "express";
-import { getDoctorById, createDoctor } from "../models/Doctor.js";
 import pool from "../utils/db.js";
+import { authenticateToken } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-/**
- * Shared controller for updating doctor status.
- * Handles both POST and PATCH requests to prevent method mismatches.
- */
-const updateStatusHandler = async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    if (!status) {
-      return res.status(400).json({ error: "Status field is required." });
-    }
-
-    console.log(`Doctor status updated to: ${status}`);
-
-    return res.status(200).json({
-      success: true,
-      message: "Doctor status updated successfully",
-      status,
-    });
-  } catch (err) {
-    console.error("Status update error:", err);
-    return res.status(500).json({ error: "Failed to update doctor status" });
-  }
-};
-
-/**
- * POST & PATCH /api/doctors/status AND /api/doctor/status
- */
-router.post("/status", updateStatusHandler);
-router.patch("/status", updateStatusHandler);
-
-/**
- * GET /api/doctors
- */
-/**
- * GET /api/doctors
- */
-router.get("/", async (req, res) => {
-  try {
-    const { city, query, q, specialization, specialty } = req.query;
-
-    const result = await pool.query(
-      `SELECT id, name, COALESCE(specialization, 'General Medicine') AS specialization, city 
-       FROM users 
-       WHERE LOWER(role) = 'doctor' 
-       ORDER BY name ASC`
-    );
-    
-    let doctors = result.rows;
-    const searchTerm = (query || q || specialization || specialty || "").toString().trim().toLowerCase();
-    const cityTerm = (city || "").toString().trim().toLowerCase();
-
-    if (cityTerm !== "") {
-      doctors = doctors.filter(d => d.city?.toLowerCase().includes(cityTerm));
-    }
-
-    if (searchTerm !== "") {
-      doctors = doctors.filter(d => 
-        d.specialization?.toLowerCase().includes(searchTerm) || 
-        d.name?.toLowerCase().includes(searchTerm)
-      );
-    }
-
-    res.json(doctors);
-  } catch (err) {
-    console.error("Doctors API error:", err); 
-    res.status(500).json({ error: "Failed to fetch doctors" });
-  }
-});
-/**
- * POST /api/doctors
- */
-router.post("/", async (req, res) => {
-  try {
-    const doctor = await createDoctor(req.body);
-    res.status(201).json(doctor);
-  } catch (err) {
-    console.error("Create doctor error:", err);
-    res.status(500).json({ error: "Failed to create doctor" });
-  }
-});
-
-/**
- * GET /api/doctors/prescriptions
- * Retrieves all issued prescriptions
- */
-router.get("/prescriptions", async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT * FROM prescriptions ORDER BY created_at DESC`
-    );
-    return res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching prescriptions:", err);
-    return res.status(500).json({ error: "Failed to retrieve prescription logs" });
-  }
-});
-
-/**
- * POST /api/doctors/prescriptions
- * Issues and stores a new prescription record
- */
-router.post("/prescriptions", async (req, res) => {
-  try {
-    const { patient_name, medication_details, doctor_id } = req.body;
-
-    if (!patient_name || !medication_details) {
-      return res.status(400).json({ error: "Patient name and medication details are required." });
-    }
-
-    const result = await pool.query(
-      `INSERT INTO prescriptions (doctor_id, patient_name, medication_details)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [doctor_id || null, patient_name, medication_details]
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: "Prescription issued successfully",
-      prescription: result.rows[0],
-    });
-  } catch (err) {
-    console.error("Prescription issuance error:", err);
-    return res.status(500).json({ error: "Failed to store prescription record" });
-  }
-});
-
-/**
- * GET /api/doctors/:id
- */
+// Get doctor details / profile
 router.get("/:id", async (req, res) => {
   try {
-    const doctor = await getDoctorById(req.params.id);
-    if (!doctor) return res.status(404).json({ error: "Doctor not found" });
-    res.json(doctor);
-  } catch (err) {
-    console.error("Doctor fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch doctor" });
-  }
-});
-
-// DELETE an availability slot by slot ID
-app.delete("/api/doctors/availability/:id", async (req, res) => {
-  const { id } = req.params;
-
-  try {
+    const { id } = req.params;
     const result = await pool.query(
-      "DELETE FROM doctor_availability WHERE id = $1 RETURNING *",
+      `SELECT id, name, email, specialization, bio, consultation_fee, experience_years, avatar_url 
+       FROM users 
+       WHERE id = $1 AND role = 'doctor'`,
       [id]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Availability slot not found." });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Doctor not found" });
     }
 
-    res.json({ message: "Availability slot deleted successfully." });
-  } catch (error) {
-    console.error("Error deleting availability slot:", error);
-    res.status(500).json({ error: "Internal server error." });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error fetching doctor:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get doctor's availability slots
+router.get("/:id/availability", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT id, doctor_id, day_of_week, start_time, end_time 
+       FROM doctor_availability 
+       WHERE doctor_id = $1 
+       ORDER BY 
+         CASE day_of_week
+           WHEN 'Monday' THEN 1
+           WHEN 'Tuesday' THEN 2
+           WHEN 'Wednesday' THEN 3
+           WHEN 'Thursday' THEN 4
+           WHEN 'Friday' THEN 5
+           WHEN 'Saturday' THEN 6
+           WHEN 'Sunday' THEN 7
+         END, start_time`,
+      [id]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching doctor availability:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Add a doctor's availability slot (Protected)
+router.post("/:id/availability", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { day_of_week, start_time, end_time } = req.body;
+
+    // Verify requesting doctor owns the profile
+    if (req.user.id !== parseInt(id, 10)) {
+      return res.status(403).json({ message: "Unauthorized access" });
+    }
+
+    if (!day_of_week || !start_time || !end_time) {
+      return res.status(400).json({ message: "Missing required availability fields" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO doctor_availability (doctor_id, day_of_week, start_time, end_time) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING *`,
+      [id, day_of_week, start_time, end_time]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error adding doctor availability:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Delete doctor availability slot (Protected)
+router.delete("/:id/availability/:slotId", authenticateToken, async (req, res) => {
+  try {
+    const { id, slotId } = req.params;
+
+    // Verify requesting doctor owns the profile
+    if (req.user.id !== parseInt(id, 10)) {
+      return res.status(403).json({ message: "Unauthorized access" });
+    }
+
+    const result = await pool.query(
+      `DELETE FROM doctor_availability 
+       WHERE id = $1 AND doctor_id = $2 
+       RETURNING *`,
+      [slotId, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Availability slot not found" });
+    }
+
+    res.json({ message: "Availability slot deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting doctor availability:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
