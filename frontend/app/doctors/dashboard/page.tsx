@@ -783,14 +783,14 @@ export default function DoctorDashboard() {
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="py-16 text-center font-medium text-slate-400 text-sm">
+                      <td colSpan={5} className="py-12 text-center text-slate-400 italic text-sm">
                         Loading appointments...
                       </td>
                     </tr>
                   ) : appointments.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-16 text-center font-medium text-slate-400 text-sm">
-                        No appointments found.
+                      <td colSpan={5} className="py-12 text-center text-slate-400 italic text-sm">
+                        No appointments assigned to your account yet.
                       </td>
                     </tr>
                   ) : (
@@ -801,15 +801,15 @@ export default function DoctorDashboard() {
                         onClick={() => handleSelectPatient(apt)}
                       >
                         <td className="px-6 py-4">
-                          <p className="font-semibold text-slate-900 text-sm">{apt.patient_name || "Anonymous"}</p>
-                          <p className="text-xs text-slate-500">{apt.phone || "No phone listed"}</p>
+                          <p className="font-semibold text-slate-900 text-sm">{apt.patient_name || "Anonymous Patient"}</p>
+                          <p className="text-xs text-slate-500">{apt.phone || "No phone provided"}</p>
                         </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-medium text-slate-800">{formatDisplayDate(apt.appointment_date)}</p>
+                        <td className="px-6 py-4 text-sm text-slate-700">
+                          <p className="font-medium">{formatDisplayDate(apt.appointment_date)}</p>
                           <p className="text-xs text-slate-500">{formatDisplayTime(apt.appointment_time)}</p>
                         </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-slate-700 truncate max-w-xs">{apt.reason || "General Consultation"}</p>
+                        <td className="px-6 py-4 text-sm text-slate-700 max-w-xs truncate">
+                          {apt.reason || "General Consultation"}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2.5 py-1 text-[10px] font-semibold rounded-full uppercase tracking-wider border ${getStatusStyles(apt.status)}`}>
@@ -823,8 +823,8 @@ export default function DoctorDashboard() {
                                 setQuickViewPatient(apt);
                                 setModalType("quickView");
                               }}
-                              title="Quick View Patient Details"
-                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              title="Quick View Details"
+                              className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                             >
                               <Eye size={16} />
                             </button>
@@ -834,7 +834,7 @@ export default function DoctorDashboard() {
                                 setModalType("prescription");
                               }}
                               title="Issue Prescription"
-                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                             >
                               <Pill size={16} />
                             </button>
@@ -844,7 +844,7 @@ export default function DoctorDashboard() {
                                 setModalType("quickLab");
                               }}
                               title="Order Lab Test"
-                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                             >
                               <FileSpreadsheet size={16} />
                             </button>
@@ -860,244 +860,203 @@ export default function DoctorDashboard() {
         )}
       </main>
 
-      {/* --- MODALS --- */}
+      {/* --- MODALS OVERLAY --- */}
       {modalType && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-6 animate-in fade-in zoom-in-95 duration-150">
-            
-            {/* Prescription Modal */}
-            {modalType === "prescription" && (
-              <>
-                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                  <div className="flex items-center gap-2">
-                    <Pill className="text-blue-600" size={20} />
-                    <h3 className="text-lg font-bold text-slate-900">Issue New Prescription</h3>
-                  </div>
-                  <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600">
-                    <X size={20} />
-                  </button>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-900">
+                {modalType === "prescription" && "Issue Patient Prescription"}
+                {modalType === "note" && "Edit Clinical Notes"}
+                {modalType === "quickView" && "Patient Quick View"}
+                {modalType === "quickLab" && "Order Lab Test"}
+              </h3>
+              <button 
+                onClick={() => {
+                  setModalType(null);
+                  setQuickViewPatient(null);
+                  setQuickPrescriptionApt(null);
+                  setQuickLabApt(null);
+                  setFeedbackMsg(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {feedbackMsg && (
+                <div className="bg-emerald-50 text-emerald-700 p-3 rounded-lg text-xs font-medium flex items-center gap-2">
+                  <CheckCircle size={16} /> {feedbackMsg}
                 </div>
+              )}
 
-                {feedbackMsg && (
-                  <div className={`p-3 rounded-lg text-xs font-medium flex items-center gap-2 ${feedbackMsg.includes("successfully") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-                    <AlertCircle size={16} /> {feedbackMsg}
-                  </div>
-                )}
-
+              {modalType === "prescription" && (
                 <form onSubmit={handleAddPrescription} className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Medication Name</label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Amoxicillin 500mg"
+                      placeholder="e.g., Amoxicillin 500mg"
                       value={prescriptionForm.medication}
                       onChange={(e) => setPrescriptionForm({ ...prescriptionForm, medication: e.target.value })}
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                     />
                   </div>
-
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Dosage</label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. 1 tablet twice daily"
+                      placeholder="e.g., 1 tablet twice daily"
                       value={prescriptionForm.dosage}
                       onChange={(e) => setPrescriptionForm({ ...prescriptionForm, dosage: e.target.value })}
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                     />
                   </div>
-
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Instructions / Notes</label>
                     <textarea
                       rows={3}
-                      placeholder="e.g. Take with food. Complete full course."
+                      placeholder="Take with food..."
                       value={prescriptionForm.instructions}
                       onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                     />
                   </div>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                  <div className="flex justify-end gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setModalType(null)}
-                      className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 font-medium text-sm transition"
+                      className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition disabled:opacity-50"
+                      className="px-5 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition disabled:opacity-50 shadow-sm"
                     >
-                      {submitting ? "Issuing..." : "Confirm & Issue"}
+                      {submitting ? "Issuing..." : "Submit Prescription"}
                     </button>
                   </div>
                 </form>
-              </>
-            )}
+              )}
 
-            {/* Clinical Note Modal */}
-            {modalType === "note" && activePatient && (
-              <>
-                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                  <div className="flex items-center gap-2">
-                    <FileText className="text-blue-600" size={20} />
-                    <h3 className="text-lg font-bold text-slate-900">Clinical Documentation</h3>
-                  </div>
-                  <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600">
-                    <X size={20} />
-                  </button>
-                </div>
-
-                {feedbackMsg && (
-                  <div className="bg-emerald-50 text-emerald-700 p-3 rounded-lg text-xs font-medium flex items-center gap-2">
-                    <CheckCircle size={16} /> {feedbackMsg}
-                  </div>
-                )}
-
+              {modalType === "note" && (
                 <form onSubmit={handleSaveNote} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Doctor's Assessment & Clinical Notes</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Clinical Observations & Notes</label>
                     <textarea
                       rows={5}
                       required
-                      placeholder="Enter detailed observation, diagnosis, and treatment plan..."
                       value={clinicalNote}
                       onChange={(e) => setClinicalNote(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
+                      placeholder="Enter examination notes, diagnosis, and treatment plan..."
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                     />
                   </div>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                  <div className="flex justify-end gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setModalType(null)}
-                      className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 font-medium text-sm transition"
+                      className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition disabled:opacity-50"
+                      className="px-5 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition disabled:opacity-50 shadow-sm"
                     >
-                      {submitting ? "Saving..." : "Save Clinical Note"}
+                      {submitting ? "Saving..." : "Save Note"}
                     </button>
                   </div>
                 </form>
-              </>
-            )}
+              )}
 
-            {/* Quick View Modal */}
-            {modalType === "quickView" && quickViewPatient && (
-              <>
-                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                  <div className="flex items-center gap-2">
-                    <Users className="text-blue-600" size={20} />
-                    <h3 className="text-lg font-bold text-slate-900">Patient Quick View</h3>
-                  </div>
-                  <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600">
-                    <X size={20} />
-                  </button>
-                </div>
-
-                <div className="space-y-4 text-sm">
-                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-200/70 space-y-2">
-                    <p><span className="font-semibold text-slate-500">Name:</span> <span className="text-slate-800 font-medium">{quickViewPatient.patient_name}</span></p>
-                    <p><span className="font-semibold text-slate-500">Phone:</span> <span className="text-slate-800">{quickViewPatient.phone || "N/A"}</span></p>
-                    <p><span className="font-semibold text-slate-500">Scheduled Visit:</span> <span className="text-slate-800">{formatDisplayDate(quickViewPatient.appointment_date)} at {formatDisplayTime(quickViewPatient.appointment_time)}</span></p>
-                    <p><span className="font-semibold text-slate-500">Reason for Visit:</span> <span className="text-slate-800">{quickViewPatient.reason || "General Consultation"}</span></p>
-                  </div>
-
+              {modalType === "quickView" && quickViewPatient && (
+                <div className="space-y-4 text-sm text-slate-700">
                   <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Medical Questionnaire History:</p>
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs text-slate-700 max-h-32 overflow-y-auto whitespace-pre-wrap">
-                      {quickViewPatient.medical_history || "No questionnaire history on file."}
-                    </div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase">Patient Name</p>
+                    <p className="font-bold text-slate-900">{quickViewPatient.patient_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase">Contact Phone</p>
+                    <p>{quickViewPatient.phone || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase">Appointment Time</p>
+                    <p>{formatDisplayDate(quickViewPatient.appointment_date)} at {formatDisplayTime(quickViewPatient.appointment_time)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase">Reason for Visit</p>
+                    <p>{quickViewPatient.reason || "General Consultation"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase">Medical History / Questionnaire</p>
+                    <p className="bg-slate-50 p-3 rounded-lg border border-slate-200 mt-1 whitespace-pre-wrap text-xs">
+                      {quickViewPatient.medical_history || "No medical history recorded."}
+                    </p>
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <button
+                      onClick={() => {
+                        setModalType(null);
+                        handleSelectPatient(quickViewPatient);
+                      }}
+                      className="px-5 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition shadow-sm"
+                    >
+                      Open Full Workspace
+                    </button>
                   </div>
                 </div>
+              )}
 
-                <div className="flex justify-end pt-2">
-                  <button
-                    onClick={() => {
-                      setModalType(null);
-                      handleSelectPatient(quickViewPatient);
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm"
-                  >
-                    Open Full Clinical Workspace
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* Quick Lab Order Modal */}
-            {modalType === "quickLab" && quickLabApt && (
-              <>
-                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                  <div className="flex items-center gap-2">
-                    <FileSpreadsheet className="text-blue-600" size={20} />
-                    <h3 className="text-lg font-bold text-slate-900">Order Laboratory Test</h3>
-                  </div>
-                  <button onClick={() => setModalType(null)} className="text-slate-400 hover:text-slate-600">
-                    <X size={20} />
-                  </button>
-                </div>
-
-                {feedbackMsg && (
-                  <div className={`p-3 rounded-lg text-xs font-medium flex items-center gap-2 ${feedbackMsg.includes("successfully") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-                    <AlertCircle size={16} /> {feedbackMsg}
-                  </div>
-                )}
-
+              {modalType === "quickLab" && (
                 <form onSubmit={handleAddLabOrder} className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Test Name</label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Complete Blood Count (CBC) / Lipid Panel"
+                      placeholder="e.g., Complete Blood Count (CBC)"
                       value={labOrderForm.test_name}
                       onChange={(e) => setLabOrderForm({ ...labOrderForm, test_name: e.target.value })}
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Clinical Notes / Instructions</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Lab Instructions / Notes</label>
                     <textarea
                       rows={3}
-                      placeholder="e.g. Fasting required before draw."
+                      placeholder="Fasting required prior to draw..."
                       value={labOrderForm.notes}
                       onChange={(e) => setLabOrderForm({ ...labOrderForm, notes: e.target.value })}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 resize-none"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                     />
                   </div>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                  <div className="flex justify-end gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setModalType(null)}
-                      className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 font-medium text-sm transition"
+                      className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition disabled:opacity-50"
+                      className="px-5 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition disabled:opacity-50 shadow-sm"
                     >
-                      {submitting ? "Submitting..." : "Submit Lab Order"}
+                      {submitting ? "Ordering..." : "Order Lab Test"}
                     </button>
                   </div>
                 </form>
-              </>
-            )}
-
+              )}
+            </div>
           </div>
         </div>
       )}
