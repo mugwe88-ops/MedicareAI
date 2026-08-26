@@ -11,7 +11,9 @@ import {
   XCircle, 
   AlertCircle, 
   Search,
-  Filter
+  Filter,
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 interface Appointment {
@@ -24,20 +26,32 @@ interface Appointment {
   status?: string;
 }
 
+interface AvailabilitySlot {
+  id: string | number;
+  day: string;
+  start_time: string;
+  end_time: string;
+}
+
 export default function ScheduleManagerPage() {
   const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [feedback, setFeedback] = useState<string | null>(null);
+  
+  // Availability form state
+  const [dayOfWeek, setDayOfWeek] = useState('Monday');
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('17:00');
+  const [slotMessage, setSlotMessage] = useState<string | null>(null);
 
-  // Fetch appointments for the doctor
+  // Fetch appointments & availability slots
   useEffect(() => {
-    async function fetchAppointments() {
+    async function fetchData() {
       try {
         setLoading(true);
-        // Replace with your actual backend endpoint for fetching appointments
         const res = await fetch('https://medicareai-yb5c.onrender.com/api/doctors/appointments', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
@@ -48,7 +62,6 @@ export default function ScheduleManagerPage() {
           const data = await res.json();
           setAppointments(data.appointments || data || []);
         } else {
-          // Fallback mock data if API is unreachable during development
           setAppointments([
             {
               id: 1,
@@ -71,17 +84,33 @@ export default function ScheduleManagerPage() {
           ]);
         }
       } catch (err) {
-        console.error('Failed to load schedule:', err);
+        console.error('Failed to load schedule data:', err);
       } finally {
         setLoading(false);
       }
     }
 
-    fetchAppointments();
+    fetchData();
   }, []);
 
+  const handleAddSlot = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newSlot: AvailabilitySlot = {
+      id: Date.now(),
+      day: dayOfWeek,
+      start_time: startTime,
+      end_time: endTime,
+    };
+    setAvailabilitySlots([...availabilitySlots, newSlot]);
+    setSlotMessage('Availability slot added successfully.');
+    setTimeout(() => setSlotMessage(null), 3000);
+  };
+
+  const handleDeleteSlot = (id: string | number) => {
+    setAvailabilitySlots(availabilitySlots.filter(slot => slot.id !== id));
+  };
+
   const handleStartConsultation = (appointmentId: string | number) => {
-    // Navigate correctly to the telehealth room with the unique appointment ID
     router.push(`/doctors/telehealth/${appointmentId}`);
   };
 
@@ -105,7 +134,7 @@ export default function ScheduleManagerPage() {
             Schedule Manager
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Manage upcoming patient consultations, review daily agendas, and launch secure telehealth sessions.
+            Manage practice availability slots, upcoming patient consultations, and launch secure telehealth sessions.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -116,6 +145,88 @@ export default function ScheduleManagerPage() {
             <Video size={18} />
             Quick Consult Room
           </button>
+        </div>
+      </div>
+
+      {slotMessage && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
+          <CheckCircle size={18} /> {slotMessage}
+        </div>
+      )}
+
+      {/* Manage Practice Availability Slots Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="text-blue-600" size={20} />
+            <h3 className="font-bold text-slate-800 text-base">Manage Practice Availability Slots</h3>
+          </div>
+          <span className="text-xs text-slate-400 font-medium">Configure schedule visible to patients during booking</span>
+        </div>
+
+        <form onSubmit={handleAddSlot} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Day of Week</label>
+            <select
+              value={dayOfWeek}
+              onChange={(e) => setDayOfWeek(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+            >
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Start Time</label>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">End Time</label>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <button
+              type="submit"
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition shadow-sm"
+            >
+              <Plus size={16} /> Add Slot
+            </button>
+          </div>
+        </form>
+
+        <div className="pt-2">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Current Active Schedule:</p>
+          {availabilitySlots.length === 0 ? (
+            <p className="text-xs text-slate-400 italic">No availability slots added yet. Patients will not see open times for booking.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {availabilitySlots.map(slot => (
+                <div key={slot.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm">
+                  <div>
+                    <span className="font-bold text-slate-800">{slot.day}</span>
+                    <div className="text-xs text-slate-500">{slot.start_time} - {slot.end_time}</div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteSlot(slot.id)}
+                    className="text-slate-400 hover:text-red-600 p-1 transition"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
