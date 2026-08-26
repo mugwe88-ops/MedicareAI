@@ -61,7 +61,7 @@ export default function ScheduleManager() {
     fetchSlots(token);
   }, []);
 
-  const fetchSlots = async (authToken?: string) => {
+  const fetchSlots = async (authToken?: string | null) => {
     const token = authToken || localStorage.getItem("token");
     try {
       const res = await fetch(`${API_BASE}/api/doctor/availability`, {
@@ -88,7 +88,6 @@ export default function ScheduleManager() {
 
     const token = localStorage.getItem("token");
     try {
-      // Build robust payload compatible with both date-specific and recurring slot endpoints
       const payload: any = {
         start_time: startTime,
         end_time: endTime,
@@ -96,7 +95,6 @@ export default function ScheduleManager() {
 
       if (mode === "specific") {
         payload.slot_date = selectedDate;
-        // Derive day of week for convenience if backend expects it
         const d = new Date(selectedDate);
         payload.day_of_week = !isNaN(d.getTime())
           ? d.toLocaleDateString("en-US", { weekday: "long" })
