@@ -13,7 +13,9 @@ import {
   Search,
   Filter,
   Plus,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface Appointment {
@@ -41,11 +43,16 @@ export default function ScheduleManagerPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // Calendar State
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
   
   // Availability form state
   const [slotType, setSlotType] = useState<'recurring' | 'specific'>('specific');
   const [dayOfWeek, setDayOfWeek] = useState('Monday');
-  const [specificDate, setSpecificDate] = useState(new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
   const [slotMessage, setSlotMessage] = useState<string | null>(null);
@@ -96,12 +103,28 @@ export default function ScheduleManagerPage() {
     fetchData();
   }, []);
 
+  // Calendar Helpers
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const monthName = currentDate.toLocaleString('default', { month: 'long' });
+
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
+
   const handleAddSlot = (e: React.FormEvent) => {
     e.preventDefault();
     const newSlot: AvailabilitySlot = {
       id: Date.now(),
       type: slotType,
-      day_or_date: slotType === 'specific' ? specificDate : dayOfWeek,
+      day_or_date: slotType === 'specific' ? selectedDate : dayOfWeek,
       start_time: startTime,
       end_time: endTime,
     };
@@ -138,7 +161,7 @@ export default function ScheduleManagerPage() {
             Schedule Manager
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Manage practice availability slots, upcoming patient consultations, and launch secure telehealth sessions.
+            Manage practice availability slots via monthly calendar, review appointments, and launch secure telehealth sessions.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -158,48 +181,104 @@ export default function ScheduleManagerPage() {
         </div>
       )}
 
-      {/* Manage Practice Availability Slots Card */}
+      {/* Monthly Calendar Grid & Slot Management */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between border-b border-slate-100 pb-4 gap-4">
           <div className="flex items-center gap-2">
             <CalendarIcon className="text-blue-600" size={20} />
-            <h3 className="font-bold text-slate-800 text-base">Manage Practice Availability Slots</h3>
+            <h3 className="font-bold text-slate-800 text-base">Monthly Practice Calendar & Availability</h3>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setSlotType('specific')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${slotType === 'specific' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-              Specific Date
-            </button>
-            <button
-              type="button"
-              onClick={() => setSlotType('recurring')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${slotType === 'recurring' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-              Recurring Day
-            </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+              <button onClick={handlePrevMonth} className="p-1.5 hover:bg-white rounded-lg transition text-slate-600">
+                <ChevronLeft size={18} />
+              </button>
+              <span className="px-3 text-sm font-bold text-slate-800">{monthName} {year}</span>
+              <button onClick={handleNextMonth} className="p-1.5 hover:bg-white rounded-lg transition text-slate-600">
+                <ChevronRight size={18} />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSlotType('specific')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${slotType === 'specific' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                Specific Date
+              </button>
+              <button
+                type="button"
+                onClick={() => setSlotType('recurring')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${slotType === 'recurring' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                Recurring Day
+              </button>
+            </div>
           </div>
         </div>
 
-        <form onSubmit={handleAddSlot} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        {/* Calendar Grid View */}
+        <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50 p-4">
+          <div className="grid grid-cols-7 gap-2 text-center font-bold text-xs text-slate-400 uppercase tracking-wider mb-2">
+            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {/* Blank padding for start of month */}
+            {Array.from({ length: firstDayIndex }).map((_, index) => (
+              <div key={`empty-${index}`} className="h-20 bg-transparent" />
+            ))}
+
+            {/* Days of the month */}
+            {Array.from({ length: totalDaysInMonth }).map((_, index) => {
+              const dayNum = index + 1;
+              const formattedDay = dayNum < 10 ? `0${dayNum}` : `${dayNum}`;
+              const formattedMonth = (month + 1) < 10 ? `0${month + 1}` : `${month + 1}`;
+              const dateString = `${year}-${formattedMonth}-${formattedDay}`;
+              const isSelected = selectedDate === dateString;
+              const hasSlots = availabilitySlots.some(s => s.day_or_date === dateString);
+
+              return (
+                <div
+                  key={dateString}
+                  onClick={() => {
+                    setSelectedDate(dateString);
+                    setSlotType('specific');
+                  }}
+                  className={`h-20 p-2 rounded-xl border flex flex-col justify-between cursor-pointer transition ${isSelected ? 'bg-blue-50 border-blue-500 shadow-sm ring-2 ring-blue-400/20' : 'bg-white border-slate-200 hover:border-blue-300'}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>{dayNum}</span>
+                    {hasSlots && <span className="w-2 h-2 rounded-full bg-emerald-500" title="Has Active Slots" />}
+                  </div>
+                  {hasSlots && (
+                    <span className="text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-1.5 py-0.5 rounded truncate">
+                      Slots Active
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Add Slot Form for Selected Date/Recurring */}
+        <form onSubmit={handleAddSlot} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-slate-50 p-4 rounded-xl border border-slate-200">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              {slotType === 'specific' ? 'Select Date' : 'Day of Week'}
+              {slotType === 'specific' ? `Selected Date: ${selectedDate}` : 'Day of Week'}
             </label>
             {slotType === 'specific' ? (
               <input
                 type="date"
-                value={specificDate}
-                onChange={(e) => setSpecificDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
               />
             ) : (
               <select
                 value={dayOfWeek}
                 onChange={(e) => setDayOfWeek(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
               >
                 {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
                   <option key={day} value={day}>{day}</option>
@@ -213,7 +292,7 @@ export default function ScheduleManagerPage() {
               type="time"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
           <div>
@@ -222,7 +301,7 @@ export default function ScheduleManagerPage() {
               type="time"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
           <div>
