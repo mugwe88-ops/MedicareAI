@@ -51,6 +51,14 @@ export default function TelehealthPage() {
       });
   }, [router]);
 
+  const handleLaunchRoom = (item: Consultation) => {
+    const roomUrl = item.telehealth_room_url && item.telehealth_room_url !== "#" 
+      ? item.telehealth_room_url 
+      : `/patient/telehealth/room/${item.id}`;
+    
+    window.open(roomUrl, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto p-4 sm:p-8 space-y-8 my-4">
       {/* HEADER SECTION */}
@@ -88,7 +96,7 @@ export default function TelehealthPage() {
               <div className="py-8 text-center bg-slate-800/40 rounded-xl border border-slate-800 my-4">
                 <p className="text-xs text-slate-400 mb-3">No active booked appointments found.</p>
                 <button
-                  onClick={() => router.push("/dashboard/appointments")}
+                  onClick={() => router.push("/patient/dashboard/appointments")}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition"
                 >
                   Book an Appointment Now
@@ -116,14 +124,12 @@ export default function TelehealthPage() {
                       </p>
                     </div>
 
-                    <a
-                      href={item.telehealth_room_url || "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => handleLaunchRoom(item)}
                       className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition shadow-md shadow-blue-600/30 whitespace-nowrap cursor-pointer"
                     >
                       🎥 Launch Consultation Room
-                    </a>
+                    </button>
                   </div>
                 ))}
               </div>
