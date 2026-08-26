@@ -24,10 +24,10 @@ export default function DoctorDashboardLayout({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // FIXED: Corrected nav item paths to stay completely inside the doctor namespace
+  // FIXED: Corrected the Telehealth Room href to match your exact folder structure path
   const navItems = [
     { name: 'Dashboard', href: '/doctors/dashboard', icon: LayoutDashboard },
-    { name: 'Telehealth Room', href: '/doctors/telehealth', icon: Video },
+    { name: 'Telehealth Room', href: '/doctors/telehealth/quick-consult', icon: Video },
     { name: 'Schedule Manager', href: '/doctors/dashboard/schedule', icon: Clock },
     { name: 'Settings', href: '/doctors/settings', icon: Settings },
   ];
