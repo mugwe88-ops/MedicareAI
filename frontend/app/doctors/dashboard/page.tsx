@@ -365,8 +365,8 @@ export default function DoctorDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex">
-      {/* Sidebar Navigation */}
-      <aside className="w-64 bg-slate-950 text-slate-300 flex flex-col justify-between hidden md:flex sticky top-0 h-screen border-r border-slate-800">
+      {/* Primary Sidebar Navigation */}
+      <aside className="w-64 bg-slate-950 text-slate-300 flex flex-col justify-between hidden md:flex sticky top-0 h-screen border-r border-slate-800 z-30">
         <div>
           <div className="p-6 border-b border-slate-800/80">
             <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Swift MD Portal</p>
@@ -423,8 +423,8 @@ export default function DoctorDashboard() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header bar */}
-        <header className="bg-slate-900 text-white px-8 py-3.5 flex justify-between items-center sticky top-0 z-40 border-b border-slate-800 shadow-sm">
+        {/* Top Header Bar */}
+        <header className="bg-slate-900 text-white px-8 py-3.5 flex justify-between items-center sticky top-0 z-20 border-b border-slate-800 shadow-sm">
           <div>
             <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Live Practice Environment</p>
             <p className="text-sm font-medium text-slate-200">Welcome back, {doctorName}</p>
