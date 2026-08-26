@@ -6,17 +6,15 @@ import {
   Pill, 
   Video, 
   CheckCircle, 
-  ArrowLeft, 
   X, 
-  AlertCircle,
-  Calendar,
-  Clock,
-  Plus,
-  Trash2,
   Users,
   Activity,
   Eye,
-  FileSpreadsheet
+  FileSpreadsheet,
+  LayoutDashboard,
+  Calendar,
+  Settings as SettingsIcon,
+  LogOut
 } from "lucide-react";
 
 interface Appointment {
@@ -43,29 +41,12 @@ interface Prescription {
   created_at?: string;
 }
 
-interface AvailabilitySlot {
-  id?: number;
-  day_of_week: string;
-  start_time: string;
-  end_time: string;
-}
-
 export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [doctorName, setDoctorName] = useState<string>("Doctor");
+  const [doctorName, setDoctorName] = useState<string>("Dr. Ivan Weru");
   const [doctorId, setDoctorId] = useState<number | null>(null);
   
-  // Availability states
-  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
-  const [newSlot, setNewSlot] = useState<AvailabilitySlot>({
-    day_of_week: "Monday",
-    start_time: "09:00",
-    end_time: "17:00",
-  });
-  const [savingSlot, setSavingSlot] = useState(false);
-  const [availabilityMsg, setAvailabilityMsg] = useState<string | null>(null);
-
   // Drill-down selected patient state
   const [activePatient, setActivePatient] = useState<Appointment | null>(null);
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
@@ -110,7 +91,6 @@ export default function DoctorDashboard() {
         const resolvedId = parsed.id || parsed.doctor_id || parsed.userId || parsed.user_id;
         if (resolvedId) {
           setDoctorId(Number(resolvedId));
-          fetchAvailability(Number(resolvedId), token);
         }
       } catch (e) {
         console.error("Failed to parse local user profile", e);
@@ -141,78 +121,6 @@ export default function DoctorDashboard() {
       console.error("Fetch Error:", err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchAvailability = async (docId: number, token?: string) => {
-    const authToken = token || localStorage.getItem("token") || undefined;
-    try {
-      const res = await fetch(`${API_BASE}/api/doctors/${docId}/availability`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) setAvailabilitySlots(data);
-      }
-    } catch (err) {
-      console.error("Error fetching availability:", err);
-    }
-  };
-
-  const handleAddAvailability = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!doctorId) return;
-    setSavingSlot(true);
-    setAvailabilityMsg(null);
-
-    const token = localStorage.getItem("token");
-    try {
-      const res = await fetch(`${API_BASE}/api/doctors/${doctorId}/availability`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(newSlot),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "Failed to add availability slot");
-
-      setAvailabilityMsg("Availability updated successfully!");
-      fetchAvailability(Number(doctorId), token || undefined);
-      setTimeout(() => setAvailabilityMsg(null), 2500);
-    } catch (err: any) {
-      setAvailabilityMsg(err.message || "Error saving availability slot.");
-    } finally {
-      setSavingSlot(false);
-    }
-  };
-
-  const handleDeleteAvailability = async (slotId?: number) => {
-    if (!slotId || !doctorId) return;
-    const token = localStorage.getItem("token");
-
-    setAvailabilitySlots((prev) => prev.filter((s) => s.id !== slotId));
-
-    try {
-      const res = await fetch(`${API_BASE}/api/doctors/${doctorId}/availability/${slotId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to delete availability slot.");
-      }
-    } catch (err) {
-      console.error("Error deleting slot:", err);
-      fetchAvailability(doctorId, token || undefined);
     }
   };
 
@@ -456,409 +364,387 @@ export default function DoctorDashboard() {
   const pendingLabReviews = appointments.filter(a => a.status?.toLowerCase() === "pending").length;
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-      {/* Navbar */}
-      <nav className="bg-white border-b border-slate-200 px-6 py-3.5 flex justify-between items-center sticky top-0 z-40 shadow-sm">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-blue-600 tracking-tight">
-            MEDICARE <span className="text-slate-800 font-normal">AI</span>
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-sm font-semibold text-slate-900 leading-tight">{doctorName}</p>
-            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">
-              Medical Specialist
-            </p>
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex">
+      {/* Sidebar Navigation */}
+      <aside className="w-64 bg-slate-950 text-slate-300 flex flex-col justify-between hidden md:flex sticky top-0 h-screen border-r border-slate-800">
+        <div>
+          <div className="p-6 border-b border-slate-800/80">
+            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Swift MD Portal</p>
+            <h2 className="text-lg font-bold text-white tracking-tight mt-0.5">Doctor Workspace</h2>
           </div>
-          <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm shadow-sm">
-            {getInitials(doctorName)}
-          </div>
-        </div>
-      </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {activePatient ? (
-          /* --- INDIVIDUAL PATIENT RECORD & CLINICAL WORKSPACE --- */
-          <div className="space-y-6">
-            <button
-              onClick={() => setActivePatient(null)}
-              className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-600 transition"
+          <div className="p-4 space-y-1">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 mb-2">Clinical Menu</p>
+            
+            <button 
+              onClick={() => { setActivePatient(null); }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-600 text-white font-medium text-sm shadow-sm transition"
             >
-              <ArrowLeft size={16} /> Back to Appointments List
+              <LayoutDashboard size={18} /> Dashboard
             </button>
+            <button 
+              onClick={() => {
+                const firstApt = appointments[0];
+                if (firstApt) router.push(`/doctors/dashboard/telehealth/${firstApt.id}`);
+                else alert("No active appointment available for telehealth room.");
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 font-medium text-sm transition"
+            >
+              <Video size={18} /> Telehealth Room
+            </button>
+            <button 
+              onClick={() => router.push("/doctors/schedule")}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 font-medium text-sm transition"
+            >
+              <Calendar size={18} /> Schedule Manager
+            </button>
+            <button 
+              onClick={() => router.push("/doctors/settings")}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 font-medium text-sm transition"
+            >
+              <SettingsIcon size={18} /> Settings
+            </button>
+          </div>
+        </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-6">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                      {activePatient.patient_name || "Anonymous Patient"}
-                    </h2>
-                    <span className={`px-3 py-1 text-[10px] font-semibold rounded-full uppercase tracking-wider border ${getStatusStyles(activePatient.status)}`}>
-                      {activePatient.status || "Scheduled"}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Phone: <span className="font-medium text-slate-700">{activePatient.phone || "N/A"}</span> • Visit Timing: <span className="font-medium text-slate-700">{formatDisplayDate(activePatient.appointment_date)} at {formatDisplayTime(activePatient.appointment_time)}</span>
-                  </p>
-                </div>
+        <div className="p-4 border-t border-slate-800">
+          <button 
+            onClick={() => {
+              localStorage.removeItem("token");
+              localStorage.removeItem("user");
+              router.push("/login");
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-950/30 rounded-lg transition"
+          >
+            <LogOut size={16} /> Sign Out
+          </button>
+        </div>
+      </aside>
 
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => router.push(`/doctors/dashboard/telehealth/${activePatient.id}`)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm shadow-sm"
-                  >
-                    <Video size={16} /> Start Video Consultation
-                  </button>
-                  <button
-                    onClick={() => handleStatusUpdate(activePatient.id, "completed")}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-lg hover:bg-emerald-50 transition font-medium text-sm border border-emerald-200"
-                  >
-                    <CheckCircle size={16} /> Complete Visit
-                  </button>
-                </div>
-              </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Header bar */}
+        <header className="bg-slate-900 text-white px-8 py-3.5 flex justify-between items-center sticky top-0 z-40 border-b border-slate-800 shadow-sm">
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Live Practice Environment</p>
+            <p className="text-sm font-medium text-slate-200">Welcome back, {doctorName}</p>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-50 p-5 rounded-lg border border-slate-200/70 space-y-4">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Patient Medical Questionnaire & History
-                  </h3>
-                  <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-3">
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase">Chief Reason for Visit</p>
-                      <p className="text-sm font-medium text-slate-800 mt-0.5">
-                        {activePatient.reason || "General Consultation"}
-                      </p>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-sm font-bold text-white leading-tight">{doctorName}</p>
+              <p className="text-[10px] font-medium text-blue-400 uppercase tracking-wider">Medical Specialist</p>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow">
+              {getInitials(doctorName)}
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-7xl w-full mx-auto px-6 py-8 space-y-8 flex-1">
+          {activePatient ? (
+            /* --- INDIVIDUAL PATIENT RECORD & CLINICAL WORKSPACE --- */
+            <div className="space-y-6">
+              <button
+                onClick={() => setActivePatient(null)}
+                className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-600 transition"
+              >
+                ← Back to Appointments List
+              </button>
+
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+                        {activePatient.patient_name || "Anonymous Patient"}
+                      </h2>
+                      <span className={`px-3 py-1 text-[10px] font-semibold rounded-full uppercase tracking-wider border ${getStatusStyles(activePatient.status)}`}>
+                        {activePatient.status || "Scheduled"}
+                      </span>
                     </div>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Phone: <span className="font-medium text-slate-700">{activePatient.phone || "N/A"}</span> • Visit Timing: <span className="font-medium text-slate-700">{formatDisplayDate(activePatient.appointment_date)} at {formatDisplayTime(activePatient.appointment_time)}</span>
+                    </p>
+                  </div>
 
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase">Questionnaire Response Profile</p>
-                      <div className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">
-                        {activePatient.medical_history || "No prior questionnaire data submitted."}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => router.push(`/doctors/dashboard/telehealth/${activePatient.id}`)}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm shadow-sm"
+                    >
+                      <Video size={16} /> Start Video Consultation
+                    </button>
+                    <button
+                      onClick={() => handleStatusUpdate(activePatient.id, "completed")}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-lg hover:bg-emerald-50 transition font-medium text-sm border border-emerald-200"
+                    >
+                      <CheckCircle size={16} /> Complete Visit
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-slate-50 p-5 rounded-lg border border-slate-200/70 space-y-4">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Patient Medical Questionnaire & History
+                    </h3>
+                    <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase">Chief Reason for Visit</p>
+                        <p className="text-sm font-medium text-slate-800 mt-0.5">
+                          {activePatient.reason || "General Consultation"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase">Questionnaire Response Profile</p>
+                        <div className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">
+                          {activePatient.medical_history || "No prior questionnaire data submitted."}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="bg-slate-50 p-5 rounded-lg border border-slate-200/70 space-y-6">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Clinical Documentation
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setClinicalNote(activePatient.clinical_notes || "");
-                          setModalType("note");
-                        }}
-                        className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1"
-                      >
-                        <FileText size={14} /> {activePatient.clinical_notes ? "Edit Note" : "Add Clinical Note"}
-                      </button>
+                  <div className="bg-slate-50 p-5 rounded-lg border border-slate-200/70 space-y-6">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Clinical Documentation
+                        </h3>
+                        <button
+                          onClick={() => {
+                            setClinicalNote(activePatient.clinical_notes || "");
+                            setModalType("note");
+                          }}
+                          className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          <FileText size={14} /> {activePatient.clinical_notes ? "Edit Note" : "Add Clinical Note"}
+                        </button>
+                      </div>
+
+                      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Doctor's Clinical Notes:</p>
+                        <div className="text-slate-700 text-sm min-h-[50px]">
+                          {activePatient.clinical_notes || (
+                            <span className="text-slate-400 italic">No clinical notes recorded yet.</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Doctor's Clinical Notes:</p>
-                      <div className="text-slate-700 text-sm min-h-[50px]">
-                        {activePatient.clinical_notes || (
-                          <span className="text-slate-400 italic">No clinical notes recorded yet.</span>
+                    <div className="space-y-2 pt-2 border-t border-slate-200">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Issued Prescriptions
+                        </h3>
+                        <button
+                          onClick={() => setModalType("prescription")}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition font-semibold text-xs flex items-center gap-1"
+                        >
+                          <Pill size={14} /> Issue Prescription
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                        {loadingPrescriptions ? (
+                          <p className="text-xs text-slate-400 italic">Loading prescriptions...</p>
+                        ) : patientPrescriptions.length === 0 ? (
+                          <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-400 italic">
+                            No prescriptions issued for this visit yet.
+                          </div>
+                        ) : (
+                          patientPrescriptions.map((rx) => (
+                            <div key={rx.id} className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-semibold text-slate-900 text-sm">
+                                  {rx.medication || rx.medication_name || rx.drug_name || "Medication"}
+                                </p>
+                                <p className="text-xs text-slate-600 mt-0.5">
+                                  Dosage: <span className="font-medium">{rx.dosage}</span>
+                                </p>
+                                {rx.instructions && (
+                                  <p className="text-xs text-slate-500 mt-1 italic">
+                                    Instructions: {rx.instructions}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-medium text-[10px] rounded uppercase">
+                                Active
+                              </span>
+                            </div>
+                          ))
                         )}
                       </div>
                     </div>
                   </div>
-
-                  <div className="space-y-2 pt-2 border-t border-slate-200">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Issued Prescriptions
-                      </h3>
-                      <button
-                        onClick={() => setModalType("prescription")}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition font-semibold text-xs flex items-center gap-1"
-                      >
-                        <Pill size={14} /> Issue Prescription
-                      </button>
-                    </div>
-
-                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                      {loadingPrescriptions ? (
-                        <p className="text-xs text-slate-400 italic">Loading prescriptions...</p>
-                      ) : patientPrescriptions.length === 0 ? (
-                        <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-400 italic">
-                          No prescriptions issued for this visit yet.
-                        </div>
-                      ) : (
-                        patientPrescriptions.map((rx) => (
-                          <div key={rx.id} className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-semibold text-slate-900 text-sm">
-                                {rx.medication || rx.medication_name || rx.drug_name || "Medication"}
-                              </p>
-                              <p className="text-xs text-slate-600 mt-0.5">
-                                Dosage: <span className="font-medium">{rx.dosage}</span>
-                              </p>
-                              {rx.instructions && (
-                                <p className="text-xs text-slate-500 mt-1 italic">
-                                  Instructions: {rx.instructions}
-                                </p>
-                              )}
-                            </div>
-                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-medium text-[10px] rounded uppercase">
-                              Active
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ) : (
-          /* --- APPOINTMENTS LIST & AVAILABILITY MANAGEMENT VIEW --- */
-          <>
-            {/* Quick Statistics Bar */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                  <Users size={24} />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Appointments</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-0.5">{appointments.length}</p>
-                </div>
-              </div>
-
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-                  <Activity size={24} />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Lab Reviews</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-0.5">{pendingLabReviews}</p>
-                </div>
-              </div>
-
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                    <Video size={24} />
+          ) : (
+            /* --- APPOINTMENTS DASHBOARD VIEW --- */
+            <>
+              {/* Quick Statistics Bar */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <Users size={24} />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Telehealth Shortcut</p>
-                    <p className="text-sm font-medium text-slate-800 mt-0.5">Quick Virtual Room</p>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Appointments</p>
+                    <p className="text-2xl font-bold text-slate-900 mt-0.5">{appointments.length}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    const firstApt = appointments[0];
-                    if (firstApt) {
-                      router.push(`/doctors/dashboard/telehealth/${firstApt.id}`);
-                    } else {
-                      alert("No active appointments available for telehealth launch.");
-                    }
-                  }}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium text-xs shadow-sm"
-                >
-                  Join Room
-                </button>
-              </div>
-            </div>
 
-            {/* Availability Manager Panel */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="text-blue-600" size={20} />
-                  <h2 className="text-lg font-bold text-slate-900">Manage Practice Availability Slots</h2>
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                    <Activity size={24} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Lab Reviews</p>
+                    <p className="text-2xl font-bold text-slate-900 mt-0.5">{pendingLabReviews}</p>
+                  </div>
                 </div>
-                <span className="text-xs text-slate-500">Configure schedule visible to patients during booking</span>
-              </div>
 
-              {availabilityMsg && (
-                <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-xs font-medium flex items-center gap-2">
-                  <AlertCircle size={16} /> {availabilityMsg}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Day of Week</label>
-                  <select
-                    value={newSlot.day_of_week}
-                    onChange={(e) => setNewSlot({ ...newSlot, day_of_week: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white text-slate-800"
-                  >
-                    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
-                      <option key={day} value={day}>{day}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Start Time</label>
-                  <input
-                    type="time"
-                    value={newSlot.start_time}
-                    onChange={(e) => setNewSlot({ ...newSlot, start_time: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">End Time</label>
-                  <input
-                    type="time"
-                    value={newSlot.end_time}
-                    onChange={(e) => setNewSlot({ ...newSlot, end_time: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
-                  />
-                </div>
-                <div>
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                      <Video size={24} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Telehealth Shortcut</p>
+                      <p className="text-sm font-medium text-slate-800 mt-0.5">Quick Virtual Room</p>
+                    </div>
+                  </div>
                   <button
-                    onClick={handleAddAvailability}
-                    disabled={savingSlot}
-                    className="w-full bg-blue-600 text-white font-medium text-sm py-2 px-4 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+                    onClick={() => {
+                      const firstApt = appointments[0];
+                      if (firstApt) {
+                        router.push(`/doctors/dashboard/telehealth/${firstApt.id}`);
+                      } else {
+                        alert("No active appointments available for telehealth launch.");
+                      }
+                    }}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium text-xs shadow-sm"
                   >
-                    <Plus size={16} /> {savingSlot ? "Adding..." : "Add Slot"}
+                    Join Room
                   </button>
                 </div>
               </div>
 
-              {/* Current Active Availability Chips */}
-              <div className="pt-2">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Current Active Schedule:</p>
-                {availabilitySlots.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">No availability slots added yet. Patients will not see open times for booking.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {availabilitySlots.map((slot) => (
-                      <div key={slot.id || Math.random()} className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700">
-                        <Clock size={14} className="text-blue-500" />
-                        <span>{slot.day_of_week}: {formatDisplayTime(slot.start_time)} - {formatDisplayTime(slot.end_time)}</span>
-                        <button onClick={() => handleDeleteAvailability(slot.id)} className="text-slate-400 hover:text-red-600 transition ml-1">
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              {/* Appointments Section */}
+              <div className="flex justify-between items-end">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+                    Patient Appointments
+                  </h2>
+                  <p className="text-slate-500 text-sm mt-1">
+                    Assigned Records: <span className="font-semibold text-slate-700">{appointments.length}</span> (Click row for full workspace or use quick actions)
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* Appointments Section */}
-            <div className="flex justify-between items-end mb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                  Patient Appointments
-                </h2>
-                <p className="text-slate-500 text-sm mt-1">
-                  Assigned Records: <span className="font-semibold text-slate-700">{appointments.length}</span> (Click row for full workspace or use quick actions)
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Patient Profile
-                    </th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Visit Timing
-                    </th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Medical Reason
-                    </th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
-                      Quick Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {loading ? (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm italic">
-                        Loading appointments...
-                      </td>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        Patient Profile
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        Visit Timing
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        Medical Reason
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
+                        Quick Actions
+                      </th>
                     </tr>
-                  ) : appointments.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm italic">
-                        No appointments currently scheduled.
-                      </td>
-                    </tr>
-                  ) : (
-                    appointments.map((apt) => (
-                      <tr 
-                        key={apt.id} 
-                        className="hover:bg-slate-50/80 transition cursor-pointer"
-                        onClick={() => handleSelectPatient(apt)}
-                      >
-                        <td className="px-6 py-4">
-                          <p className="font-semibold text-slate-900">{apt.patient_name || "Anonymous Patient"}</p>
-                          <p className="text-xs text-slate-500">{apt.phone || "No phone listed"}</p>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-700">
-                          <p className="font-medium">{formatDisplayDate(apt.appointment_date)}</p>
-                          <p className="text-xs text-slate-500">{formatDisplayTime(apt.appointment_time)}</p>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-700 max-w-xs truncate">
-                          {apt.reason || "General Consultation"}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 text-[10px] font-semibold rounded-full uppercase tracking-wider border ${getStatusStyles(apt.status)}`}>
-                            {apt.status || "Scheduled"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => {
-                                setQuickViewPatient(apt);
-                                setModalType("quickView");
-                              }}
-                              title="Quick View Record"
-                              className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                            >
-                              <Eye size={16} />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setQuickPrescriptionApt(apt);
-                                setModalType("prescription");
-                              }}
-                              title="Issue Prescription"
-                              className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                            >
-                              <Pill size={16} />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setQuickLabApt(apt);
-                                setModalType("quickLab");
-                              }}
-                              title="Order Lab Test"
-                              className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                            >
-                              <FileSpreadsheet size={16} />
-                            </button>
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm italic">
+                          Loading appointments...
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </main>
+                    ) : appointments.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm italic">
+                          No appointments currently scheduled.
+                        </td>
+                      </tr>
+                    ) : (
+                      appointments.map((apt) => (
+                        <tr 
+                          key={apt.id} 
+                          className="hover:bg-slate-50/85 transition cursor-pointer"
+                          onClick={() => handleSelectPatient(apt)}
+                        >
+                          <td className="px-6 py-4">
+                            <p className="font-semibold text-slate-900">{apt.patient_name || "Anonymous Patient"}</p>
+                            <p className="text-xs text-slate-500">{apt.phone || "No phone listed"}</p>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-700">
+                            <p className="font-medium">{formatDisplayDate(apt.appointment_date)}</p>
+                            <p className="text-xs text-slate-500">{formatDisplayTime(apt.appointment_time)}</p>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-700 max-w-xs truncate">
+                            {apt.reason || "General Consultation"}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-3 py-1 text-[10px] font-semibold rounded-full uppercase tracking-wider border ${getStatusStyles(apt.status)}`}>
+                              {apt.status || "Scheduled"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setQuickViewPatient(apt);
+                                  setModalType("quickView");
+                                }}
+                                title="Quick View Record"
+                                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              >
+                                <Eye size={16} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setQuickPrescriptionApt(apt);
+                                  setModalType("prescription");
+                                }}
+                                title="Issue Prescription"
+                                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              >
+                                <Pill size={16} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setQuickLabApt(apt);
+                                  setModalType("quickLab");
+                                }}
+                                title="Order Lab Test"
+                                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              >
+                                <FileSpreadsheet size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </main>
+      </div>
 
       {/* --- MODAL DIALOGS --- */}
       {modalType && (
