@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
-import { User, Lock, Bell, Shield, CheckCircle, Save } from 'lucide-react';
+import { User, Lock, CheckCircle, Save } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function DoctorSettingsPage() {
   const [profile, setProfile] = useState({
-    name: 'Dr. Ivan Weru',
-    email: 'ivan.weru@medicareai.com',
-    specialization: 'General Practice & Telehealth',
-    phone: '+1 (555) 382-9011',
-    bio: 'Dedicated medical practitioner leveraging AI tools to enhance patient outcomes.',
+    name: '',
+    email: '',
+    specialization: '',
+    phone: '',
+    bio: '',
   });
 
   const [passwords, setPasswords] = useState({
@@ -18,52 +19,158 @@ export default function DoctorSettingsPage() {
     confirmPassword: '',
   });
 
-  const [notifications, setNotifications] = useState({
-    emailAlerts: true,
-    smsAlerts: false,
-    instantBooking: true,
-  });
-
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleProfileSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setMessage(null);
-    setTimeout(() => {
-      setSaving(false);
-      setMessage('Profile settings updated successfully.');
-    }, 800);
-  };
+  const API_BASE = "https://medicareai-1.onrender.com";
+  const router = useRouter();
 
-  const handlePasswordUpdate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwords.newPassword !== passwords.confirmPassword) {
-      alert('New passwords do not match.');
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
       return;
     }
+    fetchDoctorProfile(token);
+  }, []);
+
+  const fetchDoctorProfile = async (token: string) => {
+    try {
+      // Assuming you have an endpoint for the logged-in doctor's profile
+      const res = await fetch(`${API_BASE}/api/doctors/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        router.push("/login");
+        return;
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        setProfile({
+          name: data.name || data.doctor_name || "",
+          email: data.email || "",
+          specialization: data.specialization || "",
+          phone: data.phone || "",
+          bio: data.bio || "",
+        });
+      } else {
+        // Fallback to local storage user object if API route isn't set up yet
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          setProfile({
+            name: parsed.name || "",
+            email: parsed.email || "",
+            specialization: parsed.specialization || "General Practice",
+            phone: parsed.phone || "",
+            bio: parsed.bio || "",
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load profile:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProfileSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     setSaving(true);
     setMessage(null);
-    setTimeout(() => {
+    setErrorMsg(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/doctors/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(profile),
+      });
+
+      if (!res.ok) throw new Error("Failed to update profile settings.");
+
+      setMessage("Profile settings updated successfully.");
+    } catch (err: any) {
+      setErrorMsg(err.message || "Error updating profile.");
+    } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      setErrorMsg('New passwords do not match.');
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    setErrorMsg(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/auth/update-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          current_password: passwords.currentPassword,
+          new_password: passwords.newPassword,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to update password.");
+      }
+
       setMessage('Password changed securely.');
       setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    }, 800);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Error updating password.");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="p-12 text-center text-slate-500 text-sm italic">
+        Loading account settings...
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8 bg-slate-50 min-h-screen text-slate-900">
-      
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Account Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage your practitioner profile, security credentials, and notification preferences.</p>
+        <p className="text-sm text-slate-500 mt-1">Manage your practitioner profile and security credentials.</p>
       </div>
 
       {message && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
           <CheckCircle size={18} /> {message}
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+          {errorMsg}
         </div>
       )}
 
@@ -126,7 +233,7 @@ export default function DoctorSettingsPage() {
               disabled={saving}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition shadow-sm disabled:opacity-50"
             >
-              <Save size={16} /> Save Changes
+              <Save size={16} /> {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>
@@ -176,12 +283,11 @@ export default function DoctorSettingsPage() {
               disabled={saving}
               className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition shadow-sm disabled:opacity-50"
             >
-              Update Password
+              {saving ? "Updating..." : "Update Password"}
             </button>
           </div>
         </form>
       </div>
-
     </div>
   );
 }
