@@ -118,7 +118,7 @@ export default function ScheduleManager() {
   const handleDeleteSlot = async (id: number) => {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${API_BASE}/api/doctor/availability/${id}`, {
+      const res = await fetch(`${API_BASE}/api/doctors/availability/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
