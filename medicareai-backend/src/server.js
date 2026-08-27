@@ -240,20 +240,22 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
 });
 
 // DELETE Doctor Availability Slot
-app.delete("/api/doctors/:doctorId/availability/:slotId", verifyToken, async (req, res) => {
-  const { doctorId, slotId } = req.params;
+// DELETE Doctor Availability Slot (Singular Endpoint)
+app.delete("/api/doctor/availability/:id", verifyToken, async (req, res) => {
+  const doctorId = req.user?.id || req.user?.userId || req.user?.user_id;
+  const { id } = req.params;
 
   try {
     const result = await pool.query(
       "DELETE FROM doctor_availability WHERE id = $1 AND doctor_id = $2 RETURNING *",
-      [slotId, doctorId]
+      [id, doctorId]
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Availability slot not found." });
+      return res.status(404).json({ error: "Availability slot not found or unauthorized." });
     }
 
-    return res.json({ message: "Slot deleted successfully." });
+    return res.json({ message: "Slot deleted successfully.", deletedSlot: result.rows[0] });
   } catch (err) {
     console.error("Error deleting availability slot:", err);
     return res.status(500).json({ error: "Failed to delete availability slot." });
