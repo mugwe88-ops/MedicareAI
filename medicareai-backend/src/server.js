@@ -161,6 +161,45 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctor/prescriptions", prescriptionRoutes);
 
+// GET Logged-In Doctor Availability Slots (Singular Endpoint)
+app.get("/api/doctor/availability", verifyToken, async (req, res) => {
+  const doctorId = req.user?.id || req.user?.userId || req.user?.user_id;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM doctor_availability WHERE doctor_id = $1 ORDER BY id DESC`,
+      [doctorId]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching availability slots:", err);
+    return res.status(500).json({ error: "Failed to fetch availability slots." });
+  }
+});
+
+// POST Add Doctor Availability Slot (Logged-In Doctor - Singular Endpoint)
+app.post("/api/doctor/availability", verifyToken, async (req, res) => {
+  const doctorId = req.user?.id || req.user?.userId || req.user?.user_id;
+  const { day_of_week, start_time, end_time } = req.body;
+
+  if (!day_of_week || !start_time || !end_time) {
+    return res.status(400).json({ error: "Day of week, start time, and end time are required." });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO doctor_availability (doctor_id, day_of_week, start_time, end_time)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [doctorId, day_of_week, start_time, end_time]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error adding availability slot:", err);
+    return res.status(500).json({ error: "Failed to save availability slot.", details: err.message });
+  }
+});
+
 // GET Doctor Availability Slots
 app.get("/api/doctors/:id/availability", async (req, res) => {
   const { id } = req.params;
@@ -230,8 +269,8 @@ app.put("/api/user/profile", verifyToken, async (req, res) => {
     const updateRes = await pool.query(
       `UPDATE users 
        SET age = COALESCE($1, age), 
-           phone = COALESCE($2, phone), 
-           medical_history = COALESCE($3, medical_history) 
+          phone = COALESCE($2, phone), 
+          medical_history = COALESCE($3, medical_history) 
        WHERE id = $4 
        RETURNING id, name, email, age, phone, medical_history`,
       [age ? parseInt(age, 10) : null, phone, medical_history, userId]
