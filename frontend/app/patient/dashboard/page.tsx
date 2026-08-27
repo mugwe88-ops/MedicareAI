@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, Video, FileText, LogOut, UserCheck } from "lucide-react";
@@ -267,7 +268,7 @@ export default function PatientDashboard() {
           </div>
 
           <div
-            onClick={() => router.push("/patient/dashboard/telehealth")}
+            onClick={() => router.push("/patient/telehealth")}
             className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition group flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition">
@@ -502,9 +503,9 @@ export default function PatientDashboard() {
                       <td className="py-5 px-8 text-right">
                         <button
                           onClick={() =>
-                            router.push(`/patient/dashboard/telehealth/${apt.id}`)
+                            router.push(`/patient/telehealth/room/${apt.id}`)
                           }
-                          className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center"
+                          className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center cursor-pointer"
                           title="Join Call"
                         >
                           <Video size={16} />
