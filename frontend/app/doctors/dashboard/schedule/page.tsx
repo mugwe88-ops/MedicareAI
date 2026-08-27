@@ -52,7 +52,7 @@ export default function ScheduleManager() {
   const fetchSlots = async (authToken?: string | null) => {
     const token = authToken || localStorage.getItem("token");
     try {
-      const res = await fetch(`${API_BASE}/api/doctors/availability`, {
+      const res = await fetch(`${API_BASE}/api/doctor/availability`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -91,7 +91,7 @@ export default function ScheduleManager() {
         payload.day_of_week = recurringDay;
       }
 
-      const res = await fetch(`${API_BASE}/api/doctors/availability`, {
+      const res = await fetch(`${API_BASE}/api/doctor/availability`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -118,7 +118,7 @@ export default function ScheduleManager() {
   const handleDeleteSlot = async (id: number) => {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${API_BASE}/api/doctors/availability/${id}`, {
+      const res = await fetch(`${API_BASE}/api/doctor/availability/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
