@@ -28,7 +28,6 @@ export default function PatientRoomPage() {
       return;
     }
 
-    // Fetch appointment details or room configuration
     fetch(`${API_BASE}/api/appointments/${roomId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -44,7 +43,6 @@ export default function PatientRoomPage() {
       })
       .catch((err) => {
         console.error("Room fetch error:", err);
-        // Fallback placeholder data if the specific single-get route is absent
         setAppointment({
           id: roomId,
           doctor_name: "Practitioner",
@@ -68,7 +66,7 @@ export default function PatientRoomPage() {
         </div>
         <button
           onClick={() => router.push("/patient/telehealth")}
-          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition border border-slate-700"
+          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition border border-slate-700 cursor-pointer"
         >
           Leave Room
         </button>
@@ -87,7 +85,7 @@ export default function PatientRoomPage() {
         /* VIDEO FEED CONTAINER PLACEHOLDER */
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1">
           {/* MAIN VIDEO SCREEN */}
-          lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center relative min-h-[420px] shadow-2xl">
+          <div className="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center relative min-h-[420px] shadow-2xl">
             <div className="absolute top-4 left-4 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-lg text-xs text-slate-300 font-medium flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               Live Secure Channel
