@@ -1,9 +1,7 @@
 import express from "express";
 import bcrypt from "bcrypt";
-import crypto from "crypto";
 import pool from "../utils/db.js";
 import { signAccessToken } from "../utils/jwt.js";
-import { sendVerificationEmail } from "../utils/email.js";
 
 const router = express.Router();
 
@@ -24,13 +22,13 @@ router.post("/register", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Generate secure token & expiration (24 hours)
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    // Auto-verify user for testing purposes (bypass email requirement)
+    const verificationToken = null;
+    const tokenExpiresAt = null;
 
     const result = await pool.query(
       `INSERT INTO users (name, email, password, role, specialization, city, phone, is_verified, verification_token, token_expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, $8, $9)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9)
        RETURNING id, name, email, role`,
       [
         name, 
@@ -47,17 +45,9 @@ router.post("/register", async (req, res) => {
 
     const newUser = result.rows[0];
 
-    // Trigger verification email dispatch
-    await sendVerificationEmail(email, name, verificationToken);
-
-    // Construct verification link for debug fallback
-    const verificationLink = `${process.env.FRONTEND_URL || "http://localhost:3000"}/verify-email?token=${verificationToken}`;
-
     return res.status(201).json({
-      message: "Registration successful! (Debug fallback active)",
-      userId: newUser.id,
-      debugToken: verificationToken,
-      verificationLink: verificationLink
+      message: "Registration successful! Account is auto-verified for testing.",
+      userId: newUser.id
     });
   } catch (err) {
     console.error("Registration error:", err);
@@ -131,7 +121,7 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    // BLOCK unverified users from logging in
+    // BLOCK unverified users from logging in (will pass since users are auto-verified now)
     if (!user.is_verified) {
       return res.status(403).json({ 
         error: "Email not verified. Please check your inbox for the verification link." 
