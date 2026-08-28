@@ -12,6 +12,7 @@ interface Appointment {
   appointment_time: string;
   reason?: string;
   status: string;
+  medical_history?: string;
 }
 
 export default function PatientDashboard() {
@@ -59,25 +60,21 @@ export default function PatientDashboard() {
         if (parsed.age !== undefined && parsed.age !== null) setAge(parsed.age.toString());
         if (parsed.phone) setPhone(parsed.phone);
         
-        // Parse compiled medical history back into individual states if present
         if (parsed.medical_history) {
           const hist = parsed.medical_history;
           
-          // Extract Conditions safely
           const condMatch = hist.match(/Conditions:\s*([^|]+)/);
           if (condMatch && condMatch[1]) {
             const conds = condMatch[1].trim().split(", ").map((c: string) => c.trim()).filter(Boolean);
             if (conds.length > 0) setSelectedConditions(conds);
           }
 
-          // Extract Allergies safely
           const allergyMatch = hist.match(/Allergies:\s*([^|]+)/);
           if (allergyMatch && allergyMatch[1]) {
             const alg = allergyMatch[1].trim();
             if (alg && alg !== "None") setAllergies(alg);
           }
 
-          // Extract Surgeries safely
           const surgMatch = hist.match(/Surgeries:\s*(.+)$/);
           if (surgMatch && surgMatch[1]) {
             const surg = surgMatch[1].trim();
@@ -171,7 +168,6 @@ export default function PatientDashboard() {
 
       setProfileMessage("Questionnaire submitted successfully!");
 
-      // Update local storage so data persists on reloads without extra API fetches
       const storedUser = localStorage.getItem("user");
       if (storedUser) {
         try {
@@ -313,7 +309,6 @@ export default function PatientDashboard() {
           </div>
 
           <form onSubmit={handleProfileSubmit} className="space-y-6">
-            {/* Personal Data Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-slate-100">
               <div>
                 <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Age</label>
@@ -340,7 +335,6 @@ export default function PatientDashboard() {
               </div>
             </div>
 
-            {/* Questionnaire Section: Chronic Conditions */}
             <div>
               <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-3">
                 1. Do you have any of the following chronic conditions? (Check all that apply)
@@ -368,7 +362,6 @@ export default function PatientDashboard() {
               </div>
             </div>
 
-            {/* Questionnaire Section: Allergies */}
             <div>
               <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">
                 2. Do you have any drug or food allergies? (e.g., Sulphur, Penicillin, Dust)
@@ -382,7 +375,6 @@ export default function PatientDashboard() {
               />
             </div>
 
-            {/* Questionnaire Section: Past Surgeries */}
             <div>
               <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">
                 3. Have you had any past major surgeries or hospitalizations?
@@ -423,7 +415,6 @@ export default function PatientDashboard() {
               )}
             </div>
 
-            {/* Submit Bar */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-100">
               <button
                 type="submit"
