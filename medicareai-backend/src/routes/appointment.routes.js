@@ -28,14 +28,16 @@ router.get("/doctor", authenticateToken, async (req, res) => {
       return res.status(403).json({ error: "Access forbidden. Account requires doctor privileges." });
     }
 
-    // FIXED: Use req.user.userId instead of req.user.id
     const doctorId = parseInt(req.user.userId, 10);
 
+    // FIXED: Added u.medical_history and u.age so doctors can view patient questionnaire details
     const result = await pool.query(
       `SELECT 
         a.*, 
         COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
-        COALESCE(a.phone, u.phone, 'N/A') AS phone
+        COALESCE(a.phone, u.phone, 'N/A') AS phone,
+        u.medical_history AS patient_medical_history,
+        u.age AS patient_age
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
        WHERE a.doctor_id = $1
@@ -55,7 +57,6 @@ router.post("/", authenticateToken, async (req, res) => {
   try {
     const { department, doctor_id, appointment_date, appointment_time, reason, patient_name, phone } = req.body;
     
-    // FIXED: Use req.user.userId instead of req.user.id
     const patientId = parseInt(req.user.userId, 10);
 
     if (!appointment_date || !appointment_time) {
@@ -64,7 +65,6 @@ router.post("/", authenticateToken, async (req, res) => {
 
     const parsedDoctorId = doctor_id ? parseInt(doctor_id, 10) : null;
 
-    // Fetch patient name/phone from users table if not supplied in body
     let nameToInsert = patient_name;
     let phoneToInsert = phone;
 
@@ -119,19 +119,21 @@ router.get("/", authenticateToken, async (req, res) => {
   const { patient_id, doctor_id } = req.query;
 
   try {
+    // FIXED: Added u.medical_history and u.age here as well for consistency across endpoints
     let query = `
       SELECT 
         a.*, 
         d.name AS doctor_name,
         COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
-        COALESCE(a.phone, u.phone, 'N/A') AS phone
+        COALESCE(a.phone, u.phone, 'N/A') AS phone,
+        u.medical_history AS patient_medical_history,
+        u.age AS patient_age
       FROM appointments a
       LEFT JOIN users u ON a.patient_id = u.id
       LEFT JOIN users d ON a.doctor_id = d.id
     `;
     let params = [];
 
-    // FIXED: Use req.user.userId instead of req.user.id
     const targetPatientId = patient_id ? parseInt(patient_id, 10) : parseInt(req.user.userId, 10);
 
     if (req.user.role?.toLowerCase() === "patient") {
