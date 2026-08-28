@@ -249,6 +249,29 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
   }
 });
 
+// Get Patient Personal & Clinical Profile
+app.get("/api/user/profile", verifyToken, async (req, res) => {
+  const userId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
+
+  try {
+    const result = await pool.query(
+      `SELECT id, name, email, age, phone, medical_history 
+       FROM users 
+       WHERE id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User profile not found" });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error fetching profile:", err);
+    return res.status(500).json({ error: "Server error fetching profile", details: err.message });
+  }
+});
+
 // DELETE Doctor Availability Slot (Singular Endpoint)
 app.delete("/api/doctor/availability/:id", verifyToken, async (req, res) => {
   const doctorId = req.user?.id || req.user?.userId || req.user?.user_id;
