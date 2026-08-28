@@ -11,6 +11,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import helmet from "helmet";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 
 // Database & Routes
 import pool from "./utils/db.js";
@@ -47,7 +48,7 @@ const io = new Server(httpServer, {
       if (!origin) return callback(null, true);
       const isAllowed =
         allowedOrigins.includes(origin) ||
-        origin.endsWith(".github.dev") ||
+        (process.env.NODE_ENV !== "production" && origin.endsWith(".github.dev")) ||
         origin.includes("localhost");
       if (isAllowed) {
         callback(null, true);
@@ -76,7 +77,7 @@ app.use(
 
       const isAllowed = 
         allowedOrigins.includes(origin) || 
-        origin.endsWith('.github.dev') || 
+        (process.env.NODE_ENV !== "production" && origin.endsWith('.github.dev')) || 
         origin.includes('localhost');
 
       if (isAllowed) {
@@ -93,6 +94,15 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rate Limiter for Authentication & Sensitive Routes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/auth/", authLimiter);
 
 /* ======================
     2.5 ⚡ USER CONTEXT NORMALIZER (Fixes NaN / Undefined IDs)
@@ -239,7 +249,6 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
   }
 });
 
-// DELETE Doctor Availability Slot
 // DELETE Doctor Availability Slot (Singular Endpoint)
 app.delete("/api/doctor/availability/:id", verifyToken, async (req, res) => {
   const doctorId = req.user?.id || req.user?.userId || req.user?.user_id;
@@ -271,8 +280,8 @@ app.put("/api/user/profile", verifyToken, async (req, res) => {
     const updateRes = await pool.query(
       `UPDATE users 
        SET age = COALESCE($1, age), 
-          phone = COALESCE($2, phone), 
-          medical_history = COALESCE($3, medical_history) 
+           phone = COALESCE($2, phone), 
+           medical_history = COALESCE($3, medical_history) 
        WHERE id = $4 
        RETURNING id, name, email, age, phone, medical_history`,
       [age ? parseInt(age, 10) : null, phone, medical_history, userId]
@@ -609,7 +618,7 @@ app.post("/api/doctor/prescriptions", verifyToken, createPrescriptionHandler);
 
 app.use("/api/doctor", doctorRoutes);
 
-// Filtered Appointments for Logged-In Patients (FIXED LINE 571)
+// Filtered Appointments for Logged-In Patients
 app.get("/api/my-appointments", verifyToken, async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -871,7 +880,7 @@ async function initDatabase() {
 }
 
 /* ======================
-    6️⃣ STATIC & CATCH-ALL
+    6️⃣ STATIC & CATCH-ALL (MUST BE AT THE VERY END)
 ====================== */
 const publicPath = path.join(__dirname, "../public");
 app.use(express.static(publicPath));

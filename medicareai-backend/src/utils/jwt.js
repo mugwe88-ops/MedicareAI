@@ -39,10 +39,12 @@ export function verifyToken(req, res, next) {
     console.log("Extracted Token:", token.substring(0, 15) + "...");
     console.log("Using Secret Key:", JWT_SECRET ? "SECRET_PRESENT" : "NO_SECRET_DEFINED");
 
-    // Verify token
-    const decoded = jwt.verify(token, JWT_SECRET);
+    // Verify token and enforce issuer/audience security bounds
+    const decoded = jwt.verify(token, JWT_SECRET, {
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    });
 
-    // FIX: Check decoded.userId first, then sub, then id
     const resolvedId = decoded.userId || decoded.sub || decoded.id;
 
     req.user = {
