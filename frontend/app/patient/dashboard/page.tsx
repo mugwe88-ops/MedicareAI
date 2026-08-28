@@ -46,66 +46,80 @@ export default function PatientDashboard() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-
     if (!token) {
       router.push("/login");
       return;
     }
 
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.name) setUserName(parsed.name);
-        if (parsed.age !== undefined && parsed.age !== null) setAge(parsed.age.toString());
-        if (parsed.phone) setPhone(parsed.phone);
-        
-        if (parsed.medical_history) {
-          const hist = parsed.medical_history;
-          
-          const condMatch = hist.match(/Conditions:\s*([^|]+)/);
-          if (condMatch && condMatch[1]) {
-            const conds = condMatch[1].trim().split(", ").map((c: string) => c.trim()).filter(Boolean);
-            if (conds.length > 0) setSelectedConditions(conds);
-          }
-
-          const allergyMatch = hist.match(/Allergies:\s*([^|]+)/);
-          if (allergyMatch && allergyMatch[1]) {
-            const alg = allergyMatch[1].trim();
-            if (alg && alg !== "None") setAllergies(alg);
-          }
-
-          const surgMatch = hist.match(/Surgeries:\s*(.+)$/);
-          if (surgMatch && surgMatch[1]) {
-            const surg = surgMatch[1].trim();
-            if (surg && surg !== "None") {
-              setHasSurgeries("yes");
-              setSurgeryDetails(surg);
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Failed parsing profile from localStorage", e);
-      }
-    }
-
-    fetchAppointments(token);
+    // Fetch fresh profile data and appointments concurrently from backend
+    fetchPatientData(token);
   }, [router]);
 
-  const fetchAppointments = async (token: string) => {
+  const parseMedicalHistory = (historyStr: string) => {
+    if (!historyStr) return;
+    try {
+      const condMatch = historyStr.match(/Conditions:\s*([^|]+)/);
+      if (condMatch && condMatch[1]) {
+        const conds = condMatch[1].trim().split(", ").map((c: string) => c.trim()).filter(Boolean);
+        if (conds.length > 0) setSelectedConditions(conds);
+      }
+
+      const allergyMatch = historyStr.match(/Allergies:\s*([^|]+)/);
+      if (allergyMatch && allergyMatch[1]) {
+        const alg = allergyMatch[1].trim();
+        if (alg) setAllergies(alg);
+      }
+
+      const surgMatch = historyStr.match(/Surgeries:\s*(.+)$/);
+      if (surgMatch && surgMatch[1]) {
+        const surg = surgMatch[1].trim();
+        if (surg && surg !== "None") {
+          setHasSurgeries("yes");
+          setSurgeryDetails(surg);
+        } else {
+          setHasSurgeries("no");
+          setSurgeryDetails("");
+        }
+      }
+    } catch (e) {
+      console.error("Failed parsing medical history string", e);
+    }
+  };
+
+  const fetchPatientData = async (token: string) => {
     try {
       const backendUrl =
         process.env.NEXT_PUBLIC_BACKEND_URL ||
         "https://medicareai-1.onrender.com";
-      const res = await fetch(`${backendUrl}/api/my-appointments`, {
+
+      // 1. Fetch User Profile
+      const profileRes = await fetch(`${backendUrl}/api/user/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setAppointments(data);
+
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        if (profileData.name) setUserName(profileData.name);
+        if (profileData.age !== undefined && profileData.age !== null) {
+          setAge(profileData.age.toString());
+        }
+        if (profileData.phone) setPhone(profileData.phone);
+        if (profileData.medical_history) {
+          parseMedicalHistory(profileData.medical_history);
+        }
+      }
+
+      // 2. Fetch Appointments
+      const aptRes = await fetch(`${backendUrl}/api/my-appointments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (aptRes.ok) {
+        const aptData = await aptRes.json();
+        setAppointments(aptData);
       }
     } catch (err) {
-      console.error("Failed loading appointments", err);
+      console.error("Failed loading patient dashboard data", err);
     } finally {
       setLoading(false);
     }
@@ -166,23 +180,10 @@ export default function PatientDashboard() {
         throw new Error(data.error || "Failed to update profile");
       }
 
-      setProfileMessage("Questionnaire submitted successfully!");
-
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        try {
-          const parsed = JSON.parse(storedUser);
-          parsed.age = age ? parseInt(age, 10) : parsed.age;
-          parsed.phone = phone || parsed.phone;
-          parsed.medical_history = compiledMedicalHistory;
-          localStorage.setItem("user", JSON.stringify(parsed));
-        } catch (err) {
-          console.error("Error updating local storage user cache", err);
-        }
-      }
+      setProfileMessage("Questionnaire details saved successfully!");
     } catch (err: any) {
       console.error("Error updating profile:", err);
-      setProfileMessage(err.message || "Failed to update profile");
+      setProfileMessage(err.message || "Failed to save questionnaire");
     } finally {
       setSavingProfile(false);
     }
@@ -410,7 +411,7 @@ export default function PatientDashboard() {
                   value={surgeryDetails}
                   onChange={(e) => setSurgeryDetails(e.target.value)}
                   placeholder="Please specify surgeries and approximate dates..."
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium animate-fadeIn"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium"
                 />
               )}
             </div>
@@ -419,9 +420,9 @@ export default function PatientDashboard() {
               <button
                 type="submit"
                 disabled={savingProfile}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-lg shadow-blue-200 disabled:opacity-50"
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-lg shadow-blue-200 disabled:opacity-50 cursor-pointer"
               >
-                {savingProfile ? "Submitting..." : "Save Questionnaire Details"}
+                {savingProfile ? "Saving..." : "Save Questionnaire Details"}
               </button>
               {profileMessage && (
                 <p className={`text-sm font-bold ${profileMessage.includes("successfully") ? "text-emerald-600" : "text-rose-600"}`}>
