@@ -84,7 +84,6 @@ export default function DoctorDashboard() {
       try {
         const parsed = JSON.parse(storedUser);
         if (parsed.name) {
-          // Prepend "Dr. " cleanly if it doesn't already have it
           const formattedName = parsed.name.startsWith("Dr.") ? parsed.name : `Dr. ${parsed.name}`;
           setDoctorName(formattedName);
         }
@@ -758,7 +757,9 @@ export default function DoctorDashboard() {
               <form onSubmit={handleSaveNote} className="space-y-4">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900">Clinical Documentation</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Record structured clinical observations.</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    For: {activePatient?.patient_name || "Patient"}
+                  </p>
                 </div>
 
                 {feedbackMsg && (
@@ -768,10 +769,11 @@ export default function DoctorDashboard() {
                 )}
 
                 <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Clinical Notes & Observations</label>
                   <textarea
                     rows={5}
                     required
-                    placeholder="Enter examination notes, observations, or diagnosis summary..."
+                    placeholder="Enter clinical observations, diagnosis, or treatment plans..."
                     value={clinicalNote}
                     onChange={(e) => setClinicalNote(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
@@ -791,10 +793,50 @@ export default function DoctorDashboard() {
                     disabled={submitting}
                     className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm shadow-sm disabled:opacity-50"
                   >
-                    {submitting ? "Saving..." : "Save Clinical Note"}
+                    {submitting ? "Saving..." : "Save Note"}
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* Quick View Modal */}
+            {modalType === "quickView" && quickViewPatient && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Patient Quick View</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {quickViewPatient.patient_name} • {formatDisplayDate(quickViewPatient.appointment_date)}
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3 text-sm">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">Reason for Visit:</span>
+                    <p className="text-slate-800 font-medium">{quickViewPatient.reason || "General Consultation"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">Questionnaire / History:</span>
+                    <p className="text-slate-700">{quickViewPatient.medical_history || "No questionnaire notes provided."}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">Clinical Notes:</span>
+                    <p className="text-slate-700">{quickViewPatient.clinical_notes || "No clinical notes yet."}</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalType(null);
+                      setQuickViewPatient(null);
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition text-sm font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* Quick Lab Order Modal */}
@@ -827,10 +869,10 @@ export default function DoctorDashboard() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Clinical Instructions / Notes</label>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Lab Instructions / Notes</label>
                     <textarea
                       rows={3}
-                      placeholder="e.g. Fasting required prior to collection"
+                      placeholder="e.g. Fasting required before sample collection"
                       value={labOrderForm.notes}
                       onChange={(e) => setLabOrderForm({ ...labOrderForm, notes: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
@@ -851,49 +893,10 @@ export default function DoctorDashboard() {
                     disabled={submitting}
                     className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm shadow-sm disabled:opacity-50"
                   >
-                    {submitting ? "Submitting..." : "Submit Lab Order"}
+                    {submitting ? "Ordering..." : "Submit Lab Order"}
                   </button>
                 </div>
               </form>
-            )}
-
-            {/* Quick View Modal */}
-            {modalType === "quickView" && quickViewPatient && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Patient Quick Overview</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">{quickViewPatient.patient_name}</p>
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3 text-sm">
-                  <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase">Phone:</span>
-                    <p className="font-medium text-slate-800">{quickViewPatient.phone || "N/A"}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase">Scheduled Time:</span>
-                    <p className="font-medium text-slate-800">{formatDisplayDate(quickViewPatient.appointment_date)} at {formatDisplayTime(quickViewPatient.appointment_time)}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase">Reason for Visit:</span>
-                    <p className="font-medium text-slate-800">{quickViewPatient.reason || "General Consultation"}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase">Medical History / Notes:</span>
-                    <p className="font-medium text-slate-800 mt-0.5 whitespace-pre-wrap">{quickViewPatient.medical_history || "No questionnaire history on record."}</p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setModalType(null)}
-                    className="px-5 py-2 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-900 transition"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
             )}
           </div>
         </div>
