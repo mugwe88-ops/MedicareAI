@@ -28,7 +28,8 @@ export default function SignupPage() {
     setError("");
 
     try {
-      const res = await fetch("https://medicareai-1.onrender.com/api/auth/signup", {
+      // Updated endpoint from /signup to /register to match backend routes
+      const res = await fetch("https://medicareai-1.onrender.com/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
