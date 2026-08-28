@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Video, FileText, LogOut, UserCheck } from "lucide-react";
+import { Calendar, Video, FileText, UserCheck } from "lucide-react";
 
 interface Appointment {
   id: number;
@@ -56,39 +56,39 @@ export default function PatientDashboard() {
       try {
         const parsed = JSON.parse(storedUser);
         if (parsed.name) setUserName(parsed.name);
-        if (parsed.age) setAge(parsed.age.toString());
+        if (parsed.age !== undefined && parsed.age !== null) setAge(parsed.age.toString());
         if (parsed.phone) setPhone(parsed.phone);
         
         // Parse compiled medical history back into individual states if present
         if (parsed.medical_history) {
           const hist = parsed.medical_history;
           
-          // Extract Conditions
-          const condMatch = hist.match(/Conditions: ([^|]+)/);
+          // Extract Conditions safely
+          const condMatch = hist.match(/Conditions:\s*([^|]+)/);
           if (condMatch && condMatch[1]) {
-            const conds = condMatch[1].trim().split(", ").map((c: string) => c.trim());
-            setSelectedConditions(conds);
+            const conds = condMatch[1].trim().split(", ").map((c: string) => c.trim()).filter(Boolean);
+            if (conds.length > 0) setSelectedConditions(conds);
           }
 
-          // Extract Allergies
-          const allergyMatch = hist.match(/Allergies: ([^|]+)/);
+          // Extract Allergies safely
+          const allergyMatch = hist.match(/Allergies:\s*([^|]+)/);
           if (allergyMatch && allergyMatch[1]) {
             const alg = allergyMatch[1].trim();
-            if (alg !== "None") setAllergies(alg);
+            if (alg && alg !== "None") setAllergies(alg);
           }
 
-          // Extract Surgeries
-          const surgMatch = hist.match(/Surgeries: (.+)/);
+          // Extract Surgeries safely
+          const surgMatch = hist.match(/Surgeries:\s*(.+)$/);
           if (surgMatch && surgMatch[1]) {
             const surg = surgMatch[1].trim();
-            if (surg !== "None") {
+            if (surg && surg !== "None") {
               setHasSurgeries("yes");
               setSurgeryDetails(surg);
             }
           }
         }
       } catch (e) {
-        console.error("Failed parsing profile", e);
+        console.error("Failed parsing profile from localStorage", e);
       }
     }
 
@@ -140,7 +140,11 @@ export default function PatientDashboard() {
       return;
     }
 
-    const compiledMedicalHistory = `Conditions: ${selectedConditions.join(", ") || "None"} | Allergies: ${allergies.trim() || "None"} | Surgeries: ${hasSurgeries === "yes" && surgeryDetails.trim() ? surgeryDetails.trim() : "None"}`;
+    const conditionsString = selectedConditions.length > 0 ? selectedConditions.join(", ") : "None";
+    const allergiesString = allergies.trim() ? allergies.trim() : "None";
+    const surgeriesString = hasSurgeries === "yes" && surgeryDetails.trim() ? surgeryDetails.trim() : "None";
+
+    const compiledMedicalHistory = `Conditions: ${conditionsString} | Allergies: ${allergiesString} | Surgeries: ${surgeriesString}`;
 
     try {
       const backendUrl =
@@ -167,6 +171,7 @@ export default function PatientDashboard() {
 
       setProfileMessage("Questionnaire submitted successfully!");
 
+      // Update local storage so data persists on reloads without extra API fetches
       const storedUser = localStorage.getItem("user");
       if (storedUser) {
         try {
@@ -175,7 +180,9 @@ export default function PatientDashboard() {
           parsed.phone = phone || parsed.phone;
           parsed.medical_history = compiledMedicalHistory;
           localStorage.setItem("user", JSON.stringify(parsed));
-        } catch (err) {}
+        } catch (err) {
+          console.error("Error updating local storage user cache", err);
+        }
       }
     } catch (err: any) {
       console.error("Error updating profile:", err);
@@ -226,7 +233,6 @@ export default function PatientDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-      {/* Content Body */}
       <main className="max-w-6xl mx-auto p-8">
         <div className="mb-8 flex justify-between items-center">
           <div>
