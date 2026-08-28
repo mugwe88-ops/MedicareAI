@@ -354,15 +354,6 @@ export default function DoctorDashboard() {
 
   return (
     <div className="max-w-7xl w-full mx-auto px-6 py-8 space-y-8 flex-1 bg-slate-100 min-h-screen text-slate-800 font-sans">
-      {/* App Branding Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <div>
-          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Live Practice Environment</p>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight mt-0.5">Welcome back, {doctorName}</h1>
-        </div>
-        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">Doctor Portal</span>
-      </div>
-
       {activePatient ? (
         <div className="space-y-6">
           <button
