@@ -303,8 +303,8 @@ app.put("/api/user/profile", verifyToken, async (req, res) => {
     const updateRes = await pool.query(
       `UPDATE users 
        SET age = COALESCE($1, age), 
-           phone = COALESCE($2, phone), 
-           medical_history = COALESCE($3, medical_history) 
+          phone = COALESCE($2, phone), 
+          medical_history = COALESCE($3, medical_history) 
        WHERE id = $4 
        RETURNING id, name, email, age, phone, medical_history`,
       [age ? parseInt(age, 10) : null, phone, medical_history, userId]
@@ -757,7 +757,7 @@ const createAppointmentHandler = async (req, res) => {
 app.post("/api/my-appointments", verifyToken, createAppointmentHandler);
 app.post("/api/appointments/book", verifyToken, createAppointmentHandler);
 
-// Filtered Appointments for Doctors
+// Filtered Appointments for Doctors (Updated to include patient medical history)
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
   try {
     let doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -781,9 +781,11 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT a *, 
+      `SELECT a.*, 
               COALESCE(u.name, a.patient_name, 'Valued Patient') as patient_name, 
-              u.phone 
+              u.phone, 
+              u.age, 
+              u.medical_history 
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
        WHERE a.doctor_id = $1 
@@ -912,13 +914,11 @@ app.get("*", (req, res) => {
   if (req.path.startsWith("/api")) {
     return res.status(404).json({ error: "API route not found" });
   }
-  return res.sendFile(path.join(publicPath, "index.html"));
+  res.sendFile(path.join(publicPath, "index.html"));
 });
 
-/* ======================
-    7️⃣ START HTTP SERVER (WITH SOCKET.IO)
-====================== */
-httpServer.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server & WebSockets running on port ${PORT}`);
-  initDatabase();
+initDatabase().then(() => {
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
 });
