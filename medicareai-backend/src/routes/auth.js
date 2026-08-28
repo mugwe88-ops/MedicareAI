@@ -50,9 +50,14 @@ router.post("/register", async (req, res) => {
     // Trigger verification email dispatch
     await sendVerificationEmail(email, name, verificationToken);
 
+    // Construct verification link for debug fallback
+    const verificationLink = `${process.env.FRONTEND_URL || "http://localhost:3000"}/verify-email?token=${verificationToken}`;
+
     return res.status(201).json({
-      message: "Registration successful! Please check your email to verify your account before logging in.",
-      userId: newUser.id
+      message: "Registration successful! (Debug fallback active)",
+      userId: newUser.id,
+      debugToken: verificationToken,
+      verificationLink: verificationLink
     });
   } catch (err) {
     console.error("Registration error:", err);
