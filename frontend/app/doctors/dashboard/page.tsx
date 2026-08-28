@@ -1,4 +1,4 @@
-"use client";
+// "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
@@ -40,7 +40,7 @@ interface Prescription {
 export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [doctorName, setDoctorName] = useState<string>("Dr. Ivan Weru");
+  const [doctorName, setDoctorName] = useState<string>("Doctor");
   const [doctorId, setDoctorId] = useState<number | null>(null);
   
   // Drill-down selected patient state
@@ -83,7 +83,11 @@ export default function DoctorDashboard() {
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
-        if (parsed.name) setDoctorName(parsed.name);
+        if (parsed.name) {
+          // Prepend "Dr. " cleanly if it doesn't already have it
+          const formattedName = parsed.name.startsWith("Dr.") ? parsed.name : `Dr. ${parsed.name}`;
+          setDoctorName(formattedName);
+        }
         const resolvedId = parsed.id || parsed.doctor_id || parsed.userId || parsed.user_id;
         if (resolvedId) {
           setDoctorId(Number(resolvedId));
@@ -355,7 +359,7 @@ export default function DoctorDashboard() {
       <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div>
           <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Live Practice Environment</p>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight mt-0.5">Doctor Workspace</h1>
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight mt-0.5">Welcome back, {doctorName}</h1>
         </div>
         <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">Doctor Portal</span>
       </div>
@@ -758,19 +762,18 @@ export default function DoctorDashboard() {
                 </div>
 
                 {feedbackMsg && (
-                  <div className="p-3 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <div className={`p-3 rounded-lg text-xs font-medium ${feedbackMsg.includes("saved") ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
                     {feedbackMsg}
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Clinical Notes</label>
                   <textarea
                     rows={5}
                     required
+                    placeholder="Enter examination notes, observations, or diagnosis summary..."
                     value={clinicalNote}
                     onChange={(e) => setClinicalNote(e.target.value)}
-                    placeholder="Enter diagnostic assessment, observations, and treatment plans..."
                     className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
                   />
                 </div>
@@ -788,62 +791,20 @@ export default function DoctorDashboard() {
                     disabled={submitting}
                     className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm shadow-sm disabled:opacity-50"
                   >
-                    {submitting ? "Saving..." : "Save Notes"}
+                    {submitting ? "Saving..." : "Save Clinical Note"}
                   </button>
                 </div>
               </form>
-            )}
-
-            {/* Quick View Modal */}
-            {modalType === "quickView" && quickViewPatient && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Patient Quick View</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">{quickViewPatient.patient_name}</p>
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3 text-sm">
-                  <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase">Contact Phone:</span>
-                    <p className="font-medium text-slate-800">{quickViewPatient.phone || "N/A"}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase">Scheduled Timing:</span>
-                    <p className="font-medium text-slate-800">
-                      {formatDisplayDate(quickViewPatient.appointment_date)} at {formatDisplayTime(quickViewPatient.appointment_time)}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase">Reason for Visit:</span>
-                    <p className="font-medium text-slate-800">{quickViewPatient.reason || "General Consultation"}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase">Medical History / Questionnaire:</span>
-                    <p className="font-medium text-slate-800">{quickViewPatient.medical_history || "No data recorded."}</p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModalType(null);
-                      handleSelectPatient(quickViewPatient);
-                    }}
-                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm shadow-sm"
-                  >
-                    Open Full Workspace
-                  </button>
-                </div>
-              </div>
             )}
 
             {/* Quick Lab Order Modal */}
             {modalType === "quickLab" && (
               <form onSubmit={handleAddLabOrder} className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Order Laboratory Test</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">For: {quickLabApt?.patient_name}</p>
+                  <h3 className="text-lg font-bold text-slate-900">Order Lab Test</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    For: {quickLabApt?.patient_name || "Patient"}
+                  </p>
                 </div>
 
                 {feedbackMsg && (
@@ -866,7 +827,7 @@ export default function DoctorDashboard() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Clinical Notes / Instructions</label>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Clinical Instructions / Notes</label>
                     <textarea
                       rows={3}
                       placeholder="e.g. Fasting required prior to collection"
@@ -894,6 +855,45 @@ export default function DoctorDashboard() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* Quick View Modal */}
+            {modalType === "quickView" && quickViewPatient && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Patient Quick Overview</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{quickViewPatient.patient_name}</p>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3 text-sm">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">Phone:</span>
+                    <p className="font-medium text-slate-800">{quickViewPatient.phone || "N/A"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">Scheduled Time:</span>
+                    <p className="font-medium text-slate-800">{formatDisplayDate(quickViewPatient.appointment_date)} at {formatDisplayTime(quickViewPatient.appointment_time)}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">Reason for Visit:</span>
+                    <p className="font-medium text-slate-800">{quickViewPatient.reason || "General Consultation"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">Medical History / Notes:</span>
+                    <p className="font-medium text-slate-800 mt-0.5 whitespace-pre-wrap">{quickViewPatient.medical_history || "No questionnaire history on record."}</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalType(null)}
+                    className="px-5 py-2 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-900 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
