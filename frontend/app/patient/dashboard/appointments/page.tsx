@@ -200,6 +200,17 @@ export default function AppointmentsPage() {
 
     const calculatedDate = getNextDateForDay(selectedSlot.day);
 
+    // Combine clinical screening details into a rich reason string for the doctor view
+    const formattedSymptoms = associatedSymptoms.length > 0 ? associatedSymptoms.join(", ") : "None";
+    const comprehensiveReason = [
+      reason.trim() ? `Chief Complaint: ${reason}` : "Chief Complaint: General Consultation",
+      `Body System: ${bodySystem}`,
+      `Severity: ${symptomSeverity}`,
+      `Duration: ${symptomDuration}`,
+      `Associated Symptoms: ${formattedSymptoms}`,
+      `Pain Scale: ${painScale}/10`
+    ].join(" | ");
+
     setIsSubmitting(true);
     try {
       const res = await fetch(`${API_BASE}/api/appointments/book`, {
@@ -212,7 +223,7 @@ export default function AppointmentsPage() {
           doctor_id: parseInt(selectedDoctorId, 10),
           appointment_date: calculatedDate,
           appointment_time: selectedSlot.time,
-          reason: reason.trim() || "General Consultation",
+          reason: comprehensiveReason,
           symptom_severity: symptomSeverity,
           symptom_duration: symptomDuration,
           body_system: bodySystem,
