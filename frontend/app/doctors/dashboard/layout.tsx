@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -23,8 +23,32 @@ export default function DoctorDashboardLayout({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [doctorName, setDoctorName] = useState<string>("Dr. Doctor");
+  const [doctorInitials, setDoctorInitials] = useState<string>("DR");
 
-  // FIXED: Corrected the Telehealth Room href to match your exact folder structure path
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.name) {
+          const formattedName = parsed.name.startsWith("Dr.") ? parsed.name : `Dr. ${parsed.name}`;
+          setDoctorName(formattedName);
+
+          // Compute dynamic initials
+          const nameParts = parsed.name.replace(/^Dr\.\s*/i, "").trim().split(" ");
+          if (nameParts.length >= 2) {
+            setDoctorInitials(`${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase());
+          } else if (nameParts.length === 1 && nameParts[0]) {
+            setDoctorInitials(nameParts[0].substring(0, 2).toUpperCase());
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse user from localStorage", e);
+      }
+    }
+  }, []);
+
   const navItems = [
     { name: 'Dashboard', href: '/doctors/dashboard', icon: LayoutDashboard },
     { name: 'Telehealth Room', href: '/doctors/telehealth/quick-consult', icon: Video },
@@ -94,10 +118,10 @@ export default function DoctorDashboardLayout({
           <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-black text-xs">
-                DR
+                {doctorInitials}
               </div>
               <div>
-                <p className="text-xs font-black text-white">Dr. Ivan Weru</p>
+                <p className="text-xs font-black text-white">{doctorName}</p>
                 <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Online
                 </p>
@@ -127,7 +151,7 @@ export default function DoctorDashboardLayout({
             </button>
             <div className="hidden sm:block">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Live Practice Environment</span>
-              <p className="text-xs font-bold text-slate-200">Welcome back, Dr. Weru</p>
+              <p className="text-xs font-bold text-slate-200">Welcome back, {doctorName}</p>
             </div>
           </div>
 
@@ -138,7 +162,7 @@ export default function DoctorDashboardLayout({
             </button>
             <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
               <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-600/30">
-                IW
+                {doctorInitials}
               </div>
             </div>
           </div>
