@@ -30,7 +30,6 @@ router.get("/doctor", authenticateToken, async (req, res) => {
 
     const doctorId = parseInt(req.user.userId, 10);
 
-    // FIXED: Added u.medical_history and u.age so doctors can view patient questionnaire details
     const result = await pool.query(
       `SELECT 
         a.*, 
@@ -52,7 +51,7 @@ router.get("/doctor", authenticateToken, async (req, res) => {
   }
 });
 
-/* ================= CREATE APPOINTMENT ================= */
+/* ================= CREATE APPOINTMENT (ROOT) ================= */
 router.post("/", authenticateToken, async (req, res) => {
   try {
     const { department, doctor_id, appointment_date, appointment_time, reason, patient_name, phone } = req.body;
@@ -114,7 +113,7 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 });
 
-/* ================= CREATE APPOINTMENT ================= */
+/* ================= CREATE APPOINTMENT (/book) ================= */
 router.post("/book", authenticateToken, async (req, res) => {
   try {
     const { 
@@ -143,7 +142,7 @@ router.post("/book", authenticateToken, async (req, res) => {
     let nameToInsert = patient_name;
     let phoneToInsert = phone;
 
-    if (!nameToInsert || !phoneToInstert || !phoneToInsert) {
+    if (!nameToInsert || !phoneToInsert) {
       const userRes = await pool.query("SELECT name, phone FROM users WHERE id = $1", [patientId]);
       if (userRes.rows.length > 0) {
         nameToInsert = nameToInsert || userRes.rows[0].name || "Patient";
@@ -151,12 +150,26 @@ router.post("/book", authenticateToken, async (req, res) => {
       }
     }
 
-    // Optional: If you want to also persist the structured questionnaire directly into the user's profile history
-    // so doctors can see it across multiple visits, you can update the users table as well:
-    await pool.query(
-      `UPDATE users SET medical_history = $1 WHERE id = $2`,
-      [reason, patientId]
-    );
+    // Build questionnaire text from submitted fields
+    let finalReason = reason;
+    if (symptom_severity || body_system) {
+      const questionnaireParts = [];
+      if (reason) questionnaireParts.push(`Chief Complaint: ${reason}`);
+      if (body_system) questionnaireParts.push(`Body System: ${body_system}`);
+      if (symptom_severity) questionnaireParts.push(`Severity: ${symptom_severity}`);
+      if (symptom_duration) questionnaireParts.push(`Duration: ${symptom_duration}`);
+      if (associated_symptoms) questionnaireParts.push(`Associated Symptoms: ${associated_symptoms}`);
+      if (pain_scale) questionnaireParts.push(`Pain Scale: ${pain_scale}/10`);
+      finalReason = questionnaireParts.join(" | ");
+    }
+
+    // Persist questionnaire directly into user's profile medical history
+    if (finalReason) {
+      await pool.query(
+        `UPDATE users SET medical_history = $1 WHERE id = $2`,
+        [finalReason, patientId]
+      );
+    }
 
     // Check for double booking
     if (parsedDoctorId) {
@@ -185,7 +198,7 @@ router.post("/book", authenticateToken, async (req, res) => {
         department || 'General Medicine',
         parsedDoctorId,
         patientId,
-        reason || 'General Consultation'
+        finalReason || 'General Consultation'
       ]
     );
 
@@ -201,7 +214,6 @@ router.get("/", authenticateToken, async (req, res) => {
   const { patient_id, doctor_id } = req.query;
 
   try {
-    // FIXED: Added u.medical_history and u.age here as well for consistency across endpoints
     let query = `
       SELECT 
         a.*, 
