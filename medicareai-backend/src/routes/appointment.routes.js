@@ -114,6 +114,88 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 });
 
+/* ================= CREATE APPOINTMENT ================= */
+router.post("/book", authenticateToken, async (req, res) => {
+  try {
+    const { 
+      department, 
+      doctor_id, 
+      appointment_date, 
+      appointment_time, 
+      reason, 
+      patient_name, 
+      phone,
+      symptom_severity,
+      symptom_duration,
+      body_system,
+      associated_symptoms,
+      pain_scale 
+    } = req.body;
+    
+    const patientId = parseInt(req.user.userId, 10);
+
+    if (!appointment_date || !appointment_time) {
+      return res.status(400).json({ error: "Missing required fields: appointment_date and appointment_time." });
+    }
+
+    const parsedDoctorId = doctor_id ? parseInt(doctor_id, 10) : null;
+
+    let nameToInsert = patient_name;
+    let phoneToInsert = phone;
+
+    if (!nameToInsert || !phoneToInstert || !phoneToInsert) {
+      const userRes = await pool.query("SELECT name, phone FROM users WHERE id = $1", [patientId]);
+      if (userRes.rows.length > 0) {
+        nameToInsert = nameToInsert || userRes.rows[0].name || "Patient";
+        phoneToInsert = phoneToInsert || userRes.rows[0].phone || "N/A";
+      }
+    }
+
+    // Optional: If you want to also persist the structured questionnaire directly into the user's profile history
+    // so doctors can see it across multiple visits, you can update the users table as well:
+    await pool.query(
+      `UPDATE users SET medical_history = $1 WHERE id = $2`,
+      [reason, patientId]
+    );
+
+    // Check for double booking
+    if (parsedDoctorId) {
+      const conflictCheck = await pool.query(
+        `SELECT id FROM appointments 
+         WHERE doctor_id = $1 AND appointment_date = $2 AND appointment_time = $3 AND status != 'Cancelled'`,
+        [parsedDoctorId, appointment_date, appointment_time]
+      );
+
+      if (conflictCheck.rows.length > 0) {
+        return res.status(409).json({ 
+          error: "This time slot is already booked for the selected doctor. Please choose a different time." 
+        });
+      }
+    }
+
+    const result = await pool.query(
+      `INSERT INTO appointments (patient_name, phone, appointment_date, appointment_time, department, doctor_id, patient_id, reason, status) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Confirmed') 
+       RETURNING *`,
+      [
+        nameToInsert,
+        phoneToInsert,
+        appointment_date,
+        appointment_time,
+        department || 'General Medicine',
+        parsedDoctorId,
+        patientId,
+        reason || 'General Consultation'
+      ]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("CRITICAL DB ERROR:", err.message); 
+    return res.status(500).json({ error: "Booking failed", details: err.message });
+  }
+});
+
 /* ================= GET FILTERED / MY APPOINTMENTS ================= */
 router.get("/", authenticateToken, async (req, res) => {
   const { patient_id, doctor_id } = req.query;
