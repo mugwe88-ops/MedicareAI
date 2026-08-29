@@ -17,7 +17,7 @@ import {
 
 interface RecordItem {
   id: number;
-  record_type?: string; // "clinical_note" | "prescription" | "diagnostic" | "vaccination" | "sick_leave" | "allergy" | "vitals" | "referral"
+  record_type?: string;
   patient_name?: string;
   patient_age?: string | number;
   patient_number?: string;
@@ -67,33 +67,44 @@ export default function RecordsPage() {
     }
   };
 
-  // Helper to determine metadata title & icon styling based on record type (without # signs and accurate lab naming)
-  const getRecordConfig = (rec: RecordItem, index: number) => {
-    const sequenceNum = index + 1;
-    switch (rec.record_type) {
+  // Pre-calculate type-specific sequence numbers so each category counts independently (e.g. Lab Request 1, Lab Request 2)
+  const getProcessedRecordsWithCounters = () => {
+    const counters: { [key: string]: number } = {};
+    return records.map(rec => {
+      const type = rec.record_type || "prescription";
+      counters[type] = (counters[type] || 0) + 1;
+      return { ...rec, sequenceNum: counters[type] };
+    });
+  };
+
+  const processedRecords = getProcessedRecordsWithCounters();
+
+  const getRecordConfig = (rec: RecordItem & { sequenceNum: number }) => {
+    const type = rec.record_type || "prescription";
+    switch (type) {
       case "clinical_note":
-        return { title: `Doctor's Clinical Note ${sequenceNum}`, icon: <Stethoscope size={18} />, color: "text-emerald-600", bg: "bg-emerald-50 text-emerald-600", label: "Clinical Summary / Notes:" };
+        return { title: `Doctor's Clinical Note ${rec.sequenceNum}`, icon: <Stethoscope size={18} />, color: "text-emerald-600", bg: "bg-emerald-50 text-emerald-600", label: "Clinical Summary / Notes:" };
       case "diagnostic":
       case "lab_result":
-        return { title: `Lab Request ${sequenceNum}`, icon: <TestTube size={18} />, color: "text-purple-600", bg: "bg-purple-50 text-purple-600", label: "Test Details & Clinical Notes:" };
+        return { title: `Lab Request ${rec.sequenceNum}`, icon: <TestTube size={18} />, color: "text-purple-600", bg: "bg-purple-50 text-purple-600", label: "Test Ordered:" };
       case "vaccination":
-        return { title: `Immunization Record ${sequenceNum}`, icon: <Syringe size={18} />, color: "text-cyan-600", bg: "bg-cyan-50 text-cyan-600", label: "Vaccine & Dosage Details:" };
+        return { title: `Immunization Record ${rec.sequenceNum}`, icon: <Syringe size={18} />, color: "text-cyan-600", bg: "bg-cyan-50 text-cyan-600", label: "Vaccine & Dosage Details:" };
       case "sick_leave":
-        return { title: `Medical Leave Certificate ${sequenceNum}`, icon: <FileCheck size={18} />, color: "text-amber-600", bg: "bg-amber-50 text-amber-600", label: "Leave Period & Terms:" };
+        return { title: `Medical Leave Certificate ${rec.sequenceNum}`, icon: <FileCheck size={18} />, color: "text-amber-600", bg: "bg-amber-50 text-amber-600", label: "Leave Period & Terms:" };
       case "allergy":
-        return { title: `Allergy & Reaction Profile ${sequenceNum}`, icon: <ShieldAlert size={18} />, color: "text-rose-600", bg: "bg-rose-50 text-rose-600", label: "Allergen & Severity Details:" };
+        return { title: `Allergy & Reaction Profile ${rec.sequenceNum}`, icon: <ShieldAlert size={18} />, color: "text-rose-600", bg: "bg-rose-50 text-rose-600", label: "Allergen & Severity Details:" };
       case "vitals":
-        return { title: `Vital Signs Summary ${sequenceNum}`, icon: <Activity size={18} />, color: "text-indigo-600", bg: "bg-indigo-50 text-indigo-600", label: "Biometric Metrics:" };
+        return { title: `Vital Signs Summary ${rec.sequenceNum}`, icon: <Activity size={18} />, color: "text-indigo-600", bg: "bg-indigo-50 text-indigo-600", label: "Biometric Metrics:" };
       case "referral":
-        return { title: `Specialist Referral Letter ${sequenceNum}`, icon: <FileText size={18} />, color: "text-teal-600", bg: "bg-teal-50 text-teal-600", label: "Referral & Specialist Notes:" };
+        return { title: `Specialist Referral Letter ${rec.sequenceNum}`, icon: <FileText size={18} />, color: "text-teal-600", bg: "bg-teal-50 text-teal-600", label: "Referral & Specialist Notes:" };
       case "prescription":
       default:
-        return { title: `Prescription ${sequenceNum}`, icon: <Pill size={18} />, color: "text-blue-600", bg: "bg-blue-50 text-blue-600", label: "Medication Details:" };
+        return { title: `Prescription ${rec.sequenceNum}`, icon: <Pill size={18} />, color: "text-blue-600", bg: "bg-blue-50 text-blue-600", label: "Medication Details:" };
     }
   };
 
-  const handleDownloadSinglePDF = (rec: RecordItem, index: number) => {
-    const config = getRecordConfig(rec, index);
+  const handleDownloadSinglePDF = (rec: RecordItem & { sequenceNum: number }) => {
+    const config = getRecordConfig(rec);
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       alert("Please allow popups to download individual PDFs.");
@@ -159,8 +170,8 @@ export default function RecordsPage() {
   };
 
   const filteredRecords = filterType === "all" 
-    ? records 
-    : records.filter(r => {
+    ? processedRecords 
+    : processedRecords.filter(r => {
         const type = r.record_type || "prescription";
         if (filterType === "lab_result") {
           return type === "lab_result" || type === "diagnostic";
@@ -234,11 +245,12 @@ export default function RecordsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredRecords.map((rec, index) => {
-            const config = getRecordConfig(rec, index);
+          {filteredRecords.map((rec) => {
+            const config = getRecordConfig(rec);
+            const isLab = rec.record_type === "diagnostic" || rec.record_type === "lab_result";
             return (
               <div
-                key={rec.id || index}
+                key={rec.id}
                 className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 flex flex-col justify-between"
               >
                 <div className="space-y-3">
@@ -258,9 +270,12 @@ export default function RecordsPage() {
                       <p className="whitespace-pre-wrap">{rec.medication_details || "No details provided."}</p>
                     </div>
 
+                    {/* Differentiate Clinical Notes vs Instructions clearly */}
                     {rec.instructions && (
                       <div className="pt-1 border-t border-slate-200/60">
-                        <p className="font-semibold text-slate-900">Clinical Notes / Instructions:</p>
+                        <p className="font-semibold text-slate-900">
+                          {isLab ? "Clinical Notes / Reason:" : "Clinical Notes / Instructions:"}
+                        </p>
                         <p className="whitespace-pre-wrap">{rec.instructions}</p>
                       </div>
                     )}
@@ -276,7 +291,7 @@ export default function RecordsPage() {
                     <Calendar size={14} /> {new Date(rec.created_at).toLocaleDateString()}
                   </p>
                   <button
-                    onClick={() => handleDownloadSinglePDF(rec, index)}
+                    onClick={() => handleDownloadSinglePDF(rec)}
                     className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-sm"
                   >
                     <Download size={14} />
