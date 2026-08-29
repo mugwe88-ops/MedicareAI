@@ -1,4 +1,4 @@
-"use client";
+// "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
@@ -10,7 +10,10 @@ import {
   Users,
   Activity,
   Eye,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Scan,
+  FlaskConical,
+  Glasses
 } from "lucide-react";
 
 interface Appointment {
@@ -40,6 +43,15 @@ interface Prescription {
   created_at?: string;
 }
 
+interface DiagnosticOrder {
+  id: number;
+  appointment_id: number;
+  category: string;
+  test_name: string;
+  notes?: string;
+  created_at?: string;
+}
+
 export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,13 +61,15 @@ export default function DoctorDashboard() {
   // Drill-down selected patient state
   const [activePatient, setActivePatient] = useState<Appointment | null>(null);
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
-  const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
+  const [patientDiagnostics, setPatientDiagnostics] = useState<DiagnosticOrder[]>([]);
+  const [loadingExtras, setLoadingExtras] = useState(false);
 
   // Modals state
-  const [modalType, setModalType] = useState<"prescription" | "note" | "quickView" | "quickLab" | null>(null);
+  const [modalType, setModalType] = useState<"prescription" | "note" | "quickView" | "quickLab" | "diagnostic" | null>(null);
   const [quickViewPatient, setQuickViewPatient] = useState<Appointment | null>(null);
   const [quickPrescriptionApt, setQuickPrescriptionApt] = useState<Appointment | null>(null);
   const [quickLabApt, setQuickLabApt] = useState<Appointment | null>(null);
+  const [quickDiagnosticApt, setQuickDiagnosticApt] = useState<Appointment | null>(null);
 
   // Form states
   const [prescriptionForm, setPrescriptionForm] = useState({
@@ -64,6 +78,11 @@ export default function DoctorDashboard() {
     instructions: "",
   });
   const [labOrderForm, setLabOrderForm] = useState({
+    test_name: "",
+    notes: "",
+  });
+  const [diagnosticForm, setDiagnosticForm] = useState({
+    category: "Laboratory",
     test_name: "",
     notes: "",
   });
@@ -126,35 +145,44 @@ export default function DoctorDashboard() {
     }
   };
 
-  const fetchPrescriptionsForAppointment = async (appointmentId: number) => {
+  const fetchPatientExtras = async (appointmentId: number) => {
     const token = localStorage.getItem("token");
-    setLoadingPrescriptions(true);
+    setLoadingExtras(true);
     try {
-      const res = await fetch(`${API_BASE}/api/appointments/${appointmentId}/prescriptions`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setPatientPrescriptions(data);
-        }
+      const [rxRes, diagRes] = await Promise.all([
+        fetch(`${API_BASE}/api/appointments/${appointmentId}/prescriptions`, {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        }),
+        fetch(`${API_BASE}/api/appointments/${appointmentId}/diagnostics`, {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        }).catch(() => ({ ok: false, json: async () => [] }))
+      ]);
+
+      if (rxRes.ok) {
+        const rxData = await rxRes.json();
+        setPatientPrescriptions(Array.isArray(rxData) ? rxData : []);
       } else {
         setPatientPrescriptions([]);
       }
+
+      if ('ok' in diagRes && diagRes.ok) {
+        const diagData = await (diagRes as Response).json();
+        setPatientDiagnostics(Array.isArray(diagData) ? diagData : []);
+      } else {
+        setPatientDiagnostics([]);
+      }
     } catch (err) {
-      console.error("Error fetching prescriptions:", err);
+      console.error("Error fetching patient extras:", err);
       setPatientPrescriptions([]);
+      setPatientDiagnostics([]);
     } finally {
-      setLoadingPrescriptions(false);
+      setLoadingExtras(false);
     }
   };
 
   const handleSelectPatient = (apt: Appointment) => {
     setActivePatient(apt);
-    fetchPrescriptionsForAppointment(apt.id);
+    fetchPatientExtras(apt.id);
   };
 
   const handleStatusUpdate = async (id: number, newStatus: string) => {
@@ -222,7 +250,7 @@ export default function DoctorDashboard() {
 
       setFeedbackMsg("Prescription issued successfully!");
       if (activePatient) {
-        fetchPrescriptionsForAppointment(activePatient.id);
+        fetchPatientExtras(activePatient.id);
       }
 
       setTimeout(() => {
@@ -238,23 +266,25 @@ export default function DoctorDashboard() {
     }
   };
 
-  const handleAddLabOrder = async (e: React.FormEvent) => {
+  const handleAddDiagnosticOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickLabApt) return;
+    const targetApt = activePatient || quickDiagnosticApt || quickLabApt;
+    if (!targetApt) return;
     setSubmitting(true);
     setFeedbackMsg(null);
 
     try {
       const token = localStorage.getItem("token");
       const payload = {
-        appointment_id: Number(quickLabApt.id),
-        patient_id: quickLabApt.patient_id ? Number(quickLabApt.patient_id) : null,
+        appointment_id: Number(targetApt.id),
+        patient_id: targetApt.patient_id ? Number(targetApt.patient_id) : null,
         doctor_id: doctorId ? Number(doctorId) : null,
-        test_name: labOrderForm.test_name,
-        notes: labOrderForm.notes,
+        category: diagnosticForm.category,
+        test_name: diagnosticForm.test_name,
+        notes: diagnosticForm.notes,
       };
 
-      const res = await fetch(`${API_BASE}/api/lab-orders`, {
+      const res = await fetch(`${API_BASE}/api/diagnostics`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -265,18 +295,23 @@ export default function DoctorDashboard() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Failed to submit lab order.");
+        throw new Error(data.message || "Failed to submit diagnostic order.");
       }
 
-      setFeedbackMsg("Lab order created successfully!");
+      setFeedbackMsg("Diagnostic test ordered successfully!");
+      if (activePatient) {
+        fetchPatientExtras(activePatient.id);
+      }
+
       setTimeout(() => {
         setModalType(null);
+        setQuickDiagnosticApt(null);
         setQuickLabApt(null);
-        setLabOrderForm({ test_name: "", notes: "" });
+        setDiagnosticForm({ category: "Laboratory", test_name: "", notes: "" });
         setFeedbackMsg(null);
       }, 1200);
     } catch (err: any) {
-      setFeedbackMsg(err.message || "Error submitting lab order.");
+      setFeedbackMsg(err.message || "Error submitting diagnostic order.");
     } finally {
       setSubmitting(false);
     }
@@ -455,6 +490,54 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
 
+                {/* Diagnostics Orders Section */}
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Diagnostics & Labs
+                    </h3>
+                    <button
+                      onClick={() => setModalType("diagnostic")}
+                      className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition font-semibold text-xs flex items-center gap-1"
+                    >
+                      <FlaskConical size={14} /> Order Diagnostics
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-[160px] overflow-y-auto">
+                    {loadingExtras ? (
+                      <p className="text-xs text-slate-400 italic">Loading diagnostic orders...</p>
+                    ) : patientDiagnostics.length === 0 ? (
+                      <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-400 italic">
+                        No lab, imaging, or ophthalmology tests ordered yet.
+                      </div>
+                    ) : (
+                      patientDiagnostics.map((diag) => (
+                        <div key={diag.id} className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 font-semibold text-[10px] rounded uppercase">
+                                {diag.category || "Lab"}
+                              </span>
+                              <p className="font-semibold text-slate-900 text-sm">
+                                {diag.test_name}
+                              </p>
+                            </div>
+                            {diag.notes && (
+                              <p className="text-xs text-slate-500 mt-1 italic">
+                                Notes: {diag.notes}
+                              </p>
+                            )}
+                          </div>
+                          <span className="px-2 py-0.5 bg-amber-50 text-amber-700 font-medium text-[10px] rounded uppercase">
+                            Pending
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
                 <div className="space-y-2 pt-2 border-t border-slate-200">
                   <div className="flex justify-between items-center">
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -468,8 +551,8 @@ export default function DoctorDashboard() {
                     </button>
                   </div>
 
-                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                    {loadingPrescriptions ? (
+                  <div className="space-y-2 max-h-[160px] overflow-y-auto">
+                    {loadingExtras ? (
                       <p className="text-xs text-slate-400 italic">Loading prescriptions...</p>
                     ) : patientPrescriptions.length === 0 ? (
                       <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-400 italic">
@@ -646,13 +729,13 @@ export default function DoctorDashboard() {
                           </button>
                           <button
                             onClick={() => {
-                              setQuickLabApt(apt);
-                              setModalType("quickLab");
+                              setQuickDiagnosticApt(apt);
+                              setModalType("diagnostic");
                             }}
-                            title="Order Lab Test"
-                            className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                            title="Order Diagnostics / Lab / Imaging"
+                            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
                           >
-                            <FileSpreadsheet size={16} />
+                            <FlaskConical size={16} />
                           </button>
                         </div>
                       </td>
@@ -675,6 +758,7 @@ export default function DoctorDashboard() {
                 setQuickViewPatient(null);
                 setQuickPrescriptionApt(null);
                 setQuickLabApt(null);
+                setQuickDiagnosticApt(null);
                 setFeedbackMsg(null);
               }}
               className="absolute top-5 right-5 text-slate-400 hover:text-slate-700 transition"
@@ -754,11 +838,86 @@ export default function DoctorDashboard() {
               </form>
             )}
 
+            {/* Diagnostics Order Modal */}
+            {modalType === "diagnostic" && (
+              <form onSubmit={handleAddDiagnosticOrder} className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Order Diagnostics & Tests</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    For: {activePatient?.patient_name || quickDiagnosticApt?.patient_name || "Patient"}
+                  </p>
+                </div>
+
+                {feedbackMsg && (
+                  <div className={`p-3 rounded-lg text-xs font-medium ${feedbackMsg.includes("success") ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                    {feedbackMsg}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Category</label>
+                    <select
+                      value={diagnosticForm.category}
+                      onChange={(e) => setDiagnosticForm({ ...diagnosticForm, category: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 bg-white"
+                    >
+                      <option value="Laboratory">Laboratory Test</option>
+                      <option value="Imaging">Imaging / Radiology (X-Ray, MRI, CT)</option>
+                      <option value="Ophthalmology">Ophthalmology / Eye Examination</option>
+                      <option value="Cardiology">Cardiology (ECG / Echocardiogram)</option>
+                      <option value="Other">Other Diagnostics</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Test Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Complete Blood Count (CBC) or Fundoscopy"
+                      value={diagnosticForm.test_name}
+                      onChange={(e) => setDiagnosticForm({ ...diagnosticForm, test_name: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Clinical Instructions / Notes</label>
+                    <textarea
+                      rows={3}
+                      placeholder="e.g. Fasting required before blood draw, or check intraocular pressure"
+                      value={diagnosticForm.notes}
+                      onChange={(e) => setDiagnosticForm({ ...diagnosticForm, notes: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalType(null)}
+                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold text-sm shadow-sm disabled:opacity-50"
+                  >
+                    {submitting ? "Submitting..." : "Submit Order"}
+                  </button>
+                </div>
+              </form>
+            )}
+
             {/* Clinical Note Modal */}
             {modalType === "note" && (
               <form onSubmit={handleSaveNote} className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Clinical Documentation</h3>
+                  <h3 className="text-lg font-bold text-slate-900">Clinical Notes</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Patient: {activePatient?.patient_name}
                   </p>
@@ -771,11 +930,10 @@ export default function DoctorDashboard() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Clinical Notes</label>
                   <textarea
-                    rows={4}
+                    rows={5}
                     required
-                    placeholder="Enter diagnostic notes, observations, or treatment plan..."
+                    placeholder="Enter clinical observations, diagnosis, and recommendations..."
                     value={clinicalNote}
                     onChange={(e) => setClinicalNote(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
@@ -801,96 +959,41 @@ export default function DoctorDashboard() {
               </form>
             )}
 
-            {/* Quick Lab Order Modal */}
-            {modalType === "quickLab" && (
-              <form onSubmit={handleAddLabOrder} className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Order Lab Test</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Patient: {quickLabApt?.patient_name}
-                  </p>
-                </div>
-
-                {feedbackMsg && (
-                  <div className={`p-3 rounded-lg text-xs font-medium ${feedbackMsg.includes("success") ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
-                    {feedbackMsg}
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Test Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Complete Blood Count (CBC)"
-                      value={labOrderForm.test_name}
-                      onChange={(e) => setLabOrderForm({ ...labOrderForm, test_name: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Instructions / Notes</label>
-                    <textarea
-                      rows={3}
-                      placeholder="e.g. Fasting required"
-                      value={labOrderForm.notes}
-                      onChange={(e) => setLabOrderForm({ ...labOrderForm, notes: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setModalType(null)}
-                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm shadow-sm disabled:opacity-50"
-                  >
-                    {submitting ? "Submitting..." : "Submit Lab Order"}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Quick View Modal */}
+            {/* Quick View Patient Modal */}
             {modalType === "quickView" && quickViewPatient && (
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Patient Quick View</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">{quickViewPatient.patient_name}</p>
+                  <h3 className="text-lg font-bold text-slate-900">{quickViewPatient.patient_name}</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Phone: {quickViewPatient.phone || "N/A"} • Timing: {formatDisplayDate(quickViewPatient.appointment_date)}
+                  </p>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3 text-sm">
-                  <p><strong>Phone:</strong> {quickViewPatient.phone || "N/A"}</p>
-                  <p><strong>Appointment Date:</strong> {formatDisplayDate(quickViewPatient.appointment_date)} at {formatDisplayTime(quickViewPatient.appointment_time)}</p>
-                  <p><strong>Status:</strong> {quickViewPatient.status}</p>
-                  <p><strong>Chief Reason:</strong> {quickViewPatient.reason || "General Consultation"}</p>
-                  {quickViewPatient.patient_chronic_conditions && (
-                    <p><strong>Chronic Conditions:</strong> {quickViewPatient.patient_chronic_conditions}</p>
-                  )}
-                  {quickViewPatient.patient_allergies && (
-                    <p><strong>Allergies:</strong> {quickViewPatient.patient_allergies}</p>
-                  )}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 text-sm">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">Reason for Visit:</span>
+                    <p className="text-slate-800 font-medium">{quickViewPatient.reason || "General Consultation"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">Clinical Notes:</span>
+                    <p className="text-slate-700">{quickViewPatient.clinical_notes || "No notes recorded."}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase">Chronic Conditions:</span>
+                    <p className="text-slate-700">{quickViewPatient.patient_chronic_conditions || "None listed"}</p>
+                  </div>
                 </div>
 
                 <div className="flex justify-end pt-2">
                   <button
+                    type="button"
                     onClick={() => {
                       setModalType(null);
                       handleSelectPatient(quickViewPatient);
                     }}
                     className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm shadow-sm"
                   >
-                    Open Full Workspace
+                    Open Full Patient Workspace
                   </button>
                 </div>
               </div>
