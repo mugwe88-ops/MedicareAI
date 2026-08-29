@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Video, FileText, Activity, ShieldAlert, HeartPulse, Clock, ArrowRight } from "lucide-react";
+import { Calendar, Video, FileText, Activity, HeartPulse, Clock, ArrowRight } from "lucide-react";
 
 interface Appointment {
   id: number;
@@ -202,22 +202,21 @@ export default function PatientDashboard() {
           </div>
 
           <div
-            onClick={() => router.push("/patient/dashboard/pharmacy-store")}
+            onClick={() => router.push("/patient/dashboard/medical-records")}
             className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition group flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
               <FileText size={22} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900">View Prescriptions</h3>
-              <p className="text-slate-400 text-xs">View issued meds</p>
+              <h3 className="font-bold text-slate-900">Patient Records</h3>
+              <p className="text-slate-400 text-xs">View clinical files & history</p>
             </div>
           </div>
         </div>
 
         {/* Dashboard Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {/* Quick Stat 1 */}
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Upcoming Visits</p>
@@ -228,7 +227,6 @@ export default function PatientDashboard() {
             </div>
           </div>
 
-          {/* Quick Stat 2 */}
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Records</p>
@@ -239,7 +237,6 @@ export default function PatientDashboard() {
             </div>
           </div>
 
-          {/* Quick Stat 3 */}
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Account Status</p>
