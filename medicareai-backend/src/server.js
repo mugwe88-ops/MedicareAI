@@ -412,6 +412,42 @@ app.get("/api/user/profile", verifyToken, async (req, res) => {
   }
 });
 
+// GET All Active Doctors (Fixes the 404 by matching /api/doctors)
+app.get("/api/doctors", async (req, res) => {
+  try {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    
+    const { specialization } = req.query;
+
+    let query = `
+      SELECT 
+        id, 
+        name, 
+        COALESCE(NULLIF(TRIM(specialization), ''), 'General Medicine') AS specialization, 
+        city, 
+        status,
+        email
+      FROM users 
+      WHERE LOWER(TRIM(role)) = 'doctor'
+    `;
+    let values = [];
+
+    if (specialization) {
+      const cleanSpec = specialization.trim();
+      query += ` AND (LOWER(TRIM(specialization)) = LOWER($1) OR LOWER(specialization) LIKE LOWER($2))`;
+      values.push(cleanSpec, `%${cleanSpec}%`);
+    }
+
+    query += ` ORDER BY name ASC`;
+
+    const result = await pool.query(query, values);
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching doctors list:", err);
+    return res.status(500).json({ error: "Failed to fetch doctors list" });
+  }
+});
+
 // DELETE Doctor Availability Slot (Singular Endpoint)
 app.delete("/api/doctor/availability/:id", verifyToken, async (req, res) => {
   const doctorId = req.user?.id || req.user?.userId || req.user?.user_id;
