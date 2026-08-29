@@ -67,17 +67,30 @@ export default function RecordsPage() {
     }
   };
 
-  // Pre-calculate type-specific sequence numbers so each category counts independently (e.g. Lab Request 1, Lab Request 2)
-  const getProcessedRecordsWithCounters = () => {
-    const counters: { [key: string]: number } = {};
+  // Compute exact sequential numbers per category *globally* across all records first, 
+  // so numbering remains consistent whether filtered or viewing "All Records".
+  const getGlobalNumberedRecords = () => {
+    const counters: { [key: string]: number } = {
+      clinical_note: 0,
+      diagnostic: 0,
+      lab_result: 0,
+      vaccination: 0,
+      sick_leave: 0,
+      allergy: 0,
+      vitals: 0,
+      referral: 0,
+      prescription: 0
+    };
+
     return records.map(rec => {
-      const type = rec.record_type || "prescription";
+      let type = rec.record_type || "prescription";
+      if (type === "lab_result") type = "diagnostic"; // unify diagnostic & lab result counters
       counters[type] = (counters[type] || 0) + 1;
       return { ...rec, sequenceNum: counters[type] };
     });
   };
 
-  const processedRecords = getProcessedRecordsWithCounters();
+  const processedRecords = getGlobalNumberedRecords();
 
   const getRecordConfig = (rec: RecordItem & { sequenceNum: number }) => {
     const type = rec.record_type || "prescription";
@@ -88,15 +101,15 @@ export default function RecordsPage() {
       case "lab_result":
         return { title: `Lab Request ${rec.sequenceNum}`, icon: <TestTube size={18} />, color: "text-purple-600", bg: "bg-purple-50 text-purple-600", label: "Test Ordered:" };
       case "vaccination":
-        return { title: `Immunization Record ${rec.sequenceNum}`, icon: <Syringe size={18} />, color: "text-cyan-600", bg: "bg-cyan-50 text-cyan-600", label: "Vaccine & Dosage Details:" };
+        return { title: `Immunization Record ${rec.sequenceNum}`, icon: <Syringe size={18} />, color: "text-cyan-600", bg: "bg-cyan-50 text-cyan-600", label: "Vaccine Details:" };
       case "sick_leave":
-        return { title: `Medical Leave Certificate ${rec.sequenceNum}`, icon: <FileCheck size={18} />, color: "text-amber-600", bg: "bg-amber-50 text-amber-600", label: "Leave Period & Terms:" };
+        return { title: `Medical Leave Certificate ${rec.sequenceNum}`, icon: <FileCheck size={18} />, color: "text-amber-600", bg: "bg-amber-50 text-amber-600", label: "Leave Period:" };
       case "allergy":
-        return { title: `Allergy & Reaction Profile ${rec.sequenceNum}`, icon: <ShieldAlert size={18} />, color: "text-rose-600", bg: "bg-rose-50 text-rose-600", label: "Allergen & Severity Details:" };
+        return { title: `Allergy Profile ${rec.sequenceNum}`, icon: <ShieldAlert size={18} />, color: "text-rose-600", bg: "bg-rose-50 text-rose-600", label: "Allergen Details:" };
       case "vitals":
         return { title: `Vital Signs Summary ${rec.sequenceNum}`, icon: <Activity size={18} />, color: "text-indigo-600", bg: "bg-indigo-50 text-indigo-600", label: "Biometric Metrics:" };
       case "referral":
-        return { title: `Specialist Referral Letter ${rec.sequenceNum}`, icon: <FileText size={18} />, color: "text-teal-600", bg: "bg-teal-50 text-teal-600", label: "Referral & Specialist Notes:" };
+        return { title: `Specialist Referral ${rec.sequenceNum}`, icon: <FileText size={18} />, color: "text-teal-600", bg: "bg-teal-50 text-teal-600", label: "Referral Notes:" };
       case "prescription":
       default:
         return { title: `Prescription ${rec.sequenceNum}`, icon: <Pill size={18} />, color: "text-blue-600", bg: "bg-blue-50 text-blue-600", label: "Medication Details:" };
@@ -248,6 +261,8 @@ export default function RecordsPage() {
           {filteredRecords.map((rec) => {
             const config = getRecordConfig(rec);
             const isLab = rec.record_type === "diagnostic" || rec.record_type === "lab_result";
+            const isClinicalNote = rec.record_type === "clinical_note";
+
             return (
               <div
                 key={rec.id}
@@ -270,8 +285,8 @@ export default function RecordsPage() {
                       <p className="whitespace-pre-wrap">{rec.medication_details || "No details provided."}</p>
                     </div>
 
-                    {/* Differentiate Clinical Notes vs Instructions clearly */}
-                    {rec.instructions && (
+                    {/* Only show separate instructions block if it's not a clinical note duplicating the text */}
+                    {rec.instructions && (!isClinicalNote || rec.instructions !== rec.medication_details) && (
                       <div className="pt-1 border-t border-slate-200/60">
                         <p className="font-semibold text-slate-900">
                           {isLab ? "Clinical Notes / Reason:" : "Clinical Notes / Instructions:"}
