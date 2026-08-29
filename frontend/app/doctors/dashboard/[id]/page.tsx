@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { use } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export default function AppointmentDetailsPage() {
-  const params = useParams();
-  const appointmentId = params?.id;
+interface PageProps {
+  params: Promise<{ id: string }> | { id: string };
+}
+
+export default function AppointmentDetailsPage({ params }: PageProps) {
+  // Unwrap params safely for Next.js App Router compatibility
+  const resolvedParams = params instanceof Promise ? use(params) : params;
+  const appointmentId = resolvedParams?.id;
   const router = useRouter();
 
   return (
