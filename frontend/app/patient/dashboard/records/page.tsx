@@ -67,8 +67,7 @@ export default function RecordsPage() {
     }
   };
 
-  // Compute exact sequential numbers per category *globally* across all records first, 
-  // so numbering remains consistent whether filtered or viewing "All Records".
+  // Compute exact sequential numbers per category globally across all records
   const getGlobalNumberedRecords = () => {
     const counters: { [key: string]: number } = {
       clinical_note: 0,
@@ -84,7 +83,7 @@ export default function RecordsPage() {
 
     return records.map(rec => {
       let type = rec.record_type || "prescription";
-      if (type === "lab_result") type = "diagnostic"; // unify diagnostic & lab result counters
+      if (type === "lab_result") type = "diagnostic"; 
       counters[type] = (counters[type] || 0) + 1;
       return { ...rec, sequenceNum: counters[type] };
     });
@@ -96,16 +95,25 @@ export default function RecordsPage() {
     const type = rec.record_type || "prescription";
     const details = (rec.medication_details || "").toLowerCase();
     
-    // Check if the diagnostic entry is an imaging order rather than a standard lab test
-    const isImaging = details.includes("x-ray") || details.includes("imaging") || details.includes("ct") || details.includes("mri") || details.includes("ultrasound");
+    // Distinguish specialty diagnostic/procedures (ECG, Cardiology, Radiology, Imaging) from standard lab blood work
+    const isSpecialtyDiagnostic = 
+      details.includes("cardiology") || 
+      details.includes("ecg") || 
+      details.includes("echocardiogram") || 
+      details.includes("x-ray") || 
+      details.includes("imaging") || 
+      details.includes("ct") || 
+      details.includes("mri") || 
+      details.includes("ultrasound") ||
+      details.includes("radiology");
 
     switch (type) {
       case "clinical_note":
         return { title: `Doctor's Clinical Note ${rec.sequenceNum}`, icon: <Stethoscope size={18} />, color: "text-emerald-600", bg: "bg-emerald-50 text-emerald-600", label: "Clinical Summary / Notes:" };
       case "diagnostic":
       case "lab_result":
-        if (isImaging) {
-          return { title: `Imaging Order ${rec.sequenceNum}`, icon: <Activity size={18} />, color: "text-amber-600", bg: "bg-amber-50 text-amber-600", label: "Imaging Details:" };
+        if (isSpecialtyDiagnostic) {
+          return { title: `Procedure / Diagnostic Order ${rec.sequenceNum}`, icon: <Activity size={18} />, color: "text-amber-600", bg: "bg-amber-50 text-amber-600", label: "Order Details:" };
         }
         return { title: `Lab Request ${rec.sequenceNum}`, icon: <TestTube size={18} />, color: "text-purple-600", bg: "bg-purple-50 text-purple-600", label: "Test Ordered:" };
       case "vaccination":
