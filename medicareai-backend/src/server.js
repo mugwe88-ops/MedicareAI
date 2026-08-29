@@ -3,7 +3,7 @@
 ====================== */
 import dotenv from "dotenv";
 dotenv.config();
-
+app.post("/api/doctor/diagnostics"
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -211,7 +211,11 @@ app.post("/api/doctor/availability", verifyToken, async (req, res) => {
 });
 
 // POST Submit Diagnostic Order
-// POST Submit Diagnostic Order
+app.post("/api/diagnostics", verifyToken, async (req, res) => {
+  // Delegates to the same handler logic
+  return createDiagnosticHandler(req, res); 
+});
+
 app.post("/api/doctor/diagnostics", verifyToken, async (req, res) => {
   const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
   const { appointment_id, patient_id, patient_name, category, test_name, clinical_instructions } = req.body;
