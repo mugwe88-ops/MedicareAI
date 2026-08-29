@@ -1,8 +1,23 @@
-import pool from "../utils/db.js"; // Adjust path to your DB pool if different
+import pool from "../utils/db.js";
 
 // Controller to add a new lab result / diagnostic order
 export const addLabResult = async (req, res) => {
-  const { patient_id, record_type, medication_details, instructions, status, doctor_name } = req.body;
+  const { 
+    patient_id, 
+    record_type, 
+    medication_details, 
+    instructions, 
+    clinical_instructions, 
+    notes,
+    status, 
+    doctor_name,
+    category 
+  } = req.body;
+
+  // Capture instruction/notes from multiple possible frontend property names
+  const finalInstructions = instructions || clinical_instructions || notes || null;
+  const finalDetails = category ? `${category}: ${medication_details}` : medication_details;
+
   try {
     const query = `
       INSERT INTO medical_records (patient_id, record_type, medication_details, instructions, status, doctor_name, created_at)
@@ -13,8 +28,8 @@ export const addLabResult = async (req, res) => {
     const values = [
       patient_id || req.user?.id, 
       record_type || 'diagnostic', 
-      medication_details, 
-      instructions || null, // <-- Captures and saves clinical instructions properly
+      finalDetails, 
+      finalInstructions, 
       status || 'Ordered', 
       doctor_name || req.user?.name || 'PRESSY PHIDES'
     ];
@@ -23,11 +38,11 @@ export const addLabResult = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Lab request added successfully",
+      message: "Diagnostic/Lab request added successfully",
       data: result.rows[0]
     });
   } catch (error) {
-    console.error("Error adding lab result:", error);
+    console.error("Error adding lab result / diagnostic order:", error);
     res.status(500).json({ success: false, error: "Internal Server Error" });
   }
 };
