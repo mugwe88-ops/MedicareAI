@@ -189,7 +189,7 @@ export default function PatientDashboard() {
           </div>
 
           <div
-            onClick={() => router.push("/patient/telehealth")}
+            onClick={() => router.push("/patient/dashboard/telehealth-room")}
             className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition group flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition">
@@ -202,7 +202,7 @@ export default function PatientDashboard() {
           </div>
 
           <div
-            onClick={() => router.push("/patient/dashboard/prescriptions")}
+            onClick={() => router.push("/patient/dashboard/pharmacy-store")}
             className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md cursor-pointer transition group flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
@@ -251,7 +251,7 @@ export default function PatientDashboard() {
           </div>
         </div>
 
-        {/* Patient Health Summary Card (Replacing Questionnaire) */}
+        {/* Patient Health Summary Card */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 mb-10">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
@@ -264,10 +264,10 @@ export default function PatientDashboard() {
               </div>
             </div>
             <button
-              onClick={() => router.push("/patient/dashboard/settings")}
+              onClick={() => router.push("/patient/dashboard/medical-records")}
               className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition flex items-center gap-1.5"
             >
-              Update Profile <ArrowRight size={14} />
+              View Records <ArrowRight size={14} />
             </button>
           </div>
 
@@ -359,7 +359,7 @@ export default function PatientDashboard() {
                       <td className="py-5 px-8 text-right">
                         <button
                           onClick={() =>
-                            router.push(`/patient/telehealth/room/${apt.id}`)
+                            router.push(`/patient/dashboard/telehealth-room`)
                           }
                           className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center cursor-pointer"
                           title="Join Call"
