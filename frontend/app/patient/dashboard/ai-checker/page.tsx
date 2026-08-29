@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
-import { Bot, Send, AlertTriangle, Stethoscope, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bot, Send, Stethoscope, Sparkles } from "lucide-react";
 
 export default function AiSymptomCheckerPage() {
+  const router = useRouter();
   const [symptoms, setSymptoms] = useState("");
   const [loading, setLoading] = useState(false);
   const [assessment, setAssessment] = useState<{
@@ -171,12 +173,18 @@ export default function AiSymptomCheckerPage() {
             </div>
 
             <div className="pt-4 border-t border-slate-800 flex justify-end">
-              <a
-                href="/dashboard/appointments"
+              <button
+                onClick={() =>
+                  router.push(
+                    `/patient/dashboard/appointments?department=${encodeURIComponent(
+                      assessment.department
+                    )}`
+                  )
+                }
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-blue-600/20"
               >
                 Schedule Consultation Now
-              </a>
+              </button>
             </div>
           </div>
         )}
