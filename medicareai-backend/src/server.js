@@ -579,6 +579,7 @@ app.patch("/api/appointments/:id/notes", verifyToken, async (req, res) => {
 });
 
 // Medical Records for Logged-In Patient
+// Medical Records for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
   const userId = req.user?.id;
   if (!userId || isNaN(userId)) {
@@ -638,9 +639,30 @@ app.get("/api/records", verifyToken, async (req, res) => {
       [patientId, patientUser.name]
     );
 
+    // 3. Fetch Diagnostics / Lab Results
+    const diagnosticsResult = await pool.query(
+      `SELECT 
+          dg.id, 
+          'diagnostic' AS record_type,
+          COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(dg.patient_name), ''), $2, 'Valued Patient') AS patient_name,
+          ${patientAge !== "N/A" ? patientAge : "NULL"} AS patient_age,
+          '${patientNumber}' AS patient_number,
+          CONCAT(dg.category, ': ', dg.test_name) AS medication_details,
+          dg.clinical_instructions AS instructions,
+          dg.status,
+          dg.created_at,
+          d.name AS doctor_name
+        FROM diagnostics dg
+        LEFT JOIN users u ON dg.patient_id = u.id
+        LEFT JOIN users d ON dg.doctor_id = d.id
+        WHERE dg.patient_id = $1 OR dg.appointment_id IN (SELECT id FROM appointments WHERE patient_id = $1)`,
+      [patientId, patientUser.name]
+    );
+
     const combinedRecords = [
       ...prescriptionsResult.rows,
-      ...clinicalNotesResult.rows
+      ...clinicalNotesResult.rows,
+      ...diagnosticsResult.rows
     ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     return res.json(combinedRecords);
