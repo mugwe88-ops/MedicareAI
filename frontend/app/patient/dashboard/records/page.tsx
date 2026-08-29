@@ -94,11 +94,19 @@ export default function RecordsPage() {
 
   const getRecordConfig = (rec: RecordItem & { sequenceNum: number }) => {
     const type = rec.record_type || "prescription";
+    const details = (rec.medication_details || "").toLowerCase();
+    
+    // Check if the diagnostic entry is an imaging order rather than a standard lab test
+    const isImaging = details.includes("x-ray") || details.includes("imaging") || details.includes("ct") || details.includes("mri") || details.includes("ultrasound");
+
     switch (type) {
       case "clinical_note":
         return { title: `Doctor's Clinical Note ${rec.sequenceNum}`, icon: <Stethoscope size={18} />, color: "text-emerald-600", bg: "bg-emerald-50 text-emerald-600", label: "Clinical Summary / Notes:" };
       case "diagnostic":
       case "lab_result":
+        if (isImaging) {
+          return { title: `Imaging Order ${rec.sequenceNum}`, icon: <Activity size={18} />, color: "text-amber-600", bg: "bg-amber-50 text-amber-600", label: "Imaging Details:" };
+        }
         return { title: `Lab Request ${rec.sequenceNum}`, icon: <TestTube size={18} />, color: "text-purple-600", bg: "bg-purple-50 text-purple-600", label: "Test Ordered:" };
       case "vaccination":
         return { title: `Immunization Record ${rec.sequenceNum}`, icon: <Syringe size={18} />, color: "text-cyan-600", bg: "bg-cyan-50 text-cyan-600", label: "Vaccine Details:" };
@@ -285,7 +293,6 @@ export default function RecordsPage() {
                       <p className="whitespace-pre-wrap">{rec.medication_details || "No details provided."}</p>
                     </div>
 
-                    {/* Only show separate instructions block if it's not a clinical note duplicating the text */}
                     {rec.instructions && (!isClinicalNote || rec.instructions !== rec.medication_details) && (
                       <div className="pt-1 border-t border-slate-200/60">
                         <p className="font-semibold text-slate-900">
