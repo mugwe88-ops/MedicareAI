@@ -134,6 +134,8 @@ export default function RecordsPage() {
 
   const handleDownloadSinglePDF = (rec: RecordItem & { sequenceNum: number }) => {
     const config = getRecordConfig(rec);
+    const isLab = rec.record_type === "diagnostic" || rec.record_type === "lab_result";
+
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       alert("Please allow popups to download individual PDFs.");
@@ -145,45 +147,155 @@ export default function RecordsPage() {
         <head>
           <title>${config.title} - Swift MD</title>
           <style>
-            body { font-family: Arial, sans-serif; color: #1e293b; padding: 40px; max-width: 700px; margin: 0 auto; }
-            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-            .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
-            .badge { background: #eff6ff; color: #2563eb; padding: 6px 12px; border-radius: 9999px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
-            .patient-box { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 13px; }
-            .patient-box div span { display: block; font-weight: bold; color: #0f172a; margin-top: 2px; font-size: 14px; }
-            .content-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; }
-            .label { font-weight: bold; color: #0f172a; margin-bottom: 8px; }
-            .details { white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: #334155; }
-            .footer { margin-top: 40px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+            
+            body { 
+              font-family: 'Inter', sans-serif; 
+              color: #0f172a; 
+              padding: 48px; 
+              max-width: 750px; 
+              margin: 0 auto; 
+              background-color: #ffffff;
+              -webkit-print-color-adjust: exact;
+            }
+            .header { 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: flex-start; 
+              border-bottom: 2px solid #f1f5f9; 
+              padding-bottom: 24px; 
+              margin-bottom: 28px; 
+            }
+            .logo-area { display: flex; align-items: center; gap: 12px; }
+            .logo-icon { background: #2563eb; color: white; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; }
+            .logo-text { font-size: 20px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px; }
+            .logo-sub { font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px; }
+            
+            .badge { 
+              background: #eff6ff; 
+              color: #1d4ed8; 
+              padding: 6px 14px; 
+              border-radius: 9999px; 
+              font-size: 11px; 
+              font-weight: 700; 
+              text-transform: uppercase; 
+              letter-spacing: 0.5px;
+              border: 1px solid #dbeafe;
+            }
+            
+            .doc-title-section { margin-bottom: 24px; }
+            .doc-title { font-size: 22px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px; margin: 0 0 4px 0; }
+            .doc-date { font-size: 13px; color: #64748b; font-weight: 500; }
+
+            .patient-box { 
+              background: #f8fafc; 
+              border: 1px solid #e2e8f0; 
+              padding: 16px 20px; 
+              border-radius: 12px; 
+              margin-bottom: 24px; 
+              display: grid; 
+              grid-template-columns: 2fr 1fr 1fr; 
+              gap: 16px; 
+            }
+            .patient-field span { display: block; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px; }
+            .patient-field strong { font-size: 14px; color: #0f172a; font-weight: 600; }
+
+            .main-content-card { 
+              background: #ffffff; 
+              border: 2px solid #e2e8f0; 
+              border-radius: 16px; 
+              padding: 24px; 
+              margin-bottom: 32px; 
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+            }
+            .content-label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #2563eb; letter-spacing: 0.5px; margin-bottom: 8px; }
+            .primary-details { font-size: 16px; font-weight: 600; color: #0f172a; line-height: 1.5; white-space: pre-wrap; }
+            
+            .notes-section { 
+              margin-top: 18px; 
+              padding-top: 16px; 
+              border-top: 1px dashed #cbd5e1; 
+            }
+            .notes-label { font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .notes-body { font-size: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap; }
+
+            .doctor-signature { 
+              margin-top: 24px; 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: center;
+              padding-top: 16px;
+              border-top: 1px solid #f1f5f9;
+            }
+            .doctor-name { font-size: 14px; font-weight: 600; color: #0f172a; }
+            .doctor-role { font-size: 12px; color: #64748b; }
+
+            .footer { 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: center; 
+              font-size: 11px; 
+              color: #94a3b8; 
+              border-top: 1px solid #f1f5f9; 
+              padding-top: 20px; 
+            }
           </style>
         </head>
         <body>
           <div class="header">
-            <div>
-              <div class="logo">SWIFT MD</div>
-              <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Official Medical Document</p>
+            <div class="logo-area">
+              <div class="logo-icon">S</div>
+              <div>
+                <div class="logo-text">SWIFT MD</div>
+                <div class="logo-sub">Official Medical Record & Health Suite</div>
+              </div>
             </div>
             <div class="badge">${rec.status || "Verified"}</div>
           </div>
 
-          <h2>${config.title}</h2>
-          <p style="font-size: 13px; color: #64748b; margin-bottom: 15px;">Recorded Date: ${new Date(rec.created_at).toLocaleDateString()}</p>
-
-          <div class="patient-box">
-            <div>Patient Name: <span>${rec.patient_name || "Valued Patient"}</span></div>
-            <div>Age: <span>${rec.patient_age || "N/A"}</span></div>
-            <div>Hospital Patient ID: <span>${rec.patient_number || `SMD-${rec.id}`}</span></div>
+          <div class="doc-title-section">
+            <h1 class="doc-title">${config.title}</h1>
+            <div class="doc-date">Issued on: ${new Date(rec.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
           </div>
 
-          <div class="content-box">
-            <div class="label">${config.label}</div>
-            <div class="details">${rec.medication_details || "No details provided."}</div>
-            ${rec.instructions ? `<div style="margin-top: 12px;"><strong style="color: #0f172a;">Clinical Notes / Instructions:</strong><div class="details" style="margin-top: 4px;">${rec.instructions}</div></div>` : ""}
-            ${rec.doctor_name ? `<p style="margin-top: 15px; font-weight: bold; font-size: 13px; color: #475569;">Attending Doctor / Lab: Dr. ${rec.doctor_name}</p>` : ""}
+          <div class="patient-box">
+            <div class="patient-field">
+              <span>Patient Name</span>
+              <strong>${rec.patient_name || "Valued Patient"}</strong>
+            </div>
+            <div class="patient-field">
+              <span>Age</span>
+              <strong>${rec.patient_age || "N/A"}</strong>
+            </div>
+            <div class="patient-field">
+              <span>Patient ID</span>
+              <strong>${rec.patient_number || `SMD-${rec.id}`}</strong>
+            </div>
+          </div>
+
+          <div class="main-content-card">
+            <div class="content-label">${config.label}</div>
+            <div class="primary-details">${rec.medication_details || "No details provided."}</div>
+
+            ${rec.instructions ? `
+              <div class="notes-section">
+                <div class="notes-label">${isLab ? "Clinical Notes / Reason" : "Clinical Instructions / Notes"}</div>
+                <div class="notes-body">${rec.instructions}</div>
+              </div>
+            ` : ""}
+
+            <div class="doctor-signature">
+              <div>
+                <div class="doctor-name">Dr. ${rec.doctor_name || "PRESSY PHIDES"}</div>
+                <div class="doctor-role">Attending Clinician & Medical Issuer</div>
+              </div>
+              <div style="font-size: 12px; font-weight: 600; color: #2563eb;">Digitally Verified</div>
+            </div>
           </div>
 
           <div class="footer">
-            <p>Generated securely via Swift MD Healthcare Platform.</p>
+            <div>Securely generated via Swift MD Healthcare Platform</div>
+            <div>Document Ref: #SMD-REC-${rec.id}</div>
           </div>
 
           <script>
@@ -282,31 +394,38 @@ export default function RecordsPage() {
             return (
               <div
                 key={rec.id}
-                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 flex flex-col justify-between"
+                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between"
               >
                 <div className="space-y-3">
-                  <div className="flex justify-between items-start">
+                  {/* TOP ROW: Title & Prominent Date */}
+                  <div className="flex justify-between items-start gap-2">
                     <div className={`flex items-center gap-2 font-bold ${config.color}`}>
                       {config.icon}
-                      <span>{config.title}</span>
+                      <div>
+                        <span className="text-sm block">{config.title}</span>
+                        <span className="text-xs font-medium text-slate-400 flex items-center gap-1 mt-0.5">
+                          <Calendar size={12} /> {new Date(rec.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
                     </div>
-                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full capitalize ${config.bg}`}>
+                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full capitalize shrink-0 ${config.bg}`}>
                       {rec.status || "Verified"}
                     </span>
                   </div>
 
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-2">
+                  {/* CONTENT BOX */}
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-2">
                     <div>
                       <p className="font-semibold text-slate-900">{config.label}</p>
-                      <p className="whitespace-pre-wrap">{rec.medication_details || "No details provided."}</p>
+                      <p className="whitespace-pre-wrap mt-0.5">{rec.medication_details || "No details provided."}</p>
                     </div>
 
                     {rec.instructions && (!isClinicalNote || rec.instructions !== rec.medication_details) && (
-                      <div className="pt-1 border-t border-slate-200/60">
+                      <div className="pt-2 border-t border-slate-200/60">
                         <p className="font-semibold text-slate-900">
                           {isLab ? "Clinical Notes / Reason:" : "Clinical Notes / Instructions:"}
                         </p>
-                        <p className="whitespace-pre-wrap">{rec.instructions}</p>
+                        <p className="whitespace-pre-wrap mt-0.5">{rec.instructions}</p>
                       </div>
                     )}
 
@@ -316,13 +435,11 @@ export default function RecordsPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                  <p className="text-xs text-slate-400 flex items-center gap-1">
-                    <Calendar size={14} /> {new Date(rec.created_at).toLocaleDateString()}
-                  </p>
+                {/* BOTTOM ROW: Action Button */}
+                <div className="flex justify-end items-center pt-2 border-t border-slate-100">
                   <button
                     onClick={() => handleDownloadSinglePDF(rec)}
-                    className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-sm"
+                    className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition shadow-sm"
                   >
                     <Download size={14} />
                     Download PDF
