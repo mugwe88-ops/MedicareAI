@@ -36,6 +36,15 @@ const COMMON_SYMPTOMS = [
   "Acute Pain",
 ];
 
+const CHRONIC_CONDITIONS = [
+  "Hypertension",
+  "Diabetes",
+  "Asthma",
+  "Heart Disease",
+  "Epilepsy",
+  "None",
+];
+
 export default function AppointmentsPage() {
   const router = useRouter();
 
@@ -48,9 +57,12 @@ export default function AppointmentsPage() {
   const [selectedSlot, setSelectedSlot] = useState<{ day: string; time: string } | null>(null);
   const [reason, setReason] = useState<string>("");
 
-  // Patient Medical Questionnaire State (Restored)
+  // Patient Medical Questionnaire State
   const [age, setAge] = useState<string>("");
-  const [phone, setPhone] = useState<string>("");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [allergies, setAllergies] = useState<string>("");
+  const [hasSurgeries, setHasSurgeries] = useState<string>("No");
 
   // Enhanced Quick-Symptom Pre-Screening State
   const [symptomSeverity, setSymptomSeverity] = useState<string>("Moderate");
@@ -112,6 +124,18 @@ export default function AppointmentsPage() {
     setAssociatedSymptoms((prev) =>
       prev.includes(sym) ? prev.filter((s) => s !== sym) : [...prev, sym]
     );
+  };
+
+  // Toggle chronic conditions checkboxes
+  const handleConditionToggle = (cond: string) => {
+    if (cond === "None") {
+      setSelectedConditions(["None"]);
+      return;
+    }
+    setSelectedConditions((prev) => {
+      const filtered = prev.filter((c) => c !== "None");
+      return filtered.includes(cond) ? filtered.filter((c) => c !== cond) : [...filtered, cond];
+    });
   };
 
   // 1. Load Doctor List & Booked Consultations on Mount & Verify Session Token
@@ -204,12 +228,16 @@ export default function AppointmentsPage() {
 
     const calculatedDate = getNextDateForDay(selectedSlot.day);
 
-    // Combine clinical screening details into a rich reason string for the doctor view
+    // Combine clinical screening and questionnaire details into a rich reason string for the doctor view
     const formattedSymptoms = associatedSymptoms.length > 0 ? associatedSymptoms.join(", ") : "None";
+    const formattedConditions = selectedConditions.length > 0 ? selectedConditions.join(", ") : "None";
     const comprehensiveReason = [
       reason.trim() ? `Chief Complaint: ${reason}` : "Chief Complaint: General Consultation",
       `Age: ${age || "N/A"}`,
-      `Phone: ${phone || "N/A"}`,
+      `Phone: ${phoneNumber || "N/A"}`,
+      `Chronic Conditions: ${formattedConditions}`,
+      `Allergies: ${allergies.trim() || "None"}`,
+      `Past Surgeries/Hospitalizations: ${hasSurgeries}`,
       `Body System: ${bodySystem}`,
       `Severity: ${symptomSeverity}`,
       `Duration: ${symptomDuration}`,
@@ -230,8 +258,11 @@ export default function AppointmentsPage() {
           appointment_date: calculatedDate,
           appointment_time: selectedSlot.time,
           reason: comprehensiveReason,
-          age,
-          phone,
+          age: age ? parseInt(age, 10) : null,
+          phone_number: phoneNumber,
+          chronic_conditions: selectedConditions,
+          allergies: allergies,
+          past_surgeries: hasSurgeries === "Yes",
           symptom_severity: symptomSeverity,
           symptom_duration: symptomDuration,
           body_system: bodySystem,
@@ -258,7 +289,7 @@ export default function AppointmentsPage() {
       <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl p-6 sm:p-8">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Book Appointment</h2>
         <p className="text-xs sm:text-sm text-blue-400 mb-6 font-medium uppercase tracking-wide">
-          Secure Clinical Entry & Medical Questionnaire
+          Secure Clinical Entry
         </p>
 
         {errorMsg && (
@@ -300,6 +331,105 @@ export default function AppointmentsPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* PATIENT MEDICAL QUESTIONNAIRE SECTION */}
+          <div className="p-4 sm:p-6 bg-slate-800/50 rounded-2xl border border-slate-700/60 space-y-5">
+            <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              📋 Patient Medical Questionnaire
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Age</label>
+                <input
+                  type="number"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder="e.g. 56"
+                  className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Phone Number</label>
+                <input
+                  type="text"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="e.g. 0723503988"
+                  className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+                1. Do you have any of the following chronic conditions? (Check all that apply)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {CHRONIC_CONDITIONS.map((cond) => {
+                  const active = selectedConditions.includes(cond);
+                  return (
+                    <button
+                      key={cond}
+                      type="button"
+                      onClick={() => handleConditionToggle(cond)}
+                      className={`p-3 rounded-xl text-xs font-semibold border transition-all text-left flex items-center justify-between ${
+                        active
+                          ? "bg-blue-600 border-blue-400 text-white shadow-md"
+                          : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600"
+                      }`}
+                    >
+                      <span>{cond}</span>
+                      <span>{active ? "✓" : "+"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+                2. Do you have any drug or food allergies? (E.g., Sulphur, Penicillin, Dust)
+              </label>
+              <input
+                type="text"
+                value={allergies}
+                onChange={(e) => setAllergies(e.target.value)}
+                placeholder="List allergies or type None"
+                className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+                3. Have you had any past major surgeries or hospitalizations?
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
+                  <input
+                    type="radio"
+                    name="hasSurgeries"
+                    value="No"
+                    checked={hasSurgeries === "No"}
+                    onChange={() => setHasSurgeries("No")}
+                    className="accent-blue-500"
+                  />
+                  No
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
+                  <input
+                    type="radio"
+                    name="hasSurgeries"
+                    value="Yes"
+                    checked={hasSurgeries === "Yes"}
+                    onChange={() => setHasSurgeries("Yes")}
+                    className="accent-blue-500"
+                  />
+                  Yes
+                </label>
+              </div>
+            </div>
+          </div>
+
           {/* SELECT DOCTOR */}
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
@@ -480,34 +610,6 @@ export default function AppointmentsPage() {
               <span>6 (Moderate)</span>
               <span>8 (Severe)</span>
               <span>10 (Emergency)</span>
-            </div>
-          </div>
-
-          {/* PATIENT MEDICAL QUESTIONNAIRE EXTRAS (Restored Age & Phone) */}
-          <div className="pt-2 border-t border-slate-800">
-            <h3 className="text-sm font-bold text-white mb-3">Patient Medical Questionnaire</h3>
-            <p className="text-xs text-slate-400 mb-4">Please complete your health profile details for your doctor</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Age</label>
-                <input
-                  type="text"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  placeholder="e.g. 30"
-                  className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Phone Number</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 0723503988"
-                  className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                />
-              </div>
             </div>
           </div>
 
