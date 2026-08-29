@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Video, FileText, UserCheck } from "lucide-react";
+import { Calendar, Video, FileText, Activity, ShieldAlert, HeartPulse, Clock, ArrowRight } from "lucide-react";
 
 interface Appointment {
   id: number;
@@ -20,29 +20,14 @@ export default function PatientDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Profile form states
-  const [age, setAge] = useState("");
-  const [phone, setPhone] = useState("");
-  
-  // Questionnaire states
-  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
-  const [allergies, setAllergies] = useState("");
-  const [hasSurgeries, setHasSurgeries] = useState("no");
-  const [surgeryDetails, setSurgeryDetails] = useState("");
-
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileMessage, setProfileMessage] = useState("");
+  // Profile & Medical Summary States
+  const [age, setAge] = useState("N/A");
+  const [phone, setPhone] = useState("N/A");
+  const [conditions, setConditions] = useState("None");
+  const [allergies, setAllergies] = useState("None");
+  const [surgeries, setSurgeries] = useState("None");
 
   const router = useRouter();
-
-  const commonConditions = [
-    "Hypertension",
-    "Diabetes",
-    "Asthma",
-    "Heart Disease",
-    "Epilepsy",
-    "None"
-  ];
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -51,7 +36,6 @@ export default function PatientDashboard() {
       return;
     }
 
-    // Fetch fresh profile data and appointments concurrently from backend
     fetchPatientData(token);
   }, [router]);
 
@@ -60,8 +44,8 @@ export default function PatientDashboard() {
     try {
       const condMatch = historyStr.match(/Conditions:\s*([^|]+)/);
       if (condMatch && condMatch[1]) {
-        const conds = condMatch[1].trim().split(", ").map((c: string) => c.trim()).filter(Boolean);
-        if (conds.length > 0) setSelectedConditions(conds);
+        const conds = condMatch[1].trim();
+        if (conds) setConditions(conds);
       }
 
       const allergyMatch = historyStr.match(/Allergies:\s*([^|]+)/);
@@ -73,13 +57,7 @@ export default function PatientDashboard() {
       const surgMatch = historyStr.match(/Surgeries:\s*(.+)$/);
       if (surgMatch && surgMatch[1]) {
         const surg = surgMatch[1].trim();
-        if (surg && surg !== "None") {
-          setHasSurgeries("yes");
-          setSurgeryDetails(surg);
-        } else {
-          setHasSurgeries("no");
-          setSurgeryDetails("");
-        }
+        if (surg) setSurgeries(surg);
       }
     } catch (e) {
       console.error("Failed parsing medical history string", e);
@@ -125,70 +103,6 @@ export default function PatientDashboard() {
     }
   };
 
-  const handleConditionToggle = (condition: string) => {
-    if (condition === "None") {
-      setSelectedConditions(["None"]);
-      return;
-    }
-    
-    const filtered = selectedConditions.filter(c => c !== "None");
-
-    if (filtered.includes(condition)) {
-      setSelectedConditions(filtered.filter(c => c !== condition));
-    } else {
-      setSelectedConditions([...filtered, condition]);
-    }
-  };
-
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingProfile(true);
-    setProfileMessage("");
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
-    const conditionsString = selectedConditions.length > 0 ? selectedConditions.join(", ") : "None";
-    const allergiesString = allergies.trim() ? allergies.trim() : "None";
-    const surgeriesString = hasSurgeries === "yes" && surgeryDetails.trim() ? surgeryDetails.trim() : "None";
-
-    const compiledMedicalHistory = `Conditions: ${conditionsString} | Allergies: ${allergiesString} | Surgeries: ${surgeriesString}`;
-
-    try {
-      const backendUrl =
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        "https://medicareai-1.onrender.com";
-      
-      const res = await fetch(`${backendUrl}/api/user/profile`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          age: age ? parseInt(age, 10) : null,
-          phone: phone.trim() || null,
-          medical_history: compiledMedicalHistory
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to update profile");
-      }
-
-      setProfileMessage("Questionnaire details saved successfully!");
-    } catch (err: any) {
-      console.error("Error updating profile:", err);
-      setProfileMessage(err.message || "Failed to save questionnaire");
-    } finally {
-      setSavingProfile(false);
-    }
-  };
-
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -228,6 +142,10 @@ export default function PatientDashboard() {
     );
   };
 
+  const upcomingAppointmentsCount = appointments.filter(
+    (a) => a.status?.toLowerCase() === "confirmed" || a.status?.toLowerCase() === "pending"
+  ).length;
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
       <main className="max-w-6xl mx-auto p-8">
@@ -237,7 +155,7 @@ export default function PatientDashboard() {
               Welcome Back, {userName}
             </h2>
             <p className="text-slate-400 font-bold mt-1">
-              Assigned Records: {appointments.length}
+              Here is a summary of your health profile and recent visits.
             </p>
           </div>
           <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
@@ -297,140 +215,80 @@ export default function PatientDashboard() {
           </div>
         </div>
 
-        {/* Patient Profile & Clinical Questionnaire */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 mb-10">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-              <UserCheck size={20} />
-            </div>
+        {/* Dashboard Overview Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {/* Quick Stat 1 */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
             <div>
-              <h3 className="font-black text-slate-900 text-lg">Patient Medical Questionnaire</h3>
-              <p className="text-xs text-slate-400 font-semibold">Please complete your health profile details for your doctors</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Upcoming Visits</p>
+              <h4 className="text-3xl font-black text-slate-900 mt-1">{upcomingAppointmentsCount}</h4>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Clock size={22} />
             </div>
           </div>
 
-          <form onSubmit={handleProfileSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-slate-100">
+          {/* Quick Stat 2 */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Records</p>
+              <h4 className="text-3xl font-black text-slate-900 mt-1">{appointments.length}</h4>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <Activity size={22} />
+            </div>
+          </div>
+
+          {/* Quick Stat 3 */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Account Status</p>
+              <h4 className="text-lg font-black text-emerald-600 mt-2">Active & Verified</h4>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <HeartPulse size={22} />
+            </div>
+          </div>
+        </div>
+
+        {/* Patient Health Summary Card (Replacing Questionnaire) */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 mb-10">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <HeartPulse size={20} />
+              </div>
               <div>
-                <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Age</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  placeholder="Enter your age"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Phone Number</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g., +254700000000"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium"
-                />
+                <h3 className="font-black text-slate-900 text-lg">My Health Profile Summary</h3>
+                <p className="text-xs text-slate-400 font-semibold">Your clinical overview shared with attending physicians</p>
               </div>
             </div>
+            <button
+              onClick={() => router.push("/patient/dashboard/settings")}
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition flex items-center gap-1.5"
+            >
+              Update Profile <ArrowRight size={14} />
+            </button>
+          </div>
 
-            <div>
-              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-3">
-                1. Do you have any of the following chronic conditions? (Check all that apply)
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {commonConditions.map((cond) => (
-                  <button
-                    type="button"
-                    key={cond}
-                    onClick={() => handleConditionToggle(cond)}
-                    className={`px-4 py-3 rounded-xl border text-sm font-bold text-left transition flex items-center justify-between ${
-                      selectedConditions.includes(cond)
-                        ? "bg-blue-50 border-blue-600 text-blue-700"
-                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                    }`}
-                  >
-                    <span>{cond}</span>
-                    <span className={`w-4 h-4 rounded-full border flex items-center justify-center text-[10px] ${
-                      selectedConditions.includes(cond) ? "bg-blue-600 border-blue-600 text-white" : "border-slate-300"
-                    }`}>
-                      {selectedConditions.includes(cond) ? "✓" : ""}
-                    </span>
-                  </button>
-                ))}
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Demographics</p>
+              <p className="text-sm font-bold text-slate-800">Age: <span className="font-normal">{age}</span></p>
+              <p className="text-sm font-bold text-slate-800 mt-1">Phone: <span className="font-normal">{phone}</span></p>
             </div>
 
-            <div>
-              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">
-                2. Do you have any drug or food allergies? (e.g., Sulphur, Penicillin, Dust)
-              </label>
-              <input
-                type="text"
-                value={allergies}
-                onChange={(e) => setAllergies(e.target.value)}
-                placeholder="List allergies or type 'None'"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium"
-              />
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Chronic Conditions</p>
+              <p className="text-sm font-bold text-slate-800">{conditions}</p>
             </div>
 
-            <div>
-              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">
-                3. Have you had any past major surgeries or hospitalizations?
-              </label>
-              <div className="flex gap-4 mb-3">
-                <label className="flex items-center gap-2 cursor-pointer font-bold text-sm">
-                  <input
-                    type="radio"
-                    name="surgeries"
-                    value="no"
-                    checked={hasSurgeries === "no"}
-                    onChange={() => setHasSurgeries("no")}
-                    className="accent-blue-600"
-                  />
-                  No
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer font-bold text-sm">
-                  <input
-                    type="radio"
-                    name="surgeries"
-                    value="yes"
-                    checked={hasSurgeries === "yes"}
-                    onChange={() => setHasSurgeries("yes")}
-                    className="accent-blue-600"
-                  />
-                  Yes
-                </label>
-              </div>
-
-              {hasSurgeries === "yes" && (
-                <input
-                  type="text"
-                  value={surgeryDetails}
-                  onChange={(e) => setSurgeryDetails(e.target.value)}
-                  placeholder="Please specify surgeries and approximate dates..."
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 font-medium"
-                />
-              )}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Allergies & Surgeries</p>
+              <p className="text-xs font-bold text-slate-800">Allergies: <span className="font-normal text-rose-600">{allergies}</span></p>
+              <p className="text-xs font-bold text-slate-800 mt-1">Surgeries: <span className="font-normal">{surgeries}</span></p>
             </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-              <button
-                type="submit"
-                disabled={savingProfile}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-lg shadow-blue-200 disabled:opacity-50 cursor-pointer"
-              >
-                {savingProfile ? "Saving..." : "Save Questionnaire Details"}
-              </button>
-              {profileMessage && (
-                <p className={`text-sm font-bold ${profileMessage.includes("successfully") ? "text-emerald-600" : "text-rose-600"}`}>
-                  {profileMessage}
-                </p>
-              )}
-            </div>
-          </form>
+          </div>
         </div>
 
         {/* Consultations List */}
