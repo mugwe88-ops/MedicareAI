@@ -763,51 +763,87 @@ export default function DoctorDashboard() {
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Medication Name</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Medication Name</label>
                   <input
                     type="text"
                     required
                     value={prescriptionForm.medication}
                     onChange={(e) => setPrescriptionForm({ ...prescriptionForm, medication: e.target.value })}
                     placeholder="e.g. Amoxicillin 500mg"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Dosage</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Dosage</label>
                   <input
                     type="text"
                     required
                     value={prescriptionForm.dosage}
                     onChange={(e) => setPrescriptionForm({ ...prescriptionForm, dosage: e.target.value })}
-                    placeholder="e.g. 1 tablet every 8 hours"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. 1 pill every 8 hours"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Instructions (Optional)</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Instructions (Optional)</label>
                   <textarea
                     value={prescriptionForm.instructions}
                     onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
                     placeholder="Take with food..."
-                    rows={3}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 h-20 resize-none"
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setModalType(null)}
-                    className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
+                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
+                    className="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
                   >
-                    {submitting ? "Issuing..." : "Submit Prescription"}
+                    {submitting ? "Issuing..." : "Issue Prescription"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {modalType === "note" && (
+              <form onSubmit={handleSaveNote} className="space-y-4">
+                <h3 className="text-lg font-bold text-slate-900">Clinical Documentation Note</h3>
+                {feedbackMsg && (
+                  <div className={`p-3 rounded-lg text-sm ${feedbackMsg.includes("saved") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+                    {feedbackMsg}
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Notes & Observations</label>
+                  <textarea
+                    required
+                    value={clinicalNote}
+                    onChange={(e) => setClinicalNote(e.target.value)}
+                    placeholder="Enter diagnostic impressions, care plans, or symptoms..."
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 h-32 resize-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalType(null)}
+                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                  >
+                    {submitting ? "Saving..." : "Save Note"}
                   </button>
                 </div>
               </form>
@@ -822,89 +858,52 @@ export default function DoctorDashboard() {
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Category</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Category</label>
                   <select
                     value={diagnosticForm.category}
                     onChange={(e) => setDiagnosticForm({ ...diagnosticForm, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
                   >
                     <option value="Laboratory">Laboratory</option>
                     <option value="Imaging">Imaging (X-Ray / MRI / CT)</option>
                     <option value="Ophthalmology">Ophthalmology</option>
+                    <option value="Other">Other Diagnostic</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Test Name</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Test Name</label>
                   <input
                     type="text"
                     required
                     value={diagnosticForm.test_name}
                     onChange={(e) => setDiagnosticForm({ ...diagnosticForm, test_name: e.target.value })}
                     placeholder="e.g. Complete Blood Count (CBC) or Chest X-Ray"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Notes (Optional)</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Special Instructions / Notes</label>
                   <textarea
                     value={diagnosticForm.notes}
                     onChange={(e) => setDiagnosticForm({ ...diagnosticForm, notes: e.target.value })}
-                    placeholder="Specific instructions for technician..."
-                    rows={3}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Fasting required prior to test..."
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 h-20 resize-none"
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setModalType(null)}
-                    className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
+                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50"
+                    className="px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
                   >
                     {submitting ? "Ordering..." : "Submit Order"}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {modalType === "note" && (
-              <form onSubmit={handleSaveNote} className="space-y-4">
-                <h3 className="text-lg font-bold text-slate-900">Edit Clinical Notes</h3>
-                {feedbackMsg && (
-                  <div className="p-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm">
-                    {feedbackMsg}
-                  </div>
-                )}
-                <div>
-                  <textarea
-                    required
-                    rows={5}
-                    value={clinicalNote}
-                    onChange={(e) => setClinicalNote(e.target.value)}
-                    placeholder="Enter clinical notes, examination findings, diagnosis..."
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setModalType(null)}
-                    className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
-                  >
-                    {submitting ? "Saving..." : "Save Note"}
                   </button>
                 </div>
               </form>
@@ -913,22 +912,23 @@ export default function DoctorDashboard() {
             {modalType === "quickView" && quickViewPatient && (
               <div className="space-y-4">
                 <h3 className="text-lg font-bold text-slate-900">Patient Quick View</h3>
-                <div className="bg-slate-50 p-4 rounded-lg space-y-2 text-sm">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-sm">
                   <p><strong>Name:</strong> {quickViewPatient.patient_name}</p>
                   <p><strong>Phone:</strong> {quickViewPatient.phone || "N/A"}</p>
-                  <p><strong>Visit Timing:</strong> {formatDisplayDate(quickViewPatient.appointment_date)} at {formatDisplayTime(quickViewPatient.appointment_time)}</p>
-                  <p><strong>Reason:</strong> {quickViewPatient.reason || "General Consultation"}</p>
+                  <p><strong>Visit Reason:</strong> {quickViewPatient.reason || "General Consultation"}</p>
+                  <p><strong>Timing:</strong> {formatDisplayDate(quickViewPatient.appointment_date)} at {formatDisplayTime(quickViewPatient.appointment_time)}</p>
                   <p><strong>Status:</strong> {quickViewPatient.status || "Scheduled"}</p>
-                  <p><strong>Chronic Conditions:</strong> {quickViewPatient.patient_chronic_conditions || "None"}</p>
-                  <p><strong>Allergies:</strong> {quickViewPatient.patient_allergies || "None"}</p>
                 </div>
                 <div className="flex justify-end pt-2">
                   <button
                     type="button"
-                    onClick={() => setModalType(null)}
-                    className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition"
+                    onClick={() => {
+                      setModalType(null);
+                      handleSelectPatient(quickViewPatient);
+                    }}
+                    className="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                   >
-                    Close
+                    Open Full Patient Workspace
                   </button>
                 </div>
               </div>
