@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
   FileText, 
@@ -14,7 +14,8 @@ import {
   FileSpreadsheet,
   Scan,
   FlaskConical,
-  Glasses
+  Glasses,
+  Bell
 } from "lucide-react";
 
 interface Appointment {
@@ -65,22 +66,23 @@ export default function DoctorDashboard() {
   const [patientDiagnostics, setPatientDiagnostics] = useState<DiagnosticOrder[]>([]);
   const [loadingExtras, setLoadingExtras] = useState(false);
 
+  // Global pending diagnostic/lab orders across all appointments for notifications
+  const [allPendingDiagnostics, setAllPendingDiagnostics] = useState<DiagnosticOrder[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+
   // Modals state
   const [modalType, setModalType] = useState<"prescription" | "note" | "quickView" | "quickLab" | "diagnostic" | null>(null);
   const [quickViewPatient, setQuickViewPatient] = useState<Appointment | null>(null);
   const [quickPrescriptionApt, setQuickPrescriptionApt] = useState<Appointment | null>(null);
   const [quickLabApt, setQuickLabApt] = useState<Appointment | null>(null);
-  const [quickDiagnosticApt, setQuickDiagnosticApt] = useState<Appointment | null>(null);
+  const [quickDiagnosticApt, setQuickDiagnosticApt] = useState<DiagnosticOrder | null>(null);
 
   // Form states
   const [prescriptionForm, setPrescriptionForm] = useState({
     medication: "",
     dosage: "",
     instructions: "",
-  });
-  const [labOrderForm, setLabOrderForm] = useState({
-    test_name: "",
-    notes: "",
   });
   const [diagnosticForm, setDiagnosticForm] = useState({
     category: "Laboratory",
@@ -120,6 +122,15 @@ export default function DoctorDashboard() {
     }
 
     fetchAppointments(token);
+
+    // Close notification dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const fetchAppointments = async (authToken?: string) => {
@@ -138,11 +149,32 @@ export default function DoctorDashboard() {
       }
 
       const data = await res.json();
-      if (Array.isArray(data)) setAppointments(data);
+      if (Array.isArray(data)) {
+        setAppointments(data);
+        // Fetch diagnostics for all appointments to compile notifications
+        fetchAllDiagnostics(data, token);
+      }
     } catch (err) {
       console.error("Fetch Error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllDiagnostics = async (aptList: Appointment[], token: string) => {
+    try {
+      const promises = aptList.map(apt => 
+        fetch(`${API_BASE}/api/appointments/${apt.id}/diagnostics`, {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        })
+        .then(res => res.ok ? res.json() : [])
+        .catch(() => [])
+      );
+      const results = await Promise.all(promises);
+      const flattened = results.flat();
+      setAllPendingDiagnostics(flattened);
+    } catch (err) {
+      console.error("Error fetching all diagnostics for notifications:", err);
     }
   };
 
@@ -184,6 +216,7 @@ export default function DoctorDashboard() {
   const handleSelectPatient = (apt: Appointment) => {
     setActivePatient(apt);
     fetchPatientExtras(apt.id);
+    setShowNotifications(false);
   };
 
   const handleStatusUpdate = async (id: number, newStatus: string) => {
@@ -269,7 +302,7 @@ export default function DoctorDashboard() {
 
   const handleAddDiagnosticOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    const targetApt = activePatient || quickDiagnosticApt || quickLabApt;
+    const targetApt = activePatient || quickLabApt;
     if (!targetApt) return;
     setSubmitting(true);
     setFeedbackMsg(null);
@@ -303,10 +336,10 @@ export default function DoctorDashboard() {
       if (activePatient) {
         fetchPatientExtras(activePatient.id);
       }
+      fetchAllDiagnostics(appointments, token);
 
       setTimeout(() => {
         setModalType(null);
-        setQuickDiagnosticApt(null);
         setQuickLabApt(null);
         setDiagnosticForm({ category: "Laboratory", test_name: "", notes: "" });
         setFeedbackMsg(null);
@@ -389,11 +422,117 @@ export default function DoctorDashboard() {
     }
   };
 
-  const pendingLabReviews = appointments.filter(a => a.status?.toLowerCase() === "pending").length;
-  const pendingAppointmentsCount = appointments.filter(a => a.status?.toLowerCase() === "pending" || a.status?.toLowerCase() === "scheduled" || !a.status).length;
+  const pendingAppointmentsList = appointments.filter(a => a.status?.toLowerCase() === "pending" || a.status?.toLowerCase() === "scheduled" || !a.status);
+  const pendingAppointmentsCount = pendingAppointmentsList.length;
+  const pendingLabReviews = allPendingDiagnostics.length;
+  const totalNotificationsCount = pendingAppointmentsCount + pendingLabReviews;
 
   return (
-    <div className="max-w-7xl w-full mx-auto px-6 py-8 space-y-8 flex-1 bg-slate-100 min-h-screen text-slate-800 font-sans">
+    <div className="max-w-7xl w-full mx-auto px-6 py-8 space-y-8 flex-1 bg-slate-100 min-h-screen text-slate-800 font-sans relative">
+      
+      {/* Top Header Bar with Notification Button Integration */}
+      <div className="flex justify-between items-center bg-white px-6 py-4 rounded-xl border border-slate-200 shadow-sm">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Doctor Workspace</h1>
+          <p className="text-xs text-slate-500">Welcome back, {doctorName}</p>
+        </div>
+
+        <div className="relative" ref={notificationRef}>
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2.5 rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition focus:outline-none"
+            title="Notifications"
+          >
+            <Bell size={20} />
+            {totalNotificationsCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white font-bold text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                {totalNotificationsCount}
+              </span>
+            )}
+          </button>
+
+          {/* Notifications Dropdown Card */}
+          {showNotifications && (
+            <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="bg-slate-900 text-white px-5 py-4 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Bell size={16} />
+                  <h3 className="font-bold text-sm">Notifications & Pending Tasks</h3>
+                </div>
+                <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {totalNotificationsCount} New
+                </span>
+              </div>
+
+              <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
+                {totalNotificationsCount === 0 ? (
+                  <div className="p-6 text-center text-slate-400 text-xs italic">
+                    No pending appointments or lab reviews. All caught up!
+                  </div>
+                ) : (
+                  <>
+                    {/* Pending Appointments Section */}
+                    {pendingAppointmentsList.length > 0 && (
+                      <div className="p-3 bg-slate-50/50">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-2">
+                          Pending Appointments ({pendingAppointmentsList.length})
+                        </p>
+                        <div className="space-y-2">
+                          {pendingAppointmentsList.map((apt) => (
+                            <div
+                              key={`notif-apt-${apt.id}`}
+                              onClick={() => handleSelectPatient(apt)}
+                              className="bg-white p-3 rounded-xl border border-slate-200 hover:border-blue-400 cursor-pointer transition shadow-sm flex items-center justify-between"
+                            >
+                              <div>
+                                <p className="font-semibold text-slate-900 text-xs">{apt.patient_name || "Patient"}</p>
+                                <p className="text-[11px] text-slate-500">{formatDisplayDate(apt.appointment_date)} at {formatDisplayTime(apt.appointment_time)}</p>
+                              </div>
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold rounded">
+                                Review
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pending Lab & Diagnostic Orders Section */}
+                    {allPendingDiagnostics.length > 0 && (
+                      <div className="p-3 bg-slate-50/50">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-2">
+                          Pending Lab & Diagnostic Orders ({allPendingDiagnostics.length})
+                        </p>
+                        <div className="space-y-2">
+                          {allPendingDiagnostics.map((diag) => {
+                            const parentApt = appointments.find(a => a.id === diag.appointment_id);
+                            return (
+                              <div
+                                key={`notif-diag-${diag.id}`}
+                                onClick={() => parentApt && handleSelectPatient(parentApt)}
+                                className="bg-white p-3 rounded-xl border border-slate-200 hover:border-indigo-400 cursor-pointer transition shadow-sm flex items-center justify-between"
+                              >
+                                <div>
+                                  <p className="font-semibold text-slate-900 text-xs">{diag.test_name}</p>
+                                  <p className="text-[11px] text-slate-500">Patient: {parentApt?.patient_name || "Assigned Patient"}</p>
+                                </div>
+                                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded">
+                                  {diag.category || "Lab"}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {activePatient ? (
         <div className="space-y-6">
           <button
@@ -716,7 +855,7 @@ export default function DoctorDashboard() {
                           </button>
                           <button
                             onClick={() => {
-                              setQuickDiagnosticApt(apt);
+                              setQuickLabApt(apt);
                               setModalType("diagnostic");
                             }}
                             title="Order Diagnostics / Lab / Imaging"
@@ -745,7 +884,6 @@ export default function DoctorDashboard() {
                 setQuickViewPatient(null);
                 setQuickPrescriptionApt(null);
                 setQuickLabApt(null);
-                setQuickDiagnosticApt(null);
                 setFeedbackMsg(null);
               }}
               className="absolute top-5 right-5 text-slate-400 hover:text-slate-700 transition"
