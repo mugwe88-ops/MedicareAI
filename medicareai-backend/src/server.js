@@ -172,6 +172,58 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctor/prescriptions", prescriptionRoutes);
 
 // POST Submit Diagnostic Order
+
+// POST Submit Diagnostic Order (Alias for frontend compatibility)
+app.post("/api/diagnostics", verifyToken, async (req, res) => {
+  const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
+  const { appointment_id, patient_id, patient_name, category, test_name, clinical_instructions } = req.body;
+
+  if (!test_name) {
+    return res.status(400).json({ error: "Test name is required." });
+  }
+
+  try {
+    let resolvedPatientName = patient_name ? String(patient_name).trim() : null;
+    let safePatientId = patient_id && !isNaN(parseInt(patient_id, 10)) ? parseInt(patient_id, 10) : null;
+
+    if ((!resolvedPatientName || !safePatientId) && appointment_id) {
+      const aptRes = await pool.query(
+        `SELECT a.patient_name, a.patient_id, u.name as user_name 
+         FROM appointments a 
+         LEFT JOIN users u ON a.patient_id = u.id 
+         WHERE a.id = $1`, 
+        [appointment_id]
+      );
+      if (aptRes.rows.length > 0) {
+        if (!resolvedPatientName) resolvedPatientName = aptRes.rows[0].user_name || aptRes.rows[0].patient_name;
+        if (!safePatientId) safePatientId = aptRes.rows[0].patient_id;
+      }
+    }
+
+    const finalName = resolvedPatientName || "Valued Patient";
+
+    const result = await pool.query(
+      `INSERT INTO diagnostics (appointment_id, doctor_id, patient_id, patient_name, category, test_name, clinical_instructions, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'ordered')
+       RETURNING *`,
+      [
+        appointment_id || null,
+        doctorId,
+        safePatientId,
+        finalName,
+        category || 'Laboratory Test',
+        test_name,
+        clinical_instructions || null
+      ]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error submitting diagnostic order:", err);
+    return res.status(500).json({ error: "Failed to submit diagnostic order.", details: err.message });
+  }
+});
+
 app.post("/api/doctor/diagnostics", verifyToken, async (req, res) => {
   const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
   const { appointment_id, patient_id, patient_name, category, test_name, clinical_instructions } = req.body;
