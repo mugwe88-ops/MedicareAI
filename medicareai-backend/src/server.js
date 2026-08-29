@@ -210,6 +210,43 @@ app.post("/api/doctor/availability", verifyToken, async (req, res) => {
   }
 });
 
+app.post('/api/appointments', async (req, res) => {
+  try {
+    const {
+      doctorId,
+      bodySystem,
+      symptomSeverity,
+      symptomDuration,
+      reasonForVisit,
+      patient_chronic_conditions,
+      patient_allergies,
+      patient_surgeries,
+      patient_id
+    } = req.body;
+
+    const query = `
+      INSERT INTO appointments (
+        doctor_id, patient_id, body_system, symptom_severity, 
+        symptom_duration, reason_for_visit, 
+        patient_chronic_conditions, patient_allergies, patient_surgeries, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      RETURNING *;
+    `;
+
+    const values = [
+      doctorId, patient_id, bodySystem, symptomSeverity,
+      symptomDuration, reasonForVisit,
+      patient_chronic_conditions, patient_allergies, patient_surgeries
+    ];
+
+    const newAppointment = await pool.query(query, values);
+    res.status(201).json(newAppointment.rows[0]);
+  } catch (err) {
+    console.error("Booking Error:", err);
+    res.status(500).json({ error: "Failed to book appointment" });
+  }
+});
+
 // GET Doctor Availability Slots
 app.get("/api/doctors/:id/availability", async (req, res) => {
   const { id } = req.params;
