@@ -95,7 +95,6 @@ export default function RecordsPage() {
     const type = rec.record_type || "prescription";
     const details = (rec.medication_details || "").toLowerCase();
     
-    // Distinguish specialty diagnostic/procedures (ECG, Cardiology, Radiology, Imaging) from standard lab blood work
     const isSpecialtyDiagnostic = 
       details.includes("cardiology") || 
       details.includes("ecg") || 
@@ -132,10 +131,20 @@ export default function RecordsPage() {
     }
   };
 
+  const formatDetailsAsHtmlList = (details: string = "") => {
+    const items = details.split(/[\n,;]+/).map(i => i.trim()).filter(Boolean);
+    if (items.length <= 1) {
+      return `<div>${details}</div>`;
+    }
+    return `<ol style="margin: 0; padding-left: 20px;">
+      ${items.map(item => `<li style="margin-bottom: 4px;">${item}</li>`).join("")}
+    </ol>`;
+  };
+
   const handleDownloadSinglePDF = (rec: RecordItem & { sequenceNum: number }) => {
     const config = getRecordConfig(rec);
     const isLab = rec.record_type === "diagnostic" || rec.record_type === "lab_result";
-    const logoUrl = `${window.location.origin}/swift-logo.png`; // Update with your actual public asset path or hosted image URL
+    const logoUrl = `${window.location.origin}/swift-logo.png`;
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -210,7 +219,7 @@ export default function RecordsPage() {
               box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
             }
             .content-label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #2563eb; letter-spacing: 0.5px; margin-bottom: 8px; }
-            .primary-details { font-size: 16px; font-weight: 600; color: #0f172a; line-height: 1.5; white-space: pre-wrap; }
+            .primary-details { font-size: 16px; font-weight: 600; color: #0f172a; line-height: 1.6; }
             
             .notes-section { 
               margin-top: 18px; 
@@ -276,7 +285,7 @@ export default function RecordsPage() {
 
           <div class="main-content-card">
             <div class="content-label">${config.label}</div>
-            <div class="primary-details">${rec.medication_details || "No details provided."}</div>
+            <div class="primary-details">${formatDetailsAsHtmlList(rec.medication_details)}</div>
 
             ${rec.instructions ? `
               <div class="notes-section">
@@ -392,6 +401,8 @@ export default function RecordsPage() {
             const isLab = rec.record_type === "diagnostic" || rec.record_type === "lab_result";
             const isClinicalNote = rec.record_type === "clinical_note";
 
+            const detailsItems = (rec.medication_details || "").split(/[\n,;]+/).map(i => i.trim()).filter(Boolean);
+
             return (
               <div
                 key={rec.id}
@@ -418,7 +429,17 @@ export default function RecordsPage() {
                   <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-2">
                     <div>
                       <p className="font-semibold text-slate-900">{config.label}</p>
-                      <p className="whitespace-pre-wrap mt-0.5">{rec.medication_details || "No details provided."}</p>
+                      {detailsItems.length > 1 ? (
+                        <ol className="list-decimal list-inside space-y-1 mt-1">
+                          {detailsItems.map((item, idx) => (
+                            <li key={idx} className="leading-relaxed">
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ol>
+                      ) : (
+                        <p className="whitespace-pre-wrap mt-0.5">{rec.medication_details || "No details provided."}</p>
+                      )}
                     </div>
 
                     {rec.instructions && (!isClinicalNote || rec.instructions !== rec.medication_details) && (
