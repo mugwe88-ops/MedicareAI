@@ -635,6 +635,22 @@ app.get("/api/patients", verifyToken, async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch patients list." });
   }
 });
+// GET Diagnostics by Appointment ID
+app.get("/api/appointments/:appointmentId/diagnostics", verifyToken, async (req, res) => {
+  const { appointmentId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM diagnostics 
+       WHERE appointment_id = $1 
+       ORDER BY created_at DESC`,
+      [appointmentId]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching appointment diagnostics:", err);
+    return res.status(500).json({ error: "Failed to fetch diagnostics for this appointment." });
+  }
+});
 
 // GET Prescriptions by Appointment ID
 app.get("/api/appointments/:appointmentId/prescriptions", verifyToken, async (req, res) => {
