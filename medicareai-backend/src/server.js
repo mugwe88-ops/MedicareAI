@@ -938,7 +938,9 @@ async function initDatabase() {
 ====================== */
 const publicPath = path.join(__dirname, "../public");
 app.use(express.static(publicPath));
-const PORT = process.env.PORT || 3000;
+
+// Remove 'const' here since PORT is already declared elsewhere
+PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
