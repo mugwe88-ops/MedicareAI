@@ -412,6 +412,33 @@ app.get("/api/user/profile", verifyToken, async (req, res) => {
   }
 });
 
+// Example backend route implementation
+app.post("/api/ai/symptom-checker", async (req, res) => {
+  try {
+    const { symptoms } = req.body;
+    if (!symptoms) {
+      return res.status(400).json({ error: "Symptoms description is required" });
+    }
+
+    // TODO: Call your AI provider service (OpenAI, Gemini API, etc.)
+    // Example response structure expected by frontend:
+    const aiAnalysis = {
+      triageLevel: "Moderate",
+      recommendedDepartment: "Cardiology",
+      summary: "Based on your description, you are experiencing symptoms associated with...",
+      recommendations: [
+        "Schedule an appointment with a specialist",
+        "Monitor your vital signs closely"
+      ]
+    };
+
+    return res.json(aiAnalysis);
+  } catch (err) {
+    console.error("AI Symptom Checker Error:", err);
+    return res.status(500).json({ error: "Failed to analyze symptoms" });
+  }
+});
+
 // GET All Active Doctors (Fixes the 404 by matching /api/doctors)
 app.get("/api/doctors", async (req, res) => {
   try {
