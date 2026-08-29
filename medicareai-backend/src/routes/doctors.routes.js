@@ -4,6 +4,22 @@ import { verifyToken as authenticateToken } from "../utils/jwt.js";
 
 const router = express.Router();
 
+// Get all doctors for the directory
+router.get("/", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, email, specialization AS department, experience_years, avatar_url, phone, availability 
+       FROM users 
+       WHERE role = 'doctor' 
+       ORDER BY id ASC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching doctors list:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // Get doctor details / profile
 router.get("/:id", async (req, res) => {
   try {
