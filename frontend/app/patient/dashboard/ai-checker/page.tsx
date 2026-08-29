@@ -20,6 +20,21 @@ export default function AiSymptomCheckerPage() {
     "Severe throbbing headache & dizziness",
     "Lower abdominal pain & nausea",
     "Joint stiffness & swelling",
+    "Itchy red rash spreading on skin",
+    "Blurry vision & eye strain",
+    "Frequent urination & extreme thirst",
+    "Chronic lower back pain",
+    "Sore throat & difficulty swallowing",
+    "Sudden hair loss & fatigue",
+    "Persistent anxiety & sleep disturbances",
+    "Unexplained weight loss & night sweats",
+    "Ringing in ears & hearing loss",
+    "Swollen lymph nodes in neck",
+    "Frequent acid reflux & heartburn",
+    "Numbness & tingling in fingers",
+    "Painful cramping during menstruation",
+    "Chronic nasal congestion & facial pressure",
+    "Severe allergic reaction to food"
   ];
 
   const handleAnalyze = (textToAnalyze: string) => {
@@ -34,37 +49,64 @@ export default function AiSymptomCheckerPage() {
       let urgency: "low" | "medium" | "high" = "low";
       let triage = "Symptoms appear mild. Rest and hydration are advised, but consult a physician if condition persists.";
       let recommendations = [
-        "Monitor temperature every 6 hours",
-        "Maintain proper oral hydration",
-        "Avoid strenuous physical activities"
+        "Monitor your symptoms daily",
+        "Maintain proper hydration and rest",
+        "Schedule a routine check-up if needed"
       ];
 
-      if (lower.includes("chest") || lower.includes("breath") || lower.includes("severe")) {
+      if (lower.includes("chest") || lower.includes("breath") || lower.includes("severe") || lower.includes("allergic")) {
         urgency = "high";
         department = "Cardiology / Emergency";
-        triage = "High Priority: Symptoms suggest potential acute cardiac or respiratory distress. Seek immediate medical evaluation.";
+        triage = "High Priority: Symptoms suggest potential acute distress or severe reaction. Seek immediate medical evaluation.";
         recommendations = [
           "Do not engage in physical exertion",
           "Book an emergency telehealth consultation immediately",
-          "Call emergency services if pain intensifies"
+          "Call emergency services if symptoms escalate"
         ];
-      } else if (lower.includes("headache") || lower.includes("dizziness")) {
+      } else if (lower.includes("headache") || lower.includes("dizziness") || lower.includes("numbness")) {
         urgency = "medium";
         department = "Neurology / General Medicine";
-        triage = "Moderate Priority: Could be related to stress, blood pressure fluctuation, or migraine. Professional assessment recommended.";
+        triage = "Moderate Priority: Could be related to neurological factors, blood pressure fluctuation, or stress. Professional assessment recommended.";
         recommendations = [
-          "Rest in a quiet, dark room",
-          "Check blood pressure levels if monitor is available",
+          "Rest in a quiet, low-stimulus environment",
+          "Keep track of symptom triggers",
           "Schedule a doctor consultation within 24 hours"
         ];
-      } else if (lower.includes("cough") || lower.includes("fever")) {
+      } else if (lower.includes("cough") || lower.includes("fever") || lower.includes("throat") || lower.includes("congestion")) {
         urgency = "medium";
         department = "Pulmonology / General Practice";
-        triage = "Moderate Priority: Possible viral infection or respiratory inflammation.";
+        triage = "Moderate Priority: Possible viral infection, inflammation, or upper respiratory tract condition.";
         recommendations = [
-          "Take antipyretics for fever control",
-          "Isolate to prevent transmission",
+          "Take recommended over-the-counter care medications",
+          "Isolate to prevent transmission if contagious",
           "Book a video consultation with a General Practitioner"
+        ];
+      } else if (lower.includes("skin") || lower.includes("rash") || lower.includes("hair loss")) {
+        urgency = "low";
+        department = "Dermatology";
+        triage = "Low Priority: Dermatological symptoms observed. Non-emergency evaluation recommended for proper topical or systemic care.";
+        recommendations = [
+          "Avoid scratching or irritating the affected area",
+          "Keep the skin clean and dry",
+          "Book an appointment with a dermatologist"
+        ];
+      } else if (lower.includes("abdominal") || lower.includes("reflux")) {
+        urgency = "medium";
+        department = "Gastroenterology";
+        triage = "Moderate Priority: Gastrointestinal discomfort detected. Dietary review and clinical assessment advised.";
+        recommendations = [
+          "Eat smaller, more frequent meals",
+          "Avoid trigger foods and beverages",
+          "Consult a gastroenterologist if pain persists"
+        ];
+      } else if (lower.includes("joint") || lower.includes("back pain")) {
+        urgency = "low";
+        department = "Orthopedics / Rheumatology";
+        triage = "Low Priority: Musculoskeletal discomfort or joint inflammation noted. Physical therapy evaluation recommended.";
+        recommendations = [
+          "Apply gentle hot or cold compresses",
+          "Avoid heavy lifting or strenuous exercise",
+          "Schedule an orthopedic evaluation"
         ];
       }
 
@@ -106,7 +148,7 @@ export default function AiSymptomCheckerPage() {
 
           <div className="mb-6">
             <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">Or choose a common scenario:</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pr-1">
               {commonQuickSymptoms.map((sample) => (
                 <button
                   type="button"
@@ -115,7 +157,7 @@ export default function AiSymptomCheckerPage() {
                     setSymptoms(sample);
                     handleAnalyze(sample);
                   }}
-                  className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-bold transition"
+                  className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-bold transition"
                 >
                   {sample}
                 </button>
