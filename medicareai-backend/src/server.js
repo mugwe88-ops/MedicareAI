@@ -979,6 +979,8 @@ app.use(express.static(publicPath));
 // Use a new variable name to avoid constant re-assignment conflicts
 const portToUse = process.env.PORT || PORT || 3000;
 
-app.listen(portToUse, () => {
-  console.log(`Server is running on port ${portToUse}`);
+initDatabase().then(() => {
+  httpServer.listen(portToUse, () => {
+    console.log(`Server is running on port ${portToUse}`);
+  });
 });
