@@ -959,7 +959,21 @@ async function initDatabase() {
       "ALTER TABLE prescriptions ALTER COLUMN patient_name SET DEFAULT 'Valued Patient';",
       "ALTER TABLE prescriptions ALTER COLUMN medication_details DROP NOT NULL;"
     ];
-
+await pool.query(`
+      CREATE TABLE IF NOT EXISTS diagnostics (
+        id SERIAL PRIMARY KEY,
+        appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+        doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        patient_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        patient_name VARCHAR(255) DEFAULT 'Valued Patient',
+        category VARCHAR(100),
+        test_name VARCHAR(255),
+        clinical_instructions TEXT,
+        status VARCHAR(50) DEFAULT 'ordered',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+      
     for (const query of migrations) { 
       await pool.query(query); 
     }
