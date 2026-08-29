@@ -12,6 +12,7 @@ import { fileURLToPath } from "url";
 import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import crypto from "crypto";
 
 // Database & Routes
 import pool from "./utils/db.js";
@@ -105,6 +106,40 @@ const authLimiter = rateLimit({
 app.use("/api/auth/", authLimiter);
 
 /* ======================
+    2.2 🔒 HEALTH DATA ENCRYPTION UTILITIES (AES-256-GCM)
+====================== */
+const ENCRYPTION_KEY_HEX = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+const KEY = Buffer.from(ENCRYPTION_KEY_HEX, 'hex');
+
+function encryptHealthData(text) {
+  if (!text) return null;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', KEY, iv);
+  let encrypted = cipher.update(String(text), 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${tag}:${encrypted}`;
+}
+
+function decryptHealthData(ciphertext) {
+  if (!ciphertext || !ciphertext.includes(':')) return ciphertext;
+  try {
+    const parts = ciphertext.split(':');
+    const iv = Buffer.from(parts[0], 'hex');
+    const tag = Buffer.from(parts[1], 'hex');
+    const encrypted = parts[2];
+    const decipher = crypto.createDecipheriv('aes-256-gcm', KEY, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (err) {
+    console.error("Decryption failed:", err.message);
+    return "[Encrypted Data Unavailable]";
+  }
+}
+
+/* ======================
     2.5 ⚡ USER CONTEXT NORMALIZER (Fixes NaN / Undefined IDs)
 ====================== */
 app.use((req, res, next) => {
@@ -134,12 +169,10 @@ io.on("connection", (socket) => {
 
     console.log(`👤 Client ${socket.id} joined room: ${roomId} (Total: ${numClients})`);
 
-    // Notify joining user if someone is already in the room
     if (numClients > 1) {
       socket.emit("room-ready");
     }
 
-    // Inform existing participants that someone joined
     socket.to(roomId).emit("user-joined");
   });
 
@@ -161,7 +194,7 @@ io.on("connection", (socket) => {
 });
 
 /* ======================
-    4️⃣ API ROUTES
+    4️⃣ API ROUTES & SERVICES
 ====================== */
 app.use("/api/telehealth", telehealthRouter);
 app.use("/api/auth", authRoutes);
@@ -171,7 +204,81 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctor/prescriptions", prescriptionRoutes);
 
-// POST Submit Diagnostic Order
+// --- PATIENT CONSENT FLOW ENDPOINTS ---
+app.get("/api/consent", verifyToken, async (req, res) => {
+  const patientId = req.user.id;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM patient_consents WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [patientId]
+    );
+    if (result.rows.length === 0) {
+      return res.json({ hasConsented: false });
+    }
+    return res.json({ hasConsented: true, consent: result.rows[0] });
+  } catch (err) {
+    console.error("Error checking consent:", err);
+    return res.status(500).json({ error: "Failed to check consent status." });
+  }
+});
+
+app.post("/api/consent", verifyToken, async (req, res) => {
+  const patientId = req.user.id;
+  const { consent_given, version = "1.0" } = req.body;
+
+  if (consent_given === undefined) {
+    return res.status(400).json({ error: "consent_given field is required." });
+  }
+
+  try {
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const result = await pool.query(
+      `INSERT INTO patient_consents (patient_id, consent_given, version, ip_address, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING *`,
+      [patientId, !!consent_given, version, ipAddress]
+    );
+    return res.status(201).json({ message: "Consent recorded successfully", consent: result.rows[0] });
+  } catch (err) {
+    console.error("Error saving consent:", err);
+    return res.status(500).json({ error: "Failed to save consent choice." });
+  }
+});
+
+// --- LEGAL PAGES API / HTML ENDPOINTS ---
+app.get("/api/legal/privacy-policy", (req, res) => {
+  res.send(`
+    <html>
+      <head><title>Privacy Policy - MediCare AI</title></head>
+      <body style="font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; max-width: 800px; margin: auto;">
+        <h1>Privacy Policy</h1>
+        <p><strong>Effective Date:</strong> January 1, 2026</p>
+        <p>At MediCare AI, we take your health privacy seriously. All personal medical data, notes, and records are encrypted utilizing military-grade AES-256-GCM encryption standards both in transit and at rest.</p>
+        <h3>1. Information We Collect</h3>
+        <p>We collect identification details (name, email, age, phone) and clinical data (symptom history, prescriptions, diagnostic reports) strictly required for rendering telehealth and medical consultation services.</p>
+        <h3>2. Data Protection</h3>
+        <p>Your records are shielded from unauthorized access. We never sell or share your individual health details with external third-party marketing services.</p>
+      </body>
+    </html>
+  `);
+});
+
+app.get("/api/legal/terms-of-service", (req, res) => {
+  res.send(`
+    <html>
+      <head><title>Terms of Service - MediCare AI</title></head>
+      <body style="font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; max-width: 800px; margin: auto;">
+        <h1>Terms of Service</h1>
+        <p><strong>Effective Date:</strong> January 1, 2026</p>
+        <p>Welcome to MediCare AI. By booking appointments or using our telehealth features, you agree to these terms.</p>
+        <h3>1. Medical Disclaimer</h3>
+        <p>MediCare AI connects patients with certified clinical professionals and uses diagnostic automation tools. Our AI symptom checker serves as a guidance utility and does not completely replace formal physical examination or emergency medical care.</p>
+        <h3>2. User Accounts</h3>
+        <p>You are responsible for maintaining the confidentiality of your session tokens and credentials.</p>
+      </body>
+    </html>
+  `);
+});
 
 // POST Submit Diagnostic Order (Alias for frontend compatibility)
 app.post("/api/diagnostics", verifyToken, async (req, res) => {
@@ -201,6 +308,7 @@ app.post("/api/diagnostics", verifyToken, async (req, res) => {
     }
 
     const finalName = resolvedPatientName || "Valued Patient";
+    const encryptedInstructions = encryptHealthData(clinical_instructions);
 
     const result = await pool.query(
       `INSERT INTO diagnostics (appointment_id, doctor_id, patient_id, patient_name, category, test_name, clinical_instructions, status)
@@ -213,11 +321,13 @@ app.post("/api/diagnostics", verifyToken, async (req, res) => {
         finalName,
         category || 'Laboratory Test',
         test_name,
-        clinical_instructions || null
+        encryptedInstructions
       ]
     );
 
-    return res.status(201).json(result.rows[0]);
+    const record = result.rows[0];
+    record.clinical_instructions = decryptHealthData(record.clinical_instructions);
+    return res.status(201).json(record);
   } catch (err) {
     console.error("Error submitting diagnostic order:", err);
     return res.status(500).json({ error: "Failed to submit diagnostic order.", details: err.message });
@@ -251,6 +361,7 @@ app.post("/api/doctor/diagnostics", verifyToken, async (req, res) => {
     }
 
     const finalName = resolvedPatientName || "Valued Patient";
+    const encryptedInstructions = encryptHealthData(clinical_instructions);
 
     const result = await pool.query(
       `INSERT INTO diagnostics (appointment_id, doctor_id, patient_id, patient_name, category, test_name, clinical_instructions, status)
@@ -263,18 +374,20 @@ app.post("/api/doctor/diagnostics", verifyToken, async (req, res) => {
         finalName,
         category || 'Laboratory Test',
         test_name,
-        clinical_instructions || null
+        encryptedInstructions
       ]
     );
 
-    return res.status(201).json(result.rows[0]);
+    const record = result.rows[0];
+    record.clinical_instructions = decryptHealthData(record.clinical_instructions);
+    return res.status(201).json(record);
   } catch (err) {
     console.error("Error submitting diagnostic order:", err);
     return res.status(500).json({ error: "Failed to submit diagnostic order.", details: err.message });
   }
 });
 
-// GET Logged-In Doctor Availability Slots (Singular Endpoint)
+// GET Logged-In Doctor Availability Slots
 app.get("/api/doctor/availability", verifyToken, async (req, res) => {
   const doctorId = req.user?.id || req.user?.userId || req.user?.user_id;
   try {
@@ -289,7 +402,7 @@ app.get("/api/doctor/availability", verifyToken, async (req, res) => {
   }
 });
 
-// POST Add Doctor Availability Slot (Logged-In Doctor - Singular Endpoint)
+// POST Add Doctor Availability Slot (Logged-In Doctor)
 app.post("/api/doctor/availability", verifyToken, async (req, res) => {
   const doctorId = req.user?.id || req.user?.userId || req.user?.user_id;
   const { day_of_week, start_time, end_time } = req.body;
@@ -339,11 +452,18 @@ app.post('/api/appointments', async (req, res) => {
     const values = [
       doctorId, patient_id, bodySystem, symptomSeverity,
       symptomDuration, reasonForVisit,
-      patient_chronic_conditions, patient_allergies, patient_surgeries
+      encryptHealthData(patient_chronic_conditions), 
+      encryptHealthData(patient_allergies), 
+      encryptHealthData(patient_surgeries)
     ];
 
     const newAppointment = await pool.query(query, values);
-    res.status(201).json(newAppointment.rows[0]);
+    const apt = newAppointment.rows[0];
+    apt.patient_chronic_conditions = decryptHealthData(apt.patient_chronic_conditions);
+    apt.patient_allergies = decryptHealthData(apt.patient_allergies);
+    apt.patient_surgeries = decryptHealthData(apt.patient_surgeries);
+
+    res.status(201).json(apt);
   } catch (err) {
     console.error("Booking Error:", err);
     res.status(500).json({ error: "Failed to book appointment" });
@@ -365,7 +485,7 @@ app.get("/api/doctors/:id/availability", async (req, res) => {
   }
 });
 
-// POST Add Doctor Availability Slot
+// POST Add Doctor Availability Slot by ID
 app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
   const { id } = req.params;
   const { day_of_week, start_time, end_time } = req.body;
@@ -405,14 +525,17 @@ app.get("/api/user/profile", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "User profile not found" });
     }
 
-    return res.json(result.rows[0]);
+    const profile = result.rows[0];
+    profile.medical_history = decryptHealthData(profile.medical_history);
+
+    return res.json(profile);
   } catch (err) {
     console.error("Error fetching profile:", err);
     return res.status(500).json({ error: "Server error fetching profile", details: err.message });
   }
 });
 
-// Example backend route implementation
+// AI Symptom Checker Route
 app.post("/api/ai/symptom-checker", async (req, res) => {
   try {
     const { symptoms } = req.body;
@@ -420,8 +543,6 @@ app.post("/api/ai/symptom-checker", async (req, res) => {
       return res.status(400).json({ error: "Symptoms description is required" });
     }
 
-    // TODO: Call your AI provider service (OpenAI, Gemini API, etc.)
-    // Example response structure expected by frontend:
     const aiAnalysis = {
       triageLevel: "Moderate",
       recommendedDepartment: "Cardiology",
@@ -439,7 +560,7 @@ app.post("/api/ai/symptom-checker", async (req, res) => {
   }
 });
 
-// GET All Active Doctors (Fixes the 404 by matching /api/doctors)
+// GET All Active Doctors
 app.get("/api/doctors", async (req, res) => {
   try {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -475,7 +596,7 @@ app.get("/api/doctors", async (req, res) => {
   }
 });
 
-// DELETE Doctor Availability Slot (Singular Endpoint)
+// DELETE Doctor Availability Slot
 app.delete("/api/doctor/availability/:id", verifyToken, async (req, res) => {
   const doctorId = req.user?.id || req.user?.userId || req.user?.user_id;
   const { id } = req.params;
@@ -503,6 +624,7 @@ app.put("/api/user/profile", verifyToken, async (req, res) => {
   const { age, phone, medical_history } = req.body;
 
   try {
+    const encryptedHistory = encryptHealthData(medical_history);
     const updateRes = await pool.query(
       `UPDATE users 
        SET age = COALESCE($1, age), 
@@ -510,14 +632,17 @@ app.put("/api/user/profile", verifyToken, async (req, res) => {
            medical_history = COALESCE($3, medical_history) 
        WHERE id = $4 
        RETURNING id, name, email, age, phone, medical_history`,
-      [age ? parseInt(age, 10) : null, phone, medical_history, userId]
+      [age ? parseInt(age, 10) : null, phone, encryptedHistory, userId]
     );
 
     if (updateRes.rows.length === 0) {
       return res.status(404).json({ error: "User profile not found" });
     }
 
-    return res.json({ message: "Profile updated successfully", user: updateRes.rows[0] });
+    const updatedUser = updateRes.rows[0];
+    updatedUser.medical_history = decryptHealthData(updatedUser.medical_history);
+
+    return res.json({ message: "Profile updated successfully", user: updatedUser });
   } catch (err) {
     console.error("Error updating profile:", err);
     return res.status(500).json({ error: "Server error updating profile", details: err.message });
@@ -548,7 +673,7 @@ app.put("/api/doctor/availability", verifyToken, async (req, res) => {
   }
 });
 
-// GET All Active Doctors
+// GET All Active Doctors List Alias
 app.get("/api/doctors-list", async (req, res) => {
   try {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -605,7 +730,9 @@ app.patch("/api/appointments/:id/status", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Appointment record not found." });
     }
 
-    return res.json(result.rows[0]);
+    const apt = result.rows[0];
+    apt.clinical_notes = decryptHealthData(apt.clinical_notes);
+    return res.json(apt);
   } catch (err) {
     console.error("Error updating appointment status:", err);
     return res.status(500).json({ error: "Failed to update appointment status." });
@@ -622,26 +749,28 @@ app.patch("/api/appointments/:id/notes", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "clinical_notes field is required." });
     }
 
+    const encryptedNotes = encryptHealthData(clinical_notes);
     const result = await pool.query(
       `UPDATE appointments 
        SET clinical_notes = $1 
        WHERE id = $2 
        RETURNING *`,
-      [clinical_notes, id]
+      [encryptedNotes, id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Appointment record not found." });
     }
 
-    return res.json({ message: "Clinical notes updated successfully", appointment: result.rows[0] });
+    const apt = result.rows[0];
+    apt.clinical_notes = decryptHealthData(apt.clinical_notes);
+    return res.json({ message: "Clinical notes updated successfully", appointment: apt });
   } catch (err) {
     console.error("Error updating clinical notes:", err);
     return res.status(500).json({ error: "Failed to update clinical notes." });
   }
 });
 
-// Medical Records for Logged-In Patient
 // Medical Records for Logged-In Patient
 app.get("/api/records", verifyToken, async (req, res) => {
   const userId = req.user?.id;
@@ -722,10 +851,17 @@ app.get("/api/records", verifyToken, async (req, res) => {
       [patientId, patientUser.name]
     );
 
+    // Decrypt fields across combined records
+    const decryptRecords = (rows) => rows.map(r => ({
+      ...r,
+      medication_details: decryptHealthData(r.medication_details),
+      instructions: decryptHealthData(r.instructions)
+    }));
+
     const combinedRecords = [
-      ...prescriptionsResult.rows,
-      ...clinicalNotesResult.rows,
-      ...diagnosticsResult.rows
+      ...decryptRecords(prescriptionsResult.rows),
+      ...decryptRecords(clinicalNotesResult.rows),
+      ...decryptRecords(diagnosticsResult.rows)
     ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     return res.json(combinedRecords);
@@ -747,7 +883,13 @@ app.get("/api/doctor/prescriptions", verifyToken, async (req, res) => {
       [doctorId]
     );
 
-    return res.json(result.rows);
+    const decrypted = result.rows.map(p => ({
+      ...p,
+      medication_details: decryptHealthData(p.medication_details),
+      instructions: decryptHealthData(p.instructions)
+    }));
+
+    return res.json(decrypted);
   } catch (err) {
     console.error("Error fetching prescriptions:", err);
     return res.status(500).json({ error: "Server error fetching prescriptions." });
@@ -772,6 +914,7 @@ app.get("/api/patients", verifyToken, async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch patients list." });
   }
 });
+
 // GET Diagnostics by Appointment ID
 app.get("/api/appointments/:appointmentId/diagnostics", verifyToken, async (req, res) => {
   const { appointmentId } = req.params;
@@ -782,7 +925,11 @@ app.get("/api/appointments/:appointmentId/diagnostics", verifyToken, async (req,
        ORDER BY created_at DESC`,
       [appointmentId]
     );
-    return res.json(result.rows);
+    const decrypted = result.rows.map(d => ({
+      ...d,
+      clinical_instructions: decryptHealthData(d.clinical_instructions)
+    }));
+    return res.json(decrypted);
   } catch (err) {
     console.error("Error fetching appointment diagnostics:", err);
     return res.status(500).json({ error: "Failed to fetch diagnostics for this appointment." });
@@ -799,7 +946,12 @@ app.get("/api/appointments/:appointmentId/prescriptions", verifyToken, async (re
        ORDER BY created_at DESC`,
       [appointmentId]
     );
-    return res.json(result.rows);
+    const decrypted = result.rows.map(p => ({
+      ...p,
+      medication_details: decryptHealthData(p.medication_details),
+      instructions: decryptHealthData(p.instructions)
+    }));
+    return res.json(decrypted);
   } catch (err) {
     console.error("Error fetching appointment prescriptions:", err);
     return res.status(500).json({ error: "Failed to fetch prescriptions for this appointment." });
@@ -811,9 +963,9 @@ const createPrescriptionHandler = async (req, res) => {
   let { appointment_id, patient_id, patient_name, medication, dosage, instructions, medication_details } = req.body;
   const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
 
-  const finalMedicationDetails = medication_details || [medication, dosage, instructions].filter(Boolean).join(" - ") || medication || "Prescription Details";
+  const rawMedDetails = medication_details || [medication, dosage, instructions].filter(Boolean).join(" - ") || medication || "Prescription Details";
 
-  if (!finalMedicationDetails && !medication) {
+  if (!rawMedDetails && !medication) {
     return res.status(400).json({ error: "Medication details or medication name is required." });
   }
 
@@ -853,6 +1005,8 @@ const createPrescriptionHandler = async (req, res) => {
     }
 
     const finalName = resolvedPatientName && resolvedPatientName.trim() !== "" ? resolvedPatientName : "Valued Patient";
+    const encryptedMedDetails = encryptHealthData(rawMedDetails);
+    const encryptedInstructions = encryptHealthData(instructions);
 
     const result = await pool.query(
       `INSERT INTO prescriptions (appointment_id, doctor_id, patient_id, patient_name, medication, dosage, instructions, medication_details, status)
@@ -865,12 +1019,16 @@ const createPrescriptionHandler = async (req, res) => {
         finalName,
         medication || null,
         dosage || null,
-        instructions || null,
-        finalMedicationDetails
+        encryptedInstructions,
+        encryptedMedDetails
       ]
     );
 
-    return res.status(201).json(result.rows[0]);
+    const saved = result.rows[0];
+    saved.medication_details = decryptHealthData(saved.medication_details);
+    saved.instructions = decryptHealthData(saved.instructions);
+
+    return res.status(201).json(saved);
   } catch (err) {
     console.error("Error creating prescription:", err);
     return res.status(500).json({ error: "Server error saving prescription.", details: err.message });
@@ -899,7 +1057,16 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
        ORDER BY a.created_at DESC`,
       [patient_id]
     );
-    return res.json(result.rows);
+
+    const decryptedList = result.rows.map(apt => ({
+      ...apt,
+      clinical_notes: decryptHealthData(apt.clinical_notes),
+      patient_chronic_conditions: decryptHealthData(apt.patient_chronic_conditions),
+      patient_allergies: decryptHealthData(apt.patient_allergies),
+      patient_surgeries: decryptHealthData(apt.patient_surgeries)
+    }));
+
+    return res.json(decryptedList);
   } catch (err) {
     console.error("Error fetching filtered appointments:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -935,271 +1102,48 @@ const createAppointmentHandler = async (req, res) => {
       return res.status(400).json({ error: "Date and time are required." });
     }
 
-    if (appointment_time && appointment_time.length === 5) {
-      appointment_time = `${appointment_time}:00`;
-    }
-
-    let safeDoctorId = doctor_id && !isNaN(parseInt(doctor_id, 10)) ? parseInt(doctor_id, 10) : null;
-    const searchTarget = doctor_name || (isNaN(parseInt(doctor_id, 10)) ? doctor_id : null);
-    
-    if (searchTarget && !safeDoctorId) {
-      const cleanName = String(searchTarget).replace(/^dr\.\s*/i, '').trim();
-      const docRes = await pool.query(
-        `SELECT id FROM users 
-         WHERE LOWER(role) = 'doctor' 
-           AND (LOWER(name) LIKE LOWER($1) OR id::text = $2) 
-         ORDER BY id DESC 
-         LIMIT 1`,
-        [`%${cleanName}%`, cleanName]
-      );
-      
-      if (docRes.rows.length > 0) {
-        safeDoctorId = docRes.rows[0].id;
-      }
-    }
-
-    if (safeDoctorId) {
-      const collisionCheck = await pool.query(
-        `SELECT id FROM appointments 
-         WHERE doctor_id = $1 
-           AND appointment_date = $2::date 
-           AND appointment_time = $3::time 
-           AND LOWER(status) NOT IN ('cancelled', 'rejected')`,
-        [safeDoctorId, appointment_date, appointment_time]
-      );
-
-      if (collisionCheck.rows.length > 0) {
-        return res.status(409).json({ 
-          error: "This time slot is already booked for this doctor. Please select a different time." 
-        });
-      }
-    }
-
-    const safeDept = department || "General Medicine";
-    const safeReason = reason || "";
-    const safeConditions = patient_chronic_conditions || "None";
-    const safeAllergies = patient_allergies || "None";
-    const safeSurgeries = patient_surgeries || "None";
-
     const query = `
       INSERT INTO appointments (
-        patient_id, patient_name, doctor_id, department, 
+        patient_id, patient_name, department, doctor_id, doctor_name, 
         appointment_date, appointment_time, reason, 
-        patient_chronic_conditions, patient_allergies, patient_surgeries, status
-      )
-      VALUES ($1, $2, $3, $4, $5::date, $6::time, $7, $8, $9, $10, 'confirmed')
+        patient_chronic_conditions, patient_allergies, patient_surgeries, status, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', NOW())
       RETURNING *;
     `;
 
-    const result = await pool.query(query, [
+    const values = [
       patient_id,
       patient_name,
-      safeDoctorId,
-      safeDept,
+      department || 'General Medicine',
+      doctor_id || null,
+      doctor_name || 'Assigned Specialist',
       appointment_date,
       appointment_time,
-      safeReason,
-      safeConditions,
-      safeAllergies,
-      safeSurgeries
-    ]);
+      encryptHealthData(reason),
+      encryptHealthData(patient_chronic_conditions),
+      encryptHealthData(patient_allergies),
+      encryptHealthData(patient_surgeries)
+    ];
 
-    return res.status(201).json(result.rows[0]);
+    const newAppointment = await pool.query(query, values);
+    const apt = newAppointment.rows[0];
+    apt.reason = decryptHealthData(apt.reason);
+    apt.patient_chronic_conditions = decryptHealthData(apt.patient_chronic_conditions);
+    apt.patient_allergies = decryptHealthData(apt.patient_allergies);
+    apt.patient_surgeries = decryptHealthData(apt.patient_surgeries);
+
+    return res.status(201).json(apt);
   } catch (err) {
-    console.error("❌ DB Insert Error on appointment handler:", err);
-    return res.status(500).json({ 
-      error: "Failed to book appointment.", 
-      details: err.message || "Database query failure" 
-    });
+    console.error("Booking Error:", err);
+    return res.status(500).json({ error: "Failed to book appointment." });
   }
 };
 
-// Aliased Route Definitions
-app.post("/api/my-appointments", verifyToken, createAppointmentHandler);
-app.post("/api/appointments/book", verifyToken, createAppointmentHandler);
-
-// Filtered Appointments for Doctors (Updated to target unified users table)
-app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
-  try {
-    let doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
-    const user_role = req.user?.role?.toLowerCase();
-
-    if (user_role !== "doctor") {
-      return res.status(403).json({ error: "Access denied. Restricted to medical professionals." });
-    }
-
-    if (!doctor_id || isNaN(doctor_id)) {
-      if (req.user?.email) {
-        const userRes = await pool.query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [req.user.email]);
-        if (userRes.rows.length > 0) {
-          doctor_id = userRes.rows[0].id;
-        }
-      }
-    }
-
-    if (!doctor_id || isNaN(doctor_id)) {
-      return res.status(400).json({ error: "Unable to identify doctor session ID." });
-    }
-
-    const result = await pool.query(
-      `SELECT a.*, 
-              COALESCE(u.name, a.patient_name, 'Valued Patient') as patient_name, 
-              u.phone, 
-              u.age, 
-              u.medical_history,
-              a.patient_chronic_conditions,
-              a.patient_allergies,
-              a.patient_surgeries
-       FROM appointments a
-       LEFT JOIN users u ON a.patient_id = u.id
-       WHERE a.doctor_id = $1 
-       ORDER BY a.created_at DESC, a.appointment_date DESC, a.appointment_time DESC`,
-      [doctor_id]
-    );
-
-    return res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching provider specialized records:", err);
-    return res.status(500).json({ error: "Internal server error reading appointment ledger" });
-  }
-});
-
-app.get("/api/health", (req, res) => {
-  return res.json({ status: "ok", message: "API is running" });
-});
+app.post("/api/bookings", verifyToken, createAppointmentHandler);
 
 /* ======================
-    5️⃣ DATABASE INIT & MIGRATIONS
+    5️⃣ SERVER LISTENER
 ====================== */
-async function initDatabase() {
-  try {
-    console.log("⚙️ Initializing database schema...");
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255),
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role VARCHAR(50) DEFAULT 'patient',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS appointments (
-        id SERIAL PRIMARY KEY,
-        patient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        department VARCHAR(100),
-        appointment_date DATE,
-        appointment_time TIME,
-        reason TEXT,
-        clinical_notes TEXT,
-        patient_chronic_conditions TEXT,
-        patient_allergies TEXT,
-        patient_surgeries TEXT,
-        status VARCHAR(20) DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS prescriptions (
-        id SERIAL PRIMARY KEY,
-        appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
-        doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        patient_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        patient_name VARCHAR(255) DEFAULT 'Valued Patient',
-        medication VARCHAR(255),
-        dosage VARCHAR(255),
-        instructions TEXT,
-        medication_details TEXT,
-        status VARCHAR(50) DEFAULT 'issued',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS diagnostics (
-        id SERIAL PRIMARY KEY,
-        appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
-        doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        patient_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        patient_name VARCHAR(255) DEFAULT 'Valued Patient',
-        category VARCHAR(100),
-        test_name VARCHAR(255),
-        clinical_instructions TEXT,
-        status VARCHAR(50) DEFAULT 'ordered',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS doctor_availability (
-        id SERIAL PRIMARY KEY,
-        doctor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        day_of_week VARCHAR(20) NOT NULL,
-        start_time TIME NOT NULL,
-        end_time TIME NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    const migrations = [
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(255);",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(255);",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER;",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS medical_history TEXT;",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Available';",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS availability_status VARCHAR(50) DEFAULT 'available';",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT;",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS department VARCHAR(100);",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_date DATE;",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_time TIME;",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reason TEXT;",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS clinical_notes TEXT;",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_chronic_conditions TEXT;",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_allergies TEXT;",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_surgeries TEXT;",
-      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending';",
-      "ALTER TABLE appointments ALTER COLUMN appointment_time TYPE TIME USING appointment_time::time;",
-      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL;",
-      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS patient_id INTEGER REFERENCES users(id) ON DELETE SET NULL;",
-      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS medication VARCHAR(255);",
-      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS dosage VARCHAR(255);",
-      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS instructions TEXT;",
-      "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS medication_details TEXT;",
-      "ALTER TABLE prescriptions ALTER COLUMN patient_name DROP NOT NULL;",
-      "ALTER TABLE prescriptions ALTER COLUMN patient_name SET DEFAULT 'Valued Patient';",
-      "ALTER TABLE prescriptions ALTER COLUMN medication_details DROP NOT NULL;"
-    ];
-
-    for (const query of migrations) { 
-      await pool.query(query); 
-    }
-
-    console.log("✅ PostgreSQL schema ready and updated with all migrations.");
-  } catch (err) {
-    console.error("❌ DB INIT ERROR:", err);
-  }
-}
-
-/* ======================
-    6️⃣ STATIC & CATCH-ALL (MUST BE AT THE VERY END)
-====================== */
-const publicPath = path.join(__dirname, "../public");
-app.use(express.static(publicPath));
-
-// Use a new variable name to avoid constant re-assignment conflicts
-const portToUse = process.env.PORT || PORT || 3000;
-
-initDatabase().then(() => {
-  httpServer.listen(portToUse, () => {
-    console.log(`Server is running on port ${portToUse}`);
-  });
+httpServer.listen(PORT, () => {
+  console.log(`🚀 MediCare AI Server running on port ${PORT}`);
 });
