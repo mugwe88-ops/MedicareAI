@@ -211,6 +211,7 @@ app.post("/api/doctor/availability", verifyToken, async (req, res) => {
 });
 
 // POST Submit Diagnostic Order
+// POST Submit Diagnostic Order
 app.post("/api/doctor/diagnostics", verifyToken, async (req, res) => {
   const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
   const { appointment_id, patient_id, patient_name, category, test_name, clinical_instructions } = req.body;
