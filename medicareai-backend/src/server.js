@@ -678,7 +678,17 @@ const createAppointmentHandler = async (req, res) => {
     const userResult = await pool.query("SELECT name FROM users WHERE id = $1", [patient_id]);
     const patient_name = userResult.rows[0]?.name || "Valued Patient";
 
-    let { department, doctor_id, doctor_name, appointment_date, appointment_time, reason } = req.body;
+    let { 
+      department, 
+      doctor_id, 
+      doctor_name, 
+      appointment_date, 
+      appointment_time, 
+      reason,
+      patient_chronic_conditions,
+      patient_allergies,
+      patient_surgeries 
+    } = req.body;
 
     if (!appointment_date || !appointment_time) {
       return res.status(400).json({ error: "Date and time are required." });
@@ -726,10 +736,17 @@ const createAppointmentHandler = async (req, res) => {
 
     const safeDept = department || "General Medicine";
     const safeReason = reason || "";
+    const safeConditions = patient_chronic_conditions || "None";
+    const safeAllergies = patient_allergies || "None";
+    const safeSurgeries = patient_surgeries || "None";
 
     const query = `
-      INSERT INTO appointments (patient_id, patient_name, doctor_id, department, appointment_date, appointment_time, reason, status)
-      VALUES ($1, $2, $3, $4, $5::date, $6::time, $7, 'confirmed')
+      INSERT INTO appointments (
+        patient_id, patient_name, doctor_id, department, 
+        appointment_date, appointment_time, reason, 
+        patient_chronic_conditions, patient_allergies, patient_surgeries, status
+      )
+      VALUES ($1, $2, $3, $4, $5::date, $6::time, $7, $8, $9, $10, 'confirmed')
       RETURNING *;
     `;
 
@@ -740,7 +757,10 @@ const createAppointmentHandler = async (req, res) => {
       safeDept,
       appointment_date,
       appointment_time,
-      safeReason
+      safeReason,
+      safeConditions,
+      safeAllergies,
+      safeSurgeries
     ]);
 
     return res.status(201).json(result.rows[0]);
@@ -785,7 +805,10 @@ app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
               COALESCE(u.name, a.patient_name, 'Valued Patient') as patient_name, 
               u.phone, 
               u.age, 
-              u.medical_history 
+              u.medical_history,
+              a.patient_chronic_conditions,
+              a.patient_allergies,
+              a.patient_surgeries
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
        WHERE a.doctor_id = $1 
@@ -832,6 +855,9 @@ async function initDatabase() {
         appointment_time TIME,
         reason TEXT,
         clinical_notes TEXT,
+        patient_chronic_conditions TEXT,
+        patient_allergies TEXT,
+        patient_surgeries TEXT,
         status VARCHAR(20) DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -881,6 +907,9 @@ async function initDatabase() {
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS appointment_time TIME;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reason TEXT;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS clinical_notes TEXT;",
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_chronic_conditions TEXT;",
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_allergies TEXT;",
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_surgeries TEXT;",
       "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending';",
       "ALTER TABLE appointments ALTER COLUMN appointment_time TYPE TIME USING appointment_time::time;",
       "ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL;",
@@ -909,16 +938,3 @@ async function initDatabase() {
 ====================== */
 const publicPath = path.join(__dirname, "../public");
 app.use(express.static(publicPath));
-
-app.get("*", (req, res) => {
-  res.sendFile(path.join(publicPath, "index.html"));
-});
-
-/* ======================
-    7️⃣ START SERVER
-====================== */
-initDatabase().then(() => {
-  httpServer.listen(PORT, () => {
-    console.log(`🚀 MedicareAI server running on port ${PORT}`);
-  });
-});
