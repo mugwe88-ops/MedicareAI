@@ -303,8 +303,8 @@ app.put("/api/user/profile", verifyToken, async (req, res) => {
     const updateRes = await pool.query(
       `UPDATE users 
        SET age = COALESCE($1, age), 
-          phone = COALESCE($2, phone), 
-          medical_history = COALESCE($3, medical_history) 
+           phone = COALESCE($2, phone), 
+           medical_history = COALESCE($3, medical_history) 
        WHERE id = $4 
        RETURNING id, name, email, age, phone, medical_history`,
       [age ? parseInt(age, 10) : null, phone, medical_history, userId]
@@ -757,7 +757,7 @@ const createAppointmentHandler = async (req, res) => {
 app.post("/api/my-appointments", verifyToken, createAppointmentHandler);
 app.post("/api/appointments/book", verifyToken, createAppointmentHandler);
 
-// Filtered Appointments for Doctors (Updated to include patient medical history)
+// Filtered Appointments for Doctors (Updated to target unified users table)
 app.get("/api/appointments/doctor", verifyToken, async (req, res) => {
   try {
     let doctor_id = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
@@ -911,14 +911,14 @@ const publicPath = path.join(__dirname, "../public");
 app.use(express.static(publicPath));
 
 app.get("*", (req, res) => {
-  if (req.path.startsWith("/api")) {
-    return res.status(404).json({ error: "API route not found" });
-  }
   res.sendFile(path.join(publicPath, "index.html"));
 });
 
+/* ======================
+    7️⃣ START SERVER
+====================== */
 initDatabase().then(() => {
   httpServer.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🚀 MedicareAI server running on port ${PORT}`);
   });
 });
