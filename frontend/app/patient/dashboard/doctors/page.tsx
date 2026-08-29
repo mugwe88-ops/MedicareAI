@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Users, Search, Calendar, Video, ShieldCheck } from "lucide-react";
+import { Users, Search, Calendar, Star, ShieldCheck } from "lucide-react";
 
 interface Doctor {
   id: number;
@@ -152,11 +152,14 @@ export default function DoctorDirectoryPage() {
                     <Calendar size={14} /> Book Visit
                   </button>
                   <button
-                    onClick={() => router.push(`/patient/dashboard/telehealth`)}
-                    className="p-3 bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition"
-                    title="Telehealth Room"
+                    onClick={() => {
+                      // Optional: handle rating modal popup or navigate to a review section
+                      alert(`Leave a review for ${doc.name}`);
+                    }}
+                    className="p-3 bg-slate-950 hover:bg-slate-800 text-amber-400 border border-slate-800 rounded-xl transition"
+                    title="Leave a Review"
                   >
-                    <Video size={16} />
+                    <Star size={16} fill="currentColor" />
                   </button>
                 </div>
               </div>
