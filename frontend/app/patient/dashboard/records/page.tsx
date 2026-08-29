@@ -135,6 +135,7 @@ export default function RecordsPage() {
   const handleDownloadSinglePDF = (rec: RecordItem & { sequenceNum: number }) => {
     const config = getRecordConfig(rec);
     const isLab = rec.record_type === "diagnostic" || rec.record_type === "lab_result";
+    const logoUrl = `${window.location.origin}/swift-logo.png`; // Update with your actual public asset path or hosted image URL
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -167,7 +168,7 @@ export default function RecordsPage() {
               margin-bottom: 28px; 
             }
             .logo-area { display: flex; align-items: center; gap: 12px; }
-            .logo-icon { background: #2563eb; color: white; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; }
+            .logo-img { width: 40px; height: 40px; object-fit: contain; border-radius: 10px; }
             .logo-text { font-size: 20px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px; }
             .logo-sub { font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px; }
             
@@ -244,7 +245,7 @@ export default function RecordsPage() {
         <body>
           <div class="header">
             <div class="logo-area">
-              <div class="logo-icon">S</div>
+              <img src="${logoUrl}" alt="Swift MD Logo" class="logo-img" onerror="this.style.display='none'" />
               <div>
                 <div class="logo-text">SWIFT MD</div>
                 <div class="logo-sub">Official Medical Record & Health Suite</div>
