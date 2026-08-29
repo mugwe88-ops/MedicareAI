@@ -22,6 +22,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 /* ================= GET DOCTOR SPECIFIC APPOINTMENTS ================= */
+/* ================= GET DOCTOR SPECIFIC APPOINTMENTS ================= */
 router.get("/doctor", authenticateToken, async (req, res) => {
   try {
     if (req.user.role?.toLowerCase() !== "doctor") {
@@ -36,7 +37,10 @@ router.get("/doctor", authenticateToken, async (req, res) => {
         COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
         COALESCE(a.phone, u.phone, 'N/A') AS phone,
         u.medical_history AS patient_medical_history,
-        u.age AS patient_age
+        u.age AS patient_age,
+        u.chronic_conditions AS patient_chronic_conditions,
+        u.allergies AS patient_allergies,
+        u.surgeries AS patient_surgeries
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
        WHERE a.doctor_id = $1
@@ -274,25 +278,23 @@ const handleStatusUpdate = async (req, res) => {
   }
 };
 
-router.put("/:id", authenticateToken, handleStatusUpdate);
-router.patch("/:id/status", authenticateToken, handleStatusUpdate);
-
-/* ================= DELETE APPOINTMENT ================= */
-router.delete("/:id", authenticateToken, async (req, res) => {
+// Add or update this route in your user/profile routes backend file
+router.put("/profile/questionnaire", authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      "DELETE FROM appointments WHERE id=$1 RETURNING *", 
-      [parseInt(req.params.id, 10)]
+    const userId = req.user.userId;
+    const { age, phone, chronic_conditions, allergies, surgeries } = req.body;
+
+    await pool.query(
+      `UPDATE users 
+       SET age = $1, phone = $2, chronic_conditions = $3, allergies = $4, surgeries = $5 
+       WHERE id = $6`,
+      [age, phone, chronic_conditions, allergies, surgeries, userId]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Appointment not found" });
-    }
-
-    return res.json({ message: "Appointment deleted successfully" });
+    return res.json({ success: true, message: "Questionnaire profile saved successfully!" });
   } catch (err) {
-    console.error("Delete Error:", err.message);
-    return res.status(500).json({ error: "Deletion failed" });
+    console.error("Profile Save Error:", err.message);
+    return res.status(500).json({ error: "Failed to save questionnaire profile." });
   }
 });
 

@@ -24,6 +24,9 @@ interface Appointment {
   patient_id?: number;
   clinical_notes?: string;
   medical_history?: string;
+  patient_chronic_conditions?: string;
+  patient_allergies?: string;
+  patient_surgeries?: string;
 }
 
 interface Prescription {
@@ -410,9 +413,17 @@ export default function DoctorDashboard() {
 
                   <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase">Questionnaire Response Profile</p>
-                    <div className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">
-                      {activePatient.medical_history || "No prior questionnaire data submitted."}
-                    </div>
+                    {activePatient.patient_chronic_conditions || activePatient.patient_allergies || activePatient.patient_surgeries ? (
+                      <div className="text-sm text-slate-700 mt-1 space-y-1">
+                        <p><strong>Chronic Conditions:</strong> {activePatient.patient_chronic_conditions || 'None'}</p>
+                        <p><strong>Allergies:</strong> {activePatient.patient_allergies || 'None'}</p>
+                        <p><strong>Surgeries / Hospitalizations:</strong> {activePatient.patient_surgeries || 'None'}</p>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-500 italic mt-0.5">
+                        {activePatient.medical_history || "No prior questionnaire data submitted."}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -760,11 +771,11 @@ export default function DoctorDashboard() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Clinical Notes & Observations</label>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Clinical Notes</label>
                   <textarea
-                    rows={5}
+                    rows={4}
                     required
-                    placeholder="Enter diagnostic details, assessment, or treatment plan..."
+                    placeholder="Enter diagnostic notes, observations, or treatment plan..."
                     value={clinicalNote}
                     onChange={(e) => setClinicalNote(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
@@ -790,55 +801,13 @@ export default function DoctorDashboard() {
               </form>
             )}
 
-            {/* Quick View Modal */}
-            {modalType === "quickView" && quickViewPatient && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Appointment Quick View</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Record Summary</p>
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200/70 space-y-3 text-sm">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Patient Name</p>
-                    <p className="font-semibold text-slate-800">{quickViewPatient.patient_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Contact Phone</p>
-                    <p className="font-medium text-slate-700">{quickViewPatient.phone || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Scheduled Time</p>
-                    <p className="font-medium text-slate-700">{formatDisplayDate(quickViewPatient.appointment_date)} at {formatDisplayTime(quickViewPatient.appointment_time)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Reason for Visit</p>
-                    <p className="font-medium text-slate-700">{quickViewPatient.reason || "General Consultation"}</p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModalType(null);
-                      setQuickViewPatient(null);
-                    }}
-                    className="px-4 py-2 bg-slate-100 text-slate-700 font-semibold text-sm rounded-lg hover:bg-slate-200 transition"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Quick Lab Order Modal */}
-            {modalType === "quickLab" && quickLabApt && (
+            {modalType === "quickLab" && (
               <form onSubmit={handleAddLabOrder} className="space-y-4">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900">Order Lab Test</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    For: {quickLabApt.patient_name}
+                    Patient: {quickLabApt?.patient_name}
                   </p>
                 </div>
 
@@ -865,7 +834,7 @@ export default function DoctorDashboard() {
                     <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Instructions / Notes</label>
                     <textarea
                       rows={3}
-                      placeholder="e.g. Fasting required prior to test"
+                      placeholder="e.g. Fasting required"
                       value={labOrderForm.notes}
                       onChange={(e) => setLabOrderForm({ ...labOrderForm, notes: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
@@ -886,10 +855,45 @@ export default function DoctorDashboard() {
                     disabled={submitting}
                     className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm shadow-sm disabled:opacity-50"
                   >
-                    {submitting ? "Submitting..." : "Create Lab Order"}
+                    {submitting ? "Submitting..." : "Submit Lab Order"}
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* Quick View Modal */}
+            {modalType === "quickView" && quickViewPatient && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Patient Quick View</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{quickViewPatient.patient_name}</p>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3 text-sm">
+                  <p><strong>Phone:</strong> {quickViewPatient.phone || "N/A"}</p>
+                  <p><strong>Appointment Date:</strong> {formatDisplayDate(quickViewPatient.appointment_date)} at {formatDisplayTime(quickViewPatient.appointment_time)}</p>
+                  <p><strong>Status:</strong> {quickViewPatient.status}</p>
+                  <p><strong>Chief Reason:</strong> {quickViewPatient.reason || "General Consultation"}</p>
+                  {quickViewPatient.patient_chronic_conditions && (
+                    <p><strong>Chronic Conditions:</strong> {quickViewPatient.patient_chronic_conditions}</p>
+                  )}
+                  {quickViewPatient.patient_allergies && (
+                    <p><strong>Allergies:</strong> {quickViewPatient.patient_allergies}</p>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={() => {
+                      setModalType(null);
+                      handleSelectPatient(quickViewPatient);
+                    }}
+                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm shadow-sm"
+                  >
+                    Open Full Workspace
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
