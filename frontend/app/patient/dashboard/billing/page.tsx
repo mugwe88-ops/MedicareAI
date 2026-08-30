@@ -1,12 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  CreditCard, 
   DollarSign, 
-  FileText, 
   CheckCircle, 
-  AlertCircle, 
   ArrowLeft,
   Receipt,
   ShieldCheck
@@ -123,4 +120,58 @@ export default function PatientBillingPage() {
             <span className="text-xs text-slate-500 font-medium">Showing all transactions</span>
           </div>
 
-          <div className
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px] tracking-wider">
+                <tr>
+                  <th className="px-6 py-3.5 font-bold">Service / Description</th>
+                  <th className="px-6 py-3.5 font-bold">Doctor</th>
+                  <th className="px-6 py-3.5 font-bold">Date</th>
+                  <th className="px-6 py-3.5 font-bold">Amount</th>
+                  <th className="px-6 py-3.5 font-bold">Status</th>
+                  <th className="px-6 py-3.5 font-bold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {bills.map((bill) => (
+                  <tr key={bill.id} className="hover:bg-slate-50/70 transition">
+                    <td className="px-6 py-4 font-semibold text-slate-900">
+                      {bill.service_name}
+                    </td>
+                    <td className="px-6 py-4 text-slate-600">{bill.doctor_name || "N/A"}</td>
+                    <td className="px-6 py-4 text-slate-500">{bill.date}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">${bill.amount.toFixed(2)}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider ${
+                        bill.status === "paid" 
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                          : "bg-amber-50 text-amber-700 border border-amber-200"
+                      }`}>
+                        {bill.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {bill.status === "pending" ? (
+                        <button
+                          onClick={() => handlePayBill(bill.id)}
+                          disabled={loading}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-sm disabled:opacity-50 cursor-pointer"
+                        >
+                          {loading ? "Processing..." : "Pay Now"}
+                        </button>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-400 flex items-center justify-end gap-1">
+                          <CheckCircle size={14} className="text-emerald-500" /> Settled
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
