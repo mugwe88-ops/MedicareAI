@@ -263,7 +263,7 @@ app.post("/api/consent", verifyToken, async (req, res) => {
   }
 });
 
-app.get('/api/patient/medical-records', verifyAuthToken, async (req, res) => {
+app.get('/api/patient/medical-records', verifyToken, async (req, res) => {
   try {
     const patientId = req.user.id; // Extracted from your authentication middleware
     
@@ -276,9 +276,8 @@ app.get('/api/patient/medical-records', verifyAuthToken, async (req, res) => {
     // Decrypt the sensitive fields for the authorized patient
     const decryptedRecords = result.rows.map(record => ({
       ...record,
-      // Replace these field names with your actual encrypted columns
-      clinical_notes: decrypt(record.clinical_notes),
-      instructions: decrypt(record.instructions)
+      clinical_notes: decryptHealthData(record.clinical_notes),
+      instructions: decryptHealthData(record.instructions)
     }));
 
     res.json(decryptedRecords);
