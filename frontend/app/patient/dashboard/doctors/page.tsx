@@ -10,6 +10,7 @@ interface Doctor {
   email: string;
   phone?: string;
   availability?: string;
+  profile_picture?: string;
 }
 
 export default function DoctorDirectoryPage() {
@@ -111,8 +112,12 @@ export default function DoctorDirectoryPage() {
               >
                 <div>
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-black text-lg shadow-inner">
-                      {getInitials(doc.name)}
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-blue-600/20 text-blue-400 flex items-center justify-center font-black text-lg shadow-inner border border-blue-500/20">
+                      {doc.profile_picture ? (
+                        <img src={doc.profile_picture} alt={doc.name} className="w-full h-full object-cover" />
+                      ) : (
+                        getInitials(doc.name)
+                      )}
                     </div>
                     <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
                       <ShieldCheck size={12} /> Verified
@@ -153,7 +158,6 @@ export default function DoctorDirectoryPage() {
                   </button>
                   <button
                     onClick={() => {
-                      // Optional: handle rating modal popup or navigate to a review section
                       alert(`Leave a review for ${doc.name}`);
                     }}
                     className="p-3 bg-slate-950 hover:bg-slate-800 text-amber-400 border border-slate-800 rounded-xl transition"
