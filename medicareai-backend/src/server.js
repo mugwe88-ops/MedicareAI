@@ -34,64 +34,6 @@ const app = express();
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const algorithm = 'aes-256-cbc';
-const secretKey = crypto.scryptSync(process.env.ENCRYPTION_SECRET_KEY || 'default_secret_key', 'salt', 32);
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// 1. Create HTTP server and bind Socket.io
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*", // Allows connections from your Vercel frontend
-    methods: ["GET", "POST"]
-  }
-});
-
-// 2. Handle Socket.io signaling connections
-io.on('connection', (socket) => {
-  console.log('User connected for WebRTC signaling:', socket.id);
-
-  // When a user joins a specific appointment/room ID
-  socket.on('join-room', (roomId) => {
-    socket.join(roomId);
-    console.log(`Socket ${socket.id} joined room: ${roomId}`);
-
-    // Notify other person already in the room that a peer has arrived
-    socket.to(roomId).emit('peer-joined', socket.id);
-
-    // Relay WebRTC Offer
-    socket.on('offer', (payload) => {
-      io.to(payload.target).emit('offer', { offer: payload.offer, sender: socket.id });
-    });
-
-    // Relay WebRTC Answer
-    socket.on('answer', (payload) => {
-      io.to(payload.target).emit('answer', { answer: payload.answer, sender: socket.id });
-    });
-
-    // Relay ICE Candidates (network path discovery)
-    socket.on('ice-candidate', (payload) => {
-      io.to(payload.target).emit('ice-candidate', { candidate: payload.candidate, sender: socket.id });
-    });
-  });
-
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-  });
-});
-
-// 3. IMPORTANT: Use server.listen instead of app.listen so Socket.io works properly
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
 
 app.set("trust proxy", 1);
 
