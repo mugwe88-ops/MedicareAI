@@ -1,9 +1,10 @@
-"use client";
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Video, VideoOff, Mic, MicOff, PhoneOff, ArrowLeft } from "lucide-react";
+'use client';
 
-export default function TelehealthRoom() {
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Video, VideoOff, Mic, MicOff, PhoneOff, ArrowLeft } from 'lucide-react';
+
+export default function DoctorTelehealthRoom() {
   const params = useParams();
   const router = useRouter();
   const appointmentId = params?.id;
@@ -12,6 +13,9 @@ export default function TelehealthRoom() {
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
 
+  const doctorVideoRef = useRef<HTMLVideoElement>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCallDuration((prev) => prev + 1);
@@ -19,10 +23,63 @@ export default function TelehealthRoom() {
     return () => clearInterval(timer);
   }, []);
 
+  // Initialize Doctor Camera Feed
+  useEffect(() => {
+    async function setupCamera() {
+      try {
+        const constraints: MediaStreamConstraints = {
+          video: { facingMode: 'user' },
+          audio: true,
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        mediaStreamRef.current = stream;
+        if (doctorVideoRef.current) {
+          doctorVideoRef.current.srcObject = stream;
+          doctorVideoRef.current.play().catch((e) => console.log('Auto-play prevented:', e));
+        }
+      } catch (err) {
+        console.error('Error accessing doctor camera/mic:', err);
+      }
+    }
+
+    setupCamera();
+
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  const toggleMute = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = isAudioMuted;
+      });
+      setIsAudioMuted(!isAudioMuted);
+    }
+  };
+
+  const toggleVideo = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getVideoTracks().forEach((track) => {
+        track.enabled = isVideoMuted;
+      });
+      setIsVideoMuted(!isVideoMuted);
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleLeave = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    router.push('/doctors/dashboard');
   };
 
   return (
@@ -30,7 +87,7 @@ export default function TelehealthRoom() {
       {/* Top Bar */}
       <div className="flex justify-between items-center max-w-7xl w-full mx-auto">
         <button
-          onClick={() => router.push("/doctors/dashboard")}
+          onClick={handleLeave}
           className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white transition"
         >
           <ArrowLeft size={16} /> Return to Dashboard
@@ -44,32 +101,41 @@ export default function TelehealthRoom() {
         </div>
       </div>
 
-      {/* Video Grid Simulation */}
+      {/* Video Grid */}
       <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 my-auto">
-        {/* Patient Feed */}
+        {/* Patient Feed (Remote) */}
         <div className="relative bg-slate-900 rounded-2xl border border-slate-800 aspect-video flex items-center justify-center overflow-hidden shadow-2xl">
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
           <div className="text-center space-y-2 z-10">
-            <div className="w-16 h-16 rounded-full bg-blue-600/30 border border-blue-500/50 flex items-center justify-center mx-auto text-blue-400 font-bold text-xl">
+            <div className="w-16 h-16 rounded-full bg-blue-600/30 border border-blue-500/50 flex items-center justify-center mx-auto text-blue-400 font-bold text-xl shadow-lg">
               P
             </div>
             <p className="text-sm font-semibold text-slate-300">Patient Video Feed</p>
+            <p className="text-xs text-slate-400">Waiting for patient connection...</p>
           </div>
           <span className="absolute bottom-3 left-3 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-medium text-slate-300">
             Patient (Remote)
           </span>
         </div>
 
-        {/* Doctor Feed */}
+        {/* Doctor Feed (Self) */}
         <div className="relative bg-slate-900 rounded-2xl border border-slate-800 aspect-video flex items-center justify-center overflow-hidden shadow-2xl">
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
-          <div className="text-center space-y-2 z-10">
-            <div className="w-16 h-16 rounded-full bg-emerald-600/30 border border-emerald-500/50 flex items-center justify-center mx-auto text-emerald-400 font-bold text-xl">
-              Dr
+          <video
+            ref={doctorVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`w-full h-full object-cover ${isVideoMuted ? 'hidden' : 'block'}`}
+          />
+          {isVideoMuted && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 z-10">
+              <div className="w-16 h-16 rounded-full bg-emerald-600/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 font-bold text-xl mb-2">
+                Dr
+              </div>
+              <p className="text-xs">Camera is Off</p>
             </div>
-            <p className="text-sm font-semibold text-slate-300">Your Camera Feed</p>
-          </div>
-          <span className="absolute bottom-3 left-3 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-medium text-slate-300">
+          )}
+          <span className="absolute bottom-3 left-3 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-medium text-slate-300 z-20">
             Doctor (You)
           </span>
         </div>
@@ -78,23 +144,23 @@ export default function TelehealthRoom() {
       {/* Control Bar */}
       <div className="flex justify-center items-center gap-4 pb-4">
         <button
-          onClick={() => setIsAudioMuted(!isAudioMuted)}
-          className={`p-4 rounded-2xl transition ${isAudioMuted ? "bg-red-600 text-white" : "bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800"}`}
-          title={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
+          onClick={toggleMute}
+          className={`p-4 rounded-2xl transition ${isAudioMuted ? 'bg-red-600 text-white' : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800'}`}
+          title={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
         >
           {isAudioMuted ? <MicOff size={20} /> : <Mic size={20} />}
         </button>
 
         <button
-          onClick={() => setIsVideoMuted(!isVideoMuted)}
-          className={`p-4 rounded-2xl transition ${isVideoMuted ? "bg-red-600 text-white" : "bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800"}`}
-          title={isVideoMuted ? "Start Camera" : "Stop Camera"}
+          onClick={toggleVideo}
+          className={`p-4 rounded-2xl transition ${isVideoMuted ? 'bg-red-600 text-white' : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800'}`}
+          title={isVideoMuted ? 'Start Camera' : 'Stop Camera'}
         >
           {isVideoMuted ? <VideoOff size={20} /> : <Video size={20} />}
         </button>
 
         <button
-          onClick={() => router.push("/doctors/dashboard")}
+          onClick={handleLeave}
           className="flex items-center gap-2 px-6 py-4 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition shadow-lg shadow-red-900/20"
         >
           <PhoneOff size={18} /> End Call
