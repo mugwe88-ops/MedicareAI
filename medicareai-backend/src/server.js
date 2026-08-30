@@ -26,13 +26,15 @@ import telehealthRouter from "./routes/telehealth.js";
 import { verifyToken } from "./utils/jwt.js";
 import prescriptionRoutes from "./routes/prescription.routes.js";
 import recordsRouter from "./routes/records.js";
-import apiRoutes from './routes/index.js';
-app.use('/api', apiRoutes);
+import apiRoutes from './routes/index.js'; // <--- Import your central route
 
 /* ======================
     1️⃣ APP & SOCKET.IO INIT
 ====================== */
-const app = express();
+const app = express(); // <--- Initialize app FIRST before any app.use() calls!
+
+app.use('/api', apiRoutes); // <--- Now app is fully defined and ready
+
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
