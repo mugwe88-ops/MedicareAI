@@ -22,7 +22,6 @@ const authenticateToken = (req, res, next) => {
 };
 
 /* ================= GET DOCTOR SPECIFIC APPOINTMENTS ================= */
-/* ================= GET DOCTOR SPECIFIC APPOINTMENTS ================= */
 router.get("/doctor", authenticateToken, async (req, res) => {
   try {
     if (req.user.role?.toLowerCase() !== "doctor") {
@@ -222,6 +221,8 @@ router.get("/", authenticateToken, async (req, res) => {
       SELECT 
         a.*, 
         d.name AS doctor_name,
+        d.specialization AS specialization,
+        d.department AS department,
         COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
         COALESCE(a.phone, u.phone, 'N/A') AS phone,
         u.medical_history AS patient_medical_history,
@@ -252,8 +253,40 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
+/* ================= GET SINGLE APPOINTMENT BY ID (FIXES 404 ERROR) ================= */
+router.get("/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = `
+      SELECT 
+        a.*, 
+        d.name AS doctor_name,
+        d.specialization AS specialization,
+        d.department AS department,
+        COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
+        COALESCE(a.phone, u.phone, 'N/A') AS phone,
+        u.medical_history AS patient_medical_history,
+        u.age AS patient_age
+      FROM appointments a
+      LEFT JOIN users u ON a.patient_id = u.id
+      LEFT JOIN users d ON a.doctor_id = d.id
+      WHERE a.id = $1
+    `;
+    const { rows } = await pool.query(query, [parseInt(id, 10)]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Appointment not found" });
+    }
+
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error("Error fetching appointment detail:", err.message);
+    return res.status(500).json({ error: "Server error fetching appointment details" });
+  }
+});
+
 /* ================= UPDATE STATUS ================= */
-const handleStatusUpdate = async (req, res) => {
+router.put("/:id/status", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -276,9 +309,9 @@ const handleStatusUpdate = async (req, res) => {
     console.error("Update Error:", err.message);
     return res.status(500).json({ error: "Update failed" });
   }
-};
+});
 
-// Add or update this route in your user/profile routes backend file
+/* ================= UPDATE QUESTIONNAIRE PROFILE ================= */
 router.put("/profile/questionnaire", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
