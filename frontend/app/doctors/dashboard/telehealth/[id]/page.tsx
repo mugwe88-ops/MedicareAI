@@ -25,10 +25,15 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
   const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
+  // Clinical Notes State
+  const [notes, setNotes] = useState<string>('');
+  const [isSavingNotes, setIsSavingNotes] = useState<boolean>(false);
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+
   const doctorVideoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  // Fetch appointment details
+  // Fetch appointment details and existing notes
   useEffect(() => {
     if (!id) return;
 
@@ -50,6 +55,9 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
         }
         const data = await res.json();
         setAppointment(data);
+        if (data.notes) {
+          setNotes(data.notes);
+        }
       } catch (err: any) {
         setError(err.message || 'An error occurred');
       } finally {
@@ -60,7 +68,7 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
     fetchRoomDetails();
   }, [id]);
 
-  // Request Standard Video Stream (Guaranteed fallback for webcams)
+  // Request Standard Video Stream
   useEffect(() => {
     async function setupCamera() {
       try {
@@ -87,6 +95,37 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
       }
     };
   }, []);
+
+  // Handle saving clinical notes to backend
+  const handleSaveNotes = async () => {
+    setIsSavingNotes(true);
+    setSaveSuccess(false);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-yb5c.onrender.com'}/api/appointments/${id}/notes`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ notes }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error('Failed to save clinical notes.');
+      }
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: any) {
+      alert(err.message || 'Error saving notes');
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
 
   // Handle Mute Mic
   const toggleMute = () => {
@@ -185,15 +224,28 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
           </div>
         </div>
 
-        {/* Sidebar / Notes */}
+        {/* Sidebar / Interactive Notes Editor */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col">
-          <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider mb-3">Consultation Notes</h2>
-          <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-600 mb-4 overflow-y-auto">
-            {appointment?.notes || 'No clinical notes added yet for this session.'}
-          </div>
-          <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
-            <p className="text-xs font-bold text-blue-900 mb-1">Session Status</p>
-            <p className="text-xs text-blue-700">Connected via secure SwiftMD WebRTC gateway.</p>
+          <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider mb-2">Consultation Notes</h2>
+          <p className="text-[11px] text-slate-500 mb-3">Type clinical notes below. Changes will sync to the patient profile upon saving.</p>
+          
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Type symptoms, diagnosis, prescriptions, or clinical recommendations..."
+            className="flex-1 w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-3"
+          />
+
+          <div className="flex items-center justify-between gap-2">
+            {saveSuccess && <span className="text-[11px] font-semibold text-emerald-600">Saved successfully!</span>}
+            {!saveSuccess && <span className="text-[11px] text-slate-400"></span>}
+            <button
+              onClick={handleSaveNotes}
+              disabled={isSavingNotes}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold text-xs rounded-xl transition shadow-sm ml-auto"
+            >
+              {isSavingNotes ? 'Saving...' : 'Save Notes'}
+            </button>
           </div>
         </div>
       </div>
