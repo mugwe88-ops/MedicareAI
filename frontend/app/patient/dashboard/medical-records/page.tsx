@@ -24,6 +24,8 @@ interface RecordItem {
   medication_details?: string;
   clinical_notes?: string;
   test_ordered?: string;
+  test_name?: string;           // Added to match backend database structure
+  clinical_instructions?: string; // Added to match backend database structure
   diagnosis?: string;
   instructions?: string;
   status?: string;
@@ -70,9 +72,9 @@ export default function RecordsPage() {
     }
   };
 
-  // Helper to safely extract record details across various backend property names
+  // Helper to safely extract record details, prioritizing test_name for lab/diagnostic rows
   const getRecordDetails = (rec: RecordItem) => {
-    return rec.medication_details || rec.clinical_notes || rec.test_ordered || rec.diagnosis || "No details provided.";
+    return rec.test_name || rec.medication_details || rec.clinical_notes || rec.test_ordered || rec.diagnosis || "No details provided.";
   };
 
   // Compute exact sequential numbers per category globally across all records
@@ -102,7 +104,7 @@ export default function RecordsPage() {
   const getRecordConfig = (rec: RecordItem & { sequenceNum: number }) => {
     const type = rec.record_type || "prescription";
     const details = getRecordDetails(rec).toLowerCase();
-    
+     
     const isSpecialtyDiagnostic = 
       details.includes("cardiology") || 
       details.includes("ecg") || 
@@ -139,16 +141,6 @@ export default function RecordsPage() {
     }
   };
 
-  const formatDetailsAsHtmlList = (detailsText: string = "") => {
-    const items = detailsText.split(/[\n,;]+/).map(i => i.trim()).filter(Boolean);
-    if (items.length <= 1) {
-      return `<div>${detailsText}</div>`;
-    }
-    return `<ol style="margin: 0; padding-left: 20px;">
-      ${items.map(item => `<li style="margin-bottom: 4px;">${item}</li>`).join("")}
-    </ol>`;
-  };
-
   const handleDownloadSinglePDF = (rec: RecordItem & { sequenceNum: number }) => {
     const config = getRecordConfig(rec);
     const isLab = rec.record_type === "diagnostic" || rec.record_type === "lab_result";
@@ -167,7 +159,7 @@ export default function RecordsPage() {
           <title>${config.title} - Swift MD</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-            
+             
             body { 
               font-family: 'Inter', sans-serif; 
               color: #0f172a; 
@@ -189,7 +181,7 @@ export default function RecordsPage() {
             .logo-img { width: 40px; height: 40px; object-fit: contain; border-radius: 10px; }
             .logo-text { font-size: 20px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px; }
             .logo-sub { font-size: 12px; color: #64748b; font-weight: 500; margin-top: 2px; }
-            
+             
             .badge { 
               background: #eff6ff; 
               color: #1d4ed8; 
@@ -201,7 +193,7 @@ export default function RecordsPage() {
               letter-spacing: 0.5px;
               border: 1px solid #dbeafe;
             }
-            
+             
             .doc-title-section { margin-bottom: 24px; }
             .doc-title { font-size: 22px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px; margin: 0 0 4px 0; }
             .doc-date { font-size: 13px; color: #64748b; font-weight: 500; }
@@ -229,7 +221,7 @@ export default function RecordsPage() {
             }
             .content-label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #2563eb; letter-spacing: 0.5px; margin-bottom: 8px; }
             .primary-details { font-size: 16px; font-weight: 600; color: #0f172a; line-height: 1.6; }
-            
+             
             .notes-section { 
               margin-top: 18px; 
               padding-top: 16px; 
@@ -294,12 +286,12 @@ export default function RecordsPage() {
 
           <div class="main-content-card">
             <div class="content-label">${config.label}</div>
-            <div class="primary-details">${formatDetailsAsHtmlList(detailsText)}</div>
+            <div class="primary-details">${detailsText}</div>
 
-            ${rec.instructions ? `
+            ${rec.instructions || rec.clinical_instructions ? `
               <div class="notes-section">
                 <div class="notes-label">${isLab ? "Clinical Notes / Reason" : "Clinical Instructions / Notes"}</div>
-                <div class="notes-body">${rec.instructions}</div>
+                <div class="notes-body">${rec.instructions || rec.clinical_instructions}</div>
               </div>
             ` : ""}
 
@@ -409,7 +401,6 @@ export default function RecordsPage() {
             const config = getRecordConfig(rec);
             const isLab = rec.record_type === "diagnostic" || rec.record_type === "lab_result";
             const isClinicalNote = rec.record_type === "clinical_note";
-
             const detailsText = getRecordDetails(rec);
             const detailsItems = detailsText.split(/[\n,;]+/).map(i => i.trim()).filter(Boolean);
 
@@ -419,7 +410,6 @@ export default function RecordsPage() {
                 className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between"
               >
                 <div className="space-y-3">
-                  {/* TOP ROW: Title & Prominent Date */}
                   <div className="flex justify-between items-start gap-2">
                     <div className={`flex items-center gap-2 font-bold ${config.color}`}>
                       {config.icon}
@@ -435,7 +425,6 @@ export default function RecordsPage() {
                     </span>
                   </div>
 
-                  {/* CONTENT BOX */}
                   <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-2">
                     <div>
                       <p className="font-semibold text-slate-900">{config.label}</p>
@@ -452,12 +441,12 @@ export default function RecordsPage() {
                       )}
                     </div>
 
-                    {rec.instructions && (!isClinicalNote || rec.instructions !== detailsText) && (
+                    {(rec.instructions || rec.clinical_instructions) && (!isClinicalNote || (rec.instructions || rec.clinical_instructions) !== detailsText) && (
                       <div className="pt-2 border-t border-slate-200/60">
                         <p className="font-semibold text-slate-900">
                           {isLab ? "Clinical Notes / Reason:" : "Clinical Notes / Instructions:"}
                         </p>
-                        <p className="whitespace-pre-wrap mt-0.5">{rec.instructions}</p>
+                        <p className="whitespace-pre-wrap mt-0.5">{rec.instructions || rec.clinical_instructions}</p>
                       </div>
                     )}
 
@@ -467,7 +456,6 @@ export default function RecordsPage() {
                   </div>
                 </div>
 
-                {/* BOTTOM ROW: Action Button */}
                 <div className="flex justify-end items-center pt-2 border-t border-slate-100">
                   <button
                     onClick={() => handleDownloadSinglePDF(rec)}
