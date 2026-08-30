@@ -35,6 +35,8 @@ const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const algorithm = 'aes-256-cbc';
 const secretKey = crypto.scryptSync(process.env.ENCRYPTION_SECRET_KEY, 'salt', 32);
+const recordsRouter = require('./routes/records');
+app.use('/api/records', recordsRouter);
 
 function decrypt(text) {
   if (!text) return '';
