@@ -145,10 +145,6 @@ export default function PatientDashboard() {
     );
   };
 
-  const upcomingAppointmentsCount = appointments.filter(
-    (a) => a.status?.toLowerCase() === "confirmed" || a.status?.toLowerCase() === "pending"
-  ).length;
-
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex justify-center items-center p-0 md:p-6">
       {/* Main Dashboard Shell Container */}
@@ -162,7 +158,7 @@ export default function PatientDashboard() {
               <div className="w-9 h-9 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
                 <span className="text-white font-black text-lg">S</span>
               </div>
-              <span className="text-slate-900 font-black text-lg tracking-tight">MedicareAI</span>
+              <span className="text-slate-900 font-black text-lg tracking-tight">Swift MD</span>
             </div>
 
             {/* Nav Menu Items */}
@@ -174,19 +170,19 @@ export default function PatientDashboard() {
                 <LayoutDashboard size={18} /> Dashboard
               </button>
               <button 
-                onClick={() => router.push("/patient/dashboard/appointments")}
+                onClick={() => router.push("/patient/appointments")}
                 className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-bold rounded-2xl text-sm transition"
               >
                 <Calendar size={18} /> Appointments
               </button>
               <button 
-                onClick={() => router.push("/patient/dashboard/telehealth-room")}
+                onClick={() => router.push("/patient/telehealth-room")}
                 className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-bold rounded-2xl text-sm transition"
               >
                 <Video size={18} /> Telehealth Room
               </button>
               <button 
-                onClick={() => router.push("/patient/dashboard/medical-records")}
+                onClick={() => router.push("/patient/medical-records")}
                 className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-bold rounded-2xl text-sm transition"
               >
                 <FileText size={18} /> Medical Records
@@ -214,7 +210,7 @@ export default function PatientDashboard() {
             <div className="relative flex-1 max-w-md">
               <input
                 type="text"
-                placeholder="Search patients, invoices, appointments etc..."
+                placeholder="Search appointments, health metrics, reports..."
                 className="w-full bg-white border border-slate-200/80 shadow-sm rounded-2xl py-3 pl-11 pr-4 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition"
               />
               <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -265,7 +261,7 @@ export default function PatientDashboard() {
                   <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
                     <p className="text-xs font-bold text-slate-500">{userName} is healthier than 95% people</p>
                     <button 
-                      onClick={() => router.push("/patient/dashboard/medical-records")}
+                      onClick={() => router.push("/patient/medical-records")}
                       className="text-xs font-bold text-blue-600 hover:underline"
                     >
                       Full Report
@@ -309,7 +305,7 @@ export default function PatientDashboard() {
                     </div>
                   </div>
                   <button
-                    onClick={() => router.push("/patient/dashboard/medical-records")}
+                    onClick={() => router.push("/patient/medical-records")}
                     className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition flex items-center gap-1.5"
                   >
                     View Records <ArrowRight size={14} />
@@ -383,7 +379,7 @@ export default function PatientDashboard() {
                             <td className="py-5 px-6">{getStatusBadge(apt.status)}</td>
                             <td className="py-5 px-8 text-right">
                               <button
-                                onClick={() => router.push(`/patient/dashboard/telehealth-room`)}
+                                onClick={() => router.push(`/patient/telehealth-room`)}
                                 className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center cursor-pointer"
                                 title="Join Call"
                               >
@@ -409,7 +405,7 @@ export default function PatientDashboard() {
                   <span>🧑‍⚕️</span>
                 </div>
                 <h3 className="text-base font-black text-slate-900">{userName}</h3>
-                <p className="text-xs font-bold text-slate-400 mt-0.5">{age !== "N/A" ? `${age} yrs old` : "Patient"} • Male</p>
+                <p className="text-xs font-bold text-slate-400 mt-0.5">{age !== "N/A" ? `${age} yrs old` : "Patient"} • Verified</p>
 
                 <div className="mt-6 pt-6 border-t border-slate-100 text-left space-y-3 text-xs font-medium text-slate-600">
                   <p className="truncate"><strong className="text-slate-900">Contact:</strong> {phone}</p>
@@ -457,7 +453,7 @@ export default function PatientDashboard() {
                     <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-black text-slate-900">{apt.doctor_name || "Specialist Visit"}</p>
-                        <p className="text-[10px] font-bold text-blue-600 mt-0.5">{apt.department || "Cardiology"}</p>
+                        <p className="text-[10px] font-bold text-blue-600 mt-0.5">{apt.department || "General Health"}</p>
                       </div>
                       <span className="text-[11px] font-extrabold text-slate-500">{apt.appointment_time || "10:00"}</span>
                     </div>
