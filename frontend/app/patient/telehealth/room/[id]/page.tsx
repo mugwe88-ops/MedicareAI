@@ -55,18 +55,26 @@ export default function PatientRoomPage() {
   return (
     <div className="w-full max-w-6xl mx-auto p-4 sm:p-8 space-y-6 my-4 min-h-[80vh] flex flex-col justify-between">
       {/* TOP HEADER */}
-      <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg">
-        <div>
-          <h1 className="text-lg sm:text-xl font-extrabold text-white flex items-center gap-2">
-            <span>🎥</span> Secure Clinical Consultation Room
-          </h1>
-          <p className="text-xs text-blue-400 font-medium mt-0.5">
-            {appointment ? `Session with Dr. ${appointment.doctor_name || "Practitioner"}` : "Connecting to session..."}
-          </p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg">
+        <div className="space-y-2">
+          <button
+            onClick={() => router.push("/patient/telehealth")}
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition border border-slate-700 shadow-sm cursor-pointer"
+          >
+            ← Back to Telehealth Hub
+          </button>
+          <div>
+            <h1 className="text-lg sm:text-xl font-extrabold text-white flex items-center gap-2">
+              <span>🎥</span> Secure Clinical Consultation Room
+            </h1>
+            <p className="text-xs text-blue-400 font-medium mt-0.5">
+              {appointment ? `Session with Dr. ${appointment.doctor_name || "Practitioner"}` : "Connecting to session..."}
+            </p>
+          </div>
         </div>
         <button
           onClick={() => router.push("/patient/telehealth")}
-          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition border border-slate-700 cursor-pointer"
+          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition border border-slate-700 cursor-pointer self-end sm:self-center"
         >
           Leave Room
         </button>
