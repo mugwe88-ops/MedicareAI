@@ -25,6 +25,7 @@ import doctorRoutes from "./routes/doctors.routes.js";
 import telehealthRouter from "./routes/telehealth.js"; 
 import { verifyToken } from "./utils/jwt.js";
 import prescriptionRoutes from "./routes/prescription.routes.js";
+import recordsRouter from "./routes/records.js";
 
 /* ======================
     1️⃣ APP & SOCKET.IO INIT
@@ -34,25 +35,7 @@ const httpServer = createServer(app);
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const algorithm = 'aes-256-cbc';
-const secretKey = crypto.scryptSync(process.env.ENCRYPTION_SECRET_KEY, 'salt', 32);
-const recordsRouter = require('./routes/records');
-app.use('/api/records', recordsRouter);
-
-function decrypt(text) {
-  if (!text) return '';
-  try {
-    const textParts = text.split(':');
-    const iv = Buffer.from(textParts.shift(), 'hex');
-    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    const decipher = crypto.createDecipheriv(algorithm, secretKey, iv);
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error("Decryption error:", error);
-    return "[Encrypted Data Unavailable]"; // Fallback if decryption fails or data wasn't encrypted
-  }
-}
+const secretKey = crypto.scryptSync(process.env.ENCRYPTION_SECRET_KEY || 'default_secret_key', 'salt', 32);
 
 app.set("trust proxy", 1);
 
