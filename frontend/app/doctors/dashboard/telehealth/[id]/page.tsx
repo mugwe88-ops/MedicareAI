@@ -59,12 +59,13 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
     fetchRoomDetails();
   }, [id]);
 
-  // Request WebRTC Media Stream for Doctor
+  // Request WebRTC Media Stream with Front Camera Priority
   useEffect(() => {
     async function setupCamera() {
       try {
+        // Explicitly target front camera / user-facing webcam
         const constraints: MediaStreamConstraints = {
-          video: { facingMode: 'user' },
+          video: { facingMode: { ideal: 'user' } },
           audio: true,
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -74,7 +75,18 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
           doctorVideoRef.current.play().catch((e) => console.log('Auto-play prevented:', e));
         }
       } catch (err) {
-        console.error('Error accessing media devices.', err);
+        console.error('Error accessing front camera, trying fallback...', err);
+        try {
+          // Fallback if ideal constraints fail
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          mediaStreamRef.current = fallbackStream;
+          if (doctorVideoRef.current) {
+            doctorVideoRef.current.srcObject = fallbackStream;
+            doctorVideoRef.current.play().catch((e) => console.log('Auto-play prevented:', e));
+          }
+        } catch (fallbackErr) {
+          console.error('All camera attempts failed:', fallbackErr);
+        }
       }
     }
 
