@@ -220,7 +220,7 @@ router.get("/", authenticateToken, async (req, res) => {
     let query = `
       SELECT 
         a.*, 
-        d.name AS doctor_name,
+        COALESCE(d.name, 'Assigned Physician') AS doctor_name,
         d.specialization AS specialization,
         d.department AS department,
         COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
@@ -229,7 +229,7 @@ router.get("/", authenticateToken, async (req, res) => {
         u.age AS patient_age
       FROM appointments a
       LEFT JOIN users u ON a.patient_id = u.id
-      LEFT JOIN users d ON a.doctor_id = d.id
+      LEFT JOIN doctors d ON a.doctor_id = d.id
     `;
     let params = [];
 
@@ -249,7 +249,7 @@ router.get("/", authenticateToken, async (req, res) => {
     return res.json(result.rows);
   } catch (err) {
     console.error("Fetch Error:", err.message);
-    return res.status(500).json({ error: "Could not fetch appointments" });
+    return res.status(500).json({ error: "Could not fetch appointments", details: err.message });
   }
 });
 
