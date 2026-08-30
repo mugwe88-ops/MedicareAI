@@ -309,27 +309,52 @@ router.put("/:id/status", authenticateToken, async (req, res) => {
   }
 });
 
-// PUT route to cancel or update an appointment status
-router.put('/api/appointments/:id', verifyToken, async (req, res) => {
+/* ================= UPDATE / CANCEL APPOINTMENT BY ID ================= */
+router.put("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body; // Expects { status: "CANCELLED" }
+    const appointmentId = parseInt(id, 10);
+    const newStatus = status || "CANCELLED";
 
-    // Example query (adjust based on your ORM or SQL setup)
-    const updatedAppointment = await Appointment.findByIdAndUpdate(
-      id,
-      { status: status || 'CANCELLED' },
-      { new: true }
+    const result = await pool.query(
+      `UPDATE appointments SET status = $1 WHERE id = $2 RETURNING *`,
+      [newStatus, appointmentId]
     );
 
-    if (!updatedAppointment) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: "Appointment not found." });
     }
 
-    res.json({ message: "Appointment updated successfully", updatedAppointment });
+    return res.json({ 
+      message: "Appointment updated successfully", 
+      updatedAppointment: result.rows[0] 
+    });
   } catch (err) {
-    console.error("Error updating appointment:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error updating appointment:", err.message);
+    return res.status(500).json({ error: "Internal server error", details: err.message });
+  }
+});
+
+/* ================= DELETE APPOINTMENT BY ID ================= */
+router.delete("/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const appointmentId = parseInt(id, 10);
+
+    const result = await pool.query(
+      `DELETE FROM appointments WHERE id = $1 RETURNING *`,
+      [appointmentId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Appointment not found." });
+    }
+
+    return res.json({ message: "Appointment cancelled/deleted successfully." });
+  } catch (err) {
+    console.error("Error deleting appointment:", err.message);
+    return res.status(500).json({ error: "Internal server error", details: err.message });
   }
 });
 
