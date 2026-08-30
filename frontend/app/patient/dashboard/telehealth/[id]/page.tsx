@@ -72,6 +72,7 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
         mediaStreamRef.current = stream;
         if (userVideoRef.current) {
           userVideoRef.current.srcObject = stream;
+          userVideoRef.current.play().catch((e) => console.log('Auto-play prevented:', e));
         }
       } catch (err) {
         console.error('Error accessing media devices.', err);
