@@ -70,6 +70,9 @@ const io = new Server(httpServer, {
 /* ======================
     2️⃣ FAIL-SAFE CORS & MIDDLEWARE
 ====================== */
+/* ======================
+    2️⃣ FAIL-SAFE CORS & MIDDLEWARE
+====================== */
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -98,9 +101,11 @@ app.use(
   })
 );
 
+// ✅ Explicitly handle preflight OPTIONS requests for all routes
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 // Rate Limiter for Authentication & Sensitive Routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
