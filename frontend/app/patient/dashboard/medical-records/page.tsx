@@ -24,8 +24,8 @@ interface RecordItem {
   medication_details?: string;
   clinical_notes?: string;
   test_ordered?: string;
-  test_name?: string;           // Added to match backend database structure
-  clinical_instructions?: string; // Added to match backend database structure
+  test_name?: string;
+  clinical_instructions?: string;
   diagnosis?: string;
   instructions?: string;
   status?: string;
@@ -72,7 +72,6 @@ export default function RecordsPage() {
     }
   };
 
-  // Helper to safely extract record details across all possible backend keys
   const getRecordDetails = (rec: any) => {
     return (
       rec.test_name || 
@@ -85,7 +84,6 @@ export default function RecordsPage() {
     );
   };
 
-  // Compute exact sequential numbers per category globally across all records
   const getGlobalNumberedRecords = () => {
     const counters: { [key: string]: number } = {
       clinical_note: 0,
@@ -410,7 +408,8 @@ export default function RecordsPage() {
             const isLab = rec.record_type === "diagnostic" || rec.record_type === "lab_result";
             const isClinicalNote = rec.record_type === "clinical_note";
             const detailsText = getRecordDetails(rec);
-            // Explicitly typed parameter 'i: string' to satisfy TypeScript strict compiler rules
+            
+            // Explicitly typed parameters for both map functions
             const detailsItems = detailsText.split(/[\n,;]+/).map((i: string) => i.trim()).filter(Boolean);
 
             return (
@@ -439,7 +438,7 @@ export default function RecordsPage() {
                       <p className="font-semibold text-slate-900">{config.label}</p>
                       {detailsItems.length > 1 ? (
                         <ol className="list-decimal list-inside space-y-1 mt-1">
-                          {detailsItems.map((item, idx) => (
+                          {detailsItems.map((item: string, idx: number) => (
                             <li key={idx} className="leading-relaxed">
                               <span>{item}</span>
                             </li>
@@ -468,7 +467,7 @@ export default function RecordsPage() {
                 <div className="flex justify-end items-center pt-2 border-t border-slate-100">
                   <button
                     onClick={() => handleDownloadSinglePDF(rec)}
-                    className="inline-flex items-center gap-1.5 bg-slate-900hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition shadow-sm"
+                    className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition shadow-sm"
                   >
                     <Download size={14} />
                     Download PDF
