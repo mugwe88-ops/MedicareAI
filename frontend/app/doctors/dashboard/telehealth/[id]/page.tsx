@@ -23,6 +23,7 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const doctorVideoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -59,34 +60,22 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
     fetchRoomDetails();
   }, [id]);
 
-  // Request WebRTC Media Stream with Front Camera Priority
+  // Request Standard Video Stream (Guaranteed fallback for webcams)
   useEffect(() => {
     async function setupCamera() {
       try {
-        // Explicitly target front camera / user-facing webcam
-        const constraints: MediaStreamConstraints = {
-          video: { facingMode: { ideal: 'user' } },
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
           audio: true,
-        };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        });
         mediaStreamRef.current = stream;
         if (doctorVideoRef.current) {
           doctorVideoRef.current.srcObject = stream;
-          doctorVideoRef.current.play().catch((e) => console.log('Auto-play prevented:', e));
+          await doctorVideoRef.current.play();
         }
-      } catch (err) {
-        console.error('Error accessing front camera, trying fallback...', err);
-        try {
-          // Fallback if ideal constraints fail
-          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          mediaStreamRef.current = fallbackStream;
-          if (doctorVideoRef.current) {
-            doctorVideoRef.current.srcObject = fallbackStream;
-            doctorVideoRef.current.play().catch((e) => console.log('Auto-play prevented:', e));
-          }
-        } catch (fallbackErr) {
-          console.error('All camera attempts failed:', fallbackErr);
-        }
+      } catch (err: any) {
+        console.error('Camera access error:', err);
+        setCameraError(err.message || 'Could not access camera/microphone.');
       }
     }
 
@@ -164,7 +153,7 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
 
       {/* Video Grid / Main Room Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 mb-4 min-h-[400px]">
-        {/* Main Video Window (Remote Patient Simulation / View) */}
+        {/* Main Video Window (Remote Patient View) */}
         <div className="lg:col-span-2 bg-slate-900 rounded-2xl relative overflow-hidden flex items-center justify-center shadow-inner border border-slate-800">
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300 text-sm font-medium">
             <div className="text-center">
@@ -185,12 +174,12 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
               muted
               className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : 'block'}`}
             />
-            {isVideoOff && (
-              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-400 bg-slate-900">
-                Camera Off
+            {(isVideoOff || cameraError) && (
+              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-red-400 bg-slate-900 text-center p-1">
+                {cameraError ? 'Camera Blocked/Unavailable' : 'Camera Off'}
               </div>
             )}
-            <div className="absolute bottom-1 left-2 text-[10px] bg-black/60 px-1.5 py-0.5 rounded text-white font-medium">
+            <div className="absolute bottom-1 left-2 text-[10px] bg-black/60 px-1.5 py-0.5 rounded text-white font-medium z-10">
               Doctor (You)
             </div>
           </div>
