@@ -81,7 +81,7 @@ export default function ModernPublicLandingPage() {
               Sign In
             </Link>
             <Link
-              href="/register"
+              href="/signup"
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-6 py-2.5 rounded-2xl shadow-md shadow-blue-500/20 transition-all"
             >
               Get Started
