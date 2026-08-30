@@ -173,6 +173,46 @@ export default function PatientDashboard() {
           </div>
         </div>
 
+        {/* Patient Health Summary Card (Moved to Top) */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 mb-10">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <HeartPulse size={20} />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-lg">My Health Profile Summary</h3>
+                <p className="text-xs text-slate-400 font-semibold">Your clinical overview shared with attending physicians</p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push("/patient/dashboard/medical-records")}
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition flex items-center gap-1.5"
+            >
+              View Records <ArrowRight size={14} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Demographics</p>
+              <p className="text-sm font-bold text-slate-800">Age: <span className="font-normal">{age}</span></p>
+              <p className="text-sm font-bold text-slate-800 mt-1">Phone: <span className="font-normal">{phone}</span></p>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Chronic Conditions</p>
+              <p className="text-sm font-bold text-slate-800">{conditions}</p>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Allergies & Surgeries</p>
+              <p className="text-xs font-bold text-slate-800">Allergies: <span className="font-normal text-rose-600">{allergies}</span></p>
+              <p className="text-xs font-bold text-slate-800 mt-1">Surgeries: <span className="font-normal">{surgeries}</span></p>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Action Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <div
@@ -244,46 +284,6 @@ export default function PatientDashboard() {
             </div>
             <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
               <HeartPulse size={22} />
-            </div>
-          </div>
-        </div>
-
-        {/* Patient Health Summary Card */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 mb-10">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                <HeartPulse size={20} />
-              </div>
-              <div>
-                <h3 className="font-black text-slate-900 text-lg">My Health Profile Summary</h3>
-                <p className="text-xs text-slate-400 font-semibold">Your clinical overview shared with attending physicians</p>
-              </div>
-            </div>
-            <button
-              onClick={() => router.push("/patient/dashboard/medical-records")}
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition flex items-center gap-1.5"
-            >
-              View Records <ArrowRight size={14} />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Demographics</p>
-              <p className="text-sm font-bold text-slate-800">Age: <span className="font-normal">{age}</span></p>
-              <p className="text-sm font-bold text-slate-800 mt-1">Phone: <span className="font-normal">{phone}</span></p>
-            </div>
-
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Chronic Conditions</p>
-              <p className="text-sm font-bold text-slate-800">{conditions}</p>
-            </div>
-
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Allergies & Surgeries</p>
-              <p className="text-xs font-bold text-slate-800">Allergies: <span className="font-normal text-rose-600">{allergies}</span></p>
-              <p className="text-xs font-bold text-slate-800 mt-1">Surgeries: <span className="font-normal">{surgeries}</span></p>
             </div>
           </div>
         </div>
@@ -375,4 +375,3 @@ export default function PatientDashboard() {
     </div>
   );
 }
-
