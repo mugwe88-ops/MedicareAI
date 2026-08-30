@@ -60,12 +60,12 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
     fetchRoomDetails();
   }, [id]);
 
-  // Request WebRTC Media Stream with Environment Camera & Flash Support
+  // Request WebRTC Media Stream with Front Camera Support
   useEffect(() => {
     async function setupCamera() {
       try {
         const constraints: MediaStreamConstraints = {
-          video: { facingMode: 'environment' },
+          video: { facingMode: 'user' }, // Changed to 'user' for front camera
           audio: true,
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -122,7 +122,7 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
           setIsFlashOn(nextState);
         } catch (err) {
           console.error('Torch not supported or failed to toggle:', err);
-          alert('Flashlight/Torch is not supported on this device/camera combination.');
+          alert('Flashlight/Torch is not supported on front-facing cameras.');
         }
       }
     }
