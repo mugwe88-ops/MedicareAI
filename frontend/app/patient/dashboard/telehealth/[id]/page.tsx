@@ -23,6 +23,7 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
+  const [isFlashOn, setIsFlashOn] = useState<boolean>(false);
 
   const userVideoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -59,11 +60,15 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
     fetchRoomDetails();
   }, [id]);
 
-  // Request WebRTC Media Stream (Camera & Mic)
+  // Request WebRTC Media Stream with Environment Camera & Flash Support
   useEffect(() => {
     async function setupCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const constraints: MediaStreamConstraints = {
+          video: { facingMode: 'environment' },
+          audio: true,
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         mediaStreamRef.current = stream;
         if (userVideoRef.current) {
           userVideoRef.current.srcObject = stream;
@@ -76,7 +81,6 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
     setupCamera();
 
     return () => {
-      // Cleanup: stop tracks when leaving page
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -87,7 +91,7 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
   const toggleMute = () => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = isMuted; // if currently muted, enable it; else disable
+        track.enabled = isMuted;
       });
       setIsMuted(!isMuted);
     }
@@ -97,9 +101,29 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
   const toggleVideo = () => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getVideoTracks().forEach((track) => {
-        track.enabled = isVideoOff; // if currently off, turn on; else turn off
+        track.enabled = isVideoOff;
       });
       setIsVideoOff(!isVideoOff);
+    }
+  };
+
+  // Handle Flash / Torch Toggle
+  const toggleFlash = async () => {
+    if (mediaStreamRef.current) {
+      const track = mediaStreamRef.current.getVideoTracks()[0];
+      if (track && 'applyConstraints' in track) {
+        try {
+          const nextState = !isFlashOn;
+          await track.applyConstraints({
+            // @ts-ignore
+            advanced: [{ torch: nextState }],
+          });
+          setIsFlashOn(nextState);
+        } catch (err) {
+          console.error('Torch not supported or failed to toggle:', err);
+          alert('Flashlight/Torch is not supported on this device/camera combination.');
+        }
+      }
     }
   };
 
@@ -148,7 +172,7 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
 
       {/* Video Grid / Main Room Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 mb-4 min-h-[400px]">
-        {/* Main Video Window (Doctor View simulation) */}
+        {/* Main Video Window */}
         <div className="lg:col-span-2 bg-slate-900 rounded-2xl relative overflow-hidden flex items-center justify-center shadow-inner border border-slate-800">
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300 text-sm font-medium">
             <div className="text-center">
@@ -194,7 +218,7 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Control Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center gap-4">
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center gap-4 flex-wrap">
         <button
           onClick={toggleMute}
           className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
@@ -212,8 +236,16 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
           {isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
         </button>
         <button
+          onClick={toggleFlash}
+          className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
+            isFlashOn ? 'bg-amber-500 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          {isFlashOn ? 'Turn Flash Off' : 'Turn Flash On'}
+        </button>
+        <button
           onClick={handleLeave}
-          className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition shadow-sm"
+          className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition shadow-sm ml-auto"
         >
           End Call
         </button>
