@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { 
   LayoutDashboard, Calendar, Video, FileText, Activity, 
-  HeartPulse, Clock, ArrowRight, User, Settings, HelpCircle, Mail, Search, Bell 
+  HeartPulse, Clock, ArrowRight, User, Settings, HelpCircle, 
+  Mail, Search, Bell, Sparkles, CreditCard, Stethoscope, 
+  FlaskConical, Pill, Receipt, FolderKanban
 } from "lucide-react";
 
 interface Appointment {
@@ -31,6 +33,7 @@ export default function PatientDashboard() {
   const [surgeries, setSurgeries] = useState("None");
 
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -39,7 +42,6 @@ export default function PatientDashboard() {
       return;
     }
 
-    // Fallback: Check if name was pre-saved in localStorage during login
     const cachedName = localStorage.getItem("userName") || localStorage.getItem("patient_name");
     if (cachedName) {
       setUserName(cachedName);
@@ -87,11 +89,10 @@ export default function PatientDashboard() {
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         
-        // Dynamically set user name from profile response
         const fetchedName = profileData.name || profileData.fullName || profileData.username;
         if (fetchedName) {
           setUserName(fetchedName);
-          localStorage.setItem("userName", fetchedName); // Cache it for future loads
+          localStorage.setItem("userName", fetchedName);
         }
 
         if (profileData.age !== undefined && profileData.age !== null) {
@@ -158,53 +159,62 @@ export default function PatientDashboard() {
     );
   };
 
+  // Sidebar link items corresponding to your repository features
+  const navItems = [
+    { label: "Dashboard", icon: LayoutDashboard, path: "/patient/dashboard" },
+    { label: "AI Symptom Checker", icon: Sparkles, path: "/patient/dashboard/ai-checker" },
+    { label: "Appointments", icon: Calendar, path: "/patient/dashboard/appointments" },
+    { label: "Doctors Directory", icon: Stethoscope, path: "/patient/dashboard/doctors" },
+    { label: "Telehealth Room", icon: Video, path: "/patient/dashboard/telehealth" },
+    { label: "Medical Records", icon: FileText, path: "/patient/dashboard/medical-records" },
+    { label: "Lab Results", icon: FlaskConical, path: "/patient/dashboard/labs" },
+    { label: "Prescriptions", icon: Pill, path: "/patient/dashboard/prescriptions" },
+    { label: "Pharmacy & Refills", icon: Receipt, path: "/patient/dashboard/pharmacy" },
+    { label: "Billing & Invoices", icon: CreditCard, path: "/patient/dashboard/billing" },
+    { label: "General Records", icon: FolderKanban, path: "/patient/dashboard/records" },
+    { label: "Settings", icon: Settings, path: "/patient/dashboard/settings" },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex justify-center items-center p-0 md:p-6">
       {/* Main Dashboard Shell Container */}
       <div className="w-full max-w-7xl bg-slate-50 md:rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col md:flex-row min-h-[92vh]">
         
-        {/* SIDEBAR NAVIGATION */}
-        <aside className="w-full md:w-64 bg-white border-r border-slate-100 p-6 flex flex-col justify-between hidden md:flex">
-          <div className="space-y-8">
+        {/* SIDEBAR NAVIGATION WITH ALL REPO FEATURES */}
+        <aside className="w-full md:w-72 bg-white border-r border-slate-100 p-6 flex flex-col justify-between hidden md:flex">
+          <div className="space-y-6">
             {/* Logo */}
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => router.push("/")}>
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => router.push("/patient/dashboard")}>
               <div className="w-9 h-9 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <span className="text-white font-black text-lg">S</span>
+                <span className="text-white font-black text-lg">M</span>
               </div>
-              <span className="text-slate-900 font-black text-lg tracking-tight">Swift MD</span>
+              <span className="text-slate-900 font-black text-lg tracking-tight">MedicareAI</span>
             </div>
 
-            {/* Nav Menu Items */}
-            <nav className="space-y-2">
-              <button 
-                onClick={() => router.push("/patient/dashboard")}
-                className="w-full flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-600 font-bold rounded-2xl text-sm transition"
-              >
-                <LayoutDashboard size={18} /> Dashboard
-              </button>
-              <button 
-                onClick={() => router.push("/patient/appointments")}
-                className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-bold rounded-2xl text-sm transition"
-              >
-                <Calendar size={18} /> Appointments
-              </button>
-              <button 
-                onClick={() => router.push("/patient/telehealth-room")}
-                className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-bold rounded-2xl text-sm transition"
-              >
-                <Video size={18} /> Telehealth Room
-              </button>
-              <button 
-                onClick={() => router.push("/patient/medical-records")}
-                className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-bold rounded-2xl text-sm transition"
-              >
-                <FileText size={18} /> Medical Records
-              </button>
+            {/* Nav Menu Items Scrollable Container */}
+            <nav className="space-y-1.5 max-h-[58vh] overflow-y-auto pr-1">
+              {navItems.map((item) => {
+                const IconComponent = item.icon;
+                const isActive = pathname === item.path;
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => router.push(item.path)}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer ${
+                      isActive
+                        ? "bg-blue-50 text-blue-600 shadow-sm"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <IconComponent size={16} /> {item.label}
+                  </button>
+                );
+              })}
             </nav>
           </div>
 
           {/* Sidebar Footer / User Info */}
-          <div className="pt-6 border-t border-slate-100 flex items-center gap-3">
+          <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-sm">
               {getInitials(userName)}
             </div>
@@ -249,16 +259,14 @@ export default function PatientDashboard() {
             </p>
           </div>
 
-          {/* GRID LAYOUT: Center Analytics / Main Section & Right Profile Column */}
+          {/* GRID LAYOUT: Analytics & Right Profile Column */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* LEFT / MAIN COLUMN (Analytics & Health Summary) */}
+            {/* LEFT / MAIN COLUMN */}
             <div className="lg:col-span-2 space-y-8">
               
-              {/* Analytics & Performance Widget */}
+              {/* Analytics Widgets */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Overall Performance Card */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-center mb-4">
@@ -274,15 +282,14 @@ export default function PatientDashboard() {
                   <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
                     <p className="text-xs font-bold text-slate-500">{userName} is healthier than 95% people</p>
                     <button 
-                      onClick={() => router.push("/patient/medical-records")}
-                      className="text-xs font-bold text-blue-600 hover:underline"
+                      onClick={() => router.push("/patient/dashboard/medical-records")}
+                      className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
                     >
                       Full Report
                     </button>
                   </div>
                 </div>
 
-                {/* Analytics Chart Summary */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Analytics</h3>
@@ -302,10 +309,9 @@ export default function PatientDashboard() {
                     <div className="flex flex-col items-center gap-1"><div className="w-4 bg-blue-200 h-10 rounded-md"></div>Thu</div>
                   </div>
                 </div>
-
               </div>
 
-              {/* Patient Health Profile Summary Card */}
+              {/* Health Profile Summary Card */}
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-3">
@@ -318,8 +324,8 @@ export default function PatientDashboard() {
                     </div>
                   </div>
                   <button
-                    onClick={() => router.push("/patient/medical-records")}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition flex items-center gap-1.5"
+                    onClick={() => router.push("/patient/dashboard/medical-records")}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
                   >
                     View Records <ArrowRight size={14} />
                   </button>
@@ -392,7 +398,7 @@ export default function PatientDashboard() {
                             <td className="py-5 px-6">{getStatusBadge(apt.status)}</td>
                             <td className="py-5 px-8 text-right">
                               <button
-                                onClick={() => router.push(`/patient/telehealth-room`)}
+                                onClick={() => router.push(`/patient/dashboard/telehealth/${apt.id}`)}
                                 className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center cursor-pointer"
                                 title="Join Call"
                               >
@@ -409,7 +415,7 @@ export default function PatientDashboard() {
 
             </div>
 
-            {/* RIGHT COLUMN (Profile Card & Appointment Calendar Widget) */}
+            {/* RIGHT COLUMN */}
             <div className="space-y-8">
               
               {/* Profile Card Widget */}
@@ -426,7 +432,7 @@ export default function PatientDashboard() {
                 </div>
               </div>
 
-              {/* Appointments Interactive Widget */}
+              {/* Appointments Widget */}
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-black text-slate-900 text-base">Appointments</h3>
@@ -436,7 +442,6 @@ export default function PatientDashboard() {
                   </div>
                 </div>
 
-                {/* Calendar Days row snippet */}
                 <div className="grid grid-cols-5 gap-2 text-center mb-6">
                   <div className="p-2 rounded-2xl bg-slate-50 text-slate-400 text-xs font-bold">
                     <p className="text-[10px]">19</p>
@@ -460,7 +465,6 @@ export default function PatientDashboard() {
                   </div>
                 </div>
 
-                {/* Upcoming Schedule Mini List */}
                 <div className="space-y-4">
                   {appointments.slice(0, 2).map((apt, idx) => (
                     <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
