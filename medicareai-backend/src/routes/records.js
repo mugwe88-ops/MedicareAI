@@ -1,8 +1,9 @@
-const express = require('express');
+import express from 'express';
+import pool from '../utils/db.js';
+import { decryptData } from '../utils/encryption.js';
+import authenticateToken from '../middleware/auth.js';
+
 const router = express.Router();
-const pool = require('../utils/db'); // Adjust based on your Neon DB pool setup
-const { decryptData } = require('../utils/encryption'); // Your decryption helper
-const authenticateToken = require('../middleware/auth'); // Your JWT auth middleware
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
