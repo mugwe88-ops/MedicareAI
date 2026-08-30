@@ -221,8 +221,7 @@ router.get("/", authenticateToken, async (req, res) => {
       SELECT 
         a.*, 
         COALESCE(d.name, 'Assigned Physician') AS doctor_name,
-        d.specialization AS specialization,
-        d.department AS department,
+        COALESCE(a.department, 'General Medicine') AS department,
         COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
         COALESCE(a.phone, u.phone, 'N/A') AS phone,
         u.medical_history AS patient_medical_history,
@@ -260,9 +259,8 @@ router.get("/:id", authenticateToken, async (req, res) => {
     const query = `
       SELECT 
         a.*, 
-        d.name AS doctor_name,
-        d.specialization AS specialization,
-        d.department AS department,
+        COALESCE(d.name, 'Assigned Physician') AS doctor_name,
+        COALESCE(a.department, 'General Medicine') AS department,
         COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
         COALESCE(a.phone, u.phone, 'N/A') AS phone,
         u.medical_history AS patient_medical_history,
