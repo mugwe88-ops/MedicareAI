@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search, Heart, Eye, Activity, Wind, Stethoscope, Star, ArrowRight, UserCheck, Calendar } from "lucide-react";
+import { Search, Heart, Eye, Activity, Wind, Star, ArrowRight, Calendar } from "lucide-react";
 
 export default function ModernPublicLandingPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [topDoctors, setTopDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
+
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-backend.onrender.com";
 
   const categories = [
     { name: "Heart", icon: Heart, color: "bg-red-50 text-red-500" },
@@ -16,14 +20,31 @@ export default function ModernPublicLandingPage() {
     { name: "Lungs", icon: Wind, color: "bg-emerald-50 text-emerald-500" },
   ];
 
-  const topDoctors = [
-    { id: "doc-1", name: "Dr. M. Wagner", specialty: "Neurosurgery", rating: 4.8, image: "👨‍⚕️" },
-    { id: "doc-2", name: "Dr. R. Green", specialty: "Pulmonology", rating: 4.9, image: "👩‍⚕️" }
-  ];
+  // Fetch real doctors from the backend on mount
+  useEffect(() => {
+    async function fetchDoctors() {
+      try {
+        setLoadingDoctors(true);
+        const res = await fetch(`${BACKEND_URL}/api/doctors`);
+        const data = await res.json();
+        // Take the first 2 or 4 doctors as "Top Doctors"
+        if (Array.isArray(data)) {
+          setTopDoctors(data.slice(0, 2));
+        }
+      } catch (err) {
+        console.error("Failed to fetch top doctors from DB:", err);
+      } finally {
+        setLoadingDoctors(false);
+      }
+    }
+    fetchDoctors();
+  }, [BACKEND_URL]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    router.push(`/doctors?search=${encodeURIComponent(searchQuery)}`);
+    if (searchQuery.trim()) {
+      router.push(`/doctors?search=${encodeURIComponent(searchQuery)}`);
+    }
   };
 
   return (
@@ -126,35 +147,46 @@ export default function ModernPublicLandingPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {topDoctors.map((doc) => (
-                <div key={doc.id} className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm flex items-center justify-between relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0 group-hover:scale-125 transition-transform"></div>
-                  
-                  <div className="flex items-center gap-4 z-10">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl shadow-inner">
-                      {doc.image}
-                    </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-900">{doc.name}</h3>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{doc.specialty}</p>
-                      <div className="flex items-center gap-1 mt-2 text-amber-500 text-xs font-bold">
-                        <Star className="w-3.5 h-3.5 fill-amber-500" />
-                        <span>{doc.rating}</span>
+            {loadingDoctors ? (
+              <div className="text-slate-400 text-sm font-bold py-6">Loading verified doctors...</div>
+            ) : topDoctors.length === 0 ? (
+              <div className="text-slate-400 text-sm font-bold py-6">No doctors currently available in the directory.</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {topDoctors.map((doc: any) => (
+                  <div key={doc.id} className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm flex items-center justify-between relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0 group-hover:scale-125 transition-transform"></div>
+                    
+                    <div className="flex items-center gap-4 z-10">
+                      <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl shadow-inner overflow-hidden">
+                        {doc.avatar_url ? (
+                          <img src={doc.avatar_url} alt={doc.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span>👨‍⚕️</span>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black text-slate-900">{doc.name}</h3>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{doc.department || "General Practice"}</p>
+                        <div className="flex items-center gap-1 mt-2 text-amber-500 text-xs font-bold">
+                          <Star className="w-3.5 h-3.5 fill-amber-500" />
+                          <span>4.9</span>
+                          <span className="text-slate-400 font-medium ml-1">({doc.experience_years || 5} yrs exp)</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <button 
-                    onClick={() => router.push(`/appointments?doctorId=${doc.id}`)}
-                    className="z-10 w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 hover:bg-blue-700 transition-colors"
-                    title="Book Appointment"
-                  >
-                    <Calendar className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <button 
+                      onClick={() => router.push(`/appointments?doctorId=${doc.id}`)}
+                      className="z-10 w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 hover:bg-blue-700 transition-colors"
+                      title="Book Appointment"
+                    >
+                      <Calendar className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>
