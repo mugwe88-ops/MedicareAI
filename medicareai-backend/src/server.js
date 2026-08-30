@@ -36,8 +36,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const algorithm = 'aes-256-cbc';
 const secretKey = crypto.scryptSync(process.env.ENCRYPTION_SECRET_KEY, 'salt', 32);
 
-const secretKey = crypto.scryptSync(process.env.ENCRYPTION_SECRET_KEY, 'salt', 32);
-
 function decrypt(text) {
   if (!text) return '';
   try {
