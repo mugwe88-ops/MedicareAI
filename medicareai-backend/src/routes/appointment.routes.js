@@ -336,6 +336,38 @@ router.put("/:id", authenticateToken, async (req, res) => {
   }
 });
 
+/* ================= DEDICATED RESCHEDULE APPOINTMENT ROUTE ================= */
+router.put("/:id/reschedule", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { appointment_date, appointment_time } = req.body;
+    const appointmentId = parseInt(id, 10);
+
+    if (!appointment_date || !appointment_time) {
+      return res.status(400).json({ error: "New appointment date and time are required." });
+    }
+
+    const result = await pool.query(
+      `UPDATE appointments 
+       SET appointment_date = $1, appointment_time = $2, status = 'Confirmed' 
+       WHERE id = $3 RETURNING *`,
+      [appointment_date, appointment_time, appointmentId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Appointment not found." });
+    }
+
+    return res.json({ 
+      message: "Appointment rescheduled successfully", 
+      updatedAppointment: result.rows[0] 
+    });
+  } catch (err) {
+    console.error("Reschedule Error:", err.message);
+    return res.status(500).json({ error: "Internal server error", details: err.message });
+  }
+});
+
 /* ================= DELETE APPOINTMENT BY ID ================= */
 router.delete("/:id", authenticateToken, async (req, res) => {
   try {
