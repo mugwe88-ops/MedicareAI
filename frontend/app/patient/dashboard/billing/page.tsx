@@ -18,6 +18,7 @@ interface BillItem {
   doctor_name?: string;
 }
 
+
 export default function PatientBillingPage() {
   const [bills, setBills] = useState<BillItem[]>([
     {
