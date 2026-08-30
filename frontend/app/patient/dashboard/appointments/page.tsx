@@ -139,7 +139,7 @@ export default function AppointmentsListPage() {
                 key={appt.id}
                 className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
               >
-                <div className="space-y-1">
+                <div className="space-y-1 max-w-lg">
                   <span
                     className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
                       isCancelled
@@ -158,6 +158,12 @@ export default function AppointmentsListPage() {
                   <p className="text-xs text-slate-300 font-semibold pt-1">
                     📅 {appt.appointment_date ? new Date(appt.appointment_date).toLocaleString() : "Not Specified"}
                   </p>
+                  {/* Clean truncated display for medical reason */}
+                  {appt.reason && (
+                    <p className="text-xs text-slate-400 italic truncate max-w-md" title={appt.reason}>
+                      Reason: {appt.reason}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
