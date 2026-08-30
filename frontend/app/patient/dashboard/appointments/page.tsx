@@ -68,7 +68,7 @@ export default function AppointmentsListPage() {
     setCancellingId(id);
     try {
       const res = await fetch(`${API_BASE}/api/appointments/${id}`, {
-        method: "PUT", // or DELETE depending on your backend route (using PUT/PATCH commonly for status updates)
+        method: "PUT", 
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -77,7 +77,6 @@ export default function AppointmentsListPage() {
       });
 
       if (!res.ok) {
-        // Fallback try DELETE method if PUT isn't mapped
         const deleteRes = await fetch(`${API_BASE}/api/appointments/${id}`, {
           method: "DELETE",
           headers: {
@@ -87,7 +86,6 @@ export default function AppointmentsListPage() {
         if (!deleteRes.ok) throw new Error("Failed to cancel appointment.");
       }
 
-      // Update local state to reflect cancellation immediately
       setAppointments((prev) =>
         prev.map((appt) => (appt.id === id ? { ...appt, status: "CANCELLED" } : appt))
       );
@@ -117,8 +115,15 @@ export default function AppointmentsListPage() {
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 sm:p-8 space-y-6 my-4 sm:my-8">
-      <div className="flex items-center justify-between">
+      {/* Header section with Title and Restored Book Appointment Button */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white">My Appointments</h1>
+        <Link
+          href="/patient/dashboard/book"
+          className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center gap-2"
+        >
+          + Book Appointment
+        </Link>
       </div>
 
       {appointments.length === 0 ? (
