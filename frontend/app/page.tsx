@@ -5,10 +5,22 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, Heart, Eye, Activity, Wind, Star, ArrowRight, Calendar } from "lucide-react";
 
+// Define TypeScript interface for doctor objects to satisfy build requirements
+interface Doctor {
+  id: number | string;
+  name: string;
+  email?: string;
+  department?: string;
+  specialty?: string;
+  experience_years?: number;
+  avatar_url?: string;
+  phone?: string;
+}
+
 export default function ModernPublicLandingPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [topDoctors, setTopDoctors] = useState([]);
+  const [topDoctors, setTopDoctors] = useState<Doctor[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
 
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-backend.onrender.com";
@@ -27,7 +39,7 @@ export default function ModernPublicLandingPage() {
         setLoadingDoctors(true);
         const res = await fetch(`${BACKEND_URL}/api/doctors`);
         const data = await res.json();
-        // Take the first 2 or 4 doctors as "Top Doctors"
+        // Take the first 2 doctors as "Top Doctors"
         if (Array.isArray(data)) {
           setTopDoctors(data.slice(0, 2));
         }
@@ -153,7 +165,7 @@ export default function ModernPublicLandingPage() {
               <div className="text-slate-400 text-sm font-bold py-6">No doctors currently available in the directory.</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {topDoctors.map((doc: any) => (
+                {topDoctors.map((doc) => (
                   <div key={doc.id} className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm flex items-center justify-between relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0 group-hover:scale-125 transition-transform"></div>
                     
