@@ -69,6 +69,7 @@ export default function PatientRoomPage() {
 
     // 2. Connect to the Backend Socket.io Signaling Server
     socketRef.current = io(API_BASE);
+    const socket = socketRef.current;
 
     // 3. Request Local Camera & Microphone Access
     navigator.mediaDevices
@@ -80,8 +81,8 @@ export default function PatientRoomPage() {
         }
 
         // 4. Join the specific Socket room once media is loaded
-        if (socketRef.current) {
-          socketRef.current.emit("join-room", roomId);
+        if (socket) {
+          socket.emit("join-room", roomId);
           setCallStatus("Waiting for doctor to join session...");
         }
       })
@@ -91,17 +92,19 @@ export default function PatientRoomPage() {
       });
 
     // 5. Setup WebRTC Signaling Event Listeners
-    const socket = socketRef.current;
-
     socket.on("peer-joined", async (peerId) => {
       setCallStatus("Doctor joined! Establishing secure peer connection...");
       const pc = createPeerConnection(peerId);
       peerConnectionRef.current = pc;
 
       // Create WebRTC Offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      socket.emit("offer", { target: peerId, offer, roomId });
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit("offer", { target: peerId, offer, roomId });
+      } catch (e) {
+        console.error("Error creating offer:", e);
+      }
     });
 
     socket.on("offer", async ({ offer, sender }) => {
@@ -109,16 +112,24 @@ export default function PatientRoomPage() {
       const pc = createPeerConnection(sender);
       peerConnectionRef.current = pc;
 
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      socket.emit("answer", { target: sender, answer, roomId });
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit("answer", { target: sender, answer, roomId });
+      } catch (e) {
+        console.error("Error handling offer:", e);
+      }
     });
 
     socket.on("answer", async ({ answer }) => {
       if (peerConnectionRef.current) {
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-        setCallStatus("Live Secure Call Active");
+        try {
+          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+          setCallStatus("Live Secure Call Active");
+        } catch (e) {
+          console.error("Error handling answer:", e);
+        }
       }
     });
 
@@ -150,7 +161,7 @@ export default function PatientRoomPage() {
 
     // Listen for incoming remote video/audio stream from the doctor
     pc.ontrack = (event) => {
-      if (remoteVideoRef.current) {
+      if (remoteVideoRef.current && event.streams[0]) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
       setCallStatus("Live Secure Call Active");
@@ -198,7 +209,7 @@ export default function PatientRoomPage() {
           </p>
         </div>
         <button
-          onClick={() => router.push("/patient/telehealth-room")}
+          onClick={() => router.push("/patient/dashboard/appointments")}
           className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition border border-slate-700 cursor-pointer"
         >
           Leave Room
@@ -259,7 +270,7 @@ export default function PatientRoomPage() {
               Camera On/Off
             </button>
             <button
-              onClick={() => router.push("/patient/telehealth-room")}
+              onClick={() => router.push("/patient/dashboard/appointments")}
               className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-lg shadow-red-600/30"
             >
               End Call
