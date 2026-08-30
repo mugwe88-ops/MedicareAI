@@ -33,6 +33,26 @@ const app = express();
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const algorithm = 'aes-256-cbc';
+const secretKey = crypto.scryptSync(process.env.ENCRYPTION_SECRET_KEY, 'salt', 32);
+
+const secretKey = crypto.scryptSync(process.env.ENCRYPTION_SECRET_KEY, 'salt', 32);
+
+function decrypt(text) {
+  if (!text) return '';
+  try {
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift(), 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const decipher = crypto.createDecipheriv(algorithm, secretKey, iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+  } catch (error) {
+    console.error("Decryption error:", error);
+    return "[Encrypted Data Unavailable]"; // Fallback if decryption fails or data wasn't encrypted
+  }
+}
 
 app.set("trust proxy", 1);
 
@@ -242,6 +262,31 @@ app.post("/api/consent", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Error saving consent:", err);
     return res.status(500).json({ error: "Failed to save consent choice." });
+  }
+});
+
+app.get('/api/patient/medical-records', verifyAuthToken, async (req, res) => {
+  try {
+    const patientId = req.user.id; // Extracted from your authentication middleware
+    
+    // Fetch encrypted rows from Neon DB
+    const result = await pool.query(
+      'SELECT * FROM medical_records WHERE patient_id = $1', 
+      [patientId]
+    );
+
+    // Decrypt the sensitive fields for the authorized patient
+    const decryptedRecords = result.rows.map(record => ({
+      ...record,
+      // Replace these field names with your actual encrypted columns
+      clinical_notes: decrypt(record.clinical_notes),
+      instructions: decrypt(record.instructions)
+    }));
+
+    res.json(decryptedRecords);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
