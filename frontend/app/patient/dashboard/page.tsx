@@ -39,6 +39,12 @@ export default function PatientDashboard() {
       return;
     }
 
+    // Fallback: Check if name was pre-saved in localStorage during login
+    const cachedName = localStorage.getItem("userName") || localStorage.getItem("patient_name");
+    if (cachedName) {
+      setUserName(cachedName);
+    }
+
     fetchPatientData(token);
   }, [router]);
 
@@ -80,7 +86,14 @@ export default function PatientDashboard() {
 
       if (profileRes.ok) {
         const profileData = await profileRes.json();
-        if (profileData.name) setUserName(profileData.name);
+        
+        // Dynamically set user name from profile response
+        const fetchedName = profileData.name || profileData.fullName || profileData.username;
+        if (fetchedName) {
+          setUserName(fetchedName);
+          localStorage.setItem("userName", fetchedName); // Cache it for future loads
+        }
+
         if (profileData.age !== undefined && profileData.age !== null) {
           setAge(profileData.age.toString());
         }
