@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -55,3 +56,5 @@ export default function AppointmentDetailsPage() {
     </div>
   );
 }
+=======
+>>>>>>> 4483a19 (feat: update doctor dashboard with unified workflow and modals)
