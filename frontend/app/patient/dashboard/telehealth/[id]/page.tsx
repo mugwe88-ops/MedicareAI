@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Appointment {
@@ -24,6 +24,10 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
 
+  const userVideoRef = useRef<HTMLVideoElement>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  // Fetch appointment details
   useEffect(() => {
     if (!id) return;
 
@@ -55,6 +59,57 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
     fetchRoomDetails();
   }, [id]);
 
+  // Request WebRTC Media Stream (Camera & Mic)
+  useEffect(() => {
+    async function setupCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        mediaStreamRef.current = stream;
+        if (userVideoRef.current) {
+          userVideoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error('Error accessing media devices.', err);
+      }
+    }
+
+    setupCamera();
+
+    return () => {
+      // Cleanup: stop tracks when leaving page
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  // Handle Mute Mic
+  const toggleMute = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = isMuted; // if currently muted, enable it; else disable
+      });
+      setIsMuted(!isMuted);
+    }
+  };
+
+  // Handle Turn Camera Off/On
+  const toggleVideo = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getVideoTracks().forEach((track) => {
+        track.enabled = isVideoOff; // if currently off, turn on; else turn off
+      });
+      setIsVideoOff(!isVideoOff);
+    }
+  };
+
+  const handleLeave = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    router.push('/patient/dashboard/appointments');
+  };
+
   if (loading) {
     return <div className="p-12 text-center text-slate-500 font-medium">Connecting to secure telehealth room...</div>;
   }
@@ -84,7 +139,7 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
           </p>
         </div>
         <button
-          onClick={() => router.push('/patient/dashboard/appointments')}
+          onClick={handleLeave}
           className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition"
         >
           Leave Room
@@ -93,27 +148,35 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
 
       {/* Video Grid / Main Room Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 mb-4 min-h-[400px]">
-        {/* Main Video Window */}
+        {/* Main Video Window (Doctor View simulation) */}
         <div className="lg:col-span-2 bg-slate-900 rounded-2xl relative overflow-hidden flex items-center justify-center shadow-inner border border-slate-800">
-          {isVideoOff ? (
-            <div className="text-slate-400 font-medium text-sm flex flex-col items-center gap-2">
-              <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-xl font-bold text-slate-300">
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300 text-sm font-medium">
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-full bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-2xl font-bold text-white mx-auto mb-3 shadow-lg">
                 {appointment?.doctor_name?.charAt(0) || 'D'}
               </div>
-              Camera is turned off
+              <p className="text-lg font-bold text-white mb-1">{appointment?.doctor_name || 'Assigned Doctor'}</p>
+              <p className="text-xs text-slate-400">Waiting for doctor to join session...</p>
             </div>
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300 text-sm font-medium">
-              <div className="text-center">
-                <p className="text-lg font-bold text-white mb-1">{appointment?.doctor_name || 'Assigned Doctor'}</p>
-                <p className="text-xs text-slate-400">Secure Video Feed Active</p>
-              </div>
-            </div>
-          )}
+          </div>
 
-          {/* Self view badge */}
-          <div className="absolute bottom-4 right-4 w-36 h-24 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-xs text-slate-400 shadow-lg">
-            You (Patient)
+          {/* Patient Self-View Video Box */}
+          <div className="absolute bottom-4 right-4 w-40 h-28 bg-slate-950 border border-slate-700 rounded-xl overflow-hidden shadow-lg flex items-center justify-center">
+            <video
+              ref={userVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : 'block'}`}
+            />
+            {isVideoOff && (
+              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-400 bg-slate-900">
+                Camera Off
+              </div>
+            )}
+            <div className="absolute bottom-1 left-2 text-[10px] bg-black/60 px-1.5 py-0.5 rounded text-white font-medium">
+              You (Patient)
+            </div>
           </div>
         </div>
 
@@ -133,7 +196,7 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
       {/* Control Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center gap-4">
         <button
-          onClick={() => setIsMuted(!isMuted)}
+          onClick={toggleMute}
           className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
             isMuted ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
@@ -141,7 +204,7 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
           {isMuted ? 'Unmute Mic' : 'Mute Mic'}
         </button>
         <button
-          onClick={() => setIsVideoOff(!isVideoOff)}
+          onClick={toggleVideo}
           className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
             isVideoOff ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
@@ -149,7 +212,7 @@ export default function TelehealthRoomPage({ params }: { params: Promise<{ id: s
           {isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
         </button>
         <button
-          onClick={() => router.push('/patient/dashboard/appointments')}
+          onClick={handleLeave}
           className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition shadow-sm"
         >
           End Call
