@@ -73,8 +73,17 @@ export default function RecordsPage() {
   };
 
   // Helper to safely extract record details, prioritizing test_name for lab/diagnostic rows
-  const getRecordDetails = (rec: RecordItem) => {
-    return rec.test_name || rec.medication_details || rec.clinical_notes || rec.test_ordered || rec.diagnosis || "No details provided.";
+  // Helper to safely extract record details across all possible backend keys
+  const getRecordDetails = (rec: any) => {
+    return (
+      rec.test_name || 
+      rec.medication_details || 
+      rec.clinical_notes || 
+      rec.test_ordered || 
+      rec.diagnosis || 
+      rec.clinical_instructions ||
+      "No details provided."
+    );
   };
 
   // Compute exact sequential numbers per category globally across all records
