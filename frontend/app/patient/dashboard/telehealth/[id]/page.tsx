@@ -1,255 +1,277 @@
-'use client';
+"use client";
 
-import { useEffect, useState, use, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { io, Socket } from "socket.io-client";
 
-interface Appointment {
-  id: string;
-  patient_name: string;
-  doctor_name: string;
-  appointment_date: string;
-  status: string;
-  telehealth_room_url?: string;
-  notes?: string;
-}
+// Free public Google STUN servers to discover peer network paths across the internet
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
+};
 
-export default function TelehealthRoomPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const id = resolvedParams.id;
+export default function PatientRoomPage() {
+  const params = useParams();
   const router = useRouter();
+  const roomId = params?.id;
 
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
-  const [isFlashOn, setIsFlashOn] = useState<boolean>(false);
+  const [appointment, setAppointment] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState<string>("");
+  const [callStatus, setCallStatus] = useState<string>("Initializing camera & secure connection...");
 
-  const userVideoRef = useRef<HTMLVideoElement>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  // Media & WebRTC Refs
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
-  // Fetch appointment details
+  const API_BASE = "https://medicareai-1.onrender.com";
+
   useEffect(() => {
-    if (!id) return;
-
-    async function fetchRoomDetails() {
-      try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-yb5c.onrender.com'}/api/appointments/${id}`,
-          {
-            headers: {
-              'Authorization': token ? `Bearer ${token}` : '',
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (!res.ok) {
-          throw new Error('Failed to load telehealth room details.');
-        }
-        const data = await res.json();
-        setAppointment(data);
-      } catch (err: any) {
-        setError(err.message || 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
+    const token = localStorage.getItem("token") || localStorage.getItem("jwt");
+    if (!token) {
+      setErrorMsg("Authentication token missing. Please log in again.");
+      setTimeout(() => router.push("/login"), 2000);
+      return;
     }
 
-    fetchRoomDetails();
-  }, [id]);
-
-  // Request WebRTC Media Stream with Front Camera Support
-  useEffect(() => {
-    async function setupCamera() {
-      try {
-        const constraints: MediaStreamConstraints = {
-          video: { facingMode: 'user' }, // Changed to 'user' for front camera
-          audio: true,
-        };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        mediaStreamRef.current = stream;
-        if (userVideoRef.current) {
-          userVideoRef.current.srcObject = stream;
-          userVideoRef.current.play().catch((e) => console.log('Auto-play prevented:', e));
-        }
-      } catch (err) {
-        console.error('Error accessing media devices.', err);
-      }
+    if (!roomId) {
+      setErrorMsg("Invalid consultation room ID.");
+      return;
     }
 
-    setupCamera();
+    // 1. Fetch appointment details for UI display
+    fetch(`${API_BASE}/api/appointments/${roomId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Could not retrieve room details.");
+        return res.json();
+      })
+      .then((data) => setAppointment(data))
+      .catch((err) => console.error("Room details fetch error:", err));
 
+    // 2. Connect to the Backend Socket.io Signaling Server
+    socketRef.current = io(API_BASE);
+
+    // 3. Request Local Camera & Microphone Access
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: true })
+      .then((stream) => {
+        localStreamRef.current = stream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+
+        // 4. Join the specific Socket room once media is loaded
+        if (socketRef.current) {
+          socketRef.current.emit("join-room", roomId);
+          setCallStatus("Waiting for doctor to join session...");
+        }
+      })
+      .catch((err) => {
+        console.error("Media permission error:", err);
+        setErrorMsg("Could not access camera or microphone. Please check browser permissions.");
+      });
+
+    // 5. Setup WebRTC Signaling Event Listeners
+    const socket = socketRef.current;
+
+    socket.on("peer-joined", async (peerId) => {
+      setCallStatus("Doctor joined! Establishing secure peer connection...");
+      const pc = createPeerConnection(peerId);
+      peerConnectionRef.current = pc;
+
+      // Create WebRTC Offer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit("offer", { target: peerId, offer, roomId });
+    });
+
+    socket.on("offer", async ({ offer, sender }) => {
+      setCallStatus("Connecting with doctor...");
+      const pc = createPeerConnection(sender);
+      peerConnectionRef.current = pc;
+
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit("answer", { target: sender, answer, roomId });
+    });
+
+    socket.on("answer", async ({ answer }) => {
+      if (peerConnectionRef.current) {
+        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+        setCallStatus("Live Secure Call Active");
+      }
+    });
+
+    socket.on("ice-candidate", async ({ candidate }) => {
+      if (peerConnectionRef.current && candidate) {
+        try {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.error("Error adding received ICE candidate:", e);
+        }
+      }
+    });
+
+    // Cleanup on unmount (stop camera streams and disconnect socket)
     return () => {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current?.getTracks().forEach((track) => track.stop());
+      socket.disconnect();
+    };
+  }, [roomId, router]);
+
+  // Helper function to initialize RTCPeerConnection
+  const createPeerConnection = (peerId: string) => {
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+
+    // Add local camera/mic tracks to be sent to the doctor
+    localStreamRef.current?.getTracks().forEach((track) => {
+      pc.addTrack(track, localStreamRef.current!);
+    });
+
+    // Listen for incoming remote video/audio stream from the doctor
+    pc.ontrack = (event) => {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
+      setCallStatus("Live Secure Call Active");
+    };
+
+    // Gather and send network ICE candidates to the peer via signaling server
+    pc.onicecandidate = (event) => {
+      if (event.candidate && socketRef.current) {
+        socketRef.current.emit("ice-candidate", {
+          target: peerId,
+          candidate: event.candidate,
+          roomId,
+        });
       }
     };
-  }, []);
 
-  // Handle Mute Mic
+    return pc;
+  };
+
+  // Control button toggles
   const toggleMute = () => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = isMuted;
-      });
-      setIsMuted(!isMuted);
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) audioTrack.enabled = !audioTrack.enabled;
     }
   };
 
-  // Handle Turn Camera Off/On
-  const toggleVideo = () => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getVideoTracks().forEach((track) => {
-        track.enabled = isVideoOff;
-      });
-      setIsVideoOff(!isVideoOff);
+  const toggleCamera = () => {
+    if (localStreamRef.current) {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0];
+      if (videoTrack) videoTrack.enabled = !videoTrack.enabled;
     }
   };
-
-  // Handle Flash / Torch Toggle
-  const toggleFlash = async () => {
-    if (mediaStreamRef.current) {
-      const track = mediaStreamRef.current.getVideoTracks()[0];
-      if (track && 'applyConstraints' in track) {
-        try {
-          const nextState = !isFlashOn;
-          await track.applyConstraints({
-            // @ts-ignore
-            advanced: [{ torch: nextState }],
-          });
-          setIsFlashOn(nextState);
-        } catch (err) {
-          console.error('Torch not supported or failed to toggle:', err);
-          alert('Flashlight/Torch is not supported on front-facing cameras.');
-        }
-      }
-    }
-  };
-
-  const handleLeave = () => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-    }
-    router.push('/patient/dashboard/appointments');
-  };
-
-  if (loading) {
-    return <div className="p-12 text-center text-slate-500 font-medium">Connecting to secure telehealth room...</div>;
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-md mx-auto mt-12 p-6 bg-white border border-red-100 rounded-2xl shadow-sm text-center">
-        <p className="text-red-600 font-semibold mb-4">Error: {error}</p>
-        <button
-          onClick={() => router.back()}
-          className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-sm"
-        >
-          Go Back
-        </button>
-      </div>
-    );
-  }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6 flex flex-col h-[calc(100vh-2rem)]">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-4">
+    <div className="w-full max-w-6xl mx-auto p-4 sm:p-8 space-y-6 my-4 min-h-[80vh] flex flex-col justify-between">
+      {/* TOP HEADER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900">Telehealth Consultation</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Doctor: <span className="font-bold text-slate-700">{appointment?.doctor_name}</span> | Patient: <span className="font-bold text-slate-700">{appointment?.patient_name}</span>
+          <h1 className="text-lg sm:text-xl font-extrabold text-white flex items-center gap-2">
+            <span>🎥</span> Telehealth Consultation
+          </h1>
+          <p className="text-xs text-blue-400 font-medium mt-0.5">
+            Doctor: {appointment?.doctor_name || "Practitioner"} | Status: {callStatus}
           </p>
         </div>
         <button
-          onClick={handleLeave}
-          className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition"
+          onClick={() => router.push("/patient/dashboard/telehealth")}
+          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition border border-slate-700 cursor-pointer"
         >
           Leave Room
         </button>
       </div>
 
-      {/* Video Grid / Main Room Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 mb-4 min-h-[400px]">
-        {/* Main Video Window */}
-        <div className="lg:col-span-2 bg-slate-900 rounded-2xl relative overflow-hidden flex items-center justify-center shadow-inner border border-slate-800">
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300 text-sm font-medium">
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-2xl font-bold text-white mx-auto mb-3 shadow-lg">
-                {appointment?.doctor_name?.charAt(0) || 'D'}
-              </div>
-              <p className="text-lg font-bold text-white mb-1">{appointment?.doctor_name || 'Assigned Doctor'}</p>
-              <p className="text-xs text-slate-400">Waiting for doctor to join session...</p>
-            </div>
+      {errorMsg && (
+        <div className="p-4 bg-red-950/80 border border-red-800 text-red-300 text-sm rounded-xl">
+          ⚠️ {errorMsg}
+        </div>
+      )}
+
+      {/* VIDEO CONTAINER GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1">
+        {/* MAIN VIDEO SCREEN */}
+        <div className="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center relative min-h-[480px] shadow-2xl overflow-hidden">
+          
+          {/* Doctor's Remote Video Stream */}
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover rounded-xl absolute inset-0 z-0 bg-slate-950"
+          />
+
+          {/* Waiting Overlay / Status Banner (hidden once remote stream attaches) */}
+          <div className="absolute top-4 left-4 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-lg text-xs text-slate-300 font-medium flex items-center gap-2 z-10">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            {callStatus}
           </div>
 
-          {/* Patient Self-View Video Box */}
-          <div className="absolute bottom-4 right-4 w-40 h-28 bg-slate-950 border border-slate-700 rounded-xl overflow-hidden shadow-lg flex items-center justify-center">
+          {/* Patient Local Video Preview Box (Picture-in-Picture) */}
+          <div className="absolute bottom-20 right-6 w-40 h-28 bg-slate-950 border border-slate-700 rounded-xl overflow-hidden shadow-2xl z-20 flex items-center justify-center">
             <video
-              ref={userVideoRef}
+              ref={localVideoRef}
               autoPlay
               playsInline
               muted
-              className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : 'block'}`}
+              className="w-full h-full object-cover"
             />
-            {isVideoOff && (
-              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-400 bg-slate-900">
-                Camera Off
-              </div>
-            )}
-            <div className="absolute bottom-1 left-2 text-[10px] bg-black/60 px-1.5 py-0.5 rounded text-white font-medium">
+            <span className="absolute bottom-1 left-2 bg-black/70 px-1.5 py-0.5 rounded text-[10px] text-white font-medium">
               You (Patient)
-            </div>
+            </span>
+          </div>
+
+          {/* CONTROL BAR */}
+          <div className="absolute bottom-4 flex items-center gap-3 bg-slate-950/90 border border-slate-800 px-5 py-3 rounded-2xl shadow-xl z-30">
+            <button
+              onClick={toggleMute}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition text-xs font-bold cursor-pointer"
+            >
+              Mute Mic
+            </button>
+            <button
+              onClick={toggleCamera}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition text-xs font-bold cursor-pointer"
+            >
+              Camera On/Off
+            </button>
+            <button
+              onClick={() => router.push("/patient/dashboard/telehealth")}
+              className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-lg shadow-red-600/30"
+            >
+              End Call
+            </button>
           </div>
         </div>
 
-        {/* Sidebar / Notes */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col">
-          <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider mb-3">Consultation Notes</h2>
-          <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-600 mb-4 overflow-y-auto">
-            {appointment?.notes || 'No clinical notes added yet for this session.'}
+        {/* CONSULTATION NOTES SIDEBAR */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3">
+              CONSULTATION NOTES
+            </h3>
+            <p className="text-xs text-slate-400 bg-slate-800/40 p-3 rounded-xl border border-slate-800/80">
+              No clinical notes added yet for this session.
+            </p>
           </div>
-          <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
-            <p className="text-xs font-bold text-blue-900 mb-1">Session Status</p>
-            <p className="text-xs text-blue-700">Connected via secure SwiftMD WebRTC gateway.</p>
+
+          <div className="p-3 bg-blue-950/40 border border-blue-900/60 rounded-xl space-y-1">
+            <h4 className="text-xs font-bold text-blue-300">Session Status</h4>
+            <p className="text-[11px] text-blue-400/90 leading-relaxed">
+              Connected via secure WebRTC peer gateway.
+            </p>
           </div>
         </div>
-      </div>
-
-      {/* Control Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center gap-4 flex-wrap">
-        <button
-          onClick={toggleMute}
-          className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
-            isMuted ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          {isMuted ? 'Unmute Mic' : 'Mute Mic'}
-        </button>
-        <button
-          onClick={toggleVideo}
-          className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
-            isVideoOff ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          {isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
-        </button>
-        <button
-          onClick={toggleFlash}
-          className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
-            isFlashOn ? 'bg-amber-500 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          {isFlashOn ? 'Turn Flash Off' : 'Turn Flash On'}
-        </button>
-        <button
-          onClick={handleLeave}
-          className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition shadow-sm ml-auto"
-        >
-          End Call
-        </button>
       </div>
     </div>
   );
