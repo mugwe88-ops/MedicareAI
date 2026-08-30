@@ -43,16 +43,29 @@ export default function PatientRoomPage() {
       return;
     }
 
-    // 1. Fetch appointment details for UI display
-    fetch(`${API_BASE}/api/appointments/${roomId}`, {
+    // 1. Fetch appointment details matching backend route /api/my-appointments
+    fetch(`${API_BASE}/api/my-appointments`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Could not retrieve room details.");
+        if (!res.ok) throw new Error("Could not retrieve consultation details.");
         return res.json();
       })
-      .then((data) => setAppointment(data))
-      .catch((err) => console.error("Room details fetch error:", err));
+      .then((data) => {
+        // Find the specific appointment matching roomId/id
+        const currentApt = Array.isArray(data) 
+          ? data.find((apt: any) => String(apt.id) === String(roomId))
+          : data;
+        if (currentApt) {
+          setAppointment(currentApt);
+        } else {
+          setAppointment({ id: roomId, doctor_name: "Practitioner" });
+        }
+      })
+      .catch((err) => {
+        console.error("Room details fetch error:", err);
+        setAppointment({ id: roomId, doctor_name: "Practitioner" });
+      });
 
     // 2. Connect to the Backend Socket.io Signaling Server
     socketRef.current = io(API_BASE);
@@ -185,7 +198,7 @@ export default function PatientRoomPage() {
           </p>
         </div>
         <button
-          onClick={() => router.push("/patient/dashboard/telehealth")}
+          onClick={() => router.push("/patient/telehealth-room")}
           className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition border border-slate-700 cursor-pointer"
         >
           Leave Room
@@ -211,7 +224,7 @@ export default function PatientRoomPage() {
             className="w-full h-full object-cover rounded-xl absolute inset-0 z-0 bg-slate-950"
           />
 
-          {/* Waiting Overlay / Status Banner (hidden once remote stream attaches) */}
+          {/* Waiting Overlay / Status Banner */}
           <div className="absolute top-4 left-4 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-lg text-xs text-slate-300 font-medium flex items-center gap-2 z-10">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             {callStatus}
@@ -246,7 +259,7 @@ export default function PatientRoomPage() {
               Camera On/Off
             </button>
             <button
-              onClick={() => router.push("/patient/dashboard/telehealth")}
+              onClick={() => router.push("/patient/telehealth-room")}
               className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-lg shadow-red-600/30"
             >
               End Call
@@ -261,7 +274,7 @@ export default function PatientRoomPage() {
               CONSULTATION NOTES
             </h3>
             <p className="text-xs text-slate-400 bg-slate-800/40 p-3 rounded-xl border border-slate-800/80">
-              No clinical notes added yet for this session.
+              {appointment?.medical_history || "No clinical notes added yet for this session."}
             </p>
           </div>
 
