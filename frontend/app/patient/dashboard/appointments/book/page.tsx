@@ -121,13 +121,16 @@ export default function AppointmentsPage() {
 
     // Fetch Doctors List
     setLoadingDoctors(true);
-    fetch(`${API_BASE}/api/doctors-list`)
+    fetch(`${API_BASE}/api/doctors-list`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load doctor list");
         return res.json();
       })
       .then((data) => {
-        setDoctors(Array.isArray(data) ? data : []);
+        const docList = Array.isArray(data) ? data : data.doctors || [];
+        setDoctors(docList);
         setLoadingDoctors(false);
       })
       .catch((err) => {
@@ -148,7 +151,8 @@ export default function AppointmentsPage() {
         return res.json();
       })
       .then((data) => {
-        setConsultations(Array.isArray(data) ? data : []);
+        const apptList = Array.isArray(data) ? data : data.appointments || [];
+        setConsultations(apptList);
         setLoadingConsultations(false);
       })
       .catch((err) => {
@@ -172,7 +176,7 @@ export default function AppointmentsPage() {
     try {
       const res = await fetch(`${API_BASE}/api/doctors/${doctorId}/availability`);
       const data = await res.json();
-      setAvailability(Array.isArray(data) ? data : []);
+      setAvailability(Array.isArray(data) ? data : data.availability || []);
     } catch (err) {
       console.error("Availability Fetch Error:", err);
       setAvailability([]);
