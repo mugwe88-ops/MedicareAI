@@ -1,29 +1,65 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { Video, VideoOff, Mic, MicOff, PhoneOff, ArrowLeft } from 'lucide-react';
+import { useEffect, useState, use, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
-export default function DoctorTelehealthRoom() {
-  const params = useParams();
+interface Appointment {
+  id: string;
+  patient_name: string;
+  doctor_name: string;
+  appointment_date: string;
+  status: string;
+  telehealth_room_url?: string;
+  notes?: string;
+}
+
+export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+  const id = resolvedParams.id;
   const router = useRouter();
-  const appointmentId = params?.id;
 
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const [isVideoMuted, setIsVideoMuted] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
 
   const doctorVideoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
+  // Fetch appointment details
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCallDuration((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (!id) return;
 
-  // Initialize Doctor Camera Feed
+    async function fetchRoomDetails() {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-yb5c.onrender.com'}/api/appointments/${id}`,
+          {
+            headers: {
+              'Authorization': token ? `Bearer ${token}` : '',
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error('Failed to load telehealth room details.');
+        }
+        const data = await res.json();
+        setAppointment(data);
+      } catch (err: any) {
+        setError(err.message || 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchRoomDetails();
+  }, [id]);
+
+  // Request WebRTC Media Stream for Doctor
   useEffect(() => {
     async function setupCamera() {
       try {
@@ -38,7 +74,7 @@ export default function DoctorTelehealthRoom() {
           doctorVideoRef.current.play().catch((e) => console.log('Auto-play prevented:', e));
         }
       } catch (err) {
-        console.error('Error accessing doctor camera/mic:', err);
+        console.error('Error accessing media devices.', err);
       }
     }
 
@@ -51,28 +87,24 @@ export default function DoctorTelehealthRoom() {
     };
   }, []);
 
+  // Handle Mute Mic
   const toggleMute = () => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = isAudioMuted;
+        track.enabled = isMuted;
       });
-      setIsAudioMuted(!isAudioMuted);
+      setIsMuted(!isMuted);
     }
   };
 
+  // Handle Turn Camera Off/On
   const toggleVideo = () => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getVideoTracks().forEach((track) => {
-        track.enabled = isVideoMuted;
+        track.enabled = isVideoOff;
       });
-      setIsVideoMuted(!isVideoMuted);
+      setIsVideoOff(!isVideoOff);
     }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleLeave = () => {
@@ -82,88 +114,112 @@ export default function DoctorTelehealthRoom() {
     router.push('/doctors/dashboard');
   };
 
+  if (loading) {
+    return <div className="p-12 text-center text-slate-500 font-medium">Connecting to secure telehealth room...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-md mx-auto mt-12 p-6 bg-white border border-red-100 rounded-2xl shadow-sm text-center">
+        <p className="text-red-600 font-semibold mb-4">Error: {error}</p>
+        <button
+          onClick={() => router.back()}
+          className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-sm"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between p-6">
-      {/* Top Bar */}
-      <div className="flex justify-between items-center max-w-7xl w-full mx-auto">
+    <div className="max-w-6xl mx-auto p-4 md:p-6 flex flex-col h-[calc(100vh-2rem)]">
+      {/* Header */}
+      <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-4">
+        <div>
+          <h1 className="text-xl font-extrabold text-slate-900">Telehealth Consultation (Doctor Portal)</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Doctor: <span className="font-bold text-slate-700">{appointment?.doctor_name || 'Dr. PRESSY PHIDES'}</span> | Patient: <span className="font-bold text-slate-700">{appointment?.patient_name || 'Patient'}</span>
+          </p>
+        </div>
         <button
           onClick={handleLeave}
-          className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white transition"
+          className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition"
         >
-          <ArrowLeft size={16} /> Return to Dashboard
+          Leave Room
         </button>
-        <div className="bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-full flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-xs font-semibold tracking-wider">SECURE TELEHEALTH ROOM #{appointmentId}</span>
-        </div>
-        <div className="text-xs font-mono text-slate-400 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-          Duration: {formatTime(callDuration)}
-        </div>
       </div>
 
-      {/* Video Grid */}
-      <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 my-auto">
-        {/* Patient Feed (Remote) */}
-        <div className="relative bg-slate-900 rounded-2xl border border-slate-800 aspect-video flex items-center justify-center overflow-hidden shadow-2xl">
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
-          <div className="text-center space-y-2 z-10">
-            <div className="w-16 h-16 rounded-full bg-blue-600/30 border border-blue-500/50 flex items-center justify-center mx-auto text-blue-400 font-bold text-xl shadow-lg">
-              P
+      {/* Video Grid / Main Room Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 mb-4 min-h-[400px]">
+        {/* Main Video Window (Remote Patient Simulation / View) */}
+        <div className="lg:col-span-2 bg-slate-900 rounded-2xl relative overflow-hidden flex items-center justify-center shadow-inner border border-slate-800">
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300 text-sm font-medium">
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-full bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-2xl font-bold text-white mx-auto mb-3 shadow-lg">
+                {appointment?.patient_name?.charAt(0) || 'P'}
+              </div>
+              <p className="text-lg font-bold text-white mb-1">{appointment?.patient_name || 'Patient'}</p>
+              <p className="text-xs text-slate-400">Waiting for patient video stream...</p>
             </div>
-            <p className="text-sm font-semibold text-slate-300">Patient Video Feed</p>
-            <p className="text-xs text-slate-400">Waiting for patient connection...</p>
           </div>
-          <span className="absolute bottom-3 left-3 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-medium text-slate-300">
-            Patient (Remote)
-          </span>
+
+          {/* Doctor Self-View Video Box (Picture-in-Picture) */}
+          <div className="absolute bottom-4 right-4 w-40 h-28 bg-slate-950 border border-slate-700 rounded-xl overflow-hidden shadow-lg flex items-center justify-center">
+            <video
+              ref={doctorVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : 'block'}`}
+            />
+            {isVideoOff && (
+              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-400 bg-slate-900">
+                Camera Off
+              </div>
+            )}
+            <div className="absolute bottom-1 left-2 text-[10px] bg-black/60 px-1.5 py-0.5 rounded text-white font-medium">
+              Doctor (You)
+            </div>
+          </div>
         </div>
 
-        {/* Doctor Feed (Self) */}
-        <div className="relative bg-slate-900 rounded-2xl border border-slate-800 aspect-video flex items-center justify-center overflow-hidden shadow-2xl">
-          <video
-            ref={doctorVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className={`w-full h-full object-cover ${isVideoMuted ? 'hidden' : 'block'}`}
-          />
-          {isVideoMuted && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 z-10">
-              <div className="w-16 h-16 rounded-full bg-emerald-600/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 font-bold text-xl mb-2">
-                Dr
-              </div>
-              <p className="text-xs">Camera is Off</p>
-            </div>
-          )}
-          <span className="absolute bottom-3 left-3 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-medium text-slate-300 z-20">
-            Doctor (You)
-          </span>
+        {/* Sidebar / Notes */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col">
+          <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider mb-3">Consultation Notes</h2>
+          <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-600 mb-4 overflow-y-auto">
+            {appointment?.notes || 'No clinical notes added yet for this session.'}
+          </div>
+          <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+            <p className="text-xs font-bold text-blue-900 mb-1">Session Status</p>
+            <p className="text-xs text-blue-700">Connected via secure SwiftMD WebRTC gateway.</p>
+          </div>
         </div>
       </div>
 
       {/* Control Bar */}
-      <div className="flex justify-center items-center gap-4 pb-4">
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center gap-4 flex-wrap">
         <button
           onClick={toggleMute}
-          className={`p-4 rounded-2xl transition ${isAudioMuted ? 'bg-red-600 text-white' : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800'}`}
-          title={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
+          className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
+            isMuted ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
         >
-          {isAudioMuted ? <MicOff size={20} /> : <Mic size={20} />}
+          {isMuted ? 'Unmute Mic' : 'Mute Mic'}
         </button>
-
         <button
           onClick={toggleVideo}
-          className={`p-4 rounded-2xl transition ${isVideoMuted ? 'bg-red-600 text-white' : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800'}`}
-          title={isVideoMuted ? 'Start Camera' : 'Stop Camera'}
+          className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
+            isVideoOff ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
         >
-          {isVideoMuted ? <VideoOff size={20} /> : <Video size={20} />}
+          {isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
         </button>
-
         <button
           onClick={handleLeave}
-          className="flex items-center gap-2 px-6 py-4 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition shadow-lg shadow-red-900/20"
+          className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition shadow-sm ml-auto"
         >
-          <PhoneOff size={18} /> End Call
+          End Call
         </button>
       </div>
     </div>
