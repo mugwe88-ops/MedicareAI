@@ -229,7 +229,7 @@ router.get("/", authenticateToken, async (req, res) => {
         u.age AS patient_age
       FROM appointments a
       LEFT JOIN users u ON a.patient_id = u.id
-      LEFT JOIN doctors d ON a.doctor_id = d.id
+      LEFT JOIN users d ON a.doctor_id = d.id
     `;
     let params = [];
 
@@ -253,7 +253,7 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
-/* ================= GET SINGLE APPOINTMENT BY ID (FIXES 404 ERROR) ================= */
+/* ================= GET SINGLE APPOINTMENT BY ID ================= */
 router.get("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
