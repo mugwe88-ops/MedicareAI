@@ -41,16 +41,16 @@ export default function ScheduleManager() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token") || localStorage.getItem("jwt");
     if (!token) {
       router.push("/login");
       return;
     }
     fetchSlots(token);
-  }, []);
+  }, [router]);
 
   const fetchSlots = async (authToken?: string | null) => {
-    const token = authToken || localStorage.getItem("token");
+    const token = authToken || localStorage.getItem("token") || localStorage.getItem("jwt");
     try {
       const res = await fetch(`${API_BASE}/api/doctor/availability`, {
         headers: {
@@ -74,7 +74,7 @@ export default function ScheduleManager() {
     setSubmitting(true);
     setFeedback(null);
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token") || localStorage.getItem("jwt");
     try {
       const payload: any = {
         start_time: startTime,
@@ -116,7 +116,7 @@ export default function ScheduleManager() {
   };
 
   const handleDeleteSlot = async (id: number) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token") || localStorage.getItem("jwt");
     try {
       const res = await fetch(`${API_BASE}/api/doctor/availability/${id}`, {
         method: "DELETE",
