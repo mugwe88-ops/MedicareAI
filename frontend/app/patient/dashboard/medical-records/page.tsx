@@ -72,7 +72,6 @@ export default function RecordsPage() {
     }
   };
 
-  // Helper to safely extract record details, prioritizing test_name for lab/diagnostic rows
   // Helper to safely extract record details across all possible backend keys
   const getRecordDetails = (rec: any) => {
     return (
@@ -411,7 +410,8 @@ export default function RecordsPage() {
             const isLab = rec.record_type === "diagnostic" || rec.record_type === "lab_result";
             const isClinicalNote = rec.record_type === "clinical_note";
             const detailsText = getRecordDetails(rec);
-            const detailsItems = detailsText.split(/[\n,;]+/).map(i => i.trim()).filter(Boolean);
+            // Explicitly typed parameter 'i: string' to satisfy TypeScript strict compiler rules
+            const detailsItems = detailsText.split(/[\n,;]+/).map((i: string) => i.trim()).filter(Boolean);
 
             return (
               <div
@@ -468,7 +468,7 @@ export default function RecordsPage() {
                 <div className="flex justify-end items-center pt-2 border-t border-slate-100">
                   <button
                     onClick={() => handleDownloadSinglePDF(rec)}
-                    className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition shadow-sm"
+                    className="inline-flex items-center gap-1.5 bg-slate-900hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition shadow-sm"
                   >
                     <Download size={14} />
                     Download PDF
