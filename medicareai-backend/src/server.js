@@ -250,15 +250,13 @@ app.post("/api/consent", verifyToken, async (req, res) => {
 
 app.get('/api/patient/medical-records', verifyToken, async (req, res) => {
   try {
-    const patientId = req.user.id; // Extracted from your authentication middleware
+    const patientId = req.user.id; 
     
-    // Fetch encrypted rows from Neon DB
     const result = await pool.query(
       'SELECT * FROM medical_records WHERE patient_id = $1', 
       [patientId]
     );
 
-    // Decrypt the sensitive fields for the authorized patient
     const decryptedRecords = result.rows.map(record => ({
       ...record,
       clinical_notes: decryptHealthData(record.clinical_notes),
