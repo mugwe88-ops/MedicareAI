@@ -25,7 +25,7 @@ import doctorRoutes from "./routes/doctors.routes.js";
 import telehealthRouter from "./routes/telehealth.js"; 
 import { verifyToken } from "./utils/jwt.js";
 import prescriptionRoutes from "./routes/prescription.routes.js";
-import recordsRouter from "./routes/records.js";
+import { recordsRouter } from "./routes/records.js";
 
 /* ======================
     1️⃣ APP & SOCKET.IO INIT
