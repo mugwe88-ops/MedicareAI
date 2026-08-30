@@ -119,7 +119,7 @@ export default function AppointmentsListPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white">My Appointments</h1>
         <Link
-          href="/patient/dashboard/book"
+          href="/patient/dashboard/appointments/book"
           className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center gap-2"
         >
           + Book Appointment
