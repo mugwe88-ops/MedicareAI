@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { User, Shield, Stethoscope, Save } from "lucide-react";
+import { User, Shield, Stethoscope, Save, Camera } from "lucide-react";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const [email, setEmail] = useState("");
   const [age, setAge] = useState("");
   const [phone, setPhone] = useState("");
+  const [profilePicture, setProfilePicture] = useState("");
 
   // Clinical questionnaire states
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
@@ -31,26 +32,41 @@ export default function SettingsPage() {
   ];
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
+    const fetchUserProfile = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
 
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
-    if (storedUser) {
       try {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.name) setName(parsed.name);
-        if (parsed.email) setEmail(parsed.email);
-        if (parsed.age) setAge(parsed.age.toString());
-        if (parsed.phone) setPhone(parsed.phone);
+        const backendUrl =
+          process.env.NEXT_PUBLIC_BACKEND_URL ||
+          "https://medicareai-1.onrender.com";
+
+        // Fetch fresh profile data from backend API
+        const res = await fetch(`${backendUrl}/api/user/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch user profile");
+        }
+
+        const data = await res.json();
+        const user = data.user || data;
+
+        if (user.name) setName(user.name);
+        if (user.email) setEmail(user.email);
+        if (user.age !== null && user.age !== undefined) setAge(user.age.toString());
+        if (user.phone) setPhone(user.phone);
+        if (user.profile_picture) setProfilePicture(user.profile_picture);
 
         // Parse existing medical history if present
-        if (parsed.medical_history) {
-          const hist = parsed.medical_history;
-          
+        const hist = user.medical_history || "";
+        if (hist) {
           const condMatch = hist.match(/Conditions: ([^|]+)/);
           if (condMatch && condMatch[1]) {
             setSelectedConditions(condMatch[1].trim().split(", ").map((c: string) => c.trim()));
@@ -71,11 +87,28 @@ export default function SettingsPage() {
             }
           }
         }
-      } catch (e) {
-        console.error("Failed to parse stored user profile", e);
+      } catch (err) {
+        console.error("Failed to load profile from backend, falling back to local storage", err);
+        // Fallback to local storage if API fetch fails
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser);
+            if (parsed.name) setName(parsed.name);
+            if (parsed.email) setEmail(parsed.email);
+            if (parsed.age) setAge(parsed.age.toString());
+            if (parsed.phone) setPhone(parsed.phone);
+            if (parsed.profile_picture) setProfilePicture(parsed.profile_picture);
+          } catch (e) {
+            console.error("Failed to parse stored user profile", e);
+          }
+        }
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    fetchUserProfile();
   }, [router]);
 
   const handleConditionToggle = (condition: string) => {
@@ -119,6 +152,7 @@ export default function SettingsPage() {
           name: name.trim(),
           age: age ? parseInt(age, 10) : null,
           phone: phone.trim() || null,
+          profile_picture: profilePicture.trim() || null,
           medical_history: compiledMedicalHistory
         })
       });
@@ -138,6 +172,7 @@ export default function SettingsPage() {
           parsed.name = name;
           parsed.age = age ? parseInt(age, 10) : parsed.age;
           parsed.phone = phone;
+          parsed.profile_picture = profilePicture;
           parsed.medical_history = compiledMedicalHistory;
           localStorage.setItem("user", JSON.stringify(parsed));
         } catch (err) {}
@@ -177,7 +212,30 @@ export default function SettingsPage() {
               </div>
               <div>
                 <h2 className="text-lg font-black text-white">Personal Profile</h2>
-                <p className="text-xs text-slate-400 font-medium">Update your core account details</p>
+                <p className="text-xs text-slate-400 font-medium">Update your core account details and picture</p>
+              </div>
+            </div>
+
+            {/* Profile Picture Section */}
+            <div className="mb-6 flex items-center gap-6 p-4 bg-slate-950 rounded-2xl border border-slate-800/80">
+              <div className="relative w-16 h-16 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center border-2 border-slate-700 shrink-0">
+                {profilePicture ? (
+                  <img src={profilePicture} alt="Profile preview" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={28} className="text-slate-500" />
+                )}
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Profile Picture URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={profilePicture}
+                    onChange={(e) => setProfilePicture(e.target.value)}
+                    placeholder="https://example.com/avatar.jpg"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-100 font-medium text-sm"
+                  />
+                </div>
               </div>
             </div>
 
