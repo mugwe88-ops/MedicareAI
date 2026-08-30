@@ -309,6 +309,30 @@ router.put("/:id/status", authenticateToken, async (req, res) => {
   }
 });
 
+// PUT route to cancel or update an appointment status
+router.put('/api/appointments/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // Expects { status: "CANCELLED" }
+
+    // Example query (adjust based on your ORM or SQL setup)
+    const updatedAppointment = await Appointment.findByIdAndUpdate(
+      id,
+      { status: status || 'CANCELLED' },
+      { new: true }
+    );
+
+    if (!updatedAppointment) {
+      return res.status(404).json({ error: "Appointment not found." });
+    }
+
+    res.json({ message: "Appointment updated successfully", updatedAppointment });
+  } catch (err) {
+    console.error("Error updating appointment:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ================= UPDATE QUESTIONNAIRE PROFILE ================= */
 router.put("/profile/questionnaire", authenticateToken, async (req, res) => {
   try {
