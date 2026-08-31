@@ -30,8 +30,10 @@ export default function Sidebar() {
     }
   }, [pathname]);
 
+  // All doctor links correctly mapped to the dashboard subdirectory structure
   const doctorMenuItems = [
     { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
+    { name: "Telehealth Room", href: "/doctors/dashboard/telehealth", icon: Video },
     { name: "Schedule Manager", href: "/doctors/dashboard/schedule", icon: Calendar },
     { name: "Patients", href: "/doctors/dashboard/patients", icon: Users },
     { name: "Records", href: "/data", icon: FileText },
