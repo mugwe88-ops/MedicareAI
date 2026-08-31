@@ -1,12 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  CreditCard, 
   DollarSign, 
-  FileText, 
   CheckCircle, 
-  AlertCircle, 
   ArrowLeft,
   Receipt,
   ShieldCheck
@@ -68,7 +65,7 @@ export default function PatientBillingPage() {
         <div className="flex items-center gap-3">
           <button 
             onClick={() => router.push("/patient/dashboard")}
-            className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"
+            className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
           >
             <ArrowLeft size={18} />
           </button>
@@ -158,7 +155,7 @@ export default function PatientBillingPage() {
                         <button
                           onClick={() => handlePayBill(bill.id)}
                           disabled={loading}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-sm disabled:opacity-50"
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-sm disabled:opacity-50 cursor-pointer"
                         >
                           {loading ? "Processing..." : "Pay Now"}
                         </button>

@@ -2,714 +2,486 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { 
+  LayoutDashboard, Calendar, Video, FileText, Activity, 
+  HeartPulse, Clock, ArrowRight, User, Settings, HelpCircle, Mail, Search, Bell 
+} from "lucide-react";
 
-interface Doctor {
+interface Appointment {
   id: number;
-  name: string;
-  specialization: string;
-}
-
-interface AvailabilitySlot {
-  day_of_week: string;
-  start_time: string;
-  end_time: string;
-}
-
-interface Consultation {
-  id: number | string;
   doctor_name?: string;
   department?: string;
   appointment_date: string;
-  appointment_time?: string;
-  reason: string;
+  appointment_time: string;
+  reason?: string;
   status: string;
-  telehealth_room_url?: string;
+  medical_history?: string;
 }
 
-const COMMON_SYMPTOMS = [
-  "Fever",
-  "Fatigue / Weakness",
-  "Shortness of Breath",
-  "Dizziness",
-  "Nausea",
-  "Acute Pain",
-];
+export default function PatientDashboard() {
+  const [userName, setUserName] = useState("Patient");
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-const CHRONIC_CONDITIONS = [
-  "Hypertension",
-  "Diabetes",
-  "Asthma",
-  "Heart Disease",
-  "Epilepsy",
-  "None",
-];
+  // Profile & Medical Summary States
+  const [age, setAge] = useState("N/A");
+  const [phone, setPhone] = useState("N/A");
+  const [conditions, setConditions] = useState("None");
+  const [allergies, setAllergies] = useState("None");
+  const [surgeries, setSurgeries] = useState("None");
 
-export default function AppointmentsPage() {
   const router = useRouter();
 
-  // Form & Data State
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
-  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
-  
-  // Directly selected schedule info
-  const [selectedSlot, setSelectedSlot] = useState<{ day: string; time: string } | null>(null);
-  const [reason, setReason] = useState<string>("");
-
-  // Patient Medical Questionnaire State
-  const [age, setAge] = useState<string>("");
-  const [phoneNumber, setPhoneNumber] = useState<string>("");
-  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
-  const [allergies, setAllergies] = useState<string>("");
-  const [hasSurgeries, setHasSurgeries] = useState<string>("No");
-
-  // Enhanced Quick-Symptom Pre-Screening State
-  const [symptomSeverity, setSymptomSeverity] = useState<string>("Moderate");
-  const [symptomDuration, setSymptomDuration] = useState<string>("1-3 days");
-  const [bodySystem, setBodySystem] = useState<string>("General / Systemic");
-  const [associatedSymptoms, setAssociatedSymptoms] = useState<string[]>([]);
-  const [painScale, setPainScale] = useState<number>(3);
-
-  // Booked Consultations State
-  const [consultations, setConsultations] = useState<Consultation[]>([]);
-  const [loadingConsultations, setLoadingConsultations] = useState<boolean>(true);
-
-  // UI State
-  const [loadingDoctors, setLoadingDoctors] = useState<boolean>(true);
-  const [loadingSchedule, setLoadingSchedule] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string>("");
-  const [successMsg, setSuccessMsg] = useState<string>("");
-
-  const API_BASE = "https://medicareai-1.onrender.com";
-
-  // Helper function to calculate the next calendar date matching a day name (e.g. "Tuesday")
-  const getNextDateForDay = (dayName: string): string => {
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const targetDayIndex = days.findIndex(
-      (d) => d.toLowerCase() === dayName.toLowerCase()
-    );
-    if (targetDayIndex === -1) return new Date().toISOString().split("T")[0];
-
-    const today = new Date();
-    const currentDayIndex = today.getDay();
-    let distance = targetDayIndex - currentDayIndex;
-    if (distance <= 0) distance += 7; // Target next upcoming instance of that day
-
-    const nextDate = new Date(today);
-    nextDate.setDate(today.getDate() + distance);
-
-    const year = nextDate.getFullYear();
-    const month = String(nextDate.getMonth() + 1).padStart(2, "0");
-    const day = String(nextDate.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
-  // Helper function to generate a direct Google Calendar URL
-  const getGoogleCalendarUrl = (doctorName: string, date: string, time: string, visitReason: string) => {
-    const cleanDate = date.replace(/-/g, ""); // e.g. 20260901
-    const cleanTime = time.replace(/:/g, "") + "00"; // e.g. 100000
-    const startDateTime = `${cleanDate}T${cleanTime}`;
-    
-    const title = encodeURIComponent(`Consultation with Dr. ${doctorName}`);
-    const details = encodeURIComponent(`Reason for visit: ${visitReason}. Body System: ${bodySystem}. Pain Level: ${painScale}/10. Join via MedicareAI.`);
-    const location = encodeURIComponent("MedicareAI Telehealth Room");
-
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDateTime}/${startDateTime}&details=${details}&location=${location}`;
-  };
-
-  // Toggle associated symptom checkboxes
-  const handleSymptomToggle = (sym: string) => {
-    setAssociatedSymptoms((prev) =>
-      prev.includes(sym) ? prev.filter((s) => s !== sym) : [...prev, sym]
-    );
-  };
-
-  // Toggle chronic conditions checkboxes
-  const handleConditionToggle = (cond: string) => {
-    if (cond === "None") {
-      setSelectedConditions(["None"]);
-      return;
-    }
-    setSelectedConditions((prev) => {
-      const filtered = prev.filter((c) => c !== "None");
-      return filtered.includes(cond) ? filtered.filter((c) => c !== cond) : [...filtered, cond];
-    });
-  };
-
-  // 1. Load Doctor List & Booked Consultations on Mount & Verify Session Token
   useEffect(() => {
-    const token = localStorage.getItem("token") || localStorage.getItem("jwt");
+    const token = localStorage.getItem("token");
     if (!token) {
-      setErrorMsg("No active session found. Please log in again.");
-      setTimeout(() => router.push("/login"), 2000);
+      router.push("/login");
       return;
     }
 
-    // Fetch Doctors List
-    setLoadingDoctors(true);
-    fetch(`${API_BASE}/api/doctors-list`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load doctor list");
-        return res.json();
-      })
-      .then((data) => {
-        setDoctors(Array.isArray(data) ? data : []);
-        setLoadingDoctors(false);
-      })
-      .catch((err) => {
-        console.error("Doctor Fetch Error:", err);
-        setErrorMsg("Unable to load doctors list. Please check backend connection.");
-        setLoadingDoctors(false);
-      });
+    // Fallback: Check if name was pre-saved in localStorage during login
+    const cachedName = localStorage.getItem("userName") || localStorage.getItem("patient_name");
+    if (cachedName) {
+      setUserName(cachedName);
+    }
 
-    // Fetch User's Booked Consultations
-    setLoadingConsultations(true);
-    fetch(`${API_BASE}/api/appointments`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load consultations");
-        return res.json();
-      })
-      .then((data) => {
-        setConsultations(Array.isArray(data) ? data : []);
-        setLoadingConsultations(false);
-      })
-      .catch((err) => {
-        console.error("Consultations Fetch Error:", err);
-        setLoadingConsultations(false);
-      });
+    fetchPatientData(token);
   }, [router]);
 
-  // 2. Fetch Active Schedule when Doctor is Selected
-  const handleDoctorSelect = async (doctorId: string) => {
-    setSelectedDoctorId(doctorId);
-    setSelectedSlot(null);
-    setErrorMsg("");
-
-    if (!doctorId) {
-      setAvailability([]);
-      return;
-    }
-
-    setLoadingSchedule(true);
+  const parseMedicalHistory = (historyStr: string) => {
+    if (!historyStr) return;
     try {
-      const res = await fetch(`${API_BASE}/api/doctors/${doctorId}/availability`);
-      const data = await res.json();
-      setAvailability(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Availability Fetch Error:", err);
-      setAvailability([]);
-    } finally {
-      setLoadingSchedule(false);
+      const condMatch = historyStr.match(/Conditions:\s*([^|]+)/);
+      if (condMatch && condMatch[1]) {
+        const conds = condMatch[1].trim();
+        if (conds) setConditions(conds);
+      }
+
+      const allergyMatch = historyStr.match(/Allergies:\s*([^|]+)/);
+      if (allergyMatch && allergyMatch[1]) {
+        const alg = allergyMatch[1].trim();
+        if (alg) setAllergies(alg);
+      }
+
+      const surgMatch = historyStr.match(/Surgeries:\s*(.+)$/);
+      if (surgMatch && surgMatch[1]) {
+        const surg = surgMatch[1].trim();
+        if (surg) setSurgeries(surg);
+      }
+    } catch (e) {
+      console.error("Failed parsing medical history string", e);
     }
   };
 
-  // 3. Handle Appointment Booking Submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg("");
-
-    if (!selectedSlot) {
-      setErrorMsg("Please select a time slot from the schedule.");
-      return;
-    }
-
-    const token = localStorage.getItem("token") || localStorage.getItem("jwt");
-    if (!token) {
-      setErrorMsg("Session expired. Please log in again.");
-      setTimeout(() => router.push("/login"), 1500);
-      return;
-    }
-
-    const calculatedDate = getNextDateForDay(selectedSlot.day);
-
-    // Combine clinical screening and questionnaire details into a rich reason string for the doctor view
-    const formattedSymptoms = associatedSymptoms.length > 0 ? associatedSymptoms.join(", ") : "None";
-    const formattedConditions = selectedConditions.length > 0 ? selectedConditions.join(", ") : "None";
-    const comprehensiveReason = [
-      reason.trim() ? `Chief Complaint: ${reason}` : "Chief Complaint: General Consultation",
-      `Age: ${age || "N/A"}`,
-      `Phone: ${phoneNumber || "N/A"}`,
-      `Chronic Conditions: ${formattedConditions}`,
-      `Allergies: ${allergies.trim() || "None"}`,
-      `Past Surgeries/Hospitalizations: ${hasSurgeries}`,
-      `Body System: ${bodySystem}`,
-      `Severity: ${symptomSeverity}`,
-      `Duration: ${symptomDuration}`,
-      `Associated Symptoms: ${formattedSymptoms}`,
-      `Pain Scale: ${painScale}/10`
-    ].join(" | ");
-
-    setIsSubmitting(true);
+  const fetchPatientData = async (token: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/appointments/book`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          doctor_id: parseInt(selectedDoctorId, 10),
-          appointment_date: calculatedDate,
-          appointment_time: selectedSlot.time,
-          reason: comprehensiveReason,
-          age: age ? parseInt(age, 10) : null,
-          phone_number: phoneNumber,
-          chronic_conditions: selectedConditions,
-          allergies: allergies,
-          past_surgeries: hasSurgeries === "Yes",
-          symptom_severity: symptomSeverity,
-          symptom_duration: symptomDuration,
-          body_system: bodySystem,
-          associated_symptoms: associatedSymptoms,
-          pain_scale: painScale,
-        }),
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        "https://medicareai-1.onrender.com";
+
+      // 1. Fetch User Profile
+      const profileRes = await fetch(`${backendUrl}/api/user/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Booking failed");
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        
+        // Dynamically set user name from profile response
+        const fetchedName = profileData.name || profileData.fullName || profileData.username;
+        if (fetchedName) {
+          setUserName(fetchedName);
+          localStorage.setItem("userName", fetchedName);
+        }
 
-      setSuccessMsg(`Appointment booked for ${selectedSlot.day} (${calculatedDate}) at ${selectedSlot.time}!`);
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (err: any) {
-      setErrorMsg(err.message || "Failed to issue appointment.");
+        if (profileData.age !== undefined && profileData.age !== null) {
+          setAge(profileData.age.toString());
+        }
+        if (profileData.phone) setPhone(profileData.phone);
+        if (profileData.medical_history) {
+          parseMedicalHistory(profileData.medical_history);
+        }
+      }
+
+      // 2. Fetch Appointments
+      const aptRes = await fetch(`${backendUrl}/api/my-appointments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (aptRes.ok) {
+        const aptData = await aptRes.json();
+        setAppointments(aptData);
+      }
+    } catch (err) {
+      console.error("Failed loading patient dashboard data", err);
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const s = status ? status.toLowerCase() : "pending";
+    if (s === "confirmed") {
+      return (
+        <span className="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-xs font-bold uppercase tracking-wider">
+          Confirmed
+        </span>
+      );
+    }
+    if (s === "completed") {
+      return (
+        <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-xs font-bold uppercase tracking-wider">
+          Completed
+        </span>
+      );
+    }
+    if (s === "cancelled" || s === "rejected") {
+      return (
+        <span className="px-3 py-1 bg-rose-100 text-rose-600 rounded-full text-xs font-bold uppercase tracking-wider">
+          {s}
+        </span>
+      );
+    }
+    return (
+      <span className="px-3 py-1 bg-amber-100 text-amber-600 rounded-full text-xs font-bold uppercase tracking-wider">
+        Pending
+      </span>
+    );
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4 sm:p-8 space-y-8 my-4 sm:my-8">
-      {/* BOOK APPOINTMENT CARD */}
-      <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl p-6 sm:p-8">
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Book Appointment</h2>
-        <p className="text-xs sm:text-sm text-blue-400 mb-6 font-medium uppercase tracking-wide">
-          Secure Clinical Entry
-        </p>
-
-        {errorMsg && (
-          <div className="mb-6 p-4 bg-red-950/80 border border-red-800 text-red-300 text-sm rounded-xl">
-            ⚠️ {errorMsg}
-          </div>
-        )}
-
-        {successMsg && (
-          <div className="mb-6 p-4 bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-sm rounded-xl space-y-3">
-            <p>✅ {successMsg}</p>
-
-            {selectedSlot && selectedDoctorId && (
-              <div>
-                {(() => {
-                  const doc = doctors.find((d) => String(d.id) === selectedDoctorId);
-                  const docName = doc ? doc.name : "Doctor";
-                  const calUrl = getGoogleCalendarUrl(
-                    docName,
-                    getNextDateForDay(selectedSlot.day),
-                    selectedSlot.time,
-                    reason || "General Consultation"
-                  );
-
-                  return (
-                    <a
-                      href={calUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-900 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-all border border-emerald-700 shadow-md"
-                    >
-                      📅 Add to Google Calendar
-                    </a>
-                  );
-                })()}
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex justify-center items-center p-0 md:p-6">
+      {/* Main Dashboard Shell Container */}
+      <div className="w-full max-w-7xl bg-slate-50 md:rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col md:flex-row min-h-[92vh]">
+        
+        {/* SIDEBAR NAVIGATION */}
+        <aside className="w-full md:w-64 bg-white border-r border-slate-100 p-6 flex flex-col justify-between hidden md:flex">
+          <div className="space-y-8">
+            {/* Logo */}
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => router.push("/")}>
+              <div className="w-9 h-9 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <span className="text-white font-black text-lg">M</span>
               </div>
-            )}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* PATIENT MEDICAL QUESTIONNAIRE SECTION */}
-          <div className="p-4 sm:p-6 bg-slate-800/50 rounded-2xl border border-slate-700/60 space-y-5">
-            <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              📋 Patient Medical Questionnaire
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Age</label>
-                <input
-                  type="number"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  placeholder="e.g. 56"
-                  className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Phone Number</label>
-                <input
-                  type="text"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="e.g. 0723503988"
-                  className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                />
-              </div>
+              <span className="text-slate-900 font-black text-lg tracking-tight">MedicareAI</span>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-                1. Do you have any of the following chronic conditions? (Check all that apply)
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {CHRONIC_CONDITIONS.map((cond) => {
-                  const active = selectedConditions.includes(cond);
-                  return (
-                    <button
-                      key={cond}
-                      type="button"
-                      onClick={() => handleConditionToggle(cond)}
-                      className={`p-3 rounded-xl text-xs font-semibold border transition-all text-left flex items-center justify-between ${
-                        active
-                          ? "bg-blue-600 border-blue-400 text-white shadow-md"
-                          : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600"
-                      }`}
-                    >
-                      <span>{cond}</span>
-                      <span>{active ? "✓" : "+"}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Nav Menu Items */}
+            <nav className="space-y-2">
+              <button 
+                onClick={() => router.push("/patient/dashboard")}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-600 font-bold rounded-2xl text-sm transition"
+              >
+                <LayoutDashboard size={18} /> Dashboard
+              </button>
+              <button 
+                onClick={() => router.push("/patient/appointments")}
+                className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-bold rounded-2xl text-sm transition"
+              >
+                <Calendar size={18} /> Appointments
+              </button>
+              <button 
+                onClick={() => router.push("/patient/telehealth-room")}
+                className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-bold rounded-2xl text-sm transition"
+              >
+                <Video size={18} /> Telehealth Room
+              </button>
+              <button 
+                onClick={() => router.push("/patient/medical-records")}
+                className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-bold rounded-2xl text-sm transition"
+              >
+                <FileText size={18} /> Medical Records
+              </button>
+            </nav>
+          </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-                2. Do you have any drug or food allergies? (E.g., Sulphur, Penicillin, Dust)
-              </label>
+          {/* Sidebar Footer / User Info */}
+          <div className="pt-6 border-t border-slate-100 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-sm">
+              {getInitials(userName)}
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-xs font-black text-slate-900 truncate">{userName}</p>
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Patient Portal</p>
+            </div>
+          </div>
+        </aside>
+
+        {/* MAIN CONTENT AREA */}
+        <main className="flex-1 p-6 md:p-10 overflow-y-auto max-h-[92vh]">
+          
+          {/* Top Search & Profile Header Bar */}
+          <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div className="relative flex-1 max-w-md">
               <input
                 type="text"
-                value={allergies}
-                onChange={(e) => setAllergies(e.target.value)}
-                placeholder="List allergies or type None"
-                className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                placeholder="Search appointments, health metrics, reports..."
+                className="w-full bg-white border border-slate-200/80 shadow-sm rounded-2xl py-3 pl-11 pr-4 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition"
               />
+              <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-                3. Have you had any past major surgeries or hospitalizations?
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
-                  <input
-                    type="radio"
-                    name="hasSurgeries"
-                    value="No"
-                    checked={hasSurgeries === "No"}
-                    onChange={() => setHasSurgeries("No")}
-                    className="accent-blue-500"
-                  />
-                  No
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
-                  <input
-                    type="radio"
-                    name="hasSurgeries"
-                    value="Yes"
-                    checked={hasSurgeries === "Yes"}
-                    onChange={() => setHasSurgeries("Yes")}
-                    className="accent-blue-500"
-                  />
-                  Yes
-                </label>
+            <div className="flex items-center gap-3 self-end md:self-auto">
+              <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200/80 flex items-center justify-center text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50 transition">
+                <Bell size={18} />
+              </div>
+              <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200/80 flex items-center justify-center text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50 transition">
+                <Mail size={18} />
               </div>
             </div>
+          </header>
+
+          {/* Welcome Banner Title */}
+          <div className="mb-8">
+            <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+              Welcome Back, {userName}
+            </h2>
+            <p className="text-slate-400 font-bold text-xs mt-1">
+              Here is a summary of your health profile and recent visits.
+            </p>
           </div>
 
-          {/* SELECT DOCTOR */}
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-              Select Doctor
-            </label>
-            <select
-              value={selectedDoctorId}
-              onChange={(e) => handleDoctorSelect(e.target.value)}
-              disabled={loadingDoctors}
-              className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-sm sm:text-base"
-            >
-              <option value="">
-                {loadingDoctors ? "Loading doctor list..." : "-- Select Doctor --"}
-              </option>
-              {doctors.map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  Dr. {doc.name} ({doc.specialization || "General Medicine"})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* CLICK-TO-SELECT PRACTICE SCHEDULE */}
-          {selectedDoctorId && (
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-                📅 Click Available Slot to Book
-              </label>
-              {loadingSchedule ? (
-                <p className="text-xs text-slate-400 animate-pulse p-3.5 bg-slate-800/40 rounded-xl border border-slate-700/50">
-                  Loading availability...
-                </p>
-              ) : availability.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {availability.map((s, idx) => {
-                    const startTimeClean = s.start_time.slice(0, 5);
-                    const isSelected =
-                      selectedSlot?.day === s.day_of_week && selectedSlot?.time === startTimeClean;
-
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() =>
-                          setSelectedSlot({
-                            day: s.day_of_week,
-                            time: startTimeClean,
-                          })
-                        }
-                        className={`p-4 rounded-xl text-left border transition-all flex flex-col justify-between ${
-                          isSelected
-                            ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400"
-                            : "bg-slate-800 border-slate-700 text-slate-300 hover:border-blue-500/60 hover:bg-slate-750"
-                        }`}
-                      >
-                        <span className="text-sm font-bold flex items-center justify-between">
-                          <span>🕒 {s.day_of_week}</span>
-                          {isSelected && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-md font-semibold">Selected</span>}
-                        </span>
-                        <span className="text-xs text-slate-400 mt-1 font-mono">
-                          {startTimeClean} - {s.end_time.slice(0, 5)}
-                        </span>
-                      </button>
-                    );
-                  })}
+          {/* GRID LAYOUT: Center Analytics / Main Section & Right Profile Column */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* LEFT / MAIN COLUMN (Analytics & Health Summary) */}
+            <div className="lg:col-span-2 space-y-8">
+              
+              {/* Analytics & Performance Widget */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Overall Performance Card */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Overall Performance</h3>
+                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">↑ 95%</span>
+                    </div>
+                    <div className="flex items-center justify-center py-2">
+                      <div className="relative w-32 h-16 border-t-8 border-l-8 border-r-8 border-blue-600 rounded-t-full flex items-end justify-center">
+                        <span className="text-2xl font-black text-slate-900 mb-1">468</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-500">{userName} is healthier than 95% people</p>
+                    <button 
+                      onClick={() => router.push("/patient/medical-records")}
+                      className="text-xs font-bold text-blue-600 hover:underline"
+                    >
+                      Full Report
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-xs text-amber-400 font-medium p-3.5 bg-slate-800/40 rounded-xl border border-slate-700/50">
-                  ⚠️ Doctor has not set availability hours yet.
-                </p>
-              )}
-            </div>
-          )}
 
-          {/* ADVANCED SYMPTOMS CHECKER: BODY SYSTEM & SEVERITY / DURATION */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-                Body System
-              </label>
-              <select
-                value={bodySystem}
-                onChange={(e) => setBodySystem(e.target.value)}
-                className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-              >
-                <option value="General / Systemic">General / Systemic</option>
-                <option value="Respiratory">Respiratory</option>
-                <option value="Cardiovascular">Cardiovascular</option>
-                <option value="Gastrointestinal">Gastrointestinal</option>
-                <option value="Neurological">Neurological</option>
-                <option value="Musculoskeletal">Musculoskeletal</option>
-                <option value="Dermatological">Dermatological</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-                Symptom Severity
-              </label>
-              <select
-                value={symptomSeverity}
-                onChange={(e) => setSymptomSeverity(e.target.value)}
-                className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-              >
-                <option value="Mild">Mild</option>
-                <option value="Moderate">Moderate</option>
-                <option value="Severe">Severe</option>
-                <option value="Critical">Critical</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-                Symptom Duration
-              </label>
-              <select
-                value={symptomDuration}
-                onChange={(e) => setSymptomDuration(e.target.value)}
-                className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-              >
-                <option value="Less than 24 hours">Less than 24 hours</option>
-                <option value="1-3 days">1-3 days</option>
-                <option value="3-7 days">3-7 days</option>
-                <option value="1+ weeks">1+ weeks</option>
-              </select>
-            </div>
-          </div>
+                {/* Analytics Chart Summary */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Analytics</h3>
+                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">Weekly ⌄</span>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    <span className="px-3 py-1 bg-slate-900 text-white text-[11px] font-bold rounded-full">Heart Rate</span>
+                    <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[11px] font-bold rounded-full">BP</span>
+                    <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[11px] font-bold rounded-full">Glucose</span>
+                  </div>
+                  <div className="mt-4 flex items-end justify-between gap-2 h-20 pt-2 border-t border-slate-50 text-[10px] font-bold text-slate-400">
+                    <div className="flex flex-col items-center gap-1"><div className="w-4 bg-blue-100 h-8 rounded-md"></div>Sat</div>
+                    <div className="flex flex-col items-center gap-1"><div className="w-4 bg-blue-200 h-12 rounded-md"></div>Sun</div>
+                    <div className="flex flex-col items-center gap-1"><div className="w-4 bg-blue-300 h-10 rounded-md"></div>Mon</div>
+                    <div className="flex flex-col items-center gap-1"><div className="w-4 bg-blue-400 h-14 rounded-md"></div>Tue</div>
+                    <div className="flex flex-col items-center gap-1"><div className="w-4 bg-blue-600 h-16 rounded-md shadow-lg shadow-blue-500/30"></div>Wed</div>
+                    <div className="flex flex-col items-center gap-1"><div className="w-4 bg-blue-200 h-10 rounded-md"></div>Thu</div>
+                  </div>
+                </div>
 
-          {/* COMMON ASSOCIATED SYMPTOMS QUICK TOGGLES */}
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-              Common Associated Symptoms (Select all that apply)
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {COMMON_SYMPTOMS.map((sym) => {
-                const active = associatedSymptoms.includes(sym);
-                return (
+              </div>
+
+              {/* Patient Health Profile Summary Card */}
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                      <HeartPulse size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-slate-900 text-lg">My Health Profile Summary</h3>
+                      <p className="text-xs text-slate-400 font-semibold">Your clinical overview shared with attending physicians</p>
+                    </div>
+                  </div>
                   <button
-                    key={sym}
-                    type="button"
-                    onClick={() => handleSymptomToggle(sym)}
-                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                      active
-                        ? "bg-blue-600 border-blue-400 text-white shadow-md shadow-blue-500/20"
-                        : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600"
-                    }`}
+                    onClick={() => router.push("/patient/medical-records")}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition flex items-center gap-1.5"
                   >
-                    {active ? "✓ " : "+ "} {sym}
+                    View Records <ArrowRight size={14} />
                   </button>
-                );
-              })}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Demographics</p>
+                    <p className="text-sm font-bold text-slate-800">Age: <span className="font-normal">{age}</span></p>
+                    <p className="text-sm font-bold text-slate-800 mt-1">Phone: <span className="font-normal">{phone}</span></p>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Chronic Conditions</p>
+                    <p className="text-sm font-bold text-slate-800">{conditions}</p>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Allergies & Surgeries</p>
+                    <p className="text-xs font-bold text-slate-800">Allergies: <span className="font-normal text-rose-600">{allergies}</span></p>
+                    <p className="text-xs font-bold text-slate-800 mt-1">Surgeries: <span className="font-normal">{surgeries}</span></p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Consultations List Table */}
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="px-8 py-6 border-b border-slate-50 flex justify-between items-center">
+                  <h3 className="font-black text-slate-900 text-lg">Your Consultations</h3>
+                </div>
+
+                {loading ? (
+                  <div className="p-12 text-center text-slate-400 font-bold">Loading records...</div>
+                ) : appointments.length === 0 ? (
+                  <div className="p-12 text-center text-slate-400 font-medium">No appointments scheduled yet.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-100 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                          <th className="py-4 px-8">Doctor / Dept</th>
+                          <th className="py-4 px-6">Visit Timing</th>
+                          <th className="py-4 px-6">Medical Reason</th>
+                          <th className="py-4 px-6">Status</th>
+                          <th className="py-4 px-8 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {appointments.map((apt) => (
+                          <tr key={apt.id} className="hover:bg-slate-50/50 transition">
+                            <td className="py-5 px-8">
+                              <p className="font-bold text-slate-900">{apt.doctor_name || "General Practitioner"}</p>
+                              <p className="text-xs text-slate-400 font-semibold">{apt.department || "General Health"}</p>
+                            </td>
+                            <td className="py-5 px-6">
+                              <p className="font-bold text-slate-900">
+                                {new Date(apt.appointment_date).toLocaleDateString("en-GB", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </p>
+                              <p className="text-xs text-blue-600 font-bold">{apt.appointment_time}</p>
+                            </td>
+                            <td className="py-5 px-6">
+                              <span className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg italic">
+                                "{apt.reason || "General Checkup"}"
+                              </span>
+                            </td>
+                            <td className="py-5 px-6">{getStatusBadge(apt.status)}</td>
+                            <td className="py-5 px-8 text-right">
+                              <button
+                                onClick={() => router.push(`/patient/telehealth-room`)}
+                                className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center cursor-pointer"
+                                title="Join Call"
+                              >
+                                <Video size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
             </div>
-          </div>
 
-          {/* PAIN SCALE SLIDER (0 - 10) */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-xs font-bold uppercase text-slate-400">
-                Pain Scale (0 = None, 10 = Unbearable)
-              </label>
-              <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-md ${
-                painScale <= 3 ? "bg-emerald-950 text-emerald-300 border border-emerald-800" :
-                painScale <= 6 ? "bg-amber-950 text-amber-300 border border-amber-800" :
-                "bg-red-950 text-red-300 border border-red-800"
-              }`}>
-                Level: {painScale} / 10
-              </span>
+            {/* RIGHT COLUMN (Profile Card & Appointment Calendar Widget) */}
+            <div className="space-y-8">
+              
+              {/* Profile Card Widget */}
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-center relative overflow-hidden">
+                <div className="w-24 h-24 rounded-3xl bg-slate-100 mx-auto overflow-hidden shadow-md mb-4 flex items-center justify-center text-3xl">
+                  <span>🧑‍⚕️</span>
+                </div>
+                <h3 className="text-base font-black text-slate-900">{userName}</h3>
+                <p className="text-xs font-bold text-slate-400 mt-0.5">{age !== "N/A" ? `${age} yrs old` : "Patient"} • Verified</p>
+
+                <div className="mt-6 pt-6 border-t border-slate-100 text-left space-y-3 text-xs font-medium text-slate-600">
+                  <p className="truncate"><strong className="text-slate-900">Contact:</strong> {phone}</p>
+                  <p className="truncate"><strong className="text-slate-900">Status:</strong> Verified Patient</p>
+                </div>
+              </div>
+
+              {/* Appointments Interactive Widget */}
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-black text-slate-900 text-base">Appointments</h3>
+                  <div className="flex gap-1 text-slate-400">
+                    <button className="p-1 hover:text-slate-900">‹</button>
+                    <button className="p-1 hover:text-slate-900">›</button>
+                  </div>
+                </div>
+
+                {/* Calendar Days row snippet */}
+                <div className="grid grid-cols-5 gap-2 text-center mb-6">
+                  <div className="p-2 rounded-2xl bg-slate-50 text-slate-400 text-xs font-bold">
+                    <p className="text-[10px]">19</p>
+                    <p className="text-[9px] uppercase">Mon</p>
+                  </div>
+                  <div className="p-2 rounded-2xl bg-slate-50 text-slate-400 text-xs font-bold">
+                    <p className="text-[10px]">20</p>
+                    <p className="text-[9px] uppercase">Mon</p>
+                  </div>
+                  <div className="p-2 rounded-2xl bg-blue-600 text-white text-xs font-bold shadow-md shadow-blue-500/20">
+                    <p className="text-[10px]">21</p>
+                    <p className="text-[9px] uppercase">Sun</p>
+                  </div>
+                  <div className="p-2 rounded-2xl bg-slate-50 text-slate-400 text-xs font-bold">
+                    <p className="text-[10px]">22</p>
+                    <p className="text-[9px] uppercase">Mon</p>
+                  </div>
+                  <div className="p-2 rounded-2xl bg-slate-50 text-slate-400 text-xs font-bold">
+                    <p className="text-[10px]">23</p>
+                    <p className="text-[9px] uppercase">Tue</p>
+                  </div>
+                </div>
+
+                {/* Upcoming Schedule Mini List */}
+                <div className="space-y-4">
+                  {appointments.slice(0, 2).map((apt, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-black text-slate-900">{apt.doctor_name || "Specialist Visit"}</p>
+                        <p className="text-[10px] font-bold text-blue-600 mt-0.5">{apt.department || "General Health"}</p>
+                      </div>
+                      <span className="text-[11px] font-extrabold text-slate-500">{apt.appointment_time || "10:00"}</span>
+                    </div>
+                  ))}
+                  {appointments.length === 0 && (
+                    <p className="text-xs text-slate-400 font-medium text-center py-4">No upcoming scheduled visits.</p>
+                  )}
+                </div>
+              </div>
+
             </div>
-            <input
-              type="range"
-              min="0"
-              max="10"
-              value={painScale}
-              onChange={(e) => setPainScale(parseInt(e.target.value, 10))}
-              className="w-full accent-blue-500 bg-slate-800 cursor-pointer h-2 rounded-lg"
-            />
-            <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
-              <span>0 (None)</span>
-              <span>3 (Mild)</span>
-              <span>6 (Moderate)</span>
-              <span>8 (Severe)</span>
-              <span>10 (Emergency)</span>
-            </div>
+
           </div>
 
-          {/* REASON FOR VISIT */}
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-              Reason for Visit / Detailed Symptoms
-            </label>
-            <textarea
-              rows={3}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Describe your symptoms in detail..."
-              className="w-full p-3.5 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm sm:text-base"
-            />
-          </div>
-
-          {/* SUBMIT BUTTON */}
-          <button
-            type="submit"
-            disabled={!selectedDoctorId || !selectedSlot || isSubmitting}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer"
-          >
-            {isSubmitting ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                Booking Appointment...
-              </>
-            ) : (
-              "Confirm & Book Appointment"
-            )}
-          </button>
-        </form>
-      </div>
-
-      {/* YOUR CONSULTATIONS CARD */}
-      <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl p-6 sm:p-8">
-        <h3 className="text-xl font-bold text-white mb-4">Your Consultations</h3>
-
-        {loadingConsultations ? (
-          <p className="text-xs text-slate-400 animate-pulse">Loading your booked consultations...</p>
-        ) : consultations.length === 0 ? (
-          <p className="text-xs text-slate-400">No booked appointments found.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="text-xs text-slate-400 border-b border-slate-800">
-                  <th className="pb-3 font-medium">DOCTOR / DEPT</th>
-                  <th className="pb-3 font-medium">VISIT TIMING</th>
-                  <th className="pb-3 font-medium">MEDICAL REASON</th>
-                  <th className="pb-3 font-medium">STATUS</th>
-                  <th className="pb-3 font-medium text-right">ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800 text-sm text-slate-300">
-                {consultations.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-800/50">
-                    <td className="py-4 font-semibold text-white">
-                      <Link 
-                        href={`/patient/dashboard/appointments/${item.id}`}
-                        className="hover:text-blue-400 transition"
-                      >
-                        {item.doctor_name || "Doctor"}
-                      </Link>
-                      <span className="block text-xs font-normal text-slate-400">{item.department || "General Medicine"}</span>
-                    </td>
-                    <td className="py-4 text-slate-300 text-xs">
-                      {item.appointment_date ? new Date(item.appointment_date).toLocaleString() : 'Not Scheduled'}
-                    </td>
-                    <td className="py-4">
-                      <span className="bg-slate-800 text-slate-300 px-3 py-1 rounded-full text-xs italic">
-                        "{item.reason}"
-                      </span>
-                    </td>
-                    <td className="py-4">
-                      <span className="bg-blue-950 text-blue-300 border border-blue-800 px-3 py-1 rounded-full text-xs font-bold uppercase">
-                        {item.status || 'CONFIRMED'}
-                      </span>
-                    </td>
-                    <td className="py-4 text-right space-x-2">
-                      <Link
-                        href={`/patient/dashboard/appointments/${item.id}`}
-                        className="inline-flex items-center px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition border border-slate-700"
-                      >
-                        Details
-                      </Link>
-                      <Link
-                        href={`/patient/dashboard/telehealth/${item.id}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition shadow-sm"
-                      >
-                        📹 Join Room
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </main>
       </div>
     </div>
   );

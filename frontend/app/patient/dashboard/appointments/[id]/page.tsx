@@ -30,9 +30,18 @@ export default function AppointmentDetailPage({ params }: { params: Promise<{ id
 
     async function fetchAppointment() {
       try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-yb5c.onrender.com'}/api/appointments/${id}`
+          `${process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-yb5c.onrender.com'}/api/appointments/${id}`,
+          {
+            headers: {
+              'Authorization': token ? `Bearer ${token}` : '',
+              'Content-Type': 'application/json',
+            },
+          }
         );
+
         if (!res.ok) {
           throw new Error('Failed to fetch appointment details');
         }

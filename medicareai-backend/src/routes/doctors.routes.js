@@ -4,15 +4,32 @@ import { verifyToken as authenticateToken } from "../utils/jwt.js";
 
 const router = express.Router();
 
-// Get all doctors for the directory
+// Get all doctors for the directory (with search & category filtering)
 router.get("/", async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT id, name, email, specialization AS department, experience_years, avatar_url, phone, availability 
-       FROM users 
-       WHERE role = 'doctor' 
-       ORDER BY id ASC`
-    );
+    const { search, category } = req.query;
+    let query = `
+      SELECT id, name, email, specialization AS department, experience_years, avatar_url, phone, availability 
+      FROM users 
+      WHERE role = 'doctor'
+    `;
+    const queryParams = [];
+
+    // Filter by search term (matches name, email, or specialization)
+    if (search) {
+      queryParams.push(`%${search}%`);
+      query += ` AND (name ILIKE $${queryParams.length} OR specialization ILIKE $${queryParams.length})`;
+    }
+
+    // Filter by category/specialization if selected and not 'All'
+    if (category && category !== 'All') {
+      queryParams.push(`%${category}%`);
+      query += ` AND specialization ILIKE $${queryParams.length}`;
+    }
+
+    query += ` ORDER BY id ASC`;
+
+    const result = await pool.query(query, queryParams);
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching doctors list:", err);

@@ -25,11 +25,14 @@ import doctorRoutes from "./routes/doctors.routes.js";
 import telehealthRouter from "./routes/telehealth.js"; 
 import { verifyToken } from "./utils/jwt.js";
 import prescriptionRoutes from "./routes/prescription.routes.js";
+import recordsRouter from "./routes/records.js";
+import apiRoutes from './routes/index.js';
 
 /* ======================
     1️⃣ APP & SOCKET.IO INIT
 ====================== */
-const app = express();
+const app = express(); 
+
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -63,7 +66,7 @@ const io = new Server(httpServer, {
 });
 
 /* ======================
-    2️⃣ FAIL-SAFE CORS & MIDDLEWARE
+    2️⃣ FAIL-SAFE CORS & MIDDLEWARE (MUST BE BEFORE ROUTES)
 ====================== */
 app.use(
   helmet({
@@ -93,13 +96,16 @@ app.use(
   })
 );
 
+// ✅ Explicitly handle preflight OPTIONS requests for all routes
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Rate Limiter for Authentication & Sensitive Routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 100, 
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -196,6 +202,7 @@ io.on("connection", (socket) => {
 /* ======================
     4️⃣ API ROUTES & SERVICES
 ====================== */
+app.use('/api', apiRoutes);
 app.use("/api/telehealth", telehealthRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
@@ -245,6 +252,28 @@ app.post("/api/consent", verifyToken, async (req, res) => {
   }
 });
 
+app.get('/api/patient/medical-records', verifyToken, async (req, res) => {
+  try {
+    const patientId = req.user.id; 
+    
+    const result = await pool.query(
+      'SELECT * FROM medical_records WHERE patient_id = $1', 
+      [patientId]
+    );
+
+    const decryptedRecords = result.rows.map(record => ({
+      ...record,
+      clinical_notes: decryptHealthData(record.clinical_notes),
+      instructions: decryptHealthData(record.instructions)
+    }));
+
+    res.json(decryptedRecords);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // --- LEGAL PAGES API / HTML ENDPOINTS ---
 app.get("/api/legal/privacy-policy", (req, res) => {
   res.send(`
@@ -280,7 +309,7 @@ app.get("/api/legal/terms-of-service", (req, res) => {
   `);
 });
 
-// POST Submit Diagnostic Order (Alias for frontend compatibility)
+// POST Submit Diagnostic Order
 app.post("/api/diagnostics", verifyToken, async (req, res) => {
   const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
   const { appointment_id, patient_id, patient_name, category, test_name, clinical_instructions } = req.body;
@@ -851,7 +880,6 @@ app.get("/api/records", verifyToken, async (req, res) => {
       [patientId, patientUser.name]
     );
 
-    // Decrypt fields across combined records
     const decryptRecords = (rows) => rows.map(r => ({
       ...r,
       medication_details: decryptHealthData(r.medication_details),

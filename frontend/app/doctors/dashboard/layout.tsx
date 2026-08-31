@@ -1,179 +1,94 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+"use client";
+import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
-  Clock, 
   Video, 
-  Users, 
+  Calendar, 
   Settings, 
-  LogOut, 
-  ShieldCheck, 
-  Bell, 
-  Menu, 
-  X 
-} from 'lucide-react';
+  Bell
+} from "lucide-react";
 
-export default function DoctorDashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DoctorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [doctorName, setDoctorName] = useState<string>("Dr. Doctor");
-  const [doctorInitials, setDoctorInitials] = useState<string>("DR");
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.name) {
-          const formattedName = parsed.name.startsWith("Dr.") ? parsed.name : `Dr. ${parsed.name}`;
-          setDoctorName(formattedName);
-
-          // Compute dynamic initials
-          const nameParts = parsed.name.replace(/^Dr\.\s*/i, "").trim().split(" ");
-          if (nameParts.length >= 2) {
-            setDoctorInitials(`${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase());
-          } else if (nameParts.length === 1 && nameParts[0]) {
-            setDoctorInitials(nameParts[0].substring(0, 2).toUpperCase());
-          }
-        }
-      } catch (e) {
-        console.error("Failed to parse user from localStorage", e);
-      }
-    }
-  }, []);
 
   const navItems = [
-    { name: 'Dashboard', href: '/doctors/dashboard', icon: LayoutDashboard },
-    { name: 'Telehealth Room', href: '/doctors/telehealth/quick-consult', icon: Video },
-    { name: 'Schedule Manager', href: '/doctors/dashboard/schedule', icon: Clock },
-    { name: 'Settings', href: '/doctors/settings', icon: Settings },
+    { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
+    { name: "Telehealth Room", href: "/doctors/telehealth", icon: Video },
+    { name: "Schedule Manager", href: "/doctors/schedule", icon: Calendar },
+    { name: "Settings", href: "/doctors/settings", icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans">
-      
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <div 
-          onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden"
-        />
-      )}
-
-      {/* Sidebar Navigation */}
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-800 
-        flex flex-col justify-between transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        {/* Top Brand / Logo Area */}
-        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">SWIFT MD PORTAL</span>
-            <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2 mt-0.5">
-              Doctor Workspace
-            </h1>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar Navigation (Rendered Once) */}
+      <aside className="w-64 bg-[#0B132B] text-white flex flex-col justify-between hidden md:flex shrink-0">
+        <div>
+          <div className="p-6 border-b border-gray-800">
+            <span className="text-xs tracking-wider text-blue-400 font-semibold uppercase">Swift MD Portal</span>
+            <h1 className="text-xl font-bold tracking-tight mt-1">Doctor Workspace</h1>
           </div>
-          <button 
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-slate-400 hover:text-white"
-          >
-            <X size={20} />
-          </button>
+          <nav className="p-4 space-y-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition ${
+                    isActive 
+                      ? "bg-blue-600 text-white shadow-md" 
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{item.name}</span>
+                </a>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* Navigation Links */}
-        <div className="p-4 space-y-1.5 flex-1 overflow-y-auto">
-          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Clinical Menu</p>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition ${
-                  isActive 
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <Icon size={18} />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Sidebar Footer / Logout */}
-        <div className="p-4 border-t border-slate-800">
-          <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-black text-xs">
-                {doctorInitials}
-              </div>
-              <div>
-                <p className="text-xs font-black text-white">{doctorName}</p>
-                <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Online
-                </p>
-              </div>
+        {/* Doctor Profile Footer in Sidebar */}
+        <div className="p-4 border-t border-gray-800 m-4 bg-gray-900/50 rounded-xl flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white">
+              PP
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Dr. PRESSY PHIDES</p>
+              <span className="text-xs text-green-400 flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse"></span> Online
+              </span>
             </div>
           </div>
-          <Link
-            href="/login"
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-rose-500/10 text-slate-300 hover:text-rose-400 text-xs font-bold transition border border-slate-700 hover:border-rose-500/20"
-          >
-            <LogOut size={16} /> Sign Out
-          </Link>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Top Header Bar */}
-        <header className="h-20 bg-slate-900 border-b border-slate-800 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-slate-400 hover:text-white p-2 rounded-xl bg-slate-800 border border-slate-700"
-            >
-              <Menu size={20} />
-            </button>
-            <div className="hidden sm:block">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Live Practice Environment</span>
-              <p className="text-xs font-bold text-slate-200">Welcome back, {doctorName}</p>
-            </div>
+      {/* Main Content Wrapper */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        {/* Top Header Bar (Rendered Once) */}
+        <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-sm">
+          <div>
+            <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Live Practice Environment</span>
+            <h2 className="text-xl font-extrabold text-gray-900">Doctor Portal Workspace</h2>
           </div>
-
-          <div className="flex items-center gap-3">
-            <button className="w-10 h-10 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition border border-slate-700 relative">
-              <Bell size={18} />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-blue-500"></span>
+          <div className="flex items-center space-x-4">
+            <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-full transition cursor-pointer">
+              <Bell className="h-6 w-6" />
+              <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 text-white rounded-full text-xs flex items-center justify-center font-bold">7</span>
             </button>
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
-              <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-600/30">
-                {doctorInitials}
-              </div>
+            <div className="h-10 w-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow">
+              PP
             </div>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto">
+        {/* Dynamic Page Content Renders Here */}
+        <main className="flex-1 flex flex-col">
           {children}
         </main>
       </div>
-
     </div>
   );
 }

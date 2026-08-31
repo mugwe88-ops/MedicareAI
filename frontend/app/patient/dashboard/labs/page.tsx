@@ -36,14 +36,53 @@ interface LabTest {
 export default function LabTestsPage() {
   const [labTests, setLabTests] = useState<LabTest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [selectedTestForAI, setSelectedTestForAI] = useState<LabTest | null>(null);
   const [selectedTestForReport, setSelectedTestForReport] = useState<LabTest | null>(null);
 
   useEffect(() => {
-    // Simulated comprehensive lab dataset
-    setTimeout(() => {
+    const fetchLabTests = async () => {
+      setLoading(true);
+      setErrorMsg("");
+
+      const token = localStorage.getItem("token") || localStorage.getItem("jwt");
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-1.onrender.com";
+
+      try {
+        const response = await fetch(`${backendUrl}/api/labs`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to retrieve lab diagnostic records from server.");
+        }
+
+        const data = await response.json();
+        // Support both direct array or wrapped data properties from backend
+        const tests = Array.isArray(data) ? data : data.labs || data.tests || [];
+        
+        if (tests.length > 0) {
+          setLabTests(tests);
+        } else {
+          // Fallback dataset if empty response
+          loadFallbackData();
+        }
+      } catch (err: any) {
+        console.warn("Backend labs fetch warning, engaging fallback:", err.message);
+        setErrorMsg("Could not connect to live diagnostic records. Displaying cached records.");
+        loadFallbackData();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const loadFallbackData = () => {
       setLabTests([
         {
           id: 1,
@@ -89,8 +128,9 @@ export default function LabTestsPage() {
           aiAnalysis: "Results are currently being processed by our partner diagnostic laboratory. Typically takes 24–48 hours."
         }
       ]);
-      setLoading(false);
-    }, 400);
+    };
+
+    fetchLabTests();
   }, []);
 
   // Filter logic
@@ -124,6 +164,13 @@ export default function LabTestsPage() {
           </div>
         </div>
 
+        {errorMsg && (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center gap-3 text-xs text-amber-300 font-bold">
+            <AlertTriangle size={16} className="shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
         {/* Search & Filter Bar */}
         <div className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative w-full md:w-96">
@@ -142,7 +189,7 @@ export default function LabTestsPage() {
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 cursor-pointer ${
                   statusFilter === status 
                     ? "bg-blue-600 text-white shadow-md shadow-blue-600/25" 
                     : "bg-slate-950 text-slate-400 hover:text-white border border-slate-800"
@@ -201,7 +248,7 @@ export default function LabTestsPage() {
                       <p className="text-sm font-medium text-slate-200">{test.summary}</p>
                     </div>
 
-                    {test.biomarkers.length > 0 && (
+                    {test.biomarkers && test.biomarkers.length > 0 && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {test.biomarkers.map((bio, idx) => (
                           <div key={idx} className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between">
@@ -209,7 +256,11 @@ export default function LabTestsPage() {
                               <p className="text-[11px] font-bold text-slate-400">{bio.name}</p>
                               <p className="text-sm font-black text-white mt-0.5">{bio.value} <span className="text-xs text-slate-500 font-normal">{bio.unit}</span></p>
                             </div>
-                            <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                              bio.status === "High" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" :
+                              bio.status === "Low" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                              "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            }`}>
                               {bio.status}
                             </span>
                           </div>
@@ -231,7 +282,7 @@ export default function LabTestsPage() {
                     {test.status === "Completed" && (
                       <button
                         onClick={() => setSelectedTestForAI(test)}
-                        className="mt-4 w-full py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 font-bold text-xs rounded-xl transition border border-blue-500/30"
+                        className="mt-4 w-full py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 font-bold text-xs rounded-xl transition border border-blue-500/30 cursor-pointer"
                       >
                         Ask AI Follow-up
                       </button>
@@ -249,13 +300,13 @@ export default function LabTestsPage() {
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => setSelectedTestForReport(test)}
-                        className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-2 border border-slate-700"
+                        className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-2 border border-slate-700 cursor-pointer"
                       >
                         <FileText size={14} /> View Full Report
                       </button>
                       <button
                         onClick={() => alert(`Downloading official PDF report for ${test.testName}...`)}
-                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-2 shadow-md shadow-blue-600/20"
+                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer"
                       >
                         <Download size={14} /> Download PDF
                       </button>
@@ -273,7 +324,7 @@ export default function LabTestsPage() {
             <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-6 relative shadow-2xl">
               <button 
                 onClick={() => setSelectedTestForAI(null)}
-                className="absolute top-6 right-6 text-slate-400 hover:text-white"
+                className="absolute top-6 right-6 text-slate-400 hover:text-white cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -295,7 +346,7 @@ export default function LabTestsPage() {
               </div>
               <button
                 onClick={() => setSelectedTestForAI(null)}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer"
               >
                 Close Assistant
               </button>
@@ -309,13 +360,13 @@ export default function LabTestsPage() {
             <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-8 space-y-6 relative shadow-2xl max-h-[90vh] overflow-y-auto">
               <button 
                 onClick={() => setSelectedTestForReport(null)}
-                className="absolute top-6 right-6 text-slate-400 hover:text-white"
+                className="absolute top-6 right-6 text-slate-400 hover:text-white cursor-pointer"
               >
                 <X size={20} />
               </button>
               
               <div className="border-b border-slate-800 pb-4">
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">SWIFT MD DIAGNOSTIC LABORATORIES</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">MEDICAREAI DIAGNOSTIC LABORATORIES</span>
                 <h2 className="text-2xl font-black text-white mt-1">{selectedTestForReport.testName}</h2>
                 <p className="text-xs text-slate-400 mt-0.5">Ordered by {selectedTestForReport.orderedBy} on {selectedTestForReport.dateOrdered}</p>
               </div>
@@ -337,11 +388,11 @@ export default function LabTestsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
-                      {selectedTestForReport.biomarkers.map((b, i) => (
+                      {selectedTestForReport.biomarkers?.map((b, i) => (
                         <tr key={i}>
                           <td className="p-3 font-semibold text-slate-300">{b.name}</td>
                           <td className="p-3 font-bold text-white">{b.value} {b.unit}</td>
-                          <td className="p-3 text-emerald-400 font-bold">{b.status}</td>
+                          <td className={`p-3 font-bold ${b.status === 'High' ? 'text-rose-400' : b.status === 'Low' ? 'text-amber-400' : 'text-emerald-400'}`}>{b.status}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -352,13 +403,13 @@ export default function LabTestsPage() {
               <div className="flex gap-4 pt-4">
                 <button
                   onClick={() => alert("Downloading PDF report...")}
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-blue-600/20"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-blue-600/20 cursor-pointer"
                 >
                   Download PDF Report
                 </button>
                 <button
                   onClick={() => setSelectedTestForReport(null)}
-                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl transition"
+                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer"
                 >
                   Close
                 </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Calendar, Users, FileText, Settings, LogOut, Video, Pill } from "lucide-react";
@@ -10,26 +10,34 @@ export default function Sidebar() {
   const [role, setRole] = useState<string>("patient");
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.role) {
-          setRole(parsedUser.role.toLowerCase());
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.role) {
+          setRole(parsed.role.toLowerCase());
+          return;
         }
-      } catch (err) {
-        console.error("Error evaluating role matrix for system layout:", err);
       }
+    } catch (err) {
+      console.error("Error evaluating role matrix for system layout:", err);
     }
-  }, []);
 
-  // Structural route groups isolated by authentication tier
+    if (window.location.pathname.startsWith("/doctors")) {
+      setRole("doctor");
+    } else {
+      setRole("patient");
+    }
+  }, [pathname]);
+
+  // All doctor links correctly mapped to the dashboard subdirectory structure
   const doctorMenuItems = [
     { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
-    { name: "Schedule", href: "/dashboard/appointments", icon: Calendar },
-    { name: "Patients", href: "/dashboard/patients", icon: Users },
+    { name: "Telehealth Room", href: "/doctors/dashboard/telehealth", icon: Video },
+    { name: "Schedule Manager", href: "/doctors/dashboard/schedule", icon: Calendar },
+    { name: "Patients", href: "/doctors/dashboard/patients", icon: Users },
     { name: "Records", href: "/data", icon: FileText },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
+    { name: "Settings", href: "/doctors/dashboard/settings", icon: Settings },
   ];
 
   const patientMenuItems = [
@@ -82,7 +90,7 @@ export default function Sidebar() {
       <div className="mt-auto p-8 border-t border-slate-800">
         <button 
           onClick={handleLogout}
-          className="flex items-center gap-4 text-slate-500 hover:text-red-400 transition-colors font-bold text-sm uppercase w-full text-left"
+          className="flex items-center gap-4 text-slate-500 hover:text-red-400 transition-colors font-bold text-sm uppercase w-full text-left cursor-pointer"
         >
           <LogOut size={20} />
           <span>Logout</span>

@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bot, Send, Stethoscope, Sparkles } from "lucide-react";
@@ -7,6 +8,7 @@ export default function AiSymptomCheckerPage() {
   const router = useRouter();
   const [symptoms, setSymptoms] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [assessment, setAssessment] = useState<{
     triage: string;
     department: string;
@@ -37,13 +39,46 @@ export default function AiSymptomCheckerPage() {
     "Severe allergic reaction to food"
   ];
 
-  const handleAnalyze = (textToAnalyze: string) => {
+  const handleAnalyze = async (textToAnalyze: string) => {
     if (!textToAnalyze.trim()) return;
     setLoading(true);
+    setErrorMsg("");
     setAssessment(null);
 
-    // Simulate AI medical analysis model response
-    setTimeout(() => {
+    const token = localStorage.getItem("token") || localStorage.getItem("jwt");
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-1.onrender.com";
+
+    try {
+      // Send request to backend symptom checker API route
+      const response = await fetch(`${backendUrl}/api/ai-checker`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ symptoms: textToAnalyze }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to communicate with AI clinical service. Using local analysis model.");
+      }
+
+      const data = await response.json();
+      
+      setAssessment({
+        triage: data.triage || data.analysis || data.summary || "Clinical evaluation completed.",
+        department: data.department || data.recommended_department || "General Practitioner",
+        recommendations: data.recommendations || [
+          "Monitor your symptoms daily",
+          "Maintain proper hydration and rest",
+          "Schedule a routine check-up if needed"
+        ],
+        urgency: data.urgency ? data.urgency.toLowerCase() : "low",
+      });
+    } catch (err: any) {
+      console.warn("Backend AI route fallback engaged:", err.message);
+      
+      // Fallback simulation if backend endpoint is unreachable or not yet configured
       const lower = textToAnalyze.toLowerCase();
       let department = "General Practitioner";
       let urgency: "low" | "medium" | "high" = "low";
@@ -111,8 +146,9 @@ export default function AiSymptomCheckerPage() {
       }
 
       setAssessment({ triage, department, recommendations, urgency });
+    } finally {
       setLoading(false);
-    }, 1200);
+    }
   };
 
   return (
@@ -157,7 +193,7 @@ export default function AiSymptomCheckerPage() {
                     setSymptoms(sample);
                     handleAnalyze(sample);
                   }}
-                  className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-bold transition"
+                  className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
                 >
                   {sample}
                 </button>
@@ -168,7 +204,7 @@ export default function AiSymptomCheckerPage() {
           <button
             onClick={() => handleAnalyze(symptoms)}
             disabled={loading || !symptoms.trim()}
-            className="w-full sm:w-auto px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full sm:w-auto px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
           >
             <Send size={16} />
             {loading ? "Analyzing Clinical Data..." : "Run AI Symptom Analysis"}
@@ -223,7 +259,7 @@ export default function AiSymptomCheckerPage() {
                     )}`
                   )
                 }
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-blue-600/20"
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-blue-600/20 cursor-pointer"
               >
                 Schedule Consultation Now
               </button>
