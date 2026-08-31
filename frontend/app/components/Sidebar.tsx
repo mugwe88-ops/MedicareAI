@@ -26,7 +26,7 @@ export default function Sidebar() {
   // Structural route groups isolated by authentication tier
   const doctorMenuItems = [
     { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
-    { name: "Schedule", href: "/doctors/dashboard/schedule", icon: Calendar },
+    { name: "Schedule Manager", href: "/doctors/dashboard/schedule", icon: Calendar },
     { name: "Patients", href: "/doctors/dashboard/patients", icon: Users },
     { name: "Records", href: "/data", icon: FileText },
     { name: "Settings", href: "/doctors/dashboard/settings", icon: Settings },
