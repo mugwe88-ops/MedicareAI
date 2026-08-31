@@ -27,9 +27,9 @@ export default function Sidebar() {
   const doctorMenuItems = [
     { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
     { name: "Schedule", href: "/doctors/dashboard/schedule", icon: Calendar },
-    { name: "Patients", href: "/dashboard/patients", icon: Users },
+    { name: "Patients", href: "/doctors/dashboard/patients", icon: Users },
     { name: "Records", href: "/data", icon: FileText },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
+    { name: "Settings", href: "/doctors/dashboard/settings", icon: Settings },
   ];
 
   const patientMenuItems = [
