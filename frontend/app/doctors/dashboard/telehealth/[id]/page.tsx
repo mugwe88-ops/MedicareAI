@@ -32,6 +32,7 @@ export default function TelehealthSession() {
   const [callActive, setCallActive] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   const [camOff, setCamOff] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -69,25 +70,39 @@ export default function TelehealthSession() {
 
     async function initWebRTC() {
       try {
-        // 2. Get Local Media Stream
+        // 2. Get Local Media Stream with explicit error trapping
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
+        }).catch((err) => {
+          console.error("Media Device Access Error:", err);
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            setMediaError('Camera/Microphone permission denied. Please allow access in your browser settings.');
+          } else if (err.name === 'NotFoundError') {
+            setMediaError('No camera or microphone devices were found on your system.');
+          } else {
+            setMediaError(`Could not access media devices: ${err.message}`);
+          }
+          throw err;
         });
-        localStreamRef.current = stream;
 
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+        if (stream) {
+          localStreamRef.current = stream;
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+          }
         }
 
         // 3. Initialize PeerConnection
         const pc = new RTCPeerConnection(ICE_SERVERS);
         peerConnection.current = pc;
 
-        // Add local tracks to peer connection
-        stream.getTracks().forEach((track) => {
-          pc.addTrack(track, stream);
-        });
+        // Add local tracks to peer connection if stream exists
+        if (stream) {
+          stream.getTracks().forEach((track) => {
+            pc.addTrack(track, stream);
+          });
+        }
 
         // 4. Handle Remote Stream Arrival
         pc.ontrack = (event) => {
@@ -229,7 +244,7 @@ export default function TelehealthSession() {
         <div className="flex items-center gap-4">
           <button
             onClick={endCall}
-            className="flex items-center gap-2 px-3.5 py-2 bg-[#131926] border border-gray-800 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg text-xs font-medium transition-colors shadow-sm"
+            className="flex items-center gap-2 px-3.5 py-2 bg-[#131926] border border-gray-800 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg text-xs font-medium transition-colors shadow-sm cursor-pointer"
           >
             ← Back
           </button>
@@ -250,11 +265,24 @@ export default function TelehealthSession() {
         </div>
       </div>
 
+      {/* Error Banner Fallback UI */}
+      {mediaError && (
+        <div className="bg-rose-500/20 border border-rose-500/40 text-rose-300 p-4 rounded-xl mb-6 flex items-center justify-between">
+          <p className="text-sm font-medium">{mediaError}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+          >
+            Retry Permission
+          </button>
+        </div>
+      )}
+
       {/* Video Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-grow mb-6">
         {/* Remote Participant */}
         <div className="bg-[#131926] border border-gray-800 rounded-xl relative overflow-hidden flex flex-col items-center justify-center min-h-[350px]">
-          {connecting && (
+          {connecting && !mediaError && (
             <div className="flex flex-col items-center gap-3 z-20">
               <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
               <p className="text-sm text-gray-400">Waiting for remote participant feed...</p>
@@ -292,7 +320,7 @@ export default function TelehealthSession() {
       <div className="flex justify-center items-center gap-4 py-4 bg-[#131926] border border-gray-800 rounded-xl">
         <button
           onClick={toggleMic}
-          className={`px-4 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
+          className={`px-4 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
             micMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-800 hover:bg-gray-700 text-gray-200'
           }`}
         >
@@ -300,7 +328,7 @@ export default function TelehealthSession() {
         </button>
         <button
           onClick={toggleCam}
-          className={`px-4 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
+          className={`px-4 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
             camOff ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-800 hover:bg-gray-700 text-gray-200'
           }`}
         >
@@ -308,7 +336,7 @@ export default function TelehealthSession() {
         </button>
         <button
           onClick={endCall}
-          className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors"
+          className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
         >
           Leave Call
         </button>
