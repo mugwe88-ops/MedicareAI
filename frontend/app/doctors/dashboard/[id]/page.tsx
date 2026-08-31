@@ -1,12 +1,8 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-'use client';
-=======
 "use client";
+
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Video, VideoOff, Mic, MicOff, PhoneOff, ArrowLeft } from "lucide-react";
->>>>>>> 5f4a585ca3e1c3996275a2a34aa9fbd3d95c5747
 
 export default function TelehealthRoom() {
   const params = useParams();
@@ -31,9 +27,9 @@ export default function TelehealthRoom() {
     return () => clearInterval(timer);
   }, []);
 
-  // Setup camera and microphone stream
+  // Initialize camera and microphone
   useEffect(() => {
-    async function setupCamera() {
+    async function initCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -42,15 +38,15 @@ export default function TelehealthRoom() {
         mediaStreamRef.current = stream;
         if (doctorVideoRef.current) {
           doctorVideoRef.current.srcObject = stream;
-          await doctorVideoRef.current.play();
         }
-      } catch (err: any) {
-        console.error("Camera access error:", err);
-        setCameraError(err.message || "Could not access camera/microphone.");
+      } catch (err) {
+        console.error("Error accessing media devices:", err);
+        setCameraError("Could not access camera or microphone. Please check permissions.");
+        setIsVideoMuted(true);
       }
     }
 
-    setupCamera();
+    initCamera();
 
     return () => {
       if (mediaStreamRef.current) {
@@ -59,129 +55,126 @@ export default function TelehealthRoom() {
     };
   }, []);
 
-  // Handle Mute/Unmute Audio
   const toggleAudio = () => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = isAudioMuted; // if currently muted, enable it (so false becomes true)
+        track.enabled = isAudioMuted;
       });
-      setIsAudioMuted(!isAudioMuted);
     }
+    setIsAudioMuted(!isAudioMuted);
   };
 
-  // Handle Turn Video On/Off
   const toggleVideo = () => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getVideoTracks().forEach((track) => {
         track.enabled = isVideoMuted;
       });
-      setIsVideoMuted(!isVideoMuted);
     }
-  };
-
-  // Handle End Call & Cleanup
-  const handleEndCall = () => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-    }
-    router.push("/doctors/dashboard");
+    setIsVideoMuted(!isVideoMuted);
   };
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    const mins = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const secs = (seconds % 60).toString().padStart(2, "0");
+    return `${mins}:${secs}`;
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between p-6">
-      {/* Top Bar */}
-      <div className="flex justify-between items-center max-w-7xl w-full mx-auto">
-        <button
-          onClick={handleEndCall}
-          className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer"
-        >
-          <ArrowLeft size={16} /> Return to Dashboard
-        </button>
-        <div className="bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-full flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-xs font-semibold tracking-wider">SECURE TELEHEALTH ROOM #{appointmentId}</span>
+    <div className="flex flex-col h-screen bg-slate-950 text-slate-100 overflow-hidden">
+      {/* Top Header */}
+      <header className="h-16 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => router.push("/doctors/dashboard")}
+            className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-sm font-bold tracking-wide">Secure Telehealth Room</h1>
+            <p className="text-xs text-slate-400">Appointment ID: #{appointmentId || "Live"}</p>
+          </div>
         </div>
-        <div className="text-xs font-mono text-slate-400 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-          Duration: {formatTime(callDuration)}
+
+        <div className="flex items-center gap-4">
+          <div className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-mono font-bold text-emerald-400">
+            {formatTime(callDuration)}
+          </div>
         </div>
-      </div>
+      </header>
 
       {/* Video Grid */}
-      <div className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 my-auto">
-        {/* Patient Feed */}
-        <div className="relative bg-slate-900 rounded-2xl border border-slate-800 aspect-video flex items-center justify-center overflow-hidden shadow-2xl">
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
-          <div className="text-center space-y-2 z-10">
-            <div className="w-16 h-16 rounded-full bg-blue-600/30 border border-blue-500/50 flex items-center justify-center mx-auto text-blue-400 font-bold text-xl">
-              P
-            </div>
-            <p className="text-sm font-semibold text-slate-300">Patient Video Feed</p>
-            <p className="text-xs text-slate-500">Waiting for patient connection...</p>
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 relative">
+        {/* Remote Patient Placeholder */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden shadow-xl">
+          <div className="w-24 h-24 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-3xl font-black text-blue-400 mb-3 shadow-inner">
+            P
           </div>
-          <span className="absolute bottom-3 left-3 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-medium text-slate-300">
-            Patient (Remote)
-          </span>
+          <h3 className="text-sm font-bold text-slate-200">Patient (Remote)</h3>
+          <p className="text-xs text-slate-500 animate-pulse mt-1">Waiting for connection...</p>
         </div>
 
-        {/* Doctor Feed */}
-        <div className="relative bg-slate-900 rounded-2xl border border-slate-800 aspect-video flex items-center justify-center overflow-hidden shadow-2xl">
-          <video
-            ref={doctorVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className={`w-full h-full object-cover ${isVideoMuted ? 'hidden' : 'block'}`}
-          />
-          {(isVideoMuted || cameraError) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center space-y-2 bg-slate-900 z-10">
-              <div className="w-16 h-16 rounded-full bg-emerald-600/30 border border-emerald-500/50 flex items-center justify-center mx-auto text-emerald-400 font-bold text-xl">
-                Dr
-              </div>
-              <p className="text-xs font-semibold text-red-400">
-                {cameraError ? 'Camera Blocked/Unavailable' : 'Camera Off'}
-              </p>
+        {/* Local Doctor Feed */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden shadow-xl">
+          {isVideoMuted ? (
+            <div className="flex flex-col items-center gap-2 text-slate-500">
+              <VideoOff size={36} />
+              <p className="text-xs font-bold">Camera is Off</p>
+            </div>
+          ) : (
+            <video 
+              ref={doctorVideoRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className="w-full h-full object-cover -scale-x-100" 
+            />
+          )}
+          {cameraError && (
+            <div className="absolute bottom-16 bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs px-3 py-1 rounded-lg">
+              {cameraError}
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none"></div>
-          <span className="absolute bottom-3 left-3 bg-slate-950/60 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-medium text-slate-300 z-20">
-            Doctor (You)
-          </span>
+          <div className="absolute top-4 left-4 bg-slate-950/70 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-medium text-slate-300 border border-slate-800">
+            Dr. Pressy Phides (You)
+          </div>
         </div>
-      </div>
 
-      {/* Control Bar */}
-      <div className="flex justify-center items-center gap-4 pb-4">
-        <button
-          onClick={toggleAudio}
-          className={`p-4 rounded-2xl transition cursor-pointer ${isAudioMuted ? "bg-red-600 text-white" : "bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800"}`}
-          title={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
-        >
-          {isAudioMuted ? <MicOff size={20} /> : <Mic size={20} />}
-        </button>
+        {/* Floating Control Bar */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md border border-slate-800 px-6 py-3 rounded-2xl flex items-center gap-4 shadow-2xl z-20">
+          <button
+            onClick={toggleAudio}
+            className={`p-3.5 rounded-xl transition-all cursor-pointer ${
+              isAudioMuted 
+                ? "bg-rose-500/20 text-rose-400 border border-rose-500/40" 
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            }`}
+          >
+            {isAudioMuted ? <MicOff size={20} /> : <Mic size={20} />}
+          </button>
 
-        <button
-          onClick={toggleVideo}
-          className={`p-4 rounded-2xl transition cursor-pointer ${isVideoMuted ? "bg-red-600 text-white" : "bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800"}`}
-          title={isVideoMuted ? "Start Camera" : "Stop Camera"}
-        >
-          {isVideoMuted ? <VideoOff size={20} /> : <Video size={20} />}
-        </button>
+          <button
+            onClick={toggleVideo}
+            className={`p-3.5 rounded-xl transition-all cursor-pointer ${
+              isVideoMuted 
+                ? "bg-rose-500/20 text-rose-400 border border-rose-500/40" 
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            }`}
+          >
+            {isVideoMuted ? <VideoOff size={20} /> : <Video size={20} />}
+          </button>
 
-        <button
-          onClick={handleEndCall}
-          className="flex items-center gap-2 px-6 py-4 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition shadow-lg shadow-red-900/20 cursor-pointer"
-        >
-          <PhoneOff size={18} /> End Call
-        </button>
+          <div className="w-px h-8 bg-slate-800"></div>
+
+          <button
+            onClick={() => router.push("/doctors/dashboard")}
+            className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-rose-600/20 cursor-pointer"
+          >
+            <PhoneOff size={18} />
+            <span className="text-xs font-bold uppercase tracking-wider">End Session</span>
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-=======
->>>>>>> 4483a19 (feat: update doctor dashboard with unified workflow and modals)
