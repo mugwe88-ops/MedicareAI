@@ -9,7 +9,6 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [role, setRole] = useState<string>("patient");
 
-  // Synchronize role safely on mount and when pathname changes
   useEffect(() => {
     try {
       const storedUser = localStorage.getItem("user");
@@ -24,7 +23,6 @@ export default function Sidebar() {
       console.error("Error evaluating role matrix for system layout:", err);
     }
 
-    // Fallback: if URL path contains "doctors", treat as doctor role instantly
     if (window.location.pathname.startsWith("/doctors")) {
       setRole("doctor");
     } else {
@@ -32,7 +30,6 @@ export default function Sidebar() {
     }
   }, [pathname]);
 
-  // Structural route groups isolated by authentication tier
   const doctorMenuItems = [
     { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
     { name: "Schedule Manager", href: "/doctors/dashboard/schedule", icon: Calendar },
