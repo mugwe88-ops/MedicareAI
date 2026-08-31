@@ -22,7 +22,7 @@ interface Slot {
 export default function ScheduleManager() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
-  
+   
   // Schedule creation form state
   const [mode, setMode] = useState<"specific" | "recurring">("specific");
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -308,7 +308,7 @@ export default function ScheduleManager() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+                className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50 shadow-sm flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Plus size={16} /> {submitting ? "Adding..." : "Add Slot"}
               </button>
@@ -344,16 +344,10 @@ export default function ScheduleManager() {
                 </div>
                 <button
                   onClick={() => handleDeleteSlot(slot.id)}
-                  className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition"
+                  className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer"
                   title="Delete Slot"
                 >
                   <Trash2 size={16} />
                 </button>
               </div>
             ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
