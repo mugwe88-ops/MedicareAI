@@ -1,34 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Calendar, Users, FileText, Settings, LogOut, Video, Pill } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [role, setRole] = useState<string>("patient");
 
-  // Instant role resolution: checks localStorage first, falls back to pathname checking
-  const [role] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          if (parsed.role) {
-            return parsed.role.toLowerCase();
-          }
+  // Synchronize role safely on mount and when pathname changes
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.role) {
+          setRole(parsed.role.toLowerCase());
+          return;
         }
-      } catch (err) {
-        console.error("Error evaluating role matrix for system layout:", err);
       }
-      // Fallback: if URL path contains "doctors", treat as doctor role instantly
-      if (window.location.pathname.startsWith("/doctors")) {
-        return "doctor";
-      }
+    } catch (err) {
+      console.error("Error evaluating role matrix for system layout:", err);
     }
-    return "patient";
-  });
+
+    // Fallback: if URL path contains "doctors", treat as doctor role instantly
+    if (window.location.pathname.startsWith("/doctors")) {
+      setRole("doctor");
+    } else {
+      setRole("patient");
+    }
+  }, [pathname]);
 
   // Structural route groups isolated by authentication tier
   const doctorMenuItems = [
@@ -89,7 +91,7 @@ export default function Sidebar() {
       <div className="mt-auto p-8 border-t border-slate-800">
         <button 
           onClick={handleLogout}
-          className="flex items-center gap-4 text-slate-500 hover:text-red-400 transition-colors font-bold text-sm uppercase w-full text-left"
+          className="flex items-center gap-4 text-slate-500 hover:text-red-400 transition-colors font-bold text-sm uppercase w-full text-left cursor-pointer"
         >
           <LogOut size={20} />
           <span>Logout</span>
