@@ -126,7 +126,7 @@ export default function PatientAppointmentsPage() {
                     <td className="py-5 px-6">{getStatusBadge(apt.status)}</td>
                     <td className="py-5 px-8 text-right">
                       <button
-                        onClick={() => router.push(`/patient/dashboard/telehealth`)}
+                        onClick={() => router.push(`/patient/dashboard/telehealth/${apt.id}`)}
                         className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center cursor-pointer"
                         title="Join Telehealth Room"
                       >
