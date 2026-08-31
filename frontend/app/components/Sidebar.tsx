@@ -1,27 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Calendar, Users, FileText, Settings, LogOut, Video, Pill } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [role, setRole] = useState<string>("patient");
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
+  // Instant role resolution: checks localStorage first, falls back to pathname checking
+  const [role] = useState<string>(() => {
+    if (typeof window !== "undefined") {
       try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.role) {
-          setRole(parsedUser.role.toLowerCase());
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          if (parsed.role) {
+            return parsed.role.toLowerCase();
+          }
         }
       } catch (err) {
         console.error("Error evaluating role matrix for system layout:", err);
       }
+      // Fallback: if URL path contains "doctors", treat as doctor role instantly
+      if (window.location.pathname.startsWith("/doctors")) {
+        return "doctor";
+      }
     }
-  }, []);
+    return "patient";
+  });
 
   // Structural route groups isolated by authentication tier
   const doctorMenuItems = [
