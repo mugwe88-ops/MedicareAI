@@ -81,7 +81,6 @@ export default function DoctorDashboard() {
       const data = await res.json();
       
       if (Array.isArray(data) && data.length > 0) {
-        // Map backend schema to match UI interface if necessary
         const formatted = data.map((item: any, index: number) => ({
           id: item.id || index + 1,
           patient_name: item.patient_name || item.name || "Patient",
@@ -111,7 +110,7 @@ export default function DoctorDashboard() {
   };
 
   return (
-    <div className="p-8 space-y-8 flex-1 bg-slate-50/50">
+    <div className="space-y-8">
       {/* Top Welcome Banner */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -132,7 +131,7 @@ export default function DoctorDashboard() {
         </div>
       </div>
 
-      {/* Top 4 Stat Blocks (MediKit Style) */}
+      {/* Top 4 Stat Blocks */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
@@ -181,7 +180,6 @@ export default function DoctorDashboard() {
 
       {/* Middle Section: Hospital Report & Success Stats Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Hospital Report Widget */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2 space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-base font-bold text-slate-900">Hospital Report & Alerts</h3>
@@ -212,7 +210,6 @@ export default function DoctorDashboard() {
           </div>
         </div>
 
-        {/* Success Stats Panel */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
           <h3 className="text-base font-bold text-slate-900">Success Stats</h3>
           <div className="space-y-3">
@@ -259,7 +256,7 @@ export default function DoctorDashboard() {
         </div>
       </div>
 
-      {/* Online Appointments Table (Connected to Backend) */}
+      {/* Online Appointments Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
           <div>
