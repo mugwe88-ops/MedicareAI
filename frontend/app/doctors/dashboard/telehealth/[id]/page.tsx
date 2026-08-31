@@ -39,9 +39,9 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
 
     async function fetchRoomDetails() {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('jwt') : null;
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-yb5c.onrender.com'}/api/appointments/${id}`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-1.onrender.com'}/api/appointments/${id}`,
           {
             headers: {
               'Authorization': token ? `Bearer ${token}` : '',
@@ -101,9 +101,9 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
     setIsSavingNotes(true);
     setSaveSuccess(false);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('jwt') : null;
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-yb5c.onrender.com'}/api/appointments/${id}/notes`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-1.onrender.com'}/api/appointments/${id}/notes`,
         {
           method: 'PUT',
           headers: {
@@ -164,7 +164,7 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
         <p className="text-red-600 font-semibold mb-4">Error: {error}</p>
         <button
           onClick={() => router.back()}
-          className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-sm"
+          className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-sm cursor-pointer"
         >
           Go Back
         </button>
@@ -179,12 +179,12 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">Telehealth Consultation (Doctor Portal)</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Doctor: <span className="font-bold text-slate-700">{appointment?.doctor_name || 'Dr. PRESSY PHIDES'}</span> | Patient: <span className="font-bold text-slate-700">{appointment?.patient_name || 'Patient'}</span>
+            Doctor: <span className="font-bold text-slate-700">{appointment?.doctor_name || 'Dr. Robert Fox'}</span> | Patient: <span className="font-bold text-slate-700">{appointment?.patient_name || 'Patient'}</span>
           </p>
         </div>
         <button
           onClick={handleLeave}
-          className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition"
+          className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition cursor-pointer"
         >
           Leave Room
         </button>
@@ -233,48 +233,4 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Type symptoms, diagnosis, prescriptions, or clinical recommendations..."
-            className="flex-1 w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-3"
-          />
-
-          <div className="flex items-center justify-between gap-2">
-            {saveSuccess && <span className="text-[11px] font-semibold text-emerald-600">Saved successfully!</span>}
-            {!saveSuccess && <span className="text-[11px] text-slate-400"></span>}
-            <button
-              onClick={handleSaveNotes}
-              disabled={isSavingNotes}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold text-xs rounded-xl transition shadow-sm ml-auto"
-            >
-              {isSavingNotes ? 'Saving...' : 'Save Notes'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Control Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center gap-4 flex-wrap">
-        <button
-          onClick={toggleMute}
-          className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
-            isMuted ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          {isMuted ? 'Unmute Mic' : 'Mute Mic'}
-        </button>
-        <button
-          onClick={toggleVideo}
-          className={`px-5 py-2.5 rounded-xl font-bold text-xs transition ${
-            isVideoOff ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          {isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
-        </button>
-        <button
-          onClick={handleLeave}
-          className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition shadow-sm ml-auto"
-        >
-          End Call
-        </button>
-      </div>
-    </div>
-  );
-}
+            className="flex-1 w-full
