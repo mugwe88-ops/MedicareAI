@@ -22,7 +22,7 @@ interface Slot {
 export default function ScheduleManager() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
-   
+  
   // Schedule creation form state
   const [mode, setMode] = useState<"specific" | "recurring">("specific");
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -161,7 +161,7 @@ export default function ScheduleManager() {
         </div>
       )}
 
-      {/* Main Grid: Calendar view on left/top, Manager configuration on right */}
+      {/* Main Grid: Calendar view on left, Manager configuration on right */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Calendar Widget */}
@@ -314,7 +314,6 @@ export default function ScheduleManager() {
               </button>
             </div>
           </form>
-
         </div>
       </div>
 
@@ -351,3 +350,9 @@ export default function ScheduleManager() {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
