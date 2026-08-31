@@ -233,4 +233,48 @@ export default function DoctorTelehealthRoomPage({ params }: { params: Promise<{
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Type symptoms, diagnosis, prescriptions, or clinical recommendations..."
-            className="flex-1 w-full
+            className="flex-1 w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-3"
+          />
+
+          <div className="flex items-center justify-between gap-2">
+            {saveSuccess && <span className="text-[11px] font-semibold text-emerald-600">Saved successfully!</span>}
+            {!saveSuccess && <span className="text-[11px] text-slate-400"></span>}
+            <button
+              onClick={handleSaveNotes}
+              disabled={isSavingNotes}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold text-xs rounded-xl transition shadow-sm ml-auto cursor-pointer"
+            >
+              {isSavingNotes ? 'Saving...' : 'Save Notes'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Control Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center gap-4 flex-wrap">
+        <button
+          onClick={toggleMute}
+          className={`px-5 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer ${
+            isMuted ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          {isMuted ? 'Unmute Mic' : 'Mute Mic'}
+        </button>
+        <button
+          onClick={toggleVideo}
+          className={`px-5 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer ${
+            isVideoOff ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          {isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
+        </button>
+        <button
+          onClick={handleLeave}
+          className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition shadow-sm ml-auto cursor-pointer"
+        >
+          End Call
+        </button>
+      </div>
+    </div>
+  );
+}
