@@ -2,7 +2,6 @@
 import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
-  Video, 
   Calendar, 
   Users, 
   MessageSquare, 
@@ -23,7 +22,6 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     { name: "Earnings & Payments", href: "/doctors/dashboard/earnings", icon: DollarSign },
     { name: "Continuing Education", href: "/doctors/dashboard/resources", icon: BookOpen },
     { name: "Profile & Availability", href: "/doctors/dashboard/settings", icon: Settings },
-    { name: "Telehealth Room", href: "/doctors/dashboard/telehealth", icon: Video },
   ];
 
   return (
