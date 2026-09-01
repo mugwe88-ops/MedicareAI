@@ -13,12 +13,19 @@ import {
   Settings, 
   Bell,
   Menu,
-  X
+  X,
+  LogOut
 } from "lucide-react";
 
 export default function DoctorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    window.location.href = "/login";
+  };
 
   const navItems = [
     { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
@@ -99,19 +106,26 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
           </nav>
         </div>
 
-        {/* Doctor Profile Footer in Sidebar */}
+        {/* Doctor Profile Footer in Sidebar with functional Logout */}
         <div className="p-4 border-t border-gray-800 m-4 bg-gray-900/50 rounded-xl flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs">
+          <div className="flex items-center space-x-3 overflow-hidden">
+            <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs shrink-0">
               PP
             </div>
-            <div>
-              <p className="text-xs font-bold text-white">Dr. PRESSY PHIDES</p>
+            <div className="truncate">
+              <p className="text-xs font-bold text-white truncate">Dr. PRESSY PHIDES</p>
               <span className="text-[10px] text-green-400 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse"></span> Online
               </span>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            title="Logout"
+            className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition cursor-pointer shrink-0"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </aside>
 
@@ -131,6 +145,12 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
             <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow">
               PP
             </div>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl text-xs transition border border-red-100 cursor-pointer flex items-center gap-1"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Logout
+            </button>
           </div>
         </header>
 
