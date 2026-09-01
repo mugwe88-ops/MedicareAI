@@ -73,6 +73,42 @@ router.get("/patients", authenticateToken, async (req, res) => {
   }
 });
 
+router.get("/earnings", authenticateToken, async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+
+    // Get summary metrics
+    const earningsRes = await pool.query(
+      `SELECT * FROM doctor_earnings WHERE doctor_id = $1`,
+      [doctorId]
+    );
+
+    // Get recent payouts list
+    const payoutsRes = await pool.query(
+      `SELECT * FROM doctor_payouts WHERE doctor_id = $1 ORDER BY id DESC`,
+      [doctorId]
+    );
+
+    const stats = earningsRes.rows[0] || {
+      available_balance: 0,
+      total_earned: 0,
+      pending_clearance: 0,
+      completed_sessions: 0
+    };
+
+    res.json({
+      availableBalance: stats.available_balance,
+      totalEarned: stats.total_earned,
+      pendingClearance: stats.pending_clearance,
+      completedSessions: stats.completed_sessions,
+      payouts: payoutsRes.rows
+    });
+  } catch (err) {
+    console.error("Error fetching earnings:", err);
+    res.status(500).json({ message: "Failed to fetch financial data." });
+  }
+});
+
 // Get doctor details / profile (Dynamic parameter route comes AFTER static routes)
 router.get("/:id", async (req, res) => {
   try {
