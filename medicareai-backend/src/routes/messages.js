@@ -1,11 +1,10 @@
 import express from 'express';
-// Assuming you are exporting your database pool from utils/db.js based on your project stack
 import pool from '../utils/db.js'; 
 
 const router = express.Router();
 
-// Middleware to verify doctor/patient authentication token (adjust based on your auth middleware)
-import { authenticateToken } from '../middleware/auth.js'; 
+// ✅ Correct path: points to your existing utility file
+import { verifyToken as authenticateToken } from '../utils/jwt.js'; 
 
 // GET all conversations for the logged-in user (Doctor or Patient)
 router.get('/conversations', authenticateToken, async (req, res) => {
