@@ -1,6 +1,3 @@
-"use client";
-
-import { useState } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
@@ -16,254 +13,20 @@ import {
   ArrowRight, 
   Activity, 
   BrainCircuit, 
-  Calculator, 
   Download, 
   CheckCircle2,
   Stethoscope,
   Building2,
-  Clock,
-  FileText,
-  HeartPulse,
-  Droplets,
-  Scale
+  Clock
 } from "lucide-react";
 
-// ==========================================
-// INTERACTIVE CALCULATORS COMPONENT
-// ==========================================
-function HealthCalculators() {
-  const [activeTab, setActiveTab] = useState<"bmi" | "ldl" | "water">("bmi");
+import HealthCalculators from "./HealthCalculators";
 
-  // BMI State
-  const [weight, setWeight] = useState<string>("");
-  const [height, setHeight] = useState<string>("");
-  const [bmiResult, setBmiResult] = useState<{ score: string; status: string } | null>(null);
+export const metadata: Metadata = {
+  title: "Swift MD | AI-Powered Telehealth & Remote Clinical Support",
+  description: "Swift MD connects virtual consultations with live patient vitals, medical research, health calculators, and clinical evidence.",
+};
 
-  // LDL State (Friedewald Formula: LDL = Total - HDL - (Triglycerides / 5))
-  const [totalChol, setTotalChol] = useState<string>("");
-  const [hdl, setHdl] = useState<string>("");
-  const [triglycerides, setTriglycerides] = useState<string>("");
-  const [ldlResult, setLdlResult] = useState<{ score: string; status: string } | null>(null);
-
-  // Hydration State
-  const [waterWeight, setWaterWeight] = useState<string>("");
-  const [waterResult, setWaterResult] = useState<string | null>(null);
-
-  // Handlers
-  const calculateBMI = (e: React.FormEvent) => {
-    e.preventDefault();
-    const w = parseFloat(weight);
-    const h = parseFloat(height) / 100; // cm to m
-    if (w > 0 && h > 0) {
-      const score = (w / (h * h)).toFixed(1);
-      const val = parseFloat(score);
-      let status = "Normal weight";
-      if (val < 18.5) status = "Underweight";
-      else if (val >= 25 && val < 29.9) status = "Overweight";
-      else if (val >= 30) status = "Obese";
-      setBmiResult({ score, status });
-    }
-  };
-
-  const calculateLDL = (e: React.FormEvent) => {
-    e.preventDefault();
-    const tc = parseFloat(totalChol);
-    const h = parseFloat(hdl);
-    const tg = parseFloat(triglycerides);
-    if (tc > 0 && h > 0 && tg > 0) {
-      const score = (tc - h - tg / 5).toFixed(1);
-      const val = parseFloat(score);
-      let status = "Optimal (<100 mg/dL)";
-      if (val >= 100 && val <= 129) status = "Near Optimal";
-      else if (val >= 130 && val <= 159) status = "Borderline High";
-      else if (val >= 160 && val <= 189) status = "High";
-      else if (val >= 190) status = "Very High";
-      setLdlResult({ score, status });
-    }
-  };
-
-  const calculateWater = (e: React.FormEvent) => {
-    e.preventDefault();
-    const w = parseFloat(waterWeight);
-    if (w > 0) {
-      // General formula: ~35ml per kg of body weight
-      const liters = ((w * 35) / 1000).toFixed(1);
-      setWaterResult(liters);
-    }
-  };
-
-  return (
-    <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 space-y-6 shadow-sm">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">Interactive Health Calculators</h2>
-          <p className="text-xs sm:text-sm text-slate-500">Calculate instant health metrics with validated clinical formulas</p>
-        </div>
-
-        {/* Tab Buttons */}
-        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl shrink-0">
-          <button
-            onClick={() => setActiveTab("bmi")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-              activeTab === "bmi" ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Scale className="w-3.5 h-3.5" /> BMI
-          </button>
-          <button
-            onClick={() => setActiveTab("ldl")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-              activeTab === "ldl" ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <HeartPulse className="w-3.5 h-3.5" /> LDL Cholesterol
-          </button>
-          <button
-            onClick={() => setActiveTab("water")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-              activeTab === "water" ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Droplets className="w-3.5 h-3.5" /> Hydration
-          </button>
-        </div>
-      </div>
-
-      {/* CALCULATOR 1: BMI */}
-      {activeTab === "bmi" && (
-        <form onSubmit={calculateBMI} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Weight (kg)</label>
-            <input
-              type="number"
-              placeholder="e.g. 70"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-blue-500 bg-slate-50"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Height (cm)</label>
-            <input
-              type="number"
-              placeholder="e.g. 175"
-              value={height}
-              onChange={(e) => setHeight(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-blue-500 bg-slate-50"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow-sm"
-          >
-            Calculate BMI
-          </button>
-
-          {bmiResult && (
-            <div className="md:col-span-3 p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center justify-between text-xs mt-2">
-              <span className="font-medium text-slate-700">Calculated BMI Score:</span>
-              <div className="text-right">
-                <span className="font-black text-blue-700 text-base">{bmiResult.score} kg/m²</span>
-                <span className="ml-2 font-bold text-slate-600">({bmiResult.status})</span>
-              </div>
-            </div>
-          )}
-        </form>
-      )}
-
-      {/* CALCULATOR 2: LDL CHOLESTEROL */}
-      {activeTab === "ldl" && (
-        <form onSubmit={calculateLDL} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Total Cholesterol (mg/dL)</label>
-            <input
-              type="number"
-              placeholder="e.g. 200"
-              value={totalChol}
-              onChange={(e) => setTotalChol(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-blue-500 bg-slate-50"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">HDL Cholesterol (mg/dL)</label>
-            <input
-              type="number"
-              placeholder="e.g. 50"
-              value={hdl}
-              onChange={(e) => setHdl(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-blue-500 bg-slate-50"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Triglycerides (mg/dL)</label>
-            <input
-              type="number"
-              placeholder="e.g. 150"
-              value={triglycerides}
-              onChange={(e) => setTriglycerides(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-blue-500 bg-slate-50"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow-sm"
-          >
-            Calculate LDL
-          </button>
-
-          {ldlResult && (
-            <div className="md:col-span-4 p-4 bg-purple-50 rounded-2xl border border-purple-100 flex items-center justify-between text-xs mt-2">
-              <span className="font-medium text-slate-700">Estimated LDL Level (Friedewald):</span>
-              <div className="text-right">
-                <span className="font-black text-purple-700 text-base">{ldlResult.score} mg/dL</span>
-                <span className="ml-2 font-bold text-slate-600">({ldlResult.status})</span>
-              </div>
-            </div>
-          )}
-        </form>
-      )}
-
-      {/* CALCULATOR 3: HYDRATION */}
-      {activeTab === "water" && (
-        <form onSubmit={calculateWater} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-700 mb-1">Body Weight (kg)</label>
-            <input
-              type="number"
-              placeholder="e.g. 68"
-              value={waterWeight}
-              onChange={(e) => setWaterWeight(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-blue-500 bg-slate-50"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow-sm"
-          >
-            Calculate Target
-          </button>
-
-          {waterResult && (
-            <div className="md:col-span-3 p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center justify-between text-xs mt-2">
-              <span className="font-medium text-slate-700">Recommended Daily Intake:</span>
-              <span className="font-black text-emerald-700 text-base">{waterResult} Liters / day</span>
-            </div>
-          )}
-        </form>
-      )}
-    </div>
-  );
-}
-
-// ==========================================
-// MAIN PAGE COMPONENT
-// ==========================================
 const SPECIALTIES = [
   { name: "General Physician", icon: Stethoscope, count: "120+ Doctors" },
   { name: "Cardiology", icon: Activity, count: "45+ Doctors" },
@@ -342,7 +105,7 @@ export default function LandingPage() {
                 Sign In
               </Link>
               <Link
-                href="/patient/dashboard"
+                href="/login?redirect=/patient/dashboard&role=patient"
                 className="text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl transition shadow-sm"
               >
                 Patient Portal
@@ -366,6 +129,22 @@ export default function LandingPage() {
               <p className="text-sm sm:text-base text-slate-300">
                 Swift MD seamlessly connects virtual consultations with live patient vitals, medical research, health calculators, and clinical evidence.
               </p>
+
+              {/* Action Buttons Redirecting to Auth */}
+              <div className="flex flex-wrap gap-4 pt-2">
+                <Link
+                  href="/login?redirect=/patient/dashboard&role=patient"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition shadow-md shadow-blue-600/30"
+                >
+                  Access Patient Dashboard <ArrowRight className="w-4 h-4" />
+                </Link>
+                <Link
+                  href="/login?redirect=/doctor/dashboard&role=doctor"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm rounded-xl transition shadow-sm"
+                >
+                  <Stethoscope className="w-4 h-4 text-blue-600" /> Doctor Workspace
+                </Link>
+              </div>
 
               {/* Omni Search Bar */}
               <div className="pt-4">
@@ -397,7 +176,7 @@ export default function LandingPage() {
 
           {/* Service Cards */}
           <section id="consult" className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            <Link href="/patient/dashboard" className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition group flex flex-col justify-between space-y-4">
+            <Link href="/login?redirect=/patient/dashboard&role=patient" className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition group flex flex-col justify-between space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition">
                 <Video className="w-6 h-6" />
               </div>
@@ -407,7 +186,7 @@ export default function LandingPage() {
               </div>
             </Link>
 
-            <Link href="/patient/dashboard" className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-300 transition group flex flex-col justify-between space-y-4">
+            <Link href="/login?redirect=/patient/dashboard&role=patient" className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-300 transition group flex flex-col justify-between space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition">
                 <Calendar className="w-6 h-6" />
               </div>
@@ -450,7 +229,7 @@ export default function LandingPage() {
                 <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">Consult Top Specialties</h2>
                 <p className="text-xs sm:text-sm text-slate-500">Private consultations with verified doctors</p>
               </div>
-              <Link href="/patient/dashboard" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
+              <Link href="/login?redirect=/patient/dashboard&role=patient" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
                 See All <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -459,7 +238,7 @@ export default function LandingPage() {
               {SPECIALTIES.map((spec, i) => {
                 const Icon = spec.icon;
                 return (
-                  <div key={i} className="bg-white p-4 rounded-2xl border border-slate-200/80 flex items-center gap-3 hover:border-blue-400 hover:shadow-sm cursor-pointer transition">
+                  <Link href="/login?redirect=/patient/dashboard&role=patient" key={i} className="bg-white p-4 rounded-2xl border border-slate-200/80 flex items-center gap-3 hover:border-blue-400 hover:shadow-sm transition">
                     <div className="w-10 h-10 rounded-xl bg-slate-100 text-blue-600 flex items-center justify-center shrink-0">
                       <Icon className="w-5 h-5" />
                     </div>
@@ -467,7 +246,7 @@ export default function LandingPage() {
                       <h3 className="text-xs sm:text-sm font-bold text-slate-900">{spec.name}</h3>
                       <p className="text-[11px] text-slate-400">{spec.count}</p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -502,7 +281,7 @@ export default function LandingPage() {
                   </div>
                   <div className="flex sm:flex-col justify-end gap-2 shrink-0">
                     <Link
-                      href="/patient/dashboard"
+                      href="/login?redirect=/patient/dashboard&role=patient"
                       className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition text-center"
                     >
                       Book Visit
