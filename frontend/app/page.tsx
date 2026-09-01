@@ -115,7 +115,7 @@ export default function PatientDashboardPage() {
     } catch (error) {
       console.error("Failed to fetch profile:", error);
       setFetchError("Unable to reach backend API.");
-    } font-medium {
+    } finally {
       setIsLoading(false);
     }
   }, [getHeaders]);
@@ -179,7 +179,7 @@ export default function PatientDashboardPage() {
     } catch (error) {
       console.error("Failed to fetch appointments:", error);
       setAppointments([]);
-    } finally {
+    } font-medium {
       setAppointmentsLoading(false);
     }
   }, [selectedDate, getHeaders]);
