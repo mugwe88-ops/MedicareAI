@@ -13,9 +13,8 @@ import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
-import messageRoutes from './routes/messages.js';
 
-// Database & Routes
+// Database & Modular Routes
 import pool from "./utils/db.js";
 import authRoutes from "./routes/auth.js";
 import appointmentRoutes from "./routes/appointment.routes.js";
@@ -24,16 +23,16 @@ import paymentRoutes from "./routes/payments.routes.js";
 import bookingRoutes from "./routes/bookings.routes.js";
 import doctorRoutes from "./routes/doctors.routes.js";
 import telehealthRouter from "./routes/telehealth.js"; 
-import { verifyToken } from "./utils/jwt.js";
 import prescriptionRoutes from "./routes/prescription.routes.js";
 import recordsRouter from "./routes/records.js";
+import messageRoutes from './routes/messages.js';
 import apiRoutes from './routes/index.js';
+import { verifyToken } from "./utils/jwt.js";
 
 /* ======================
     1️⃣ APP & SOCKET.IO INIT
 ====================== */
 const app = express(); 
-
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -67,7 +66,7 @@ const io = new Server(httpServer, {
 });
 
 /* ======================
-    2️⃣ FAIL-SAFE CORS & MIDDLEWARE (MUST BE BEFORE ROUTES)
+    2️⃣ SECURITY & CORE MIDDLEWARE
 ====================== */
 app.use(
   helmet({
@@ -111,7 +110,6 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use("/api/auth/", authLimiter);
-app.use('/api/messages', messageRoutes);
 
 /* ======================
     2.2 🔒 HEALTH DATA ENCRYPTION UTILITIES (AES-256-GCM)
@@ -202,16 +200,54 @@ io.on("connection", (socket) => {
 });
 
 /* ======================
-    4️⃣ API ROUTES & SERVICES
+    4️⃣ API ROUTES REGISTRATION
 ====================== */
 app.use('/api', apiRoutes);
+app.use('/api/messages', messageRoutes);
 app.use("/api/telehealth", telehealthRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/directory", directoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/doctors", doctorRoutes);
 app.use("/api/doctor/prescriptions", prescriptionRoutes);
+app.use("/api/records", recordsRouter);
+
+// --- LEGAL PAGES HTML ENDPOINTS ---
+app.get("/api/legal/privacy-policy", (req, res) => {
+  res.send(`
+    <html>
+      <head><title>Privacy Policy - MediCare AI</title></head>
+      <body style="font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; max-width: 800px; margin: auto;">
+        <h1>Privacy Policy</h1>
+        <p><strong>Effective Date:</strong> January 1, 2026</p>
+        <p>At MediCare AI, we take your health privacy seriously. All personal medical data, notes, and records are encrypted utilizing military-grade AES-256-GCM encryption standards both in transit and at rest.</p>
+        <h3>1. Information We Collect</h3>
+        <p>We collect identification details (name, email, age, phone) and clinical data (symptom history, prescriptions, diagnostic reports) strictly required for rendering telehealth and medical consultation services.</p>
+        <h3>2. Data Protection</h3>
+        <p>Your records are shielded from unauthorized access. We never sell or share your individual health details with external third-party marketing services.</p>
+      </body>
+    </html>
+  `);
+});
+
+app.get("/api/legal/terms-of-service", (req, res) => {
+  res.send(`
+    <html>
+      <head><title>Terms of Service - MediCare AI</title></head>
+      <body style="font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; max-width: 800px; margin: auto;">
+        <h1>Terms of Service</h1>
+        <p><strong>Effective Date:</strong> January 1, 2026</p>
+        <p>Welcome to MediCare AI. By booking appointments or using our telehealth features, you agree to these terms.</p>
+        <h3>1. Medical Disclaimer</h3>
+        <p>MediCare AI connects patients with certified clinical professionals and uses diagnostic automation tools. Our AI symptom checker serves as a guidance utility and does not completely replace formal physical examination or emergency medical care.</p>
+        <h3>2. User Accounts</h3>
+        <p>You are responsible for maintaining the confidentiality of your session tokens and credentials.</p>
+      </body>
+    </html>
+  `);
+});
 
 // --- PATIENT CONSENT FLOW ENDPOINTS ---
 app.get("/api/consent", verifyToken, async (req, res) => {
@@ -276,169 +312,6 @@ app.get('/api/patient/medical-records', verifyToken, async (req, res) => {
   }
 });
 
-// Example Node.js / Express backend route
-app.get('/api/doctors/appointments', verifyToken, async (req, res) => {
-  try {
-    // req.doctor comes from your JWT verification middleware
-    const doctorName = req.doctor.name; // e.g., "Dr. PRESSY PHIDES"
-
-    const query = `
-      SELECT id, patient_name, appointment_date, appointment_time, age, gender, assigned_doctor 
-      FROM appointments 
-      WHERE assigned_doctor = $1 
-      ORDER BY appointment_date DESC
-    `;
-    const result = await pool.query(query, [doctorName]);
-    
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching doctor appointments:", err);
-    res.status(500).json({ error: "Server error fetching appointments" });
-  }
-});
-
-// --- LEGAL PAGES API / HTML ENDPOINTS ---
-app.get("/api/legal/privacy-policy", (req, res) => {
-  res.send(`
-    <html>
-      <head><title>Privacy Policy - MediCare AI</title></head>
-      <body style="font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; max-width: 800px; margin: auto;">
-        <h1>Privacy Policy</h1>
-        <p><strong>Effective Date:</strong> January 1, 2026</p>
-        <p>At MediCare AI, we take your health privacy seriously. All personal medical data, notes, and records are encrypted utilizing military-grade AES-256-GCM encryption standards both in transit and at rest.</p>
-        <h3>1. Information We Collect</h3>
-        <p>We collect identification details (name, email, age, phone) and clinical data (symptom history, prescriptions, diagnostic reports) strictly required for rendering telehealth and medical consultation services.</p>
-        <h3>2. Data Protection</h3>
-        <p>Your records are shielded from unauthorized access. We never sell or share your individual health details with external third-party marketing services.</p>
-      </body>
-    </html>
-  `);
-});
-
-app.get("/api/legal/terms-of-service", (req, res) => {
-  res.send(`
-    <html>
-      <head><title>Terms of Service - MediCare AI</title></head>
-      <body style="font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; max-width: 800px; margin: auto;">
-        <h1>Terms of Service</h1>
-        <p><strong>Effective Date:</strong> January 1, 2026</p>
-        <p>Welcome to MediCare AI. By booking appointments or using our telehealth features, you agree to these terms.</p>
-        <h3>1. Medical Disclaimer</h3>
-        <p>MediCare AI connects patients with certified clinical professionals and uses diagnostic automation tools. Our AI symptom checker serves as a guidance utility and does not completely replace formal physical examination or emergency medical care.</p>
-        <h3>2. User Accounts</h3>
-        <p>You are responsible for maintaining the confidentiality of your session tokens and credentials.</p>
-      </body>
-    </html>
-  `);
-});
-
-// POST Submit Diagnostic Order
-app.post("/api/diagnostics", verifyToken, async (req, res) => {
-  const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
-  const { appointment_id, patient_id, patient_name, category, test_name, clinical_instructions } = req.body;
-
-  if (!test_name) {
-    return res.status(400).json({ error: "Test name is required." });
-  }
-
-  try {
-    let resolvedPatientName = patient_name ? String(patient_name).trim() : null;
-    let safePatientId = patient_id && !isNaN(parseInt(patient_id, 10)) ? parseInt(patient_id, 10) : null;
-
-    if ((!resolvedPatientName || !safePatientId) && appointment_id) {
-      const aptRes = await pool.query(
-        `SELECT a.patient_name, a.patient_id, u.name as user_name 
-         FROM appointments a 
-         LEFT JOIN users u ON a.patient_id = u.id 
-         WHERE a.id = $1`, 
-        [appointment_id]
-      );
-      if (aptRes.rows.length > 0) {
-        if (!resolvedPatientName) resolvedPatientName = aptRes.rows[0].user_name || aptRes.rows[0].patient_name;
-        if (!safePatientId) safePatientId = aptRes.rows[0].patient_id;
-      }
-    }
-
-    const finalName = resolvedPatientName || "Valued Patient";
-    const encryptedInstructions = encryptHealthData(clinical_instructions);
-
-    const result = await pool.query(
-      `INSERT INTO diagnostics (appointment_id, doctor_id, patient_id, patient_name, category, test_name, clinical_instructions, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'ordered')
-       RETURNING *`,
-      [
-        appointment_id || null,
-        doctorId,
-        safePatientId,
-        finalName,
-        category || 'Laboratory Test',
-        test_name,
-        encryptedInstructions
-      ]
-    );
-
-    const record = result.rows[0];
-    record.clinical_instructions = decryptHealthData(record.clinical_instructions);
-    return res.status(201).json(record);
-  } catch (err) {
-    console.error("Error submitting diagnostic order:", err);
-    return res.status(500).json({ error: "Failed to submit diagnostic order.", details: err.message });
-  }
-});
-
-app.post("/api/doctor/diagnostics", verifyToken, async (req, res) => {
-  const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
-  const { appointment_id, patient_id, patient_name, category, test_name, clinical_instructions } = req.body;
-
-  if (!test_name) {
-    return res.status(400).json({ error: "Test name is required." });
-  }
-
-  try {
-    let resolvedPatientName = patient_name ? String(patient_name).trim() : null;
-    let safePatientId = patient_id && !isNaN(parseInt(patient_id, 10)) ? parseInt(patient_id, 10) : null;
-
-    if ((!resolvedPatientName || !safePatientId) && appointment_id) {
-      const aptRes = await pool.query(
-        `SELECT a.patient_name, a.patient_id, u.name as user_name 
-         FROM appointments a 
-         LEFT JOIN users u ON a.patient_id = u.id 
-         WHERE a.id = $1`, 
-        [appointment_id]
-      );
-      if (aptRes.rows.length > 0) {
-        if (!resolvedPatientName) resolvedPatientName = aptRes.rows[0].user_name || aptRes.rows[0].patient_name;
-        if (!safePatientId) safePatientId = aptRes.rows[0].patient_id;
-      }
-    }
-
-    const finalName = resolvedPatientName || "Valued Patient";
-    const encryptedInstructions = encryptHealthData(clinical_instructions);
-
-    const result = await pool.query(
-      `INSERT INTO diagnostics (appointment_id, doctor_id, patient_id, patient_name, category, test_name, clinical_instructions, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'ordered')
-       RETURNING *`,
-      [
-        appointment_id || null,
-        doctorId,
-        safePatientId,
-        finalName,
-        category || 'Laboratory Test',
-        test_name,
-        encryptedInstructions
-      ]
-    );
-
-    const record = result.rows[0];
-    record.clinical_instructions = decryptHealthData(record.clinical_instructions);
-    return res.status(201).json(record);
-  } catch (err) {
-    console.error("Error submitting diagnostic order:", err);
-    return res.status(500).json({ error: "Failed to submit diagnostic order.", details: err.message });
-  }
-});
-
 // GET Logged-In Doctor Availability Slots
 app.get("/api/doctor/availability", verifyToken, async (req, res) => {
   const doctorId = req.user?.id || req.user?.userId || req.user?.user_id;
@@ -478,51 +351,7 @@ app.post("/api/doctor/availability", verifyToken, async (req, res) => {
   }
 });
 
-app.post('/api/appointments', async (req, res) => {
-  try {
-    const {
-      doctorId,
-      bodySystem,
-      symptomSeverity,
-      symptomDuration,
-      reasonForVisit,
-      patient_chronic_conditions,
-      patient_allergies,
-      patient_surgeries,
-      patient_id
-    } = req.body;
-
-    const query = `
-      INSERT INTO appointments (
-        doctor_id, patient_id, body_system, symptom_severity, 
-        symptom_duration, reason_for_visit, 
-        patient_chronic_conditions, patient_allergies, patient_surgeries, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-      RETURNING *;
-    `;
-
-    const values = [
-      doctorId, patient_id, bodySystem, symptomSeverity,
-      symptomDuration, reasonForVisit,
-      encryptHealthData(patient_chronic_conditions), 
-      encryptHealthData(patient_allergies), 
-      encryptHealthData(patient_surgeries)
-    ];
-
-    const newAppointment = await pool.query(query, values);
-    const apt = newAppointment.rows[0];
-    apt.patient_chronic_conditions = decryptHealthData(apt.patient_chronic_conditions);
-    apt.patient_allergies = decryptHealthData(apt.patient_allergies);
-    apt.patient_surgeries = decryptHealthData(apt.patient_surgeries);
-
-    res.status(201).json(apt);
-  } catch (err) {
-    console.error("Booking Error:", err);
-    res.status(500).json({ error: "Failed to book appointment" });
-  }
-});
-
-// GET Doctor Availability Slots
+// GET Doctor Availability Slots by ID
 app.get("/api/doctors/:id/availability", async (req, res) => {
   const { id } = req.params;
   try {
