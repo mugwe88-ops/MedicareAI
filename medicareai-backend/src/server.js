@@ -13,6 +13,7 @@ import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
+import messageRoutes from './routes/messages.js';
 
 // Database & Routes
 import pool from "./utils/db.js";
@@ -110,6 +111,7 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use("/api/auth/", authLimiter);
+app.use('/api/messages', messageRoutes);
 
 /* ======================
     2.2 🔒 HEALTH DATA ENCRYPTION UTILITIES (AES-256-GCM)
