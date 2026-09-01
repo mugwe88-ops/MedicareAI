@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  LayoutDashboard, Calendar, BarChart3, Users, FileText, HelpCircle, 
+  LayoutDashboard, Calendar, Users, 
   Search, Bell, Mail, LogOut, MessageSquare, DollarSign, Award, Settings 
 } from "lucide-react";
 
