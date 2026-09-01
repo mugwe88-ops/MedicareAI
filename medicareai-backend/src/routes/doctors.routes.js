@@ -57,6 +57,25 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// Add this route inside src/routes/doctors.routes.js
+
+// Get patient records assigned to the logged-in doctor
+router.get("/patients", authenticateToken, async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+
+    const result = await pool.query(
+      `SELECT * FROM patients WHERE doctor_id = $1 ORDER BY created_at DESC`,
+      [doctorId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching patient records:", err);
+    res.status(500).json({ message: "Failed to fetch patient records from the database." });
+  }
+});
+
 // Get doctor's availability slots
 router.get("/:id/availability", async (req, res) => {
   try {

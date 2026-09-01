@@ -955,22 +955,6 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
 
 // Add this inside src/routes/doctors.routes.js or your main server file
 
-router.get("/patients", authenticateToken, async (req, res) => {
-  try {
-    const doctorId = req.user.id; // Assumes your JWT middleware sets req.user
-
-    const result = await pool.query(
-      `SELECT * FROM patients WHERE doctor_id = $1 ORDER BY created_at DESC`,
-      [doctorId]
-    );
-
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching patient records:", err);
-    res.status(500).json({ message: "Failed to fetch patient records from the database." });
-  }
-});
-
 // Reusable Appointment Booking Controller Handler
 const createAppointmentHandler = async (req, res) => {
   try {
