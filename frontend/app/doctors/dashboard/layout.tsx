@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { 
@@ -17,14 +17,54 @@ import {
   LogOut
 } from "lucide-react";
 
+interface DoctorProfile {
+  id: number;
+  name: string;
+  email: string;
+  specialization?: string;
+}
+
 export default function DoctorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
+
+  useEffect(() => {
+    const fetchDoctorProfile = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setDoctor(data);
+        }
+      } catch (err) {
+        console.error("Failed to load doctor profile in layout:", err);
+      }
+    };
+
+    fetchDoctorProfile();
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     window.location.href = "/login";
+  };
+
+  // Helper to compute initials (e.g. "Dr. Pressy Phides" -> "PP")
+  const getInitials = (name?: string) => {
+    if (!name) return "DR";
+    const parts = name.replace(/^Dr\.\s*/i, "").trim().split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return parts[0].substring(0, 2).toUpperCase();
   };
 
   const navItems = [
@@ -36,6 +76,9 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     { name: "Continuing Education", href: "/doctors/dashboard/resources", icon: BookOpen },
     { name: "Profile & Availability", href: "/doctors/dashboard/profile", icon: Settings },
   ];
+
+  const doctorName = doctor?.name ? (doctor.name.startsWith("Dr.") ? doctor.name : `Dr. ${doctor.name}`) : "Doctor Workspace";
+  const initials = getInitials(doctor?.name);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
@@ -52,7 +95,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
           </button>
           <div>
             <span className="text-[10px] tracking-wider text-blue-400 font-semibold uppercase block">Swift MD</span>
-            <h1 className="text-sm font-bold tracking-tight text-white">Doctor Workspace</h1>
+            <h1 className="text-sm font-bold tracking-tight text-white truncate max-w-[150px]">{doctorName}</h1>
           </div>
         </div>
         <div className="flex items-center space-x-3">
@@ -61,7 +104,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
             <span className="absolute top-0.5 right-0.5 h-4 w-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">7</span>
           </button>
           <div className="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow">
-            PP
+            {initials}
           </div>
         </div>
       </div>
@@ -106,14 +149,14 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
           </nav>
         </div>
 
-        {/* Doctor Profile Footer in Sidebar with functional Logout */}
+        {/* Dynamic Doctor Profile Footer in Sidebar */}
         <div className="p-4 border-t border-gray-800 m-4 bg-gray-900/50 rounded-xl flex items-center justify-between">
           <div className="flex items-center space-x-3 overflow-hidden">
             <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs shrink-0">
-              PP
+              {initials}
             </div>
             <div className="truncate">
-              <p className="text-xs font-bold text-white truncate">Dr. PRESSY PHIDES</p>
+              <p className="text-xs font-bold text-white uppercase truncate">{doctorName}</p>
               <span className="text-[10px] text-green-400 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse"></span> Online
               </span>
@@ -135,7 +178,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
         <header className="hidden md:flex bg-white border-b border-gray-200 px-8 py-4 justify-between items-center shadow-sm">
           <div>
             <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Live Practice Environment</span>
-            <h2 className="text-xl font-extrabold text-gray-900">Doctor Portal Workspace</h2>
+            <h2 className="text-xl font-extrabold text-gray-900">{doctorName} Workspace</h2>
           </div>
           <div className="flex items-center space-x-4">
             <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-full transition cursor-pointer">
@@ -143,7 +186,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
               <span className="absolute top-0.5 right-0.5 h-4 w-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">7</span>
             </button>
             <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow">
-              PP
+              {initials}
             </div>
             <button
               onClick={handleLogout}
