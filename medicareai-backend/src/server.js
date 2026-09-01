@@ -391,16 +391,23 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
 });
 
 // Express route for /api/doctors/me
+// Express route for /api/doctors/me
 app.get("/api/doctors/me", verifyToken, async (req, res) => {
   try {
-    const doctorId = req.user?.id || req.user?.doctorId || req.user?.userId;
+    // Extract ID safely from decoded JWT payload
+    const userId = req.user?.id || req.user?.userId || req.user?.doctorId;
 
-    if (!doctorId) {
-      return res.status(401).json({ message: "Invalid or missing token payload." });
+    console.log("Fetching profile for authenticated user ID:", userId);
+
+    if (!userId) {
+      return res.status(401).json({ message: "Invalid or missing user ID in token payload." });
     }
 
-    // Query doctor record safely
-    const result = await db.query("SELECT * FROM doctors WHERE id = $1 OR user_id = $1", [doctorId]);
+    // Query doctor by either primary key (id) OR foreign key (user_id)
+    const result = await db.query(
+      "SELECT * FROM doctors WHERE id::text = $1 OR user_id::text = $1", 
+      [String(userId)]
+    );
 
     if (!result || !result.rows || result.rows.length === 0) {
       return res.status(404).json({ message: "Doctor record not found." });
@@ -408,8 +415,12 @@ app.get("/api/doctors/me", verifyToken, async (req, res) => {
 
     return res.status(200).json({ doctor: result.rows[0] });
   } catch (error) {
-    console.error("Error fetching doctor profile:", error);
-    return res.status(500).json({ message: "Internal server error while fetching doctor profile." });
+    // This log will print the exact database error in your Render dashboard logs
+    console.error("Database query crash in /api/doctors/me:", error);
+    return res.status(500).json({ 
+      message: "Internal server error while fetching doctor profile.",
+      error: error.message 
+    });
   }
 });
 
