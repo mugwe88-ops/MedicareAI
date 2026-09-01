@@ -35,7 +35,24 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Get doctor details / profile
+// ✅ MUST BE PLACED BEFORE /:id to prevent Express from treating "patients" as an ID parameter
+router.get("/patients", authenticateToken, async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+
+    const result = await pool.query(
+      `SELECT * FROM patients WHERE doctor_id = $1 ORDER BY created_at DESC`,
+      [doctorId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching patient records:", err);
+    res.status(500).json({ message: "Failed to fetch patient records from the database." });
+  }
+});
+
+// Get doctor details / profile (Dynamic parameter route comes AFTER static routes)
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -54,25 +71,6 @@ router.get("/:id", async (req, res) => {
   } catch (err) {
     console.error("Error fetching doctor:", err);
     res.status(500).json({ message: "Server error" });
-  }
-});
-
-// Add this route inside src/routes/doctors.routes.js
-
-// Get patient records assigned to the logged-in doctor
-router.get("/patients", authenticateToken, async (req, res) => {
-  try {
-    const doctorId = req.user.id;
-
-    const result = await pool.query(
-      `SELECT * FROM patients WHERE doctor_id = $1 ORDER BY created_at DESC`,
-      [doctorId]
-    );
-
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching patient records:", err);
-    res.status(500).json({ message: "Failed to fetch patient records from the database." });
   }
 });
 
