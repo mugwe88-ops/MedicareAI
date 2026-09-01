@@ -35,18 +35,32 @@ export default function DoctorPatientsPage() {
     setError("");
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/doctors/patients`, {
-        headers: { Authorization: `Bearer ${token}` },
+      if (!token) {
+        setError("Authentication token missing. Please log in again.");
+        setLoading(false);
+        return;
+      }
+
+      // Configure your production backend URL fallback here if NEXT_PUBLIC_API_URL isn't injected
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://your-express-backend.onrender.com";
+
+      const res = await fetch(`${baseUrl}/api/doctors/patients`, {
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
       });
+
       if (res.ok) {
         const data = await res.json();
         setPatientsList(data);
       } else {
-        setError("Failed to fetch patient records from the database.");
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.message || `Server returned error status ${res.status}`);
       }
     } catch (err) {
       console.error("Network error fetching patients:", err);
-      setError("Network error connecting to backend API.");
+      setError("Unable to connect to backend server. Verify CORS settings and backend deployment.");
     } finally {
       setLoading(false);
     }
@@ -58,9 +72,9 @@ export default function DoctorPatientsPage() {
 
   const filteredPatients = patientsList.filter((pat) => {
     const matchesSearch =
-      pat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pat.condition.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pat.id.toLowerCase().includes(searchQuery.toLowerCase());
+      (pat.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (pat.condition || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (pat.id || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = selectedStatus === "All" || pat.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
@@ -89,7 +103,7 @@ export default function DoctorPatientsPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 font-semibold">
           <AlertCircle size={16} /> {error}
         </div>
       )}
@@ -127,8 +141,8 @@ export default function DoctorPatientsPage() {
       {/* Patients Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {loading ? (
-          <div className="col-span-2 text-center py-16 bg-white border border-gray-200 rounded-2xl text-gray-400 font-bold text-xs">
-            Fetching patient records from database...
+          <div className="col-span-2 text-center py-16 bg-white border border-gray-200 rounded-2xl text-gray-400 font-bold text-xs flex items-center justify-center gap-2">
+            <RefreshCw size={16} className="animate-spin text-blue-600" /> Fetching patient records from database...
           </div>
         ) : filteredPatients.length === 0 ? (
           <div className="col-span-2 text-center py-16 bg-white border border-gray-200 rounded-2xl text-gray-400 font-bold text-xs">

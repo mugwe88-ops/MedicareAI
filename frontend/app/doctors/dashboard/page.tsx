@@ -3,6 +3,15 @@
 import { useState, useEffect } from "react";
 import { Search, Bell, Mail } from "lucide-react";
 
+interface DoctorInfo {
+  name: string;
+  email: string;
+  specialty: string;
+  avatar: string;
+  portalStatus?: string;
+  status?: string;
+}
+
 interface RecordItem {
   id: string;
   primaryText: string;
@@ -34,25 +43,51 @@ export default function DoctorDashboardPage() {
   const [analyticsTimeframe, setAnalyticsTimeframe] = useState<"Weekly" | "Monthly">("Weekly");
   
   // Real Doctor Profile State
-  const [doctorInfo, setDoctorInfo] = useState({
+  const [doctorInfo, setDoctorInfo] = useState<DoctorInfo>({
     name: "Dr. Pressy Phides",
     email: "pressy.phides@swiftmd.com",
     specialty: "General Medicine",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80"
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+    portalStatus: "Verified MD",
+    status: "Active Duty"
   });
 
-  useEffect(() => {
-    const storedName = localStorage.getItem("doctorName") || localStorage.getItem("userName");
-    const storedEmail = localStorage.getItem("doctorEmail") || localStorage.getItem("userEmail");
-    const storedSpecialty = localStorage.getItem("doctorSpecialty");
-    const storedAvatar = localStorage.getItem("doctorAvatar");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    setDoctorInfo({
-      name: storedName || "Dr. Pressy Phides",
-      email: storedEmail || "pressy.phides@swiftmd.com",
-      specialty: storedSpecialty || "General Practitioner",
-      avatar: storedAvatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80"
-    });
+  // Fetch logged-in doctor profile from Render Express Backend
+  useEffect(() => {
+    const fetchDoctorProfile = async () => {
+      try {
+        const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+        const res = await fetch(`${API_URL}/api/doctors/me`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setDoctorInfo({
+            name: data.name || data.fullName || "Dr. Pressy Phides",
+            email: data.email || "pressy.phides@swiftmd.com",
+            specialty: data.specialty || "General Practitioner",
+            avatar: data.avatar || data.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+            portalStatus: data.portalStatus || "Verified MD",
+            status: data.status || "Active Duty"
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch doctor profile from backend:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDoctorProfile();
   }, []);
 
   // Dynamic Analytics data matching the selected pill metric
@@ -100,7 +135,7 @@ export default function DoctorDashboardPage() {
 
   const currentAnalytics = analyticsDatasets[activeMetric];
 
-  // Actual Mock datasets corresponding to each sub-tab
+  // Mock datasets corresponding to each sub-tab
   const tabDataMap: Record<string, RecordItem[]> = {
     "Lab Reports": [
       { id: "1", primaryText: "Electrocardiography", secondaryText: "Dr. Rafiqul Islam", date: "28 Jan, 2024", comments: "Good! Take rest", status: "Normal" },
@@ -344,25 +379,34 @@ export default function DoctorDashboardPage() {
               <span>Credentials</span>
             </div>
 
-            <div className="flex flex-col items-center text-center space-y-3 pt-2">
-              <div className="w-24 h-24 rounded-3xl bg-slate-100 overflow-hidden shadow-inner border border-slate-200">
-                <img 
-                  src={doctorInfo.avatar} 
-                  alt={doctorInfo.name}
-                  className="w-full h-full object-cover" 
-                />
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-8 space-y-2">
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-xs text-slate-400 font-bold">Fetching profile...</p>
               </div>
-              <div>
-                <h3 className="text-base font-black text-slate-900">{doctorInfo.name}</h3>
-                <p className="text-xs text-blue-600 font-bold">{doctorInfo.specialty}</p>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="flex flex-col items-center text-center space-y-3 pt-2">
+                  <div className="w-24 h-24 rounded-3xl bg-slate-100 overflow-hidden shadow-inner border border-slate-200">
+                    <img 
+                      src={doctorInfo.avatar} 
+                      alt={doctorInfo.name}
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">{doctorInfo.name}</h3>
+                    <p className="text-xs text-blue-600 font-bold">{doctorInfo.specialty}</p>
+                  </div>
+                </div>
 
-            <div className="space-y-2.5 pt-3 border-t border-slate-100 text-xs text-slate-600 font-medium">
-              <p className="flex justify-between items-center"><span className="text-slate-400">Email:</span> <strong className="text-slate-900 text-right truncate max-w-[180px]">{doctorInfo.email}</strong></p>
-              <p className="flex justify-between items-center"><span className="text-slate-400">Portal:</span> <strong className="text-emerald-600">Verified MD</strong></p>
-              <p className="flex justify-between items-center"><span className="text-slate-400">Status:</span> <strong className="text-slate-900">Active Duty</strong></p>
-            </div>
+                <div className="space-y-2.5 pt-3 border-t border-slate-100 text-xs text-slate-600 font-medium">
+                  <p className="flex justify-between items-center"><span className="text-slate-400">Email:</span> <strong className="text-slate-900 text-right truncate max-w-[180px]">{doctorInfo.email}</strong></p>
+                  <p className="flex justify-between items-center"><span className="text-slate-400">Portal:</span> <strong className="text-emerald-600">{doctorInfo.portalStatus}</strong></p>
+                  <p className="flex justify-between items-center"><span className="text-slate-400">Status:</span> <strong className="text-slate-900">{doctorInfo.status}</strong></p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Appointments List Widget with Interactive Date Slider */}
