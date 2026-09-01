@@ -390,6 +390,30 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
   }
 });
 
+// Express route for /api/doctors/me
+// Express route for /api/doctors/me
+app.get("/api/doctors/me", authenticateToken, async (req, res) => {
+  try {
+    // req.user comes from your authenticateToken middleware
+    const doctorId = req.user?.id || req.user?.doctorId;
+
+    if (!doctorId) {
+      return res.status(401).json({ message: "Invalid or missing token payload." });
+    }
+
+    // Query doctor record from database
+    const doctor = await db.query("SELECT * FROM doctors WHERE id = $1", [doctorId]);
+
+    if (!doctor || !doctor.rows || doctor.rows.length === 0) {
+      return res.status(404).json({ message: "Doctor record not found." });
+    }
+
+    res.json({ doctor: doctor.rows[0] });
+  } catch (error) {
+    console.error("Error fetching doctor profile:", error);
+    res.status(500).json({ message: "Internal server error while fetching doctor profile." });
+  }
+});
 // Get Patient Personal & Clinical Profile
 app.get("/api/user/profile", verifyToken, async (req, res) => {
   const userId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
