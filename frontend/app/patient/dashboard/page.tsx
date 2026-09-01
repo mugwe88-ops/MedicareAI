@@ -12,9 +12,25 @@ export default function PatientDashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const cachedName = localStorage.getItem("userName") || localStorage.getItem("patient_name");
+    // Check various common storage keys to accurately fetch patient name
+    const cachedName = 
+      localStorage.getItem("userName") || 
+      localStorage.getItem("patient_name");
+      
     if (cachedName) {
       setUserName(cachedName);
+    } else {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if (parsed?.name) {
+            setUserName(parsed.name);
+          }
+        } catch (e) {
+          console.error("Failed to parse user data from storage", e);
+        }
+      }
     }
   }, []);
 
@@ -27,11 +43,11 @@ export default function PatientDashboardPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 pb-8">
       {/* Top Header Row with Welcome Banner & Action Buttons */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Welcome Back, {userName}
           </h1>
           <p className="text-xs font-bold text-slate-400 mt-1">
@@ -40,18 +56,18 @@ export default function PatientDashboardPage() {
         </div>
         
         {/* Navigation / Session Actions */}
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={() => router.back()}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer"
           >
-            <ArrowLeft size={16} /> Back
+            <ArrowLeft size={14} /> Back
           </button>
           <button
             onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 rounded-2xl text-xs font-bold transition cursor-pointer shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 rounded-2xl text-xs font-bold transition cursor-pointer shadow-sm"
           >
-            <LogOut size={16} /> Log Out
+            <LogOut size={14} /> Log Out
           </button>
         </div>
       </div>
@@ -86,7 +102,7 @@ export default function PatientDashboardPage() {
             <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-xl">Weekly</span>
           </div>
 
-          <div className="space-y-4 my-auto">
+          <div className="space-y-3 my-auto">
             <div className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
@@ -116,7 +132,7 @@ export default function PatientDashboardPage() {
 
           <button 
             onClick={() => router.push("/patient/dashboard/medical-records")}
-            className="w-full mt-4 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full mt-4 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
           >
             View Full Report <ArrowRight size={14} />
           </button>
@@ -135,7 +151,7 @@ export default function PatientDashboardPage() {
                 <User size={28} />
               </div>
               <div>
-                <h3 className="font-black text-slate-900 text-base">{userName}</h3>
+                <h3 className="font-black text-slate-900 text-base truncate px-2">{userName}</h3>
                 <p className="text-xs text-blue-600 font-bold uppercase tracking-wider mt-0.5">Patient • Verified</p>
               </div>
             </div>
@@ -156,15 +172,15 @@ export default function PatientDashboardPage() {
       </div>
 
       {/* Quick Actions Row */}
-      <div className="bg-blue-600 rounded-3xl p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-500/20">
+      <div className="bg-blue-600 rounded-3xl p-6 sm:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-500/20">
         <div>
-          <h3 className="text-xl font-black tracking-tight">Need a consultation with a specialist?</h3>
+          <h3 className="text-lg sm:text-xl font-black tracking-tight">Need a consultation with a specialist?</h3>
           <p className="text-blue-100 text-xs font-medium mt-1">Book an appointment or jump into an instant telehealth video session.</p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <button 
             onClick={() => router.push("/patient/dashboard/appointments")}
-            className="flex-1 md:flex-none bg-white text-blue-600 hover:bg-blue-50 px-6 py-3.5 rounded-2xl text-xs font-bold transition cursor-pointer shadow-sm"
+            className="w-full md:w-auto bg-white text-blue-600 hover:bg-blue-50 px-6 py-3.5 rounded-2xl text-xs font-bold transition cursor-pointer shadow-sm text-center"
           >
             Manage Appointments
           </button>
