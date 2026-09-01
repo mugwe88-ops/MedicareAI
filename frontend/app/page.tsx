@@ -179,7 +179,7 @@ export default function PatientDashboardPage() {
     } catch (error) {
       console.error("Failed to fetch appointments:", error);
       setAppointments([]);
-    } font-medium {
+    } finally {
       setAppointmentsLoading(false);
     }
   }, [selectedDate, getHeaders]);
