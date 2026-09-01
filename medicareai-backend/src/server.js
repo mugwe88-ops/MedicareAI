@@ -391,28 +391,25 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
 });
 
 // Express route for /api/doctors/me
-// Express route for /api/doctors/me
-// Express route for /api/doctors/me
 app.get("/api/doctors/me", verifyToken, async (req, res) => {
   try {
-    // req.user comes from your verifyToken middleware
-    const doctorId = req.user?.id || req.user?.doctorId;
+    const doctorId = req.user?.id || req.user?.doctorId || req.user?.userId;
 
     if (!doctorId) {
       return res.status(401).json({ message: "Invalid or missing token payload." });
     }
 
-    // Query doctor record from database
-    const doctor = await db.query("SELECT * FROM doctors WHERE id = $1", [doctorId]);
+    // Query doctor record safely
+    const result = await db.query("SELECT * FROM doctors WHERE id = $1 OR user_id = $1", [doctorId]);
 
-    if (!doctor || !doctor.rows || doctor.rows.length === 0) {
+    if (!result || !result.rows || result.rows.length === 0) {
       return res.status(404).json({ message: "Doctor record not found." });
     }
 
-    res.json({ doctor: doctor.rows[0] });
+    return res.status(200).json({ doctor: result.rows[0] });
   } catch (error) {
     console.error("Error fetching doctor profile:", error);
-    res.status(500).json({ message: "Internal server error while fetching doctor profile." });
+    return res.status(500).json({ message: "Internal server error while fetching doctor profile." });
   }
 });
 
