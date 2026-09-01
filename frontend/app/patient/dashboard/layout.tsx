@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { 
-  LayoutDashboard, Calendar, Video, FileText, Activity, 
+  LayoutDashboard, Calendar, CalendarCheck, Video, FileText, Activity, 
   HeartPulse, Search, Bell, Mail 
 } from "lucide-react";
 
@@ -61,6 +61,18 @@ export default function DashboardLayout({
               >
                 <LayoutDashboard size={18} /> Dashboard
               </button>
+
+              <button 
+                onClick={() => router.push("/patient/dashboard/appointments/book")}
+                className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
+                  isActive("/patient/dashboard/appointments/book") 
+                    ? "bg-blue-50 text-blue-600" 
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <Calendar size={18} /> Book Appointment
+              </button>
+
               <button 
                 onClick={() => router.push("/patient/dashboard/appointments")}
                 className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
@@ -69,8 +81,9 @@ export default function DashboardLayout({
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
-                <Calendar size={18} /> Appointments
+                <CalendarCheck size={18} /> Booked Consultations
               </button>
+
               <button 
                 onClick={() => router.push("/patient/dashboard/telehealth")}
                 className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
@@ -81,6 +94,7 @@ export default function DashboardLayout({
               >
                 <Video size={18} /> Telehealth Room
               </button>
+
               <button 
                 onClick={() => router.push("/patient/dashboard/medical-records")}
                 className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
