@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { 
-  LayoutDashboard, Calendar, CalendarCheck, Video, FileText, Activity, 
+  LayoutDashboard, Calendar, CalendarCheck, FileText, Activity, 
   HeartPulse, Search, Bell, Mail 
 } from "lucide-react";
 
@@ -82,17 +82,6 @@ export default function DashboardLayout({
                 }`}
               >
                 <CalendarCheck size={18} /> Booked Consultations
-              </button>
-
-              <button 
-                onClick={() => router.push("/patient/dashboard/telehealth")}
-                className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
-                  isActive("/patient/dashboard/telehealth") 
-                    ? "bg-blue-50 text-blue-600" 
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                }`}
-              >
-                <Video size={18} /> Telehealth Room
               </button>
 
               <button 
