@@ -1,394 +1,433 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { 
-  Users, 
-  Activity, 
-  Clock,
-  RefreshCw,
-  UserCheck,
-  Building2,
-  CalendarDays,
-  ArrowLeft,
-  LogOut
-} from "lucide-react";
 
-interface PatientAppointment {
-  id: number;
-  patient_name: string;
-  phone: string;
-  schedule: string;
-  chief_reason: string;
-  status: "CONFIRMED" | "CANCELLED" | "PENDING";
-  gender: string;
-  age: number;
+import { useState, useEffect } from "react";
+import { Search, FileText, Calendar, Clock, Phone, Mail, AlertCircle, RefreshCw, ChevronRight } from "lucide-react";
+
+interface DoctorProfile {
+  name: string;
+  email: string;
+  specialty?: string;
 }
 
-export default function DoctorDashboard() {
-  const router = useRouter();
-  const [doctorName, setDoctorName] = useState("Dr. Robert Fox");
-  const [doctorInitials, setDoctorInitials] = useState("RF");
+interface PatientRecord {
+  id: string;
+  name: string;
+  age: number;
+  gender: string;
+  condition: string;
+  lastVisit: string;
+  phone: string;
+  email: string;
+  status: "Stable" | "Critical" | "Under Observation";
+  vitals: {
+    bp: string;
+    heartRate: string;
+    temp: string;
+  };
+}
+
+interface Appointment {
+  id: string;
+  patientName: string;
+  date: string;
+  time: string;
+  type: string;
+  status: "Confirmed" | "Pending" | "Completed";
+  phone: string;
+}
+
+export default function DoctorPatientsPage() {
+  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
+  const [patientsList, setPatientsList] = useState<PatientRecord[]>([]);
+  const [appointmentsList, setAppointmentsList] = useState<Appointment[]>([]);
+  
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [appointmentError, setAppointmentError] = useState("");
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [activePatient, setActivePatient] = useState<PatientRecord | null>(null);
 
-  // Dynamic statistics state counters
-  const [totalDoctorsCount, setTotalDoctorsCount] = useState<number | string>("2,937");
-  const [totalPatientsCount, setTotalPatientsCount] = useState<number | string>("170K");
-  const [pharmaciesCount, setPharmaciesCount] = useState<number | string>("21");
+  const statuses = ["All", "Stable", "Under Observation", "Critical"];
 
-  const [appointments, setAppointments] = useState<PatientAppointment[]>([
-    {
-      id: 1,
-      patient_name: "Jorge",
-      phone: "0723503988",
-      schedule: "20 May 7:30pm",
-      chief_reason: "General Consultation & Acute follow-up",
-      status: "CONFIRMED",
-      gender: "Female",
-      age: 76
-    },
-    {
-      id: 2,
-      patient_name: "Phillip",
-      phone: "0723503988",
-      schedule: "20 May 8:30pm",
-      chief_reason: "Blood pressure check & review",
-      status: "CONFIRMED",
-      gender: "Male",
-      age: 47
-    },
-    {
-      id: 3,
-      patient_name: "Nathan",
-      phone: "0723503988",
-      schedule: "20 May 9:00pm",
-      chief_reason: "Routine Screening & Lab Follow-up",
-      status: "CONFIRMED",
-      gender: "Female",
-      age: 40
-    },
-    {
-      id: 4,
-      patient_name: "Soham",
-      phone: "0723503988",
-      schedule: "20 May 6:30pm",
-      chief_reason: "General Consultation",
-      status: "CONFIRMED",
-      gender: "Female",
-      age: 43
-    }
-  ]);
-
-  // Load the authenticated doctor details from localStorage instantly
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          const rawName = parsed.name || parsed.username || parsed.email || "Doctor";
-          const formattedName = rawName.startsWith("Dr.") ? rawName : `Dr. ${rawName}`;
-          setDoctorName(formattedName);
-          
-          const cleanName = formattedName.replace(/^Dr\.\s*/i, "");
-          const parts = cleanName.trim().split(" ");
-          const initials = parts.length >= 2 
-            ? `${parts[0][0]}${parts[1][0]}`.toUpperCase() 
-            : parts[0].substring(0, 2).toUpperCase();
-          setDoctorInitials(initials);
-        }
-      } catch (err) {
-        console.error("Failed to parse logged in doctor profile:", err);
-      }
-    }
-  }, []);
-
-  const fetchDashboardData = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchDoctorProfile = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-backend.onrender.com";
-      
-      // Fetch appointments
-      const resAppts = await fetch(`${apiUrl}/api/appointments`);
-      if (resAppts.ok) {
-        const data = await resAppts.json();
-        if (Array.isArray(data) && data.length > 0) {
-          const formatted = data.map((item: any, index: number) => ({
-            id: item.id || index + 1,
-            patient_name: item.patient_name || item.name || "Patient",
-            phone: item.phone || "N/A",
-            schedule: item.schedule || item.date || "Scheduled",
-            chief_reason: item.chief_reason || item.reason || "General Consultation",
-            status: item.status || "CONFIRMED",
-            gender: item.gender || "N/A",
-            age: item.age || 30
-          }));
-          setAppointments(formatted);
-          setTotalPatientsCount(data.length * 42 + 150); // Dynamic calculation scaling based on live entries
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/doctors/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDoctor(data);
+      } else {
+        // Fallback to name stored in localStorage if available
+        const storedName = localStorage.getItem("doctorName");
+        if (storedName) {
+          setDoctor({ name: storedName, email: "" });
         }
       }
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    }
+  };
 
-      // Fetch all registered doctors count if endpoint exists
-      const resDoctors = await fetch(`${apiUrl}/api/doctors`);
-      if (resDoctors.ok) {
-        const docData = await resDoctors.json();
-        if (Array.isArray(docData)) {
-          setTotalDoctorsCount(docData.length);
-        }
+  const fetchPatients = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/doctors/patients`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPatientsList(Array.isArray(data) ? data : []);
+      } else {
+        setError("Failed to fetch patient records from the database.");
       }
-
-      // Fetch pharmacies count if endpoint exists
-      const resPharmacies = await fetch(`${apiUrl}/api/pharmacies`);
-      if (resPharmacies.ok) {
-        const pharmData = await resPharmacies.json();
-        if (Array.isArray(pharmData)) {
-          setPharmaciesCount(pharmData.length);
-        }
-      }
-
-    } catch (err: any) {
-      console.warn("Using fallback local dashboard cache:", err.message);
-      setError("Running on offline preview cache (Backend loading...)");
+    } catch (err) {
+      console.error("Network error fetching patients:", err);
+      setError("Network error connecting to backend API.");
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchAppointments = async () => {
+    setAppointmentsLoading(true);
+    setAppointmentError("");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/doctors/appointments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAppointmentsList(Array.isArray(data) ? data : []);
+      } else {
+        setAppointmentError("Failed to fetch upcoming appointments.");
+      }
+    } catch (err) {
+      console.error("Network error fetching appointments:", err);
+      setAppointmentError("Network error connecting to backend API.");
+    } finally {
+      setAppointmentsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchDashboardData();
+    fetchDoctorProfile();
+    fetchPatients();
+    fetchAppointments();
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    router.push("/doctors/login");
-  };
-
-  const handleOpenChart = (patientName: string) => {
-    alert(`Opening clinical chart workspace for ${patientName}`);
-  };
+  const filteredPatients = patientsList.filter((pat) => {
+    const matchesSearch =
+      pat.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      pat.condition?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      pat.id?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = selectedStatus === "All" || pat.status === selectedStatus;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
-    <div className="space-y-8">
-      {/* Top Welcome Banner */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="max-w-6xl mx-auto space-y-6">
+      
+      {/* Welcome Message Card - Dynamically Bound */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-6 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <button 
-              onClick={() => router.back()}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition cursor-pointer"
-            >
-              <ArrowLeft size={12} /> Back
-            </button>
-            <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">/ Overview / Hospital Workspace</span>
-          </div>
-          <h2 className="text-2xl font-extrabold text-slate-900 mt-1">Welcome back, {doctorName}</h2>
-          {error && <p className="text-xs text-amber-600 font-medium mt-1">{error}</p>}
+          <h2 className="text-xl font-extrabold">
+            Welcome back, {doctor?.name ? `Dr. ${doctor.name}` : "Doctor"}
+          </h2>
+          <p className="text-xs text-blue-100 mt-1">Here is the overview of your assigned patients and clinical records for today.</p>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1 bg-white/10 border border-white/20 rounded-xl text-xs font-semibold">
+            Portal Active
+          </span>
+        </div>
+      </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
-            <div className="h-10 w-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm">
-              {doctorInitials}
+      {/* Upcoming Appointments Widget Section */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Calendar size={18} />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-900">{doctorName}</p>
-              <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span> Active Admin
-              </span>
+              <h2 className="text-base font-extrabold text-gray-900">Upcoming Appointments</h2>
+              <p className="text-xs text-gray-500">Newly booked patient sessions requiring your attention</p>
             </div>
           </div>
-
           <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+            onClick={fetchAppointments}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition cursor-pointer"
           >
-            <LogOut size={16} /> Logout
+            <RefreshCw size={14} className={appointmentsLoading ? "animate-spin" : ""} /> Refresh
+          </button>
+        </div>
+
+        {appointmentError && (
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+            <AlertCircle size={16} /> {appointmentError}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {appointmentsLoading ? (
+            <div className="col-span-3 text-center py-8 text-gray-400 font-bold text-xs bg-gray-50 rounded-xl border border-gray-100">
+              Loading upcoming appointments...
+            </div>
+          ) : appointmentsList.length === 0 ? (
+            <div className="col-span-3 text-center py-8 text-gray-400 font-bold text-xs bg-gray-50 rounded-xl border border-gray-100">
+              No new appointments booked for your schedule.
+            </div>
+          ) : (
+            appointmentsList.map((apt) => (
+              <div key={apt.id} className="bg-gray-50 border border-gray-200/80 rounded-xl p-4 flex flex-col justify-between gap-3 hover:border-blue-300 transition">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-xs">{apt.patientName}</h3>
+                    <p className="text-[11px] text-blue-600 font-semibold">{apt.type}</p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                    apt.status === "Confirmed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                  }`}>
+                    {apt.status}
+                  </span>
+                </div>
+
+                <div className="space-y-1 text-[11px] text-gray-600 border-t border-gray-200/60 pt-2">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar size={12} className="text-gray-400" />
+                    <span>{apt.date}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={12} className="text-gray-400" />
+                    <span>{apt.time}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                    <Phone size={10} /> {apt.phone || "No phone"}
+                  </span>
+                  <span className="text-xs font-bold text-blue-600 hover:underline cursor-pointer flex items-center gap-0.5">
+                    Details <ChevronRight size={12} />
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+        <div>
+          <span className="text-xs uppercase tracking-wider text-blue-600 font-bold block mb-1">Clinical Directory</span>
+          <h1 className="text-xl font-extrabold text-gray-900">Patient Records</h1>
+          <p className="text-xs text-gray-500 mt-1">Access clinical histories, past diagnoses, and medical files for patients you have seen.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="px-3.5 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl border border-blue-100">
+            Total Active: {patientsList.length}
+          </span>
+          <button
+            onClick={fetchPatients}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition cursor-pointer"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
           </button>
         </div>
       </div>
 
-      {/* Top 4 Stat Blocks */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Doctors</p>
-            <h3 className="text-2xl font-extrabold text-slate-900 mt-1">{totalDoctorsCount}</h3>
-            <span className="text-xs text-blue-600 font-medium mt-1 inline-block">Registered active practitioners</span>
-          </div>
-          <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-            <Users className="h-6 w-6" />
-          </div>
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
+
+      {/* Search & Filter Toolbar */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="relative w-full md:w-96">
+          <Search className="absolute left-3.5 top-3 text-gray-400" size={16} />
+          <input
+            type="text"
+            placeholder="Search by patient name, ID, or condition..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+          />
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Staffs</p>
-            <h3 className="text-2xl font-extrabold text-slate-900 mt-1">5,453</h3>
-            <span className="text-xs text-amber-600 font-medium mt-1 inline-block">8 Staffs on vacation</span>
-          </div>
-          <div className="h-12 w-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
-            <UserCheck className="h-6 w-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Patients</p>
-            <h3 className="text-2xl font-extrabold text-slate-900 mt-1">{totalPatientsCount}</h3>
-            <span className="text-xs text-emerald-600 font-medium mt-1 inline-block">Synced from queue records</span>
-          </div>
-          <div className="h-12 w-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
-            <Activity className="h-6 w-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pharmacies</p>
-            <h3 className="text-2xl font-extrabold text-slate-900 mt-1">{pharmaciesCount}</h3>
-            <span className="text-xs text-indigo-600 font-medium mt-1 inline-block">Partner locations</span>
-          </div>
-          <div className="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-            <Building2 className="h-6 w-6" />
-          </div>
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
+          {statuses.map((status) => (
+            <button
+              key={status}
+              onClick={() => setSelectedStatus(status)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                selectedStatus === status
+                  ? "bg-blue-600 text-white shadow"
+                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+              }`}
+            >
+              {status}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Middle Section: Hospital Report & Success Stats Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2 space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-base font-bold text-slate-900">Hospital Report & Alerts</h3>
-            <span className="text-xs text-blue-600 font-semibold cursor-pointer">View All</span>
+      {/* Patients Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {loading ? (
+          <div className="col-span-2 text-center py-16 bg-white border border-gray-200 rounded-2xl text-gray-400 font-bold text-xs">
+            Fetching patient records from database...
           </div>
-          <div className="space-y-3">
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Activity size={18} /></div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">Room 501 AC is not working</p>
-                  <p className="text-xs text-slate-400">Reported by Steve</p>
+        ) : filteredPatients.length === 0 ? (
+          <div className="col-span-2 text-center py-16 bg-white border border-gray-200 rounded-2xl text-gray-400 font-bold text-xs">
+            No patient records found for your account.
+          </div>
+        ) : (
+          filteredPatients.map((pat) => (
+            <div
+              key={pat.id}
+              className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <span className="text-xs font-bold text-gray-400">{pat.id}</span>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                    pat.status === "Stable"
+                      ? "bg-green-50 text-green-700 border border-green-100"
+                      : pat.status === "Under Observation"
+                      ? "bg-amber-50 text-amber-700 border border-amber-100"
+                      : "bg-red-50 text-red-700 border border-red-100"
+                  }`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${
+                      pat.status === "Stable" ? "bg-green-500" : pat.status === "Under Observation" ? "bg-amber-500" : "bg-red-500"
+                    }`} />
+                    {pat.status}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                    {pat.name ? pat.name.split(" ").map(n => n[0]).join("") : "PT"}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-sm">{pat.name}</h3>
+                    <p className="text-xs text-gray-500">{pat.gender}, {pat.age} yrs • <span className="text-blue-600 font-semibold">{pat.condition}</span></p>
+                  </div>
+                </div>
+
+                {/* Vitals Quick Preview */}
+                <div className="grid grid-cols-3 gap-2 bg-gray-50 border border-gray-100 rounded-xl p-3 mb-4 text-center">
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-bold block uppercase">BP</span>
+                    <span className="text-xs font-bold text-gray-800">{pat.vitals?.bp || "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-bold block uppercase">Heart Rate</span>
+                    <span className="text-xs font-bold text-gray-800">{pat.vitals?.heartRate || "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-bold block uppercase">Temp</span>
+                    <span className="text-xs font-bold text-gray-800">{pat.vitals?.temp || "N/A"}</span>
+                  </div>
                 </div>
               </div>
-              <span className="text-xs font-bold bg-amber-50 text-amber-600 px-2.5 py-1 rounded-md">Pending</span>
+
+              <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                  <Calendar size={12} /> Last Visit: {pat.lastVisit}
+                </span>
+                <button
+                  onClick={() => setActivePatient(pat)}
+                  className="inline-flex items-center gap-1 px-3.5 py-2 bg-gray-900 hover:bg-blue-600 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-sm"
+                >
+                  View Full Chart <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Patient Detail Modal */}
+      {activePatient && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white border border-gray-200 rounded-2xl max-w-xl w-full p-6 shadow-xl space-y-6">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <div>
+                <span className="text-xs text-blue-600 font-bold uppercase">{activePatient.id}</span>
+                <h2 className="text-lg font-extrabold text-gray-900">{activePatient.name}</h2>
+              </div>
+              <button
+                onClick={() => setActivePatient(null)}
+                className="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-xs transition cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 text-purple-600 rounded-lg"><Clock size={18} /></div>
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Daniel extended his holiday</p>
-                  <p className="text-xs text-slate-400">Reported by Andrew</p>
+                  <span className="text-gray-400 block font-semibold mb-1">Contact Information</span>
+                  <p className="text-gray-800 flex items-center gap-1.5"><Phone size={12} /> {activePatient.phone}</p>
+                  <p className="text-gray-800 flex items-center gap-1.5 mt-1"><Mail size={12} /> {activePatient.email}</p>
+                </div>
+                <div>
+                  <span className="text-gray-400 block font-semibold mb-1">Clinical Status</span>
+                  <p className="text-gray-900 font-bold">{activePatient.condition}</p>
+                  <p className="text-blue-600 font-semibold mt-1">Status: {activePatient.status}</p>
                 </div>
               </div>
-              <span className="text-xs font-bold bg-blue-50 text-blue-600 px-2.5 py-1 rounded-md">Logged</span>
+
+              <div>
+                <h4 className="font-bold text-gray-900 mb-2">Recorded Vitals</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 border border-gray-200 rounded-xl text-center">
+                    <span className="text-[10px] text-gray-400 font-bold block">Blood Pressure</span>
+                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals?.bp || "N/A"}</span>
+                  </div>
+                  <div className="p-3 border border-gray-200 rounded-xl text-center">
+                    <span className="text-[10px] text-gray-400 font-bold block">Heart Rate</span>
+                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals?.heartRate || "N/A"}</span>
+                  </div>
+                  <div className="p-3 border border-gray-200 rounded-xl text-center">
+                    <span className="text-[10px] text-gray-400 font-bold block">Temperature</span>
+                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals?.temp || "N/A"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+              <button
+                onClick={() => setActivePatient(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  alert(`Downloading clinical report for ${activePatient.name}`);
+                  setActivePatient(null);
+                }}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileText size={14} /> Download Clinical Report
+              </button>
             </div>
           </div>
         </div>
+      )}
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-          <h3 className="text-base font-bold text-slate-900">Success Stats</h3>
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
-                <span>Anesthetics</span>
-                <span>83%</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-blue-600 h-full rounded-full" style={{ width: "83%" }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
-                <span>Gynecology</span>
-                <span>95%</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-blue-600 h-full rounded-full" style={{ width: "95%" }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
-                <span>Neurology</span>
-                <span>100%</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-emerald-600 h-full rounded-full" style={{ width: "100%" }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
-                <span>Orthopedics</span>
-                <span>97%</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-blue-600 h-full rounded-full" style={{ width: "97%" }}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Online Appointments Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900">Online Appointment Queue</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Live tracking schedule synced from backend database.</p>
-          </div>
-          <button 
-            onClick={fetchDashboardData} 
-            disabled={loading}
-            className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 font-medium bg-blue-50 px-3 py-1.5 rounded-lg transition cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            <span>{loading ? "Syncing..." : "Refresh"}</span>
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-100">
-                <th className="py-4 px-6">No.</th>
-                <th className="py-4 px-6">Patient Name</th>
-                <th className="py-4 px-6">Schedule Time</th>
-                <th className="py-4 px-6">Age</th>
-                <th className="py-4 px-6">Gender</th>
-                <th className="py-4 px-6">Assigned Doctor</th>
-                <th className="py-4 px-6 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {appointments.map((appt, idx) => (
-                <tr key={appt.id || idx} className="hover:bg-slate-50/50 transition">
-                  <td className="py-4 px-6 font-bold text-slate-500">0{idx + 1}</td>
-                  <td className="py-4 px-6 font-semibold text-slate-900">{appt.patient_name}</td>
-                  <td className="py-4 px-6 text-slate-600 flex items-center gap-1.5 pt-5">
-                    <CalendarDays size={14} className="text-blue-500" /> {appt.schedule}
-                  </td>
-                  <td className="py-4 px-6 text-slate-600">{appt.age}</td>
-                  <td className="py-4 px-6 text-slate-600">{appt.gender}</td>
-                  <td className="py-4 px-6 text-slate-700 font-medium">{doctorName}</td>
-                  <td className="py-4 px-6 text-right">
-                    <button
-                      onClick={() => handleOpenChart(appt.patient_name)}
-                      className="px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-semibold transition shadow-sm cursor-pointer"
-                    >
-                      Open Chart
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }
