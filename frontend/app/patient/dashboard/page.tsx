@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Heart, Activity, TrendingUp, Calendar, FileText, 
-  ArrowRight, ShieldCheck, User 
+  ArrowRight, ShieldCheck, User, LogOut, ArrowLeft 
 } from "lucide-react";
 
 export default function PatientDashboardPage() {
@@ -18,16 +18,42 @@ export default function PatientDashboardPage() {
     }
   }, []);
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("userName");
+    localStorage.removeItem("patient_name");
+    router.push("/login");
+  };
+
   return (
     <div className="space-y-8">
-      {/* Welcome Banner */}
-      <div>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-          Welcome Back, {userName}
-        </h1>
-        <p className="text-xs font-bold text-slate-400 mt-1">
-          Here is a summary of your health profile and recent visits.
-        </p>
+      {/* Top Header Row with Welcome Banner & Action Buttons */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+            Welcome Back, {userName}
+          </h1>
+          <p className="text-xs font-bold text-slate-400 mt-1">
+            Here is a summary of your health profile and recent visits.
+          </p>
+        </div>
+        
+        {/* Navigation / Session Actions */}
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <button
+            onClick={() => router.back()}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer"
+          >
+            <ArrowLeft size={16} /> Back
+          </button>
+          <button
+            onClick={handleLogout}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 rounded-2xl text-xs font-bold transition cursor-pointer shadow-sm"
+          >
+            <LogOut size={16} /> Log Out
+          </button>
+        </div>
       </div>
 
       {/* Main Stats / Overview Grid */}

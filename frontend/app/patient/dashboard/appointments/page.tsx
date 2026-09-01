@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Video, Plus, Clock } from "lucide-react";
+import { Calendar, Video, Plus, Clock, ArrowLeft, LogOut } from "lucide-react";
 
 interface Appointment {
   id: number;
@@ -49,6 +49,12 @@ export default function PatientAppointmentsPage() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    router.push("/login");
+  };
+
   const getStatusBadge = (status: string) => {
     const s = status ? status.toLowerCase() : "pending";
     if (s === "confirmed") {
@@ -64,7 +70,23 @@ export default function PatientAppointmentsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Top Actions Row: Back & Log Out */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+        >
+          <ArrowLeft size={16} /> Back
+        </button>
+        <button
+          onClick={handleLogout}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold transition cursor-pointer"
+        >
+          <LogOut size={16} /> Log Out
+        </button>
+      </div>
+
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
