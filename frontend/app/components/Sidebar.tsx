@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, Users, FileText, Settings, LogOut, Video, Pill } from "lucide-react";
+import { LayoutDashboard, Calendar, CalendarCheck, Users, FileText, Settings, LogOut, Video, Pill } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -42,7 +42,8 @@ export default function Sidebar() {
 
   const patientMenuItems = [
     { name: "My Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "My Appointments", href: "/dashboard/appointments", icon: Calendar },
+    { name: "Book Appointment", href: "/dashboard/appointments/book", icon: Calendar },
+    { name: "Booked Consultations", href: "/dashboard/appointments", icon: CalendarCheck },
     { name: "Telehealth Room", href: "/telehealth", icon: Video },
     { name: "Pharmacy Store", href: "/medicines", icon: Pill },
     { name: "Medical Records", href: "/data", icon: FileText },
