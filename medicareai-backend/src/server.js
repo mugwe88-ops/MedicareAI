@@ -391,7 +391,6 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
 });
 
 // Express route for /api/doctors/me
-// Express route for /api/doctors/me
 app.get("/api/doctors/me", verifyToken, async (req, res) => {
   try {
     // Extract ID safely from decoded JWT payload
@@ -986,8 +985,6 @@ app.get("/api/my-appointments", verifyToken, async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
-
-// Add this inside src/routes/doctors.routes.js or your main server file
 
 // Reusable Appointment Booking Controller Handler
 const createAppointmentHandler = async (req, res) => {
