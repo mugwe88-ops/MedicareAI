@@ -41,11 +41,32 @@ router.get("/patients", authenticateToken, async (req, res) => {
     const doctorId = req.user.id;
 
     const result = await pool.query(
-      `SELECT * FROM patients WHERE doctor_id = $1 ORDER BY created_at DESC`,
+      `SELECT id, patient_code as id_str, name, age, gender, condition, last_visit, phone, email, status, bp, heart_rate, temp 
+       FROM patients 
+       WHERE doctor_id = $1 
+       ORDER BY created_at DESC`,
       [doctorId]
     );
 
-    res.json(result.rows);
+    // Map rows to match the frontend TypeScript interface structure
+    const formattedPatients = result.rows.map(row => ({
+      id: row.id_str || `PT-00${row.id}`,
+      name: row.name,
+      age: row.age || 30,
+      gender: row.gender || 'Not Specified',
+      condition: row.condition || 'General Evaluation',
+      lastVisit: row.last_visit || 'Recent',
+      phone: row.phone || 'N/A',
+      email: row.email || 'N/A',
+      status: row.status || 'Stable',
+      vitals: {
+        bp: row.bp || '120/80 mmHg',
+        heartRate: row.heart_rate || '72 bpm',
+        temp: row.temp || '98.6°F'
+      }
+    }));
+
+    res.json(formattedPatients);
   } catch (err) {
     console.error("Error fetching patient records:", err);
     res.status(500).json({ message: "Failed to fetch patient records from the database." });
