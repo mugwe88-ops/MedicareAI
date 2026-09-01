@@ -214,72 +214,37 @@ router.post("/book", authenticateToken, async (req, res) => {
 
 /* ================= GET FILTERED / MY APPOINTMENTS ================= */
 router.get("/", authenticateToken, async (req, res) => {
-  const { patient_id, doctor_id } = req.query;
-
   try {
-    let query = `
-      SELECT 
-        a.*, 
-        COALESCE(d.name, 'Assigned Physician') AS doctor_name,
-        COALESCE(a.department, 'General Medicine') AS department,
-        COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
-        COALESCE(a.phone, u.phone, 'N/A') AS phone,
-        u.medical_history AS patient_medical_history,
-        u.age AS patient_age
-      FROM appointments a
-      LEFT JOIN users u ON a.patient_id = u.id
-      LEFT JOIN users d ON a.doctor_id = d.id
-    `;
-    let params = [];
+    const userId = parseInt(req.user.userId, 10);
+    const userRole = req.user.role?.toLowerCase();
 
-    const targetPatientId = patient_id ? parseInt(patient_id, 10) : parseInt(req.user.userId, 10);
+    let query = "";
+    let queryParams = [];
 
-    if (req.user.role?.toLowerCase() === "patient") {
-      query += " WHERE a.patient_id = $1";
-      params.push(targetPatientId);
-    } else if (doctor_id) {
-      query += " WHERE a.doctor_id = $1";
-      params.push(parseInt(doctor_id, 10));
+    if (userRole === "doctor") {
+      query = `
+        SELECT a.*, COALESCE(u.name, 'Patient') as patient_name 
+        FROM appointments a 
+        LEFT JOIN users u ON a.patient_id = u.id 
+        WHERE a.doctor_id = $1 
+        ORDER BY a.appointment_date DESC, a.appointment_time DESC`;
+      queryParams = [userId];
+    } else {
+      // Patient view: Join with doctors table to return correct doctor_name
+      query = `
+        SELECT a.*, COALESCE(d.name, 'Assigned Doctor') as doctor_name 
+        FROM appointments a 
+        LEFT JOIN doctors d ON a.doctor_id = d.id 
+        WHERE a.patient_id = $1 
+        ORDER BY a.appointment_date DESC, a.appointment_time DESC`;
+      queryParams = [userId];
     }
 
-    query += " ORDER BY a.appointment_date DESC, a.appointment_time DESC";
-    
-    const result = await pool.query(query, params);
-    return res.json(result.rows);
+    const result = await pool.query(query, queryParams);
+    return res.json(result.rows || []);
   } catch (err) {
-    console.error("Fetch Error:", err.message);
-    return res.status(500).json({ error: "Could not fetch appointments", details: err.message });
-  }
-});
-
-/* ================= GET SINGLE APPOINTMENT BY ID ================= */
-router.get("/:id", authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const query = `
-      SELECT 
-        a.*, 
-        COALESCE(d.name, 'Assigned Physician') AS doctor_name,
-        COALESCE(a.department, 'General Medicine') AS department,
-        COALESCE(a.patient_name, u.name, 'Unknown Patient') AS patient_name,
-        COALESCE(a.phone, u.phone, 'N/A') AS phone,
-        u.medical_history AS patient_medical_history,
-        u.age AS patient_age
-      FROM appointments a
-      LEFT JOIN users u ON a.patient_id = u.id
-      LEFT JOIN users d ON a.doctor_id = d.id
-      WHERE a.id = $1
-    `;
-    const { rows } = await pool.query(query, [parseInt(id, 10)]);
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Appointment not found" });
-    }
-
-    return res.json(rows[0]);
-  } catch (err) {
-    console.error("Error fetching appointment detail:", err.message);
-    return res.status(500).json({ error: "Server error fetching appointment details" });
+    console.error("Fetch Appointments Error:", err.message);
+    return res.status(500).json({ error: "Could not fetch appointments." });
   }
 });
 

@@ -39,27 +39,22 @@ const COMMON_SYMPTOMS = [
 export default function AppointmentsPage() {
   const router = useRouter();
 
-  // Form & Data State
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   
-  // Directly selected schedule info
   const [selectedSlot, setSelectedSlot] = useState<{ day: string; time: string } | null>(null);
   const [reason, setReason] = useState<string>("");
 
-  // Enhanced Quick-Symptom Pre-Screening State
   const [symptomSeverity, setSymptomSeverity] = useState<string>("Moderate");
   const [symptomDuration, setSymptomDuration] = useState<string>("1-3 days");
   const [bodySystem, setBodySystem] = useState<string>("General / Systemic");
   const [associatedSymptoms, setAssociatedSymptoms] = useState<string[]>([]);
   const [painScale, setPainScale] = useState<number>(3);
 
-  // Booked Consultations State
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [loadingConsultations, setLoadingConsultations] = useState<boolean>(true);
 
-  // UI State
   const [loadingDoctors, setLoadingDoctors] = useState<boolean>(true);
   const [loadingSchedule, setLoadingSchedule] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -68,7 +63,6 @@ export default function AppointmentsPage() {
 
   const API_BASE = "https://medicareai-1.onrender.com";
 
-  // Helper function to calculate the next calendar date matching a day name (e.g. "Tuesday")
   const getNextDateForDay = (dayName: string): string => {
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const targetDayIndex = days.findIndex(
@@ -79,7 +73,7 @@ export default function AppointmentsPage() {
     const today = new Date();
     const currentDayIndex = today.getDay();
     let distance = targetDayIndex - currentDayIndex;
-    if (distance <= 0) distance += 7; // Target next upcoming instance of that day
+    if (distance <= 0) distance += 7;
 
     const nextDate = new Date(today);
     nextDate.setDate(today.getDate() + distance);
@@ -90,10 +84,9 @@ export default function AppointmentsPage() {
     return `${year}-${month}-${day}`;
   };
 
-  // Helper function to generate a direct Google Calendar URL
   const getGoogleCalendarUrl = (doctorName: string, date: string, time: string, visitReason: string) => {
-    const cleanDate = date.replace(/-/g, ""); // e.g. 20260901
-    const cleanTime = time.replace(/:/g, "") + "00"; // e.g. 100000
+    const cleanDate = date.replace(/-/g, "");
+    const cleanTime = time.replace(/:/g, "") + "00";
     const startDateTime = `${cleanDate}T${cleanTime}`;
     
     const title = encodeURIComponent(`Consultation with Dr. ${doctorName}`);
@@ -103,14 +96,29 @@ export default function AppointmentsPage() {
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDateTime}/${startDateTime}&details=${details}&location=${location}`;
   };
 
-  // Toggle associated symptom checkboxes
   const handleSymptomToggle = (sym: string) => {
     setAssociatedSymptoms((prev) =>
       prev.includes(sym) ? prev.filter((s) => s !== sym) : [...prev, sym]
     );
   };
 
-  // 1. Load Doctor List & Booked Consultations on Mount & Verify Session Token
+  const fetchConsultations = async (token: string) => {
+    try {
+      setLoadingConsultations(true);
+      const res = await fetch(`${API_BASE}/api/appointments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load consultations");
+      const data = await res.json();
+      const apptList = Array.isArray(data) ? data : data.appointments || [];
+      setConsultations(apptList);
+    } catch (err) {
+      console.error("Consultations Fetch Error:", err);
+    } finally {
+      setLoadingConsultations(false);
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("token") || localStorage.getItem("jwt");
     if (!token) {
@@ -119,7 +127,6 @@ export default function AppointmentsPage() {
       return;
     }
 
-    // Fetch Doctors List
     setLoadingDoctors(true);
     fetch(`${API_BASE}/api/doctors-list`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -139,29 +146,9 @@ export default function AppointmentsPage() {
         setLoadingDoctors(false);
       });
 
-    // Fetch User's Booked Consultations
-    setLoadingConsultations(true);
-    fetch(`${API_BASE}/api/appointments`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load consultations");
-        return res.json();
-      })
-      .then((data) => {
-        const apptList = Array.isArray(data) ? data : data.appointments || [];
-        setConsultations(apptList);
-        setLoadingConsultations(false);
-      })
-      .catch((err) => {
-        console.error("Consultations Fetch Error:", err);
-        setLoadingConsultations(false);
-      });
+    fetchConsultations(token);
   }, [router]);
 
-  // 2. Fetch Active Schedule when Doctor is Selected
   const handleDoctorSelect = async (doctorId: string) => {
     setSelectedDoctorId(doctorId);
     setSelectedSlot(null);
@@ -185,7 +172,6 @@ export default function AppointmentsPage() {
     }
   };
 
-  // 3. Handle Appointment Booking Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
@@ -203,8 +189,8 @@ export default function AppointmentsPage() {
     }
 
     const calculatedDate = getNextDateForDay(selectedSlot.day);
+    const doc = doctors.find((d) => String(d.id) === selectedDoctorId);
 
-    // Combine clinical screening details into a rich reason string for the doctor view
     const formattedSymptoms = associatedSymptoms.length > 0 ? associatedSymptoms.join(", ") : "None";
     const comprehensiveReason = [
       reason.trim() ? `Chief Complaint: ${reason}` : "Chief Complaint: General Consultation",
@@ -225,6 +211,7 @@ export default function AppointmentsPage() {
         },
         body: JSON.stringify({
           doctor_id: parseInt(selectedDoctorId, 10),
+          department: doc?.specialization || "General Medicine",
           appointment_date: calculatedDate,
           appointment_time: selectedSlot.time,
           reason: comprehensiveReason,
@@ -240,7 +227,12 @@ export default function AppointmentsPage() {
       if (!res.ok) throw new Error(data.error || "Booking failed");
 
       setSuccessMsg(`Appointment booked for ${selectedSlot.day} (${calculatedDate}) at ${selectedSlot.time}!`);
-      setTimeout(() => window.location.reload(), 1500);
+      
+      // Instantly re-fetch appointments list to include the newly booked item without full reload
+      await fetchConsultations(token);
+      
+      setSelectedSlot(null);
+      setReason("");
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to issue appointment.");
     } finally {
@@ -250,7 +242,6 @@ export default function AppointmentsPage() {
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 sm:p-8 space-y-8 my-4 sm:my-8">
-      {/* BOOK APPOINTMENT CARD */}
       <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl p-6 sm:p-8">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Book Appointment</h2>
         <p className="text-xs sm:text-sm text-blue-400 mb-6 font-medium uppercase tracking-wide">
@@ -266,7 +257,6 @@ export default function AppointmentsPage() {
         {successMsg && (
           <div className="mb-6 p-4 bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-sm rounded-xl space-y-3">
             <p>✅ {successMsg}</p>
-
             {selectedSlot && selectedDoctorId && (
               <div>
                 {(() => {
@@ -296,7 +286,6 @@ export default function AppointmentsPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* SELECT DOCTOR */}
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
               Select Doctor
@@ -318,7 +307,6 @@ export default function AppointmentsPage() {
             </select>
           </div>
 
-          {/* CLICK-TO-SELECT PRACTICE SCHEDULE */}
           {selectedDoctorId && (
             <div>
               <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
@@ -370,7 +358,6 @@ export default function AppointmentsPage() {
             </div>
           )}
 
-          {/* ADVANCED SYMPTOMS CHECKER: BODY SYSTEM & SEVERITY / DURATION */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
             <div>
               <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
@@ -422,7 +409,6 @@ export default function AppointmentsPage() {
             </div>
           </div>
 
-          {/* COMMON ASSOCIATED SYMPTOMS QUICK TOGGLES */}
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
               Common Associated Symptoms (Select all that apply)
@@ -448,7 +434,6 @@ export default function AppointmentsPage() {
             </div>
           </div>
 
-          {/* PAIN SCALE SLIDER (0 - 10) */}
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="block text-xs font-bold uppercase text-slate-400">
@@ -470,16 +455,8 @@ export default function AppointmentsPage() {
               onChange={(e) => setPainScale(parseInt(e.target.value, 10))}
               className="w-full accent-blue-500 bg-slate-800 cursor-pointer h-2 rounded-lg"
             />
-            <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
-              <span>0 (None)</span>
-              <span>3 (Mild)</span>
-              <span>6 (Moderate)</span>
-              <span>8 (Severe)</span>
-              <span>10 (Emergency)</span>
-            </div>
           </div>
 
-          {/* REASON FOR VISIT */}
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
               Reason for Visit / Detailed Symptoms
@@ -493,7 +470,6 @@ export default function AppointmentsPage() {
             />
           </div>
 
-          {/* SUBMIT BUTTON */}
           <button
             type="submit"
             disabled={!selectedDoctorId || !selectedSlot || isSubmitting}
@@ -511,7 +487,6 @@ export default function AppointmentsPage() {
         </form>
       </div>
 
-      {/* YOUR CONSULTATIONS CARD */}
       <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl p-6 sm:p-8">
         <h3 className="text-xl font-bold text-white mb-4">Your Consultations</h3>
 
@@ -544,7 +519,7 @@ export default function AppointmentsPage() {
                       <span className="block text-xs font-normal text-slate-400">{item.department || "General Medicine"}</span>
                     </td>
                     <td className="py-4 text-slate-300 text-xs">
-                      {item.appointment_date ? new Date(item.appointment_date).toLocaleString() : 'Not Scheduled'}
+                      {item.appointment_date ? `${item.appointment_date.split('T')[0]} at ${item.appointment_time || ''}` : 'Not Scheduled'}
                     </td>
                     <td className="py-4">
                       <span className="bg-slate-800 text-slate-300 px-3 py-1 rounded-full text-xs italic">
