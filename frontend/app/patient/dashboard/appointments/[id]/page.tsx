@@ -1,341 +1,272 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { io, Socket } from "socket.io-client";
-import { Video, ArrowLeft, ShieldCheck, UserCheck, Mic, MicOff, Camera, CameraOff } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Calendar, ShieldCheck, ArrowLeft, Clock, User, FileText, AlertCircle } from "lucide-react";
 
-// Free public Google STUN servers to discover peer network paths across the internet
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
-};
-
-export default function PatientRoomPage() {
-  const params = useParams();
+export default function BookAppointmentPage() {
   const router = useRouter();
-  const roomId = params?.id;
 
-  const [appointment, setAppointment] = useState<any>(null);
-  const [errorMsg, setErrorMsg] = useState<string>("");
-  const [callStatus, setCallStatus] = useState<string>("Initializing camera & secure connection...");
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
+  // Form state
+  const [selectedDoctor, setSelectedDoctor] = useState("");
+  const [bodySystem, setBodySystem] = useState("General / Systemic");
+  const [symptomSeverity, setSymptomSeverity] = useState("Moderate");
+  const [symptomDuration, setSymptomDuration] = useState("1-3 days");
+  const [painScale, setPainScale] = useState(3);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
+  const [reasonForVisit, setReasonForVisit] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // Media & WebRTC Refs
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const commonSymptoms = [
+    "Fever",
+    "Fatigue / Weakness",
+    "Shortness of Breath",
+    "Dizziness",
+    "Nausea",
+    "Acute Pain",
+  ];
 
-  const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-1.onrender.com";
+  const handleSymptomToggle = (symptom: string) => {
+    setSelectedSymptoms((prev) =>
+      prev.includes(symptom) ? prev.filter((s) => s !== symptom) : [...prev, symptom]
+    );
+  };
 
-  useEffect(() => {
-    const token = localStorage.getItem("token") || localStorage.getItem("jwt");
-    if (!token) {
-      setErrorMsg("Authentication token missing. Please log in again.");
-      setTimeout(() => router.push("/login"), 2000);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDoctor) {
+      setErrorMessage("Please select a doctor to proceed.");
       return;
     }
 
-    if (!roomId) {
-      setErrorMsg("Invalid consultation room ID.");
-      return;
-    }
+    setIsSubmitting(true);
+    setErrorMessage("");
 
-    // 1. Fetch appointment details matching backend route /api/my-appointments
-    fetch(`${API_BASE}/api/my-appointments`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Could not retrieve consultation details.");
-        return res.json();
-      })
-      .then((data) => {
-        const currentApt = Array.isArray(data) 
-          ? data.find((apt: any) => String(apt.id) === String(roomId))
-          : data;
-        if (currentApt) {
-          setAppointment(currentApt);
-        } else {
-          setAppointment({ id: roomId, doctor_name: "Practitioner" });
-        }
-      })
-      .catch((err) => {
-        console.error("Room details fetch error:", err);
-        setAppointment({ id: roomId, doctor_name: "Practitioner" });
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-1.onrender.com";
+
+      const response = await fetch(`${API_BASE}/api/patient/appointments/book`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          doctor: selectedDoctor,
+          bodySystem,
+          symptomSeverity,
+          symptomDuration,
+          painScale,
+          symptoms: selectedSymptoms,
+          reasonForVisit,
+        }),
       });
 
-    // 2. Connect to the Backend Socket.io Signaling Server
-    socketRef.current = io(API_BASE);
-    const socket = socketRef.current;
-
-    // 3. Request Local Camera & Microphone Access
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        localStreamRef.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-
-        // 4. Join the specific Socket room once media is loaded
-        if (socket) {
-          socket.emit("join-room", roomId);
-          setCallStatus("Waiting for doctor to join session...");
-        }
-      })
-      .catch((err) => {
-        console.error("Media permission error:", err);
-        setErrorMsg("Could not access camera or microphone. Please check browser permissions.");
-      });
-
-    // 5. Setup WebRTC Signaling Event Listeners
-    socket.on("peer-joined", async (peerId) => {
-      setCallStatus("Doctor joined! Establishing secure peer connection...");
-      const pc = createPeerConnection(peerId);
-      peerConnectionRef.current = pc;
-
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        socket.emit("offer", { target: peerId, offer, roomId });
-      } catch (e) {
-        console.error("Error creating offer:", e);
+      if (response.ok) {
+        setSubmitSuccess(true);
+        setTimeout(() => {
+          router.push("/patient/dashboard");
+        }, 1500);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setErrorMessage(errorData.message || "Failed to schedule appointment. Please try again.");
       }
-    });
-
-    socket.on("offer", async ({ offer, sender }) => {
-      setCallStatus("Connecting with doctor...");
-      const pc = createPeerConnection(sender);
-      peerConnectionRef.current = pc;
-
-      try {
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit("answer", { target: sender, answer, roomId });
-      } catch (e) {
-        console.error("Error handling offer:", e);
-      }
-    });
-
-    socket.on("answer", async ({ answer }) => {
-      if (peerConnectionRef.current) {
-        try {
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-          setCallStatus("Live Secure Call Active");
-        } catch (e) {
-          console.error("Error handling answer:", e);
-        }
-      }
-    });
-
-    socket.on("ice-candidate", async ({ candidate }) => {
-      if (peerConnectionRef.current && candidate) {
-        try {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-          console.error("Error adding received ICE candidate:", e);
-        }
-      }
-    });
-
-    // Cleanup on unmount
-    return () => {
-      localStreamRef.current?.getTracks().forEach((track) => track.stop());
-      socket.disconnect();
-    };
-  }, [roomId, router, API_BASE]);
-
-  const createPeerConnection = (peerId: string) => {
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-
-    localStreamRef.current?.getTracks().forEach((track) => {
-      pc.addTrack(track, localStreamRef.current!);
-    });
-
-    pc.ontrack = (event) => {
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      }
-      setCallStatus("Live Secure Call Active");
-    };
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate && socketRef.current) {
-        socketRef.current.emit("ice-candidate", {
-          target: peerId,
-          candidate: event.candidate,
-          roomId,
-        });
-      }
-    };
-
-    return pc;
-  };
-
-  const toggleMute = () => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMuted(!audioTrack.enabled);
-      }
-    }
-  };
-
-  const toggleCamera = () => {
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoOff(!videoTrack.enabled);
-      }
+    } catch (err) {
+      console.error("Booking error:", err);
+      setErrorMessage("Network error. Please check your connection.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-8">
-      {/* Header Banner - Matching Dashboard Uniformity */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="flex-1 flex flex-col p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 overflow-x-hidden bg-slate-50 w-full max-w-full">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-sm">
         <div>
           <button
-            onClick={() => router.push("/patient/dashboard/appointments")}
-            className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 mb-2 cursor-pointer"
+            onClick={() => router.back()}
+            className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 mb-2 cursor-pointer transition-colors"
           >
-            <ArrowLeft size={14} /> Back to Appointments
+            <ArrowLeft size={14} /> Back
           </button>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Telehealth Consultation</h2>
-          <p className="text-slate-400 font-bold text-xs mt-1">
-            Doctor: <span className="text-slate-700">{appointment?.doctor_name || "Practitioner"}</span> | Status: <span className="text-blue-600">{callStatus}</span>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+            Book Appointment
+          </h1>
+          <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">
+            Secure Clinical Entry
           </p>
         </div>
-        <button
-          onClick={() => router.push("/patient/dashboard/appointments")}
-          className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-5 py-3 rounded-2xl text-xs font-bold transition flex items-center gap-2 cursor-pointer self-start"
-        >
-          Leave Room
-        </button>
+
+        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-3.5 py-2 rounded-xl text-xs font-bold self-start sm:self-auto">
+          <ShieldCheck size={16} className="text-emerald-600" />
+          <span>Encrypted Gateway</span>
+        </div>
       </div>
 
-      {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold rounded-2xl">
-          ⚠️ {errorMsg}
-        </div>
-      )}
+      {/* Main Form Container - Light Theme */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-sm max-w-4xl">
+        {submitSuccess && (
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2">
+            ✓ Appointment successfully scheduled! Redirecting to dashboard...
+          </div>
+        )}
 
-      {/* Main Container Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main Video Section */}
-        <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between pb-4 border-b border-slate-50 gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">
-                <Video size={20} />
-              </div>
-              <div>
-                <h3 className="font-black text-slate-900 text-base">Virtual Consultation Room #{roomId}</h3>
-                <p className="text-[11px] font-semibold text-slate-400">Secure Peer-to-Peer Medical Video Gateway</p>
-              </div>
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center gap-2">
+            <AlertCircle size={16} /> {errorMessage}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* SELECT DOCTOR */}
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
+              Select Doctor
+            </label>
+            <select
+              value={selectedDoctor}
+              onChange={(e) => setSelectedDoctor(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition"
+            >
+              <option value="">-- Select Doctor --</option>
+              <option value="Dr. Sarah Jenkins">Dr. Sarah Jenkins (Cardiology)</option>
+              <option value="Dr. Marcus Vance">Dr. Marcus Vance (General Medicine)</option>
+              <option value="Dr. Elena Rostova">Dr. Elena Rostova (Neurology)</option>
+              <option value="Dr. Arthur Pendelton">Dr. Arthur Pendelton (Orthopedics)</option>
+            </select>
+          </div>
+
+          {/* 3 COLUMN INPUTS */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* BODY SYSTEM */}
+            <div className="space-y-2">
+              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
+                Body System
+              </label>
+              <select
+                value={bodySystem}
+                onChange={(e) => setBodySystem(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition"
+              >
+                <option value="General / Systemic">General / Systemic</option>
+                <option value="Cardiovascular">Cardiovascular</option>
+                <option value="Respiratory">Respiratory</option>
+                <option value="Gastrointestinal">Gastrointestinal</option>
+                <option value="Musculoskeletal">Musculoskeletal</option>
+                <option value="Neurological">Neurological</option>
+              </select>
             </div>
-            <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold">
-              <ShieldCheck size={16} /> End-to-End Encrypted
+
+            {/* SYMPTOM SEVERITY */}
+            <div className="space-y-2">
+              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
+                Symptom Severity
+              </label>
+              <select
+                value={symptomSeverity}
+                onChange={(e) => setSymptomSeverity(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition"
+              >
+                <option value="Mild">Mild</option>
+                <option value="Moderate">Moderate</option>
+                <option value="Severe">Severe</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </div>
+
+            {/* SYMPTOM DURATION */}
+            <div className="space-y-2">
+              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
+                Symptom Duration
+              </label>
+              <select
+                value={symptomDuration}
+                onChange={(e) => setSymptomDuration(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition"
+              >
+                <option value="Less than 24 hours">Less than 24 hours</option>
+                <option value="1-3 days">1-3 days</option>
+                <option value="4-7 days">4-7 days</option>
+                <option value="More than 1 week">More than 1 week</option>
+              </select>
             </div>
           </div>
 
-          {/* Video Screen Area */}
-          <div className="bg-slate-900 rounded-3xl aspect-video relative flex flex-col items-center justify-center text-white shadow-inner overflow-hidden">
-            {/* Doctor's Remote Video Stream */}
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover absolute inset-0 z-0 bg-slate-950"
-            />
-
-            {/* Top Overlay Badge */}
-            <div className="absolute top-6 left-6 flex items-center gap-2 bg-slate-800/80 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-semibold border border-slate-700 z-10">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              {callStatus}
+          {/* COMMON ASSOCIATED SYMPTOMS */}
+          <div className="space-y-3">
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
+              Common Associated Symptoms (Select all that apply)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {commonSymptoms.map((symptom) => {
+                const isSelected = selectedSymptoms.includes(symptom);
+                return (
+                  <button
+                    key={symptom}
+                    type="button"
+                    onClick={() => handleSymptomToggle(symptom)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      isSelected
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/80"
+                    }`}
+                  >
+                    + {symptom}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            {/* Fallback state when remote stream isn't active yet */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 pointer-events-none z-0">
-              <div className="w-16 h-16 bg-slate-800/80 rounded-full flex items-center justify-center mx-auto text-slate-400 mb-3">
-                <UserCheck size={28} />
-              </div>
-              <h4 className="font-bold text-sm text-slate-300">Waiting for doctor to join session...</h4>
-              <p className="text-[11px] text-slate-400 mt-1 max-w-xs">The video stream will connect automatically once your practitioner enters the room.</p>
-            </div>
-
-            {/* Patient Local Video Preview Box (PiP) */}
-            <div className="absolute bottom-6 right-6 w-36 h-24 bg-slate-950 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl z-20 flex items-center justify-center">
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
-              <span className="absolute bottom-1 left-2 bg-black/70 px-1.5 py-0.5 rounded text-[9px] text-white font-bold">
-                You (Patient)
+          {/* PAIN SCALE */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">
+                Pain Scale (0 = None, 10 = Unbearable)
+              </label>
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-3 py-1 rounded-full text-xs font-black">
+                Level: {painScale} / 10
               </span>
             </div>
-
-            {/* Floating Control Bar */}
-            <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 px-4 py-2.5 rounded-2xl shadow-xl z-30">
-              <button
-                onClick={toggleMute}
-                className={`px-3 py-2 rounded-xl transition text-xs font-bold flex items-center gap-1.5 cursor-pointer ${
-                  isMuted ? "bg-rose-500 text-white" : "bg-slate-800 text-slate-200 hover:bg-slate-700"
-                }`}
-                title="Toggle Mic"
-              >
-                {isMuted ? <MicOff size={14} /> : <Mic size={14} />}
-                {isMuted ? "Unmute" : "Mute"}
-              </button>
-              <button
-                onClick={toggleCamera}
-                className={`px-3 py-2 rounded-xl transition text-xs font-bold flex items-center gap-1.5 cursor-pointer ${
-                  isVideoOff ? "bg-rose-500 text-white" : "bg-slate-800 text-slate-200 hover:bg-slate-700"
-                }`}
-                title="Toggle Camera"
-              >
-                {isVideoOff ? <CameraOff size={14} /> : <Camera size={14} />}
-                {isVideoOff ? "Camera On" : "Camera Off"}
-              </button>
-              <button
-                onClick={() => router.push("/patient/dashboard/appointments")}
-                className="px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-md"
-              >
-                End Call
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Consultation Notes Sidebar */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between space-y-6">
-          <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 border-b border-slate-50 pb-3">
-              Consultation Notes
-            </h3>
-            <p className="text-xs text-slate-600 font-medium bg-slate-50 p-4 rounded-2xl border border-slate-100 leading-relaxed">
-              {appointment?.medical_history || "No clinical notes added yet for this session."}
-            </p>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              value={painScale}
+              onChange={(e) => setPainScale(Number(e.target.value))}
+              className="w-full accent-blue-600 bg-slate-200 rounded-lg h-2 cursor-pointer"
+            />
           </div>
 
-          <div className="p-4 bg-blue-50/60 border border-blue-100 rounded-2xl space-y-1">
-            <h4 className="text-xs font-bold text-blue-900">Secure WebRTC Gateway</h4>
-            <p className="text-[11px] text-blue-600 leading-relaxed font-medium">
-              Your video consultation is routed securely through direct client encryption nodes.
-            </p>
+          {/* REASON FOR VISIT */}
+          <div className="space-y-2 pt-2">
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
+              Reason for Visit / Detailed Symptoms
+            </label>
+            <textarea
+              rows={4}
+              value={reasonForVisit}
+              onChange={(e) => setReasonForVisit(e.target.value)}
+              placeholder="Describe your symptoms in detail..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition resize-none"
+            />
           </div>
-        </div>
+
+          {/* SUBMIT BUTTON */}
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full sm:w-auto px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition cursor-pointer disabled:opacity-50"
+            >
+              {isSubmitting ? "Submitting Request..." : "Confirm & Book Appointment"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
