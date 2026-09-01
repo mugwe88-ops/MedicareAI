@@ -1,5 +1,8 @@
 "use client";
+
+import { useState } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -8,11 +11,14 @@ import {
   DollarSign, 
   BookOpen, 
   Settings, 
-  Bell
+  Bell,
+  Menu,
+  X
 } from "lucide-react";
 
 export default function DoctorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
     { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
@@ -21,13 +27,50 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     { name: "Messaging Center", href: "/doctors/dashboard/messages", icon: MessageSquare },
     { name: "Earnings & Payments", href: "/doctors/dashboard/earnings", icon: DollarSign },
     { name: "Continuing Education", href: "/doctors/dashboard/resources", icon: BookOpen },
-    { name: "Profile & Availability", href: "/doctors/dashboard/settings", icon: Settings },
+    { name: "Profile & Availability", href: "/doctors/dashboard/profile", icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar Navigation */}
-      <aside className="w-64 bg-[#0B132B] text-white flex flex-col justify-between hidden md:flex shrink-0">
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
+      
+      {/* Mobile Top Navigation Bar */}
+      <div className="md:hidden bg-[#0B132B] text-white px-4 py-3 flex items-center justify-between border-b border-gray-800 sticky top-0 z-50">
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 text-gray-300 hover:text-white bg-gray-800/80 rounded-xl transition cursor-pointer"
+            aria-label="Toggle Menu"
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+          <div>
+            <span className="text-[10px] tracking-wider text-blue-400 font-semibold uppercase block">Swift MD</span>
+            <h1 className="text-sm font-bold tracking-tight text-white">Doctor Workspace</h1>
+          </div>
+        </div>
+        <div className="flex items-center space-x-3">
+          <button className="relative p-2 text-gray-300 hover:bg-gray-800 rounded-full transition cursor-pointer">
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-0.5 right-0.5 h-4 w-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">7</span>
+          </button>
+          <div className="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow">
+            PP
+          </div>
+        </div>
+      </div>
+
+      {/* Backdrop overlay for mobile menu */}
+      {isMobileMenuOpen && (
+        <div
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
+        />
+      )}
+
+      {/* Sidebar Navigation (Desktop & Mobile Drawer) */}
+      <aside className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#0B132B] text-white flex flex-col justify-between shrink-0 transform transition-transform duration-300 ease-in-out ${
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      }`}>
         <div>
           <div className="p-6 border-b border-gray-800">
             <span className="text-xs tracking-wider text-blue-400 font-semibold uppercase">Swift MD Portal</span>
@@ -38,9 +81,10 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
               const Icon = item.icon;
               const isActive = pathname === item.href;
               return (
-                <a
+                <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition text-xs ${
                     isActive 
                       ? "bg-blue-600 text-white shadow-md" 
@@ -49,7 +93,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   <span>{item.name}</span>
-                </a>
+                </Link>
               );
             })}
           </nav>
@@ -73,8 +117,8 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
 
       {/* Main Content Wrapper */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Top Header Bar */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-sm">
+        {/* Top Header Bar (Desktop Only) */}
+        <header className="hidden md:flex bg-white border-b border-gray-200 px-8 py-4 justify-between items-center shadow-sm">
           <div>
             <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Live Practice Environment</span>
             <h2 className="text-xl font-extrabold text-gray-900">Doctor Portal Workspace</h2>
@@ -91,7 +135,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
         </header>
 
         {/* Dynamic Page Content Renders Here */}
-        <main className="flex-1 flex flex-col p-8">
+        <main className="flex-1 flex flex-col p-4 md:p-8">
           {children}
         </main>
       </div>

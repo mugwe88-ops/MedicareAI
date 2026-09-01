@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, Send } from "lucide-react";
 
 interface Conversation {
-  doctor_id: number;
-  doctor_name: string;
-  doctor_specialization?: string;
+  patient_id: number;
+  patient_name: string;
+  patient_email?: string;
+  last_message?: string;
+  last_message_time?: string;
 }
 
 interface Message {
@@ -17,10 +20,10 @@ interface Message {
   created_at: string;
 }
 
-export default function PatientMessagesPage() {
+export default function DoctorMessagesPage() {
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeDoctor, setActiveDoctor] = useState<Conversation | null>(null);
+  const [activePatient, setActivePatient] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageText, setNewMessageText] = useState<string>("");
   
@@ -65,7 +68,7 @@ export default function PatientMessagesPage() {
         const convList = Array.isArray(data) ? data : data.conversations || [];
         setConversations(convList);
         if (convList.length > 0) {
-          setActiveDoctor(convList[0]);
+          setActivePatient(convList[0]);
         }
         setLoadingConversations(false);
       })
@@ -76,15 +79,15 @@ export default function PatientMessagesPage() {
       });
   }, [router, API_BASE]);
 
-  // Fetch messages when active doctor changes
+  // Fetch messages when active patient changes
   useEffect(() => {
-    if (!activeDoctor) return;
+    if (!activePatient) return;
 
     const token = localStorage.getItem("token") || localStorage.getItem("jwt");
     if (!token) return;
 
     setLoadingMessages(true);
-    fetch(`${API_BASE}/api/messages/${activeDoctor.doctor_id}`, {
+    fetch(`${API_BASE}/api/messages/${activePatient.patient_id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -100,11 +103,11 @@ export default function PatientMessagesPage() {
         console.error("Messages Error:", err);
         setLoadingMessages(false);
       });
-  }, [activeDoctor, API_BASE]);
+  }, [activePatient, API_BASE]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessageText.trim() || !activeDoctor) return;
+    if (!newMessageText.trim() || !activePatient) return;
 
     const token = localStorage.getItem("token") || localStorage.getItem("jwt");
     if (!token) return;
@@ -118,7 +121,7 @@ export default function PatientMessagesPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          receiver_id: activeDoctor.doctor_id,
+          receiver_id: activePatient.patient_id,
           message_text: newMessageText.trim(),
         }),
       });
@@ -136,14 +139,24 @@ export default function PatientMessagesPage() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 my-4">
-      <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-3 h-[75vh]">
+    <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 my-2 space-y-4">
+      {/* Back Button Header */}
+      <div>
+        <button
+          onClick={() => router.push("/doctors/dashboard")}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl font-bold text-xs border border-slate-200 shadow-sm transition cursor-pointer"
+        >
+          <ArrowLeft size={16} /> Back to Dashboard
+        </button>
+      </div>
+
+      <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-3 h-[72vh]">
         
-        {/* Left Sidebar: Doctors List */}
+        {/* Left Sidebar: Conversations List */}
         <div className="border-r border-slate-800 flex flex-col bg-slate-950/50">
           <div className="p-4 border-b border-slate-800">
-            <h2 className="text-lg font-bold text-white">Doctor Chats</h2>
-            <p className="text-xs text-blue-400 font-medium uppercase tracking-wide">Secure Consultations</p>
+            <h2 className="text-lg font-bold text-white">Patient Messages</h2>
+            <p className="text-xs text-blue-400 font-medium uppercase tracking-wide">Secure Chat Inbox</p>
           </div>
 
           {errorMsg && (
@@ -154,23 +167,25 @@ export default function PatientMessagesPage() {
 
           <div className="overflow-y-auto flex-1 divide-y divide-slate-800/50">
             {loadingConversations ? (
-              <p className="p-4 text-xs text-slate-400 animate-pulse">Loading doctors...</p>
+              <p className="p-4 text-xs text-slate-400 animate-pulse">Loading conversations...</p>
             ) : conversations.length === 0 ? (
-              <p className="p-4 text-xs text-slate-400">No doctor chats available yet. Book an appointment first.</p>
+              <p className="p-4 text-xs text-slate-400">No patient chats available yet.</p>
             ) : (
               conversations.map((conv) => {
-                const isActive = activeDoctor?.doctor_id === conv.doctor_id;
+                const isActive = activePatient?.patient_id === conv.patient_id;
                 return (
                   <button
-                    key={conv.doctor_id}
-                    onClick={() => setActiveDoctor(conv)}
+                    key={conv.patient_id}
+                    onClick={() => setActivePatient(conv)}
                     className={`w-full p-4 text-left transition flex flex-col gap-1 cursor-pointer ${
                       isActive ? "bg-blue-600/20 border-l-4 border-blue-500" : "hover:bg-slate-900"
                     }`}
                   >
-                    <span className="font-semibold text-sm text-white">{conv.doctor_name}</span>
-                    <span className="text-xs text-blue-400 font-medium">
-                      {conv.doctor_specialization || "General Practitioner"}
+                    <span className="font-semibold text-sm text-white flex justify-between items-center">
+                      {conv.patient_name}
+                    </span>
+                    <span className="text-xs text-slate-400 truncate w-full">
+                      {conv.last_message || "Tap to view conversation"}
                     </span>
                   </button>
                 );
@@ -181,13 +196,13 @@ export default function PatientMessagesPage() {
 
         {/* Right Section: Active Chat Thread */}
         <div className="md:col-span-2 flex flex-col bg-slate-900">
-          {activeDoctor ? (
+          {activePatient ? (
             <>
               {/* Chat Header */}
               <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/30">
                 <div>
-                  <h3 className="font-bold text-white text-base">{activeDoctor.doctor_name}</h3>
-                  <p className="text-xs text-slate-400">{activeDoctor.doctor_specialization || "Medical Specialist"}</p>
+                  <h3 className="font-bold text-white text-base">Patient: {activePatient.patient_name}</h3>
+                  <p className="text-xs text-slate-400">{activePatient.patient_email || "Active Consultation Thread"}</p>
                 </div>
               </div>
 
@@ -197,19 +212,19 @@ export default function PatientMessagesPage() {
                   <p className="text-xs text-slate-400 animate-pulse text-center py-6">Loading message history...</p>
                 ) : messages.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-xs">
-                    No messages with this doctor yet. Send a message below to start your consultation.
+                    No messages in this thread yet. Send a message below to start communicating.
                   </div>
                 ) : (
                   messages.map((msg, index) => {
-                    const isPatientSender = Number(msg.sender_id) !== Number(activeDoctor.doctor_id);
+                    const isDoctorSender = Number(msg.sender_id) !== Number(activePatient.patient_id);
                     return (
                       <div
                         key={msg.id || index}
-                        className={`flex flex-col ${isPatientSender ? "items-end" : "items-start"}`}
+                        className={`flex flex-col ${isDoctorSender ? "items-end" : "items-start"}`}
                       >
                         <div
                           className={`max-w-[75%] p-3.5 rounded-2xl text-sm ${
-                            isPatientSender
+                            isDoctorSender
                               ? "bg-blue-600 text-white rounded-br-sm shadow-md"
                               : "bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-sm"
                           }`}
@@ -232,21 +247,21 @@ export default function PatientMessagesPage() {
                   type="text"
                   value={newMessageText}
                   onChange={(e) => setNewMessageText(e.target.value)}
-                  placeholder="Type a message to your doctor..."
+                  placeholder="Type a clinical message to patient..."
                   className="flex-1 p-3 bg-slate-800 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
                 <button
                   type="submit"
                   disabled={isSending || !newMessageText.trim()}
-                  className="px-5 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs font-bold rounded-xl transition shadow-lg cursor-pointer flex items-center justify-center"
+                  className="px-5 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs font-bold rounded-xl transition shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  {isSending ? "Sending..." : "Send"}
+                  <Send size={14} /> {isSending ? "Sending..." : "Send"}
                 </button>
               </form>
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
-              Select a doctor from the left sidebar to begin messaging.
+              Select a patient conversation from the left sidebar to begin messaging.
             </div>
           )}
         </div>
