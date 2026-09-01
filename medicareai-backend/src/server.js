@@ -392,9 +392,10 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
 
 // Express route for /api/doctors/me
 // Express route for /api/doctors/me
-app.get("/api/doctors/me", authenticateToken, async (req, res) => {
+// Express route for /api/doctors/me
+app.get("/api/doctors/me", verifyToken, async (req, res) => {
   try {
-    // req.user comes from your authenticateToken middleware
+    // req.user comes from your verifyToken middleware
     const doctorId = req.user?.id || req.user?.doctorId;
 
     if (!doctorId) {
@@ -414,6 +415,7 @@ app.get("/api/doctors/me", authenticateToken, async (req, res) => {
     res.status(500).json({ message: "Internal server error while fetching doctor profile." });
   }
 });
+
 // Get Patient Personal & Clinical Profile
 app.get("/api/user/profile", verifyToken, async (req, res) => {
   const userId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
