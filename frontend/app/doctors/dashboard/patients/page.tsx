@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Search, User, FileText, Activity, Calendar, Phone, Mail, ShieldAlert, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, FileText, Calendar, Phone, Mail, AlertCircle, RefreshCw, ChevronRight } from "lucide-react";
 
 interface PatientRecord {
   id: string;
@@ -20,68 +20,47 @@ interface PatientRecord {
   };
 }
 
-const patientsList: PatientRecord[] = [
-  {
-    id: "PAT-1092",
-    name: "Sarah Jenkins",
-    age: 34,
-    gender: "Female",
-    condition: "Acute Bronchitis",
-    lastVisit: "Sep 1, 2026",
-    phone: "+1 (555) 234-5678",
-    email: "sarah.j@example.com",
-    status: "Stable",
-    vitals: { bp: "120/80", heartRate: "72 bpm", temp: "98.6°F" },
-  },
-  {
-    id: "PAT-1091",
-    name: "Michael Chang",
-    age: 45,
-    gender: "Male",
-    condition: "Essential Hypertension",
-    lastVisit: "Aug 31, 2026",
-    phone: "+1 (555) 876-5432",
-    email: "m.chang@example.com",
-    status: "Under Observation",
-    vitals: { bp: "142/90", heartRate: "82 bpm", temp: "98.4°F" },
-  },
-  {
-    id: "PAT-1090",
-    name: "Amanda Roberts",
-    age: 29,
-    gender: "Female",
-    condition: "Migraine Headaches",
-    lastVisit: "Aug 30, 2026",
-    phone: "+1 (555) 345-6789",
-    email: "amanda.r@example.com",
-    status: "Stable",
-    vitals: { bp: "118/76", heartRate: "68 bpm", temp: "98.7°F" },
-  },
-  {
-    id: "PAT-1089",
-    name: "David Miller",
-    age: 58,
-    gender: "Male",
-    condition: "Type 2 Diabetes Management",
-    lastVisit: "Aug 28, 2026",
-    phone: "+1 (555) 987-6543",
-    email: "david.m@example.com",
-    status: "Critical",
-    vitals: { bp: "135/85", heartRate: "88 bpm", temp: "99.1°F" },
-  },
-];
-
 export default function DoctorPatientsPage() {
+  const [patientsList, setPatientsList] = useState<PatientRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [activePatient, setActivePatient] = useState<PatientRecord | null>(null);
 
   const statuses = ["All", "Stable", "Under Observation", "Critical"];
 
+  const fetchPatients = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/doctors/patients`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPatientsList(data);
+      } else {
+        setError("Failed to fetch patient records from the database.");
+      }
+    } catch (err) {
+      console.error("Network error fetching patients:", err);
+      setError("Network error connecting to backend API.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
   const filteredPatients = patientsList.filter((pat) => {
-    const matchesSearch = pat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          pat.condition.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          pat.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      pat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      pat.condition.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      pat.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = selectedStatus === "All" || pat.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
@@ -94,14 +73,26 @@ export default function DoctorPatientsPage() {
         <div>
           <span className="text-xs uppercase tracking-wider text-blue-600 font-bold block mb-1">Clinical Directory</span>
           <h1 className="text-xl font-extrabold text-gray-900">Patient Records</h1>
-          <p className="text-xs text-gray-500 mt-1">Access clinical histories, past diagnoses, vital statistics, and medical files.</p>
+          <p className="text-xs text-gray-500 mt-1">Access clinical histories, past diagnoses, and medical files for your assigned patients.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-xl border border-blue-100">
+        <div className="flex items-center gap-3">
+          <span className="px-3.5 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl border border-blue-100">
             Total Active: {patientsList.length}
           </span>
+          <button
+            onClick={fetchPatients}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition cursor-pointer"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
+          </button>
         </div>
       </div>
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
 
       {/* Search & Filter Toolbar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -135,9 +126,13 @@ export default function DoctorPatientsPage() {
 
       {/* Patients Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredPatients.length === 0 ? (
-          <div className="col-span-2 text-center py-12 bg-white border border-gray-200 rounded-2xl text-gray-500 text-xs">
-            No patient records match your search criteria.
+        {loading ? (
+          <div className="col-span-2 text-center py-16 bg-white border border-gray-200 rounded-2xl text-gray-400 font-bold text-xs">
+            Fetching patient records from database...
+          </div>
+        ) : filteredPatients.length === 0 ? (
+          <div className="col-span-2 text-center py-16 bg-white border border-gray-200 rounded-2xl text-gray-400 font-bold text-xs">
+            No patient records found for your account.
           </div>
         ) : (
           filteredPatients.map((pat) => (
@@ -164,7 +159,7 @@ export default function DoctorPatientsPage() {
 
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
-                    {pat.name.split(" ").map(n => n[0]).join("")}
+                    {pat.name ? pat.name.split(" ").map(n => n[0]).join("") : "PT"}
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-900 text-sm">{pat.name}</h3>
@@ -176,15 +171,15 @@ export default function DoctorPatientsPage() {
                 <div className="grid grid-cols-3 gap-2 bg-gray-50 border border-gray-100 rounded-xl p-3 mb-4 text-center">
                   <div>
                     <span className="text-[10px] text-gray-400 font-bold block uppercase">BP</span>
-                    <span className="text-xs font-bold text-gray-800">{pat.vitals.bp}</span>
+                    <span className="text-xs font-bold text-gray-800">{pat.vitals?.bp || "N/A"}</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-gray-400 font-bold block uppercase">Heart Rate</span>
-                    <span className="text-xs font-bold text-gray-800">{pat.vitals.heartRate}</span>
+                    <span className="text-xs font-bold text-gray-800">{pat.vitals?.heartRate || "N/A"}</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-gray-400 font-bold block uppercase">Temp</span>
-                    <span className="text-xs font-bold text-gray-800">{pat.vitals.temp}</span>
+                    <span className="text-xs font-bold text-gray-800">{pat.vitals?.temp || "N/A"}</span>
                   </div>
                 </div>
               </div>
@@ -241,15 +236,15 @@ export default function DoctorPatientsPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <div className="p-3 border border-gray-200 rounded-xl text-center">
                     <span className="text-[10px] text-gray-400 font-bold block">Blood Pressure</span>
-                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals.bp}</span>
+                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals?.bp || "N/A"}</span>
                   </div>
                   <div className="p-3 border border-gray-200 rounded-xl text-center">
                     <span className="text-[10px] text-gray-400 font-bold block">Heart Rate</span>
-                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals.heartRate}</span>
+                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals?.heartRate || "N/A"}</span>
                   </div>
                   <div className="p-3 border border-gray-200 rounded-xl text-center">
                     <span className="text-[10px] text-gray-400 font-bold block">Temperature</span>
-                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals.temp}</span>
+                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals?.temp || "N/A"}</span>
                   </div>
                 </div>
               </div>
@@ -264,7 +259,7 @@ export default function DoctorPatientsPage() {
               </button>
               <button
                 onClick={() => {
-                  alert(`Downloading medical history for ${activePatient.name}`);
+                  alert(`Downloading clinical report for ${activePatient.name}`);
                   setActivePatient(null);
                 }}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"

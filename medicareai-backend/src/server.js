@@ -276,6 +276,27 @@ app.get('/api/patient/medical-records', verifyToken, async (req, res) => {
   }
 });
 
+// Example Node.js / Express backend route
+app.get('/api/doctors/appointments', verifyToken, async (req, res) => {
+  try {
+    // req.doctor comes from your JWT verification middleware
+    const doctorName = req.doctor.name; // e.g., "Dr. PRESSY PHIDES"
+
+    const query = `
+      SELECT id, patient_name, appointment_date, appointment_time, age, gender, assigned_doctor 
+      FROM appointments 
+      WHERE assigned_doctor = $1 
+      ORDER BY appointment_date DESC
+    `;
+    const result = await pool.query(query, [doctorName]);
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching doctor appointments:", err);
+    res.status(500).json({ error: "Server error fetching appointments" });
+  }
+});
+
 // --- LEGAL PAGES API / HTML ENDPOINTS ---
 app.get("/api/legal/privacy-policy", (req, res) => {
   res.send(`
