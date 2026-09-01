@@ -44,7 +44,8 @@ export default function LoginPage() {
         window.location.href = '/doctors/dashboard'; 
       } else {
         console.log('Redirecting to patient clinic panel...');
-        window.location.href = 'patient/dashboard';
+        // ✅ Fixed: Added leading slash to ensure correct absolute routing
+        window.location.href = '/patient/dashboard';
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication.');
