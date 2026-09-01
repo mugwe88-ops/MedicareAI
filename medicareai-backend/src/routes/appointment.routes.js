@@ -278,7 +278,7 @@ router.put("/:id/status", authenticateToken, async (req, res) => {
 router.put("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // Expects { status: "CANCELLED" }
+    const { status } = req.body; 
     const appointmentId = parseInt(id, 10);
     const newStatus = status || "CANCELLED";
 
