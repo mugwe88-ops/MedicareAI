@@ -1,290 +1,384 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, FileText, Calendar, Phone, Mail, AlertCircle, RefreshCw, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { 
+  LayoutDashboard, Calendar, BarChart3, Users, FileText, HelpCircle, 
+  Search, Bell, Mail, Heart, Activity, ArrowRight, User, RefreshCw, LogOut, Clock 
+} from "lucide-react";
 
 interface PatientRecord {
   id: string;
-  name: string;
-  age: number;
-  gender: string;
-  condition: string;
-  lastVisit: string;
-  phone: string;
-  email: string;
-  status: "Stable" | "Critical" | "Under Observation";
-  vitals: {
-    bp: string;
-    heartRate: string;
-    temp: string;
-  };
+  testName: string;
+  referredBy: string;
+  date: string;
+  comments: string;
+  status: "Normal" | "Pending" | "Review Required" | "Hepatitis";
 }
 
-export default function DoctorPatientsPage() {
-  const [patientsList, setPatientsList] = useState<PatientRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("All");
-  const [activePatient, setActivePatient] = useState<PatientRecord | null>(null);
+interface Appointment {
+  id: string;
+  patientName: string;
+  time: string;
+  date: string;
+}
 
-  const statuses = ["All", "Stable", "Under Observation", "Critical"];
+export default function DoctorDashboardPage() {
+  const router = useRouter();
+  const [doctorName, setDoctorName] = useState("Dr. Sadettin Kupek");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "appointments" | "analytics" | "patients" | "reports">("dashboard");
+  const [activeSubTab, setActiveSubTab] = useState<"Lab Reports" | "Prescription" | "Medication" | "Diagnosis">("Lab Reports");
+  
+  const [labRecords, setLabRecords] = useState<PatientRecord[]>([
+    { id: "1", testName: "Electrocardiography", referredBy: "Dr. Rafiqul Islam", date: "28 Jan, 2024", comments: "Good! Take rest", status: "Normal" },
+    { id: "2", testName: "Liver biopsy", referredBy: "Dr. Fahim Ahmed", date: "12 Jan, 2024", comments: "Waiting for diagram", status: "Pending" },
+    { id: "3", testName: "Blood Test", referredBy: "Dr. Asad Khan", date: "10 Jan, 2024", comments: "As needed", status: "Normal" },
+    { id: "4", testName: "Esophageal pH test", referredBy: "Dr. Shahid Ali", date: "24 Dec, 2023", comments: "Good", status: "Hepatitis" }
+  ]);
 
-  const fetchPatients = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const token = localStorage.getItem("token");
-      // Fetches exclusively from the backend API route linked to the authenticated doctor
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/doctors/patients`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPatientsList(Array.isArray(data) ? data : []);
-      } else {
-        setError("Failed to fetch patient records from the database.");
-      }
-    } catch (err) {
-      console.error("Network error fetching patients:", err);
-      setError("Network error connecting to backend API.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [appointments, setAppointments] = useState<Appointment[]>([
+    { id: "1", patientName: "Dr. Friedric Ziccardi", time: "17:00", date: "21 Jan" },
+    { id: "2", patientName: "Dr. Abagael Bitsul", time: "20:00", date: "21 Jan" }
+  ]);
 
   useEffect(() => {
-    fetchPatients();
+    const name = localStorage.getItem("doctorName");
+    if (name) setDoctorName(name);
   }, []);
 
-  const filteredPatients = patientsList.filter((pat) => {
-    const matchesSearch =
-      pat.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pat.condition?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pat.id?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = selectedStatus === "All" || pat.status === selectedStatus;
-    return matchesSearch && matchesStatus;
-  });
-
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 md:p-4 font-sans">
       
-      {/* Welcome Message Card */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-6 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-extrabold">Welcome back, Doctor</h2>
-          <p className="text-xs text-blue-100 mt-1">Here is the overview of your assigned patients and clinical records for today.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1 bg-white/10 border border-white/20 rounded-xl text-xs font-semibold">
-            Portal Active
-          </span>
-        </div>
-      </div>
+      {/* Main Container Dashboard Frame */}
+      <div className="w-full max-w-[1440px] bg-slate-50 md:rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col lg:flex-row min-h-[92vh]">
+        
+        {/* LEFT SIDEBAR NAVIGATION */}
+        <aside className="w-full lg:w-64 bg-slate-900 text-slate-400 p-6 flex flex-col justify-between shrink-0">
+          <div className="space-y-8">
+            {/* Logo / Brand */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-500/30">
+                N
+              </div>
+              <span className="text-white font-black text-xl tracking-tight">Nexus</span>
+            </div>
 
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-        <div>
-          <span className="text-xs uppercase tracking-wider text-blue-600 font-bold block mb-1">Clinical Directory</span>
-          <h1 className="text-xl font-extrabold text-gray-900">Patient Records</h1>
-          <p className="text-xs text-gray-500 mt-1">Access clinical histories, past diagnoses, and medical files for patients you have seen.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="px-3.5 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl border border-blue-100">
-            Total Active: {patientsList.length}
-          </span>
-          <button
-            onClick={fetchPatients}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition cursor-pointer"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
-          </button>
-        </div>
-      </div>
+            {/* Navigation Links */}
+            <nav className="space-y-1.5">
+              <button 
+                onClick={() => setActiveTab("dashboard")}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-xs font-bold transition cursor-pointer ${
+                  activeTab === "dashboard" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <LayoutDashboard size={18} /> Dashboard
+              </button>
+              <button 
+                onClick={() => setActiveTab("appointments")}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-xs font-bold transition cursor-pointer ${
+                  activeTab === "appointments" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <Calendar size={18} /> Appointments
+              </button>
+              <button 
+                onClick={() => setActiveTab("analytics")}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-xs font-bold transition cursor-pointer ${
+                  activeTab === "analytics" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <BarChart3 size={18} /> Analytics
+              </button>
+              <button 
+                onClick={() => setActiveTab("patients")}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-xs font-bold transition cursor-pointer ${
+                  activeTab === "patients" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <Users size={18} /> Doctor
+              </button>
+              <button 
+                onClick={() => setActiveTab("reports")}
+                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-xs font-bold transition cursor-pointer ${
+                  activeTab === "reports" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <FileText size={18} /> Reports
+              </button>
+              <button 
+                onClick={() => alert("Help center")}
+                className="w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-xs font-bold hover:bg-slate-800 hover:text-white transition cursor-pointer"
+              >
+                <HelpCircle size={18} /> Help
+              </button>
+            </nav>
+          </div>
 
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
-          <AlertCircle size={16} /> {error}
-        </div>
-      )}
-
-      {/* Search & Filter Toolbar */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3.5 top-3 text-gray-400" size={16} />
-          <input
-            type="text"
-            placeholder="Search by patient name, ID, or condition..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
-          {statuses.map((status) => (
-            <button
-              key={status}
-              onClick={() => setSelectedStatus(status)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
-                selectedStatus === status
-                  ? "bg-blue-600 text-white shadow"
-                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
-              }`}
+          {/* Doctor Mini User Profile at Bottom of Sidebar */}
+          <div className="pt-6 border-t border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm shadow">
+                {doctorName.charAt(4) || "S"}
+              </div>
+              <div>
+                <h4 className="text-white text-xs font-black truncate max-w-[100px]">{doctorName}</h4>
+                <p className="text-[10px] text-slate-500 font-bold uppercase">Super Admin</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => {
+                localStorage.clear();
+                router.push("/login");
+              }}
+              className="text-slate-500 hover:text-rose-400 transition"
+              title="Log Out"
             >
-              {status}
+              <LogOut size={16} />
             </button>
-          ))}
-        </div>
+          </div>
+        </aside>
+
+        {/* MAIN CONTENT AREA */}
+        <main className="flex-1 flex flex-col p-6 lg:p-8 space-y-6 overflow-y-auto">
+          
+          {/* TOP SEARCH & NOTIFICATION BAR */}
+          <header className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-6 py-4 rounded-3xl border border-slate-200/80 shadow-sm">
+            <div className="relative w-full sm:w-96">
+              <Search className="absolute left-4 top-3.5 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder="Search patients, invoice, appointments etc..."
+                className="w-full bg-slate-50 border border-slate-200/80 rounded-2xl pl-11 pr-4 py-3 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <button className="w-10 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center transition shadow-sm cursor-pointer relative">
+                <Bell size={18} />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full"></span>
+              </button>
+              <button className="w-10 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center transition shadow-sm cursor-pointer">
+                <Mail size={18} />
+              </button>
+            </div>
+          </header>
+
+          {/* DASHBOARD GRID CONTENT */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* LEFT 2 COLUMNS */}
+            <div className="lg:col-span-2 space-y-6">
+              
+              {/* TOP ROW: Overall Performance & Analytics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Overall Performance Card */}
+                <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Overall Performance</span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold">
+                      ↗ 95%
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center py-4">
+                    <div className="relative h-36 w-36 rounded-full border-8 border-slate-100 border-t-blue-600 flex flex-col items-center justify-center text-center shadow-inner">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Avg Health Score</span>
+                      <span className="text-3xl font-black text-slate-900 mt-0.5">468</span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium mt-4 text-center">
+                      Martha Smith is healthier than <strong className="text-slate-900 font-bold">95%</strong> people
+                    </p>
+                  </div>
+
+                  <button 
+                    onClick={() => alert("Opening full health diagnostic report...")}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl transition shadow-md shadow-blue-500/20 cursor-pointer"
+                  >
+                    Check Full Report
+                  </button>
+                </div>
+
+                {/* Analytics Chart Widget */}
+                <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Analytics</span>
+                    <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-xl">Weekly ▾</span>
+                  </div>
+
+                  {/* Vitals Quick Pills */}
+                  <div className="flex items-center gap-2 overflow-x-auto py-2">
+                    <span className="px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[11px] font-bold shrink-0">Heart Rate</span>
+                    <span className="px-3 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-[11px] font-bold shrink-0">Blood Pressure</span>
+                    <span className="px-3 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-[11px] font-bold shrink-0">Glucose</span>
+                  </div>
+
+                  {/* Simulated Chart Bars */}
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-end justify-between gap-2 h-28 pt-4 px-2 border-b border-dashed border-slate-200">
+                      <div className="w-8 bg-blue-100 rounded-t-xl h-12"></div>
+                      <div className="w-8 bg-blue-200 rounded-t-xl h-20"></div>
+                      <div className="w-8 bg-blue-100 rounded-t-xl h-14"></div>
+                      <div className="w-8 bg-blue-600 rounded-t-xl h-24 relative flex flex-col items-center">
+                        <span className="absolute -top-6 bg-slate-900 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">167 bpm</span>
+                      </div>
+                      <div className="w-8 bg-blue-100 rounded-t-xl h-16"></div>
+                      <div className="w-8 bg-blue-50 rounded-t-xl h-10"></div>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-400 font-bold px-1">
+                      <span>Sat</span><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* BOTTOM ROW: Lab Reports & Records Table */}
+              <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5">
+                
+                {/* Sub-tabs selector */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3 overflow-x-auto">
+                    {(["Lab Reports", "Prescription", "Medication", "Diagnosis"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveSubTab(tab)}
+                        className={`text-xs font-black transition cursor-pointer pb-1 whitespace-nowrap ${
+                          activeSubTab === tab ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-xs font-bold text-slate-400">Recent ▾</span>
+                </div>
+
+                {/* Table Data */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-slate-400 font-black uppercase tracking-wider border-b border-slate-100">
+                        <th className="pb-3 px-2">Test Name</th>
+                        <th className="pb-3 px-2">Referred by</th>
+                        <th className="pb-3 px-2">Date</th>
+                        <th className="pb-3 px-2">Comments</th>
+                        <th className="pb-3 px-2">Result</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {labRecords.map((rec) => (
+                        <tr key={rec.id} className="hover:bg-slate-50 transition">
+                          <td className="py-3.5 px-2 font-black text-slate-900">{rec.testName}</td>
+                          <td className="py-3.5 px-2 text-slate-600 font-medium">{rec.referredBy}</td>
+                          <td className="py-3.5 px-2 text-slate-500 font-medium">{rec.date}</td>
+                          <td className="py-3.5 px-2 text-slate-700 font-bold">{rec.comments}</td>
+                          <td className="py-3.5 px-2">
+                            <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                              rec.status === "Normal" ? "bg-emerald-100 text-emerald-700" :
+                              rec.status === "Pending" ? "bg-amber-100 text-amber-700" :
+                              "bg-purple-100 text-purple-700"
+                            }`}>
+                              {rec.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* RIGHT COLUMN: Active Patient Profile & Appointments */}
+            <div className="space-y-6">
+              
+              {/* Profile Card */}
+              <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-3 text-xs font-black uppercase tracking-wider text-slate-400">
+                  <span className="text-blue-600">Profile</span>
+                  <span className="text-slate-300">•</span>
+                  <span>History</span>
+                </div>
+
+                <div className="flex flex-col items-center text-center space-y-3 pt-2">
+                  <div className="w-24 h-24 rounded-3xl bg-slate-100 overflow-hidden shadow-inner border border-slate-200">
+                    <img 
+                      src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80" 
+                      alt="Martha Smith"
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">Martha Smith</h3>
+                    <p className="text-xs text-slate-400 font-bold">34 yrs old Male</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 pt-3 border-t border-slate-100 text-xs text-slate-600 font-medium">
+                  <p className="flex justify-between items-center"><span className="text-slate-400">Address:</span> <strong className="text-slate-900 text-right">7246, Woodland Rd, Waukesha, WI 53186</strong></p>
+                  <p className="flex justify-between items-center"><span className="text-slate-400">Cell:</span> <strong className="text-slate-900">+1 310-351-7774</strong></p>
+                  <p className="flex justify-between items-center"><span className="text-slate-400">Last Appointment:</span> <strong className="text-slate-900">24 Jan, 2024</strong></p>
+                </div>
+              </div>
+
+              {/* Appointments List Widget */}
+              <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Appointments</h3>
+                  <div className="flex items-center gap-1 text-slate-400 font-bold text-xs">
+                    <span>‹</span><span>›</span>
+                  </div>
+                </div>
+
+                {/* Date Slider Pills */}
+                <div className="grid grid-cols-5 gap-1.5 text-center">
+                  <div className="p-2 rounded-xl bg-slate-50 text-slate-400 text-[10px] font-bold">
+                    <span>19</span><br/>Mon
+                  </div>
+                  <div className="p-2 rounded-xl bg-slate-50 text-slate-400 text-[10px] font-bold">
+                    <span>20</span><br/>Mon
+                  </div>
+                  <div className="p-2 rounded-xl bg-blue-600 text-white text-[10px] font-black shadow-sm">
+                    <span>21</span><br/>Sun
+                  </div>
+                  <div className="p-2 rounded-xl bg-slate-50 text-slate-400 text-[10px] font-bold">
+                    <span>22</span><br/>Mon
+                  </div>
+                  <div className="p-2 rounded-xl bg-slate-50 text-slate-400 text-[10px] font-bold">
+                    <span>23</span><br/>Tue
+                  </div>
+                </div>
+
+                {/* Scheduled items */}
+                <div className="space-y-3 pt-2">
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/60 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <h4 className="font-black text-slate-900 text-xs">Dr. Friedric Ziccardi</h4>
+                      <p className="text-[10px] text-slate-400 font-bold">Cardiologist</p>
+                    </div>
+                    <span className="text-xs font-black text-slate-800">17:00</span>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/60 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <h4 className="font-black text-slate-900 text-xs">Dr. Abagael Bitsul</h4>
+                      <p className="text-[10px] text-slate-400 font-bold">Medicine</p>
+                    </div>
+                    <span className="text-xs font-black text-slate-800">20:00</span>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </main>
       </div>
-
-      {/* Patients Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {loading ? (
-          <div className="col-span-2 text-center py-16 bg-white border border-gray-200 rounded-2xl text-gray-400 font-bold text-xs">
-            Fetching patient records from database...
-          </div>
-        ) : filteredPatients.length === 0 ? (
-          <div className="col-span-2 text-center py-16 bg-white border border-gray-200 rounded-2xl text-gray-400 font-bold text-xs">
-            No patient records found for your account.
-          </div>
-        ) : (
-          filteredPatients.map((pat) => (
-            <div
-              key={pat.id}
-              className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <span className="text-xs font-bold text-gray-400">{pat.id}</span>
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                    pat.status === "Stable"
-                      ? "bg-green-50 text-green-700 border border-green-100"
-                      : pat.status === "Under Observation"
-                      ? "bg-amber-50 text-amber-700 border border-amber-100"
-                      : "bg-red-50 text-red-700 border border-red-100"
-                  }`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${
-                      pat.status === "Stable" ? "bg-green-500" : pat.status === "Under Observation" ? "bg-amber-500" : "bg-red-500"
-                    }`} />
-                    {pat.status}
-                  </span>
-                </div>
-
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
-                    {pat.name ? pat.name.split(" ").map(n => n[0]).join("") : "PT"}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-sm">{pat.name}</h3>
-                    <p className="text-xs text-gray-500">{pat.gender}, {pat.age} yrs • <span className="text-blue-600 font-semibold">{pat.condition}</span></p>
-                  </div>
-                </div>
-
-                {/* Vitals Quick Preview */}
-                <div className="grid grid-cols-3 gap-2 bg-gray-50 border border-gray-100 rounded-xl p-3 mb-4 text-center">
-                  <div>
-                    <span className="text-[10px] text-gray-400 font-bold block uppercase">BP</span>
-                    <span className="text-xs font-bold text-gray-800">{pat.vitals?.bp || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-gray-400 font-bold block uppercase">Heart Rate</span>
-                    <span className="text-xs font-bold text-gray-800">{pat.vitals?.heartRate || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-gray-400 font-bold block uppercase">Temp</span>
-                    <span className="text-xs font-bold text-gray-800">{pat.vitals?.temp || "N/A"}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                <span className="text-[11px] text-gray-400 flex items-center gap-1">
-                  <Calendar size={12} /> Last Visit: {pat.lastVisit}
-                </span>
-                <button
-                  onClick={() => setActivePatient(pat)}
-                  className="inline-flex items-center gap-1 px-3.5 py-2 bg-gray-900 hover:bg-blue-600 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-sm"
-                >
-                  View Full Chart <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Patient Detail Modal */}
-      {activePatient && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white border border-gray-200 rounded-2xl max-w-xl w-full p-6 shadow-xl space-y-6">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-              <div>
-                <span className="text-xs text-blue-600 font-bold uppercase">{activePatient.id}</span>
-                <h2 className="text-lg font-extrabold text-gray-900">{activePatient.name}</h2>
-              </div>
-              <button
-                onClick={() => setActivePatient(null)}
-                className="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-xs transition cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
-                <div>
-                  <span className="text-gray-400 block font-semibold mb-1">Contact Information</span>
-                  <p className="text-gray-800 flex items-center gap-1.5"><Phone size={12} /> {activePatient.phone}</p>
-                  <p className="text-gray-800 flex items-center gap-1.5 mt-1"><Mail size={12} /> {activePatient.email}</p>
-                </div>
-                <div>
-                  <span className="text-gray-400 block font-semibold mb-1">Clinical Status</span>
-                  <p className="text-gray-900 font-bold">{activePatient.condition}</p>
-                  <p className="text-blue-600 font-semibold mt-1">Status: {activePatient.status}</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-gray-900 mb-2">Recorded Vitals</h4>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 border border-gray-200 rounded-xl text-center">
-                    <span className="text-[10px] text-gray-400 font-bold block">Blood Pressure</span>
-                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals?.bp || "N/A"}</span>
-                  </div>
-                  <div className="p-3 border border-gray-200 rounded-xl text-center">
-                    <span className="text-[10px] text-gray-400 font-bold block">Heart Rate</span>
-                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals?.heartRate || "N/A"}</span>
-                  </div>
-                  <div className="p-3 border border-gray-200 rounded-xl text-center">
-                    <span className="text-[10px] text-gray-400 font-bold block">Temperature</span>
-                    <span className="text-sm font-extrabold text-gray-900">{activePatient.vitals?.temp || "N/A"}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
-              <button
-                onClick={() => setActivePatient(null)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition cursor-pointer"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  alert(`Downloading clinical report for ${activePatient.name}`);
-                  setActivePatient(null);
-                }}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <FileText size={14} /> Download Clinical Report
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
