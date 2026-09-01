@@ -10,18 +10,16 @@ router.get("/", async (req, res) => {
     const { search, category } = req.query;
     let query = `
       SELECT id, name, email, specialization AS department, experience_years, avatar_url, phone, availability 
-      FROM users 
+      FROM consultants 
       WHERE role = 'doctor'
     `;
     const queryParams = [];
 
-    // Filter by search term (matches name, email, or specialization)
     if (search) {
       queryParams.push(`%${search}%`);
       query += ` AND (name ILIKE $${queryParams.length} OR specialization ILIKE $${queryParams.length})`;
     }
 
-    // Filter by category/specialization if selected and not 'All'
     if (category && category !== 'All') {
       queryParams.push(`%${category}%`);
       query += ` AND specialization ILIKE $${queryParams.length}`;
@@ -42,9 +40,9 @@ router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT id, name, email, specialization, bio, consultation_fee, experience_years, avatar_url 
-       FROM users 
-       WHERE id = $1 AND role = 'doctor'`,
+      `SELECT id, name, email, specialization, consultation_fee, experience_years, avatar_url 
+       FROM consultants 
+       WHERE id = $1`,
       [id]
     );
 
@@ -93,7 +91,6 @@ router.post("/:id/availability", authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { day_of_week, start_time, end_time } = req.body;
 
-    // Verify requesting doctor owns the profile
     if (req.user.id !== parseInt(id, 10)) {
       return res.status(403).json({ message: "Unauthorized access" });
     }
@@ -121,7 +118,6 @@ router.delete("/:id/availability/:slotId", authenticateToken, async (req, res) =
   try {
     const { id, slotId } = req.params;
 
-    // Verify requesting doctor owns the profile
     if (req.user.id !== parseInt(id, 10)) {
       return res.status(403).json({ message: "Unauthorized access" });
     }
