@@ -57,7 +57,7 @@ export default function DoctorDashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col lg:flex-row font-sans w-full">
+    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row font-sans w-full">
       
       {/* LEFT SIDEBAR NAVIGATION */}
       <aside className="w-full lg:w-64 bg-slate-900 text-slate-400 p-6 flex flex-col justify-between shrink-0 min-h-screen">
