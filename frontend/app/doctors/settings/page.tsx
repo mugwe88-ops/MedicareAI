@@ -15,7 +15,6 @@ export default function DoctorSettingsPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    // Fetch current doctor profile details
     const fetchDoctorProfile = async () => {
       try {
         const token = localStorage.getItem("token");
