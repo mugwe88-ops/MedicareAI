@@ -1,8 +1,27 @@
 import { client, urlFor } from "@/lib/sanity";
-import { PortableText } from "@portabletext/react";
+import { PortableText, PortableTextComponents } from "@portabletext/react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
+// Define custom renderers for Sanity rich text block content
+const portableTextComponents: PortableTextComponents = {
+  marks: {
+    link: ({ value, children }) => {
+      const isExternal = (value?.href || "").startsWith("http");
+      return (
+        <a
+          href={value?.href}
+          target={isExternal ? "_blank" : undefined}
+          rel={isExternal ? "noopener noreferrer" : undefined}
+          className="text-blue-600 font-medium underline hover:text-blue-800 transition"
+        >
+          {children}
+        </a>
+      );
+    },
+  },
+};
 
 interface Post {
   title: string;
@@ -84,7 +103,7 @@ export default async function BlogPostPage({
 
         <div className="prose prose-slate max-w-none pt-4 text-slate-700 leading-relaxed space-y-4">
           {post.body ? (
-            <PortableText value={post.body} />
+            <PortableText value={post.body} components={portableTextComponents} />
           ) : (
             <p>No content provided for this post.</p>
           )}
