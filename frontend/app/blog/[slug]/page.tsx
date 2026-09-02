@@ -4,8 +4,24 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-// Automatic PortableText styling for doctors
+// Custom PortableText components with inline body image rendering & styling
 const portableTextComponents: PortableTextComponents = {
+  types: {
+    image: ({ value }) => {
+      if (!value?.asset?._ref && !value?.asset?.url) return null;
+      return (
+        <div className="relative w-full h-72 sm:h-96 my-8 rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-slate-100">
+          <Image
+            src={urlFor(value).url()}
+            alt={value.alt || "Article content image"}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 800px"
+          />
+        </div>
+      );
+    },
+  },
   block: {
     h2: ({ children }) => (
       <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-10 mb-4 pb-2 border-b-2 border-slate-100 flex items-center gap-3">
@@ -72,12 +88,23 @@ interface Post {
   ctaEnabled?: boolean;
 }
 
-// Automatic reading time calculator if not specified in Sanity
+// Automatic reading time calculator
 function calculateReadTime(body: any): number {
   if (!body) return 3;
   const text = JSON.stringify(body);
   const wordCount = text.split(/\s+/).length;
   return Math.max(1, Math.ceil(wordCount / 200));
+}
+
+// Helper to safely resolve image URLs
+function getImageUrl(imageSource: any): string | null {
+  if (!imageSource) return null;
+  try {
+    return urlFor(imageSource).url();
+  } catch (error) {
+    console.error("Failed to process image asset:", error);
+    return null;
+  }
 }
 
 async function getPost(slug: string): Promise<Post | null> {
@@ -116,9 +143,7 @@ export default async function BlogPostPage({
   }
 
   const readTime = post.readingTime || calculateReadTime(post.body);
-  const heroImageUrl = post.coverImage
-    ? urlFor(post.coverImage).url()
-    : "https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&w=1200&q=80";
+  const heroImageUrl = getImageUrl(post.coverImage);
 
   return (
     <main className="min-h-screen bg-slate-50 py-8 px-4 sm:px-8">
@@ -133,14 +158,24 @@ export default async function BlogPostPage({
             &larr; Back to Articles
           </Link>
 
-          <div className="relative w-full h-64 sm:h-80 rounded-2xl overflow-hidden shadow-2xl border border-white/20">
-            <Image
-              src={heroImageUrl}
-              alt={post.title}
-              fill
-              className="object-cover"
-              priority
-            />
+          <div className="relative w-full h-64 sm:h-80 rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-slate-800">
+            {heroImageUrl ? (
+              <Image
+                src={heroImageUrl}
+                alt={post.title}
+                fill
+                className="object-cover"
+                priority
+                sizes="(max-width: 768px) 100vw, 896px"
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-cyan-600 to-blue-800 text-white p-6 text-center">
+                <svg className="w-16 h-16 opacity-40 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-sm font-semibold opacity-80">{post.category || "Health Guide"}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -190,7 +225,7 @@ export default async function BlogPostPage({
         {/* Article Body Area */}
         <div className="p-6 sm:p-12 pt-8">
           
-          {/* 4. Automatic Key Takeaways Box */}
+          {/* 4. Key Takeaways Box */}
           {post.keyTakeaways && post.keyTakeaways.length > 0 && (
             <div className="mb-10 p-6 rounded-2xl bg-sky-50 border-l-4 border-primary shadow-sm">
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-cyan-900 mb-3 flex items-center gap-2">
@@ -215,7 +250,7 @@ export default async function BlogPostPage({
             />
           )}
 
-          {/* 6. Automatic "Book a Doctor" CTA Card */}
+          {/* 6. "Book a Doctor" CTA Card */}
           {post.ctaEnabled !== false && (
             <div className="mt-14 p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-900 text-white shadow-2xl space-y-4 text-center sm:text-left sm:flex sm:items-center sm:justify-between sm:space-y-0 sm:gap-6">
               <div className="space-y-2 max-w-lg">
