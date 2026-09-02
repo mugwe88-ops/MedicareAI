@@ -40,7 +40,7 @@ async function getPost(slug: string): Promise<Post | null> {
     author,
     readTime,
     mainImage,
-    body
+    "body": coalesce(body, content, details, description)
   }`;
 
   try {
