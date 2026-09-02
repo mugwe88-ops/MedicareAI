@@ -9,6 +9,7 @@
     "test": "echo \"No tests\""
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.114.0",
     "axios": "^1.7.9",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.3",

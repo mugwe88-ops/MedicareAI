@@ -28,6 +28,7 @@ import recordsRouter from "./routes/records.js";
 import messageRoutes from './routes/messages.js';
 import apiRoutes from './routes/index.js';
 import { verifyToken } from "./utils/jwt.js";
+import adminRoutes from './routes/admin.js';
 
 /* ======================
     1️⃣ APP & SOCKET.IO INIT
@@ -213,6 +214,8 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/doctor/prescriptions", prescriptionRoutes);
 app.use("/api/records", recordsRouter);
+app.app.use('/api/admin', adminRoutes);
+
 
 // --- LEGAL PAGES HTML ENDPOINTS ---
 app.get("/api/legal/privacy-policy", (req, res) => {
