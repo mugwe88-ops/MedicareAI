@@ -21,7 +21,6 @@ import {
   Clock
 } from "lucide-react";
 
-// Server-side Metadata Generation
 export const metadata: Metadata = {
   title: "Swift MD | AI-Powered Telehealth & Remote Clinical Support",
   description: "Connect with top-rated doctors for virtual consultations, lab tests, and access clinical evidence-based health calculators and medical guides.",
@@ -53,29 +52,29 @@ export const metadata: Metadata = {
   },
 };
 
-// Interface for Sanity Posts
 interface SanityPost {
   _id: string;
   title: string;
   slug: { current: string };
   category?: string;
-  excerpt?: string;
+  summary?: string;
   readTime?: string;
   author?: string;
   publishedAt?: string;
+  mainImage?: any;
 }
 
-// GROQ Query to fetch blog posts from Sanity CMS
 async function getBlogPosts(): Promise<SanityPost[]> {
-  const query = `*[_type == "post"] | order(publishedAt desc)[0...3] {
+  const query = `*[_type == "post"] | order(_createdAt desc)[0...3] {
     _id,
     title,
     slug,
     category,
-    excerpt,
+    summary,
     readTime,
     author,
-    publishedAt
+    publishedAt,
+    mainImage
   }`;
 
   try {
@@ -115,7 +114,6 @@ const FEATURED_DOCTORS = [
 ];
 
 export default async function LandingPage() {
-  // Fetch dynamic blog posts from Sanity CMS directly in server component
   const posts = await getBlogPosts();
 
   const jsonLd = {
@@ -367,19 +365,29 @@ export default async function LandingPage() {
               {posts.length > 0 ? (
                 posts.map((post) => (
                   <article key={post._id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-blue-300 transition">
+                    {post.mainImage && (
+                      <div className="relative w-full h-48 bg-slate-100">
+                        <Image 
+                          src={urlFor(post.mainImage).url()} 
+                          alt={post.title} 
+                          fill 
+                          className="object-cover" 
+                        />
+                      </div>
+                    )}
                     <div className="p-6 space-y-3">
                       <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">
-                        {post.category || "Clinical Update"}
+                        {post.category || "Heart Health"}
                       </span>
                       <h3 className="text-base font-bold text-slate-900 leading-snug">
                         {post.title}
                       </h3>
                       <p className="text-xs text-slate-500 line-clamp-3">
-                        {post.excerpt || "No summary available for this article."}
+                        {post.summary || "No summary available for this article."}
                       </p>
                     </div>
                     <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                      <span>{post.readTime || "5 min read"} • {post.author || "Medical Board"}</span>
+                      <span>{post.readTime || "5 min read"} • {post.author || "Swift MD Team"}</span>
                       <Link href={`/blog/${post.slug?.current || ""}`} className="text-blue-600 font-bold hover:underline" aria-label={`Read ${post.title}`}>
                         Read Guide &rarr;
                       </Link>
@@ -387,7 +395,6 @@ export default async function LandingPage() {
                   </article>
                 ))
               ) : (
-                /* Static Fallbacks if Sanity returned no records */
                 <>
                   <article className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-blue-300 transition">
                     <div className="p-6 space-y-3">
