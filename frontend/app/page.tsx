@@ -2,19 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import HealthCalculators from "./HealthCalculators"; // Extracted to client component for optimized SSR rendering
-import { 
-  Search, 
-  MapPin, 
-  Video, 
-  Calendar, 
-  FlaskConical, 
-  Pill, 
-  ShieldCheck, 
-  Star, 
-  ArrowRight, 
-  Activity, 
-  BrainCircuit, 
-  Download, 
+import {
+  Search,
+  MapPin,
+  Video,
+  Calendar,
+  FlaskConical,
+  Pill,
+  ShieldCheck,
+  Star,
+  ArrowRight,
+  Activity,
+  BrainCircuit,
+  Download,
   Stethoscope,
   Building2,
   Clock
@@ -171,20 +171,20 @@ export default function LandingPage() {
                 <form role="search" aria-label="Search Doctors" className="bg-white rounded-2xl p-2 flex flex-col md:flex-row items-center gap-2 shadow-2xl text-slate-900">
                   <div className="flex items-center gap-2 px-3 py-2 w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-200">
                     <MapPin className="w-5 h-5 text-blue-600 shrink-0" aria-hidden="true" />
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       aria-label="Location"
-                      placeholder="Location" 
-                      defaultValue="Washington, DC"
+                      placeholder="Location"
+                      defaultValue="Nairobi, Kenya"
                       className="w-full text-xs sm:text-sm font-medium focus:outline-none bg-transparent"
                     />
                   </div>
                   <div className="flex items-center gap-2 px-3 py-2 w-full md:w-2/3">
                     <Search className="w-5 h-5 text-slate-400 shrink-0" aria-hidden="true" />
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       aria-label="Search query"
-                      placeholder="Search doctors, specialties, symptoms, or clinics..." 
+                      placeholder="Search doctors, specialties, symptoms, or clinics..."
                       className="w-full text-xs sm:text-sm font-medium focus:outline-none bg-transparent"
                     />
                   </div>
