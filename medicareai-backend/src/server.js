@@ -214,7 +214,7 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/doctor/prescriptions", prescriptionRoutes);
 app.use("/api/records", recordsRouter);
-app.app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminRoutes);
 
 
 // --- LEGAL PAGES HTML ENDPOINTS ---
