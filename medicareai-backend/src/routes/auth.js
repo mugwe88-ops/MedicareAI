@@ -22,31 +22,41 @@ router.post("/register", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Auto-verify user for testing purposes (bypass email requirement)
+    // Normalize role
+    const userRole = role || 'patient';
+    
+    // Doctors require admin approval (is_approved = false), patients are approved by default
+    const isApproved = userRole.toLowerCase() === 'doctor' ? false : true;
+
     const verificationToken = null;
     const tokenExpiresAt = null;
 
     const result = await pool.query(
-      `INSERT INTO users (name, email, password, role, specialization, city, phone, is_verified, verification_token, token_expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9)
-       RETURNING id, name, email, role`,
+      `INSERT INTO users (name, email, password, role, specialization, city, phone, is_verified, verification_token, token_expires_at, is_approved)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9, $10)
+        RETURNING id, name, email, role, is_approved`,
       [
         name, 
         email, 
         hashedPassword, 
-        role || 'patient', 
+        userRole, 
         specialization || null, 
         city || null, 
         phone || null, 
         verificationToken, 
-        tokenExpiresAt
+        tokenExpiresAt,
+        isApproved
       ]
     );
 
     const newUser = result.rows[0];
 
+    const message = newUser.role.toLowerCase() === 'doctor'
+      ? "Registration successful! Your doctor account is pending administrator approval."
+      : "Registration successful! Account is auto-verified for testing.";
+
     return res.status(201).json({
-      message: "Registration successful! Account is auto-verified for testing.",
+      message,
       userId: newUser.id
     });
   } catch (err) {
@@ -121,10 +131,17 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    // BLOCK unverified users from logging in (will pass since users are auto-verified now)
+    // BLOCK unverified users from logging in
     if (!user.is_verified) {
       return res.status(403).json({ 
         error: "Email not verified. Please check your inbox for the verification link." 
+      });
+    }
+
+    // BLOCK unapproved doctors from logging in
+    if (user.role && user.role.toLowerCase() === 'doctor' && user.is_approved === false) {
+      return res.status(403).json({ 
+        error: "Your doctor account is pending administrator approval. You will be able to log in once verified." 
       });
     }
 
