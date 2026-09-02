@@ -12,6 +12,7 @@
     "@daily-co/daily-js": "^0.90.0",
     "@jitsi/react-sdk": "^1.4.4",
     "@sanity/image-url": "^2.1.1",
+    "@sanity/vision": "^6.12.0",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "axios": "^1.15.2",

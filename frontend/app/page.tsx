@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import HealthCalculators from "./HealthCalculators"; 
+import HealthCalculators from "./health-calculators";
 import { client, urlFor } from "@/lib/sanity";
 import {
   Search,
