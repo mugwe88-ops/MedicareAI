@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+// import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import HealthCalculators from "./health-calculators";
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
 interface SanityPost {
   _id: string;
   title: string;
-  slug: { current: string };
+  slug?: { current: string };
   category?: string;
   summary?: string;
   readTime?: string;
