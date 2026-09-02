@@ -1,67 +1,52 @@
-import { Router } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import express from "express";
+import bcrypt from "bcrypt";
+import pool from "../utils/db.js";
 
-const router = Router();
+const router = express.Router();
 
-// Initialize Supabase using your environment variables
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Needs service role key to create users via admin API
+// --- REGISTER DOCTOR ROUTE ---
+router.post("/register-doctor", async (req, res) => {
+  const { email, password, displayName, specialization, licenseNumber, city } = req.body;
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  if (!email || !password || !displayName) {
+    return res.status(400).json({ error: "Name, email, and password are required." });
+  }
 
-router.post('/register-doctor', async (req, res) => {
   try {
-    const { email, password, displayName, specialization, licenseNumber } = req.body;
-
-    // Basic validation
-    if (!email || !password || !displayName || !specialization || !licenseNumber) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Missing required fields' 
-      });
+    // Check if user already exists
+    const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: "Email is already registered." });
     }
 
-    // 1. Create the user in Supabase Auth using the Admin API
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: email,
-      password: password,
-      email_confirm: true, // Automatically confirm email so they can log in immediately
-      user_metadata: { role: 'doctor', display_name: displayName }
-    });
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    if (authError) {
-      return res.status(400).json({ success: false, error: authError.message });
-    }
+    // Insert doctor into the database with is_approved = false (pending admin approval)
+    const result = await pool.query(
+      `INSERT INTO users (name, email, password, role, specialization, city, phone, is_verified, is_approved)
+       VALUES ($1, $2, $3, 'Doctor', $4, $5, $6, TRUE, FALSE)
+       RETURNING id, name, email, role, is_approved`,
+      [
+        displayName, 
+        email, 
+        hashedPassword, 
+        specialization || null, 
+        city || null, 
+        req.body.phone || null
+      ]
+    );
 
-    const userId = authData.user.id;
-
-    // 2. Insert the doctor profile info into your new 'doctors' table
-    const { error: dbError } = await supabase
-      .from('doctors')
-      .insert({
-        id: userId, // Matches the Supabase Auth user ID
-        email: email,
-        display_name: displayName,
-        specialization: specialization,
-        license_number: licenseNumber
-      });
-
-    if (dbError) {
-      return res.status(400).json({ success: false, error: dbError.message });
-    }
+    const newDoctor = result.rows[0];
 
     return res.status(201).json({
       success: true,
-      message: 'Doctor account registered successfully in Supabase!',
-      userId: userId,
+      message: "Doctor account registered successfully! Your account is pending administrator approval.",
+      userId: newDoctor.id
     });
 
-  } catch (error) {
-    console.error('Error registering doctor:', error);
-    return res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
+  } catch (err) {
+    console.error("Doctor registration error:", err);
+    return res.status(500).json({ error: "Server error during doctor registration." });
   }
 });
 

@@ -28,11 +28,33 @@ export default function SignupPage() {
     setError("");
 
     try {
-      // Updated endpoint from /signup to /register to match backend routes
-      const res = await fetch("https://medicareai-1.onrender.com/api/auth/register", {
+      let endpoint = "https://medicareai-1.onrender.com/api/auth/register";
+      let payload: any = {};
+
+      if (formData.role === "Doctor") {
+        endpoint = "https://medicareai-1.onrender.com/api/admin/register-doctor";
+        payload = {
+          email: formData.email,
+          password: formData.password,
+          displayName: formData.name,
+          specialization: formData.specialization,
+          licenseNumber: formData.license_number,
+        };
+      } else {
+        payload = {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          role: formData.role,
+          city: formData.city
+        };
+      }
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
