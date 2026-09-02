@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-// Render custom rich text elements, like external links safely
 const portableTextComponents: PortableTextComponents = {
   marks: {
     link: ({ value, children }) => {
@@ -55,9 +54,10 @@ async function getPost(slug: string): Promise<Post | null> {
 export default async function BlogPostPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const post = await getPost(params.slug);
+  const resolvedParams = await params;
+  const post = await getPost(resolvedParams.slug);
 
   if (!post) {
     notFound();
