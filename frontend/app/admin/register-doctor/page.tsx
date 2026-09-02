@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'formik' or 'react'; // using standard React hooks
 import React, { useState } from 'react';
 
 export default function RegisterDoctorPage() {
