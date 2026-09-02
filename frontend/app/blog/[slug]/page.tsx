@@ -8,11 +8,24 @@ import { notFound } from "next/navigation";
 const portableTextComponents: PortableTextComponents = {
   types: {
     image: ({ value }) => {
-      if (!value?.asset?._ref && !value?.asset?.url) return null;
+      if (!value) return null;
+      let src = "";
+      if (typeof value === "string") {
+        src = value;
+      } else if (value.asset?.url) {
+        src = value.asset.url;
+      } else {
+        try {
+          src = urlFor(value).url();
+        } catch {
+          return null;
+        }
+      }
+
       return (
         <div className="relative w-full h-72 sm:h-96 my-8 rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-slate-100">
           <Image
-            src={urlFor(value).url()}
+            src={src}
             alt={value.alt || "Article content image"}
             fill
             className="object-cover"
@@ -96,18 +109,21 @@ function calculateReadTime(body: any): number {
   return Math.max(1, Math.ceil(wordCount / 200));
 }
 
-// Helper to safely resolve image URLs
-function getImageUrl(imageSource: any): string | null {
-  if (!imageSource) return null;
+// Robust Image Resolver for Sanity URLs and direct string links
+function resolveImageUrl(source: any): string | null {
+  if (!source) return null;
+  if (typeof source === "string") return source;
+  if (source.asset?.url) return source.asset.url;
   try {
-    return urlFor(imageSource).url();
+    return urlFor(source).url();
   } catch (error) {
-    console.error("Failed to process image asset:", error);
+    console.error("Failed to parse image with urlFor:", error);
     return null;
   }
 }
 
 async function getPost(slug: string): Promise<Post | null> {
+  // Querying raw coverImage so urlFor can extract _ref cleanly
   const query = `*[_type == "post" && slug.current == $slug][0] {
     title,
     category,
@@ -143,7 +159,7 @@ export default async function BlogPostPage({
   }
 
   const readTime = post.readingTime || calculateReadTime(post.body);
-  const heroImageUrl = getImageUrl(post.coverImage);
+  const heroImageUrl = resolveImageUrl(post.coverImage);
 
   return (
     <main className="min-h-screen bg-slate-50 py-8 px-4 sm:px-8">
