@@ -11,13 +11,18 @@
   "dependencies": {
     "@daily-co/daily-js": "^0.90.0",
     "@jitsi/react-sdk": "^1.4.4",
+    "@sanity/image-url": "^2.1.1",
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
     "axios": "^1.15.2",
     "lucide-react": "^1.8.0",
     "next": "16.1.6",
+    "next-sanity": "^13.3.4",
     "pg": "^8.18.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.8.1",
+    "sanity": "^6.12.0",
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {

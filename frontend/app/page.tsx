@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import HealthCalculators from "./HealthCalculators"; // Extracted to client component for optimized SSR rendering
+import HealthCalculators from "./HealthCalculators"; 
+import { client, urlFor } from "@/lib/sanity";
 import {
   Search,
   MapPin,
@@ -20,7 +21,7 @@ import {
   Clock
 } from "lucide-react";
 
-// Server-side Metadata Generation for Next.js App Router
+// Server-side Metadata Generation
 export const metadata: Metadata = {
   title: "Swift MD | AI-Powered Telehealth & Remote Clinical Support",
   description: "Connect with top-rated doctors for virtual consultations, lab tests, and access clinical evidence-based health calculators and medical guides.",
@@ -52,6 +53,39 @@ export const metadata: Metadata = {
   },
 };
 
+// Interface for Sanity Posts
+interface SanityPost {
+  _id: string;
+  title: string;
+  slug: { current: string };
+  category?: string;
+  excerpt?: string;
+  readTime?: string;
+  author?: string;
+  publishedAt?: string;
+}
+
+// GROQ Query to fetch blog posts from Sanity CMS
+async function getBlogPosts(): Promise<SanityPost[]> {
+  const query = `*[_type == "post"] | order(publishedAt desc)[0...3] {
+    _id,
+    title,
+    slug,
+    category,
+    excerpt,
+    readTime,
+    author,
+    publishedAt
+  }`;
+
+  try {
+    return await client.fetch(query);
+  } catch (error) {
+    console.error("Error fetching Sanity posts:", error);
+    return [];
+  }
+}
+
 const SPECIALTIES = [
   { name: "General Physician", icon: Stethoscope, count: "120+ Doctors" },
   { name: "Cardiology", icon: Activity, count: "45+ Doctors" },
@@ -80,7 +114,10 @@ const FEATURED_DOCTORS = [
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  // Fetch dynamic blog posts from Sanity CMS directly in server component
+  const posts = await getBlogPosts();
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -310,6 +347,7 @@ export default function LandingPage() {
             </div>
           </section>
 
+          {/* DYNAMIC SANITY CMS BLOG SECTION */}
           <section id="blog" className="w-full space-y-8 text-left">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
@@ -326,59 +364,86 @@ export default function LandingPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <article className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-blue-300 transition">
-                <div className="p-6 space-y-3">
-                  <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">Preventive Care</span>
-                  <h3 className="text-base font-bold text-slate-900 leading-snug">
-                    Monitoring Cardiovascular Vitals: Key Metrics to Track
-                  </h3>
-                  <p className="text-xs text-slate-500 line-clamp-3">
-                    A clinical breakdown on systolic and diastolic target parameters for early detection of hypertensive events.
-                  </p>
-                </div>
-                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                  <span>5 min read • Medical Board</span>
-                  <Link href="/blog/cardiovascular-vitals" className="text-blue-600 font-bold hover:underline" aria-label="Read cardiovascular vitals guide">
-                    Read Guide &rarr;
-                  </Link>
-                </div>
-              </article>
+              {posts.length > 0 ? (
+                posts.map((post) => (
+                  <article key={post._id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-blue-300 transition">
+                    <div className="p-6 space-y-3">
+                      <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">
+                        {post.category || "Clinical Update"}
+                      </span>
+                      <h3 className="text-base font-bold text-slate-900 leading-snug">
+                        {post.title}
+                      </h3>
+                      <p className="text-xs text-slate-500 line-clamp-3">
+                        {post.excerpt || "No summary available for this article."}
+                      </p>
+                    </div>
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                      <span>{post.readTime || "5 min read"} • {post.author || "Medical Board"}</span>
+                      <Link href={`/blog/${post.slug?.current || ""}`} className="text-blue-600 font-bold hover:underline" aria-label={`Read ${post.title}`}>
+                        Read Guide &rarr;
+                      </Link>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                /* Static Fallbacks if Sanity returned no records */
+                <>
+                  <article className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-blue-300 transition">
+                    <div className="p-6 space-y-3">
+                      <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">Preventive Care</span>
+                      <h3 className="text-base font-bold text-slate-900 leading-snug">
+                        Monitoring Cardiovascular Vitals: Key Metrics to Track
+                      </h3>
+                      <p className="text-xs text-slate-500 line-clamp-3">
+                        A clinical breakdown on systolic and diastolic target parameters for early detection of hypertensive events.
+                      </p>
+                    </div>
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                      <span>5 min read • Medical Board</span>
+                      <Link href="/blog/cardiovascular-vitals" className="text-blue-600 font-bold hover:underline">
+                        Read Guide &rarr;
+                      </Link>
+                    </div>
+                  </article>
 
-              <article className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-emerald-300 transition">
-                <div className="p-6 space-y-3">
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">Telemedicine</span>
-                  <h3 className="text-base font-bold text-slate-900 leading-snug">
-                    Maximizing Your Virtual Consultation Experience
-                  </h3>
-                  <p className="text-xs text-slate-500 line-clamp-3">
-                    How to prepare health history data, medication logs, and active symptom profiles before your remote appointment.
-                  </p>
-                </div>
-                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                  <span>4 min read • Dr. A. Jenkins</span>
-                  <Link href="/blog/virtual-consultation-guide" className="text-blue-600 font-bold hover:underline" aria-label="Read virtual consultation guide">
-                    Read Guide &rarr;
-                  </Link>
-                </div>
-              </article>
+                  <article className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-emerald-300 transition">
+                    <div className="p-6 space-y-3">
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">Telemedicine</span>
+                      <h3 className="text-base font-bold text-slate-900 leading-snug">
+                        Maximizing Your Virtual Consultation Experience
+                      </h3>
+                      <p className="text-xs text-slate-500 line-clamp-3">
+                        How to prepare health history data, medication logs, and active symptom profiles before your remote appointment.
+                      </p>
+                    </div>
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                      <span>4 min read • Dr. A. Jenkins</span>
+                      <Link href="/blog/virtual-consultation-guide" className="text-blue-600 font-bold hover:underline">
+                        Read Guide &rarr;
+                      </Link>
+                    </div>
+                  </article>
 
-              <article className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-purple-300 transition">
-                <div className="p-6 space-y-3">
-                  <span className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-[10px] font-bold">Clinical Evidence</span>
-                  <h3 className="text-base font-bold text-slate-900 leading-snug">
-                    AI Decision Support in Modern Primary Care
-                  </h3>
-                  <p className="text-xs text-slate-500 line-clamp-3">
-                    Examining recent PubMed literature on machine learning precision for rapid clinical diagnosis assistance.
-                  </p>
-                </div>
-                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                  <span>6 min read • Research Team</span>
-                  <Link href="/blog/ai-decision-support" className="text-blue-600 font-bold hover:underline" aria-label="Read AI decision support article">
-                    Read Guide &rarr;
-                  </Link>
-                </div>
-              </article>
+                  <article className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-purple-300 transition">
+                    <div className="p-6 space-y-3">
+                      <span className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-[10px] font-bold">Clinical Evidence</span>
+                      <h3 className="text-base font-bold text-slate-900 leading-snug">
+                        AI Decision Support in Modern Primary Care
+                      </h3>
+                      <p className="text-xs text-slate-500 line-clamp-3">
+                        Examining recent PubMed literature on machine learning precision for rapid clinical diagnosis assistance.
+                      </p>
+                    </div>
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                      <span>6 min read • Research Team</span>
+                      <Link href="/blog/ai-decision-support" className="text-blue-600 font-bold hover:underline">
+                        Read Guide &rarr;
+                      </Link>
+                    </div>
+                  </article>
+                </>
+              )}
             </div>
           </section>
 
