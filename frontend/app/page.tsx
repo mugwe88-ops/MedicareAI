@@ -65,7 +65,7 @@ interface SanityPost {
 }
 
 async function getBlogPosts(): Promise<SanityPost[]> {
-  const query = `*[_type == "post"] | order(_createdAt desc)[0...3] {
+  const query = `*[_type == "post"] | order(publishedAt desc)[0...3] {
     _id,
     title,
     slug,

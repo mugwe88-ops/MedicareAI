@@ -1,4 +1,4 @@
-import { defineConfig, defineField, defineType } from "sanity";
+import { defineField, defineType } from "sanity";
 
 export const postType = defineType({
   name: "post",
@@ -30,6 +30,14 @@ export const postType = defineType({
       title: "Cover Image",
       type: "image",
       options: { hotspot: true },
+      fields: [
+        {
+          name: "alt",
+          type: "string",
+          title: "Alternative Text",
+          description: "Important for accessibility and SEO.",
+        },
+      ],
     }),
     defineField({
       name: "category",
@@ -80,8 +88,49 @@ export const postType = defineType({
       title: "Article Content",
       type: "array",
       of: [
-        { type: "block" },
-        { type: "image" },
+        {
+          type: "block",
+          // Explicitly whitelist styles to match frontend portableTextComponents
+          styles: [
+            { title: "Normal", value: "normal" },
+            { title: "Heading 2", value: "h2" },
+            { title: "Heading 3", value: "h3" },
+            { title: "Quote", value: "blockquote" },
+          ],
+          lists: [{ title: "Bullet", value: "bullet" }],
+          marks: {
+            decorators: [
+              { title: "Strong", value: "strong" },
+              { title: "Emphasis", value: "em" },
+            ],
+            annotations: [
+              {
+                title: "URL",
+                name: "link",
+                type: "object",
+                fields: [
+                  {
+                    title: "URL",
+                    name: "href",
+                    type: "url",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          type: "image",
+          options: { hotspot: true },
+          fields: [
+            {
+              name: "alt",
+              type: "string",
+              title: "Alternative Text",
+              description: "Description of the illustration for screen readers.",
+            },
+          ],
+        },
       ],
     }),
     defineField({
@@ -91,4 +140,4 @@ export const postType = defineType({
       initialValue: true,
     }),
   ],
-});
+});r
