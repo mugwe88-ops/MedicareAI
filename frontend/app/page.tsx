@@ -1,4 +1,4 @@
-// import type { Metadata } from "next";
+import type { Metadata } from "next";
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";

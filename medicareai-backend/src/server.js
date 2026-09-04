@@ -478,6 +478,7 @@ app.post("/api/ai/symptom-checker", async (req, res) => {
 });
 
 // GET All Active Doctors
+// GET All Active Doctors (with enhanced profile fields)
 app.get("/api/doctors", async (req, res) => {
   try {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -489,9 +490,55 @@ app.get("/api/doctors", async (req, res) => {
         id, 
         name, 
         COALESCE(NULLIF(TRIM(specialization), ''), 'General Medicine') AS specialization, 
-        city, 
+        COALESCE(city, 'Main Clinic') AS city, 
         status,
-        email
+        email,
+        COALESCE(profile_picture, 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=300&q=80') AS profile_picture,
+        COALESCE(experience_years, 5) AS experience_years,
+        COALESCE(rating, 4.8) AS rating,
+        COALESCE(reviews_count, 42) AS reviews_count,
+        COALESCE(hospital, 'SwiftMD Care Center') AS hospital
+      FROM users 
+      WHERE LOWER(TRIM(role)) = 'doctor'
+    `;
+    let values = [];
+
+    if (specialization) {
+      const cleanSpec = specialization.trim();
+      query += ` AND (LOWER(TRIM(specialization)) = LOWER($1) OR LOWER(specialization) LIKE LOWER($2))`;
+      values.push(cleanSpec, `%${cleanSpec}%`);
+    }
+
+    query += ` ORDER BY name ASC`;
+
+    const result = await pool.query(query, values);
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching doctors list:", err);
+    return res.status(500).json({ error: "Failed to fetch doctors list" });
+  }
+});
+
+// GET All Active Doctors List Alias (with matching enhanced fields)
+app.get("/api/doctors-list", async (req, res) => {
+  try {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    
+    const { specialization } = req.query;
+
+    let query = `
+      SELECT 
+        id, 
+        name, 
+        COALESCE(NULLIF(TRIM(specialization), ''), 'General Medicine') AS specialization, 
+        COALESCE(city, 'Main Clinic') AS city, 
+        status,
+        email,
+        COALESCE(profile_picture, 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=300&q=80') AS profile_picture,
+        COALESCE(experience_years, 5) AS experience_years,
+        COALESCE(rating, 4.8) AS rating,
+        COALESCE(reviews_count, 42) AS reviews_count,
+        COALESCE(hospital, 'SwiftMD Care Center') AS hospital
       FROM users 
       WHERE LOWER(TRIM(role)) = 'doctor'
     `;
@@ -587,6 +634,45 @@ app.put("/api/doctor/availability", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Error updating availability:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Update Doctor Professional Profile (Picture, Experience, Hospital, etc.)
+app.put("/api/doctor/profile", verifyToken, async (req, res) => {
+  const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
+  const { profile_picture, experience_years, hospital, specialization, city } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE users 
+       SET profile_picture = COALESCE($1, profile_picture),
+           experience_years = COALESCE($2, experience_years),
+           hospital = COALESCE($3, hospital),
+           specialization = COALESCE($4, specialization),
+           city = COALESCE($5, city)
+       WHERE id = $6 AND LOWER(TRIM(role)) = 'doctor'
+       RETURNING id, name, email, specialization, city, profile_picture, experience_years, hospital, rating`,
+      [
+        profile_picture || null,
+        experience_years ? parseInt(experience_years, 10) : null,
+        hospital || null,
+        specialization || null,
+        city || null,
+        doctorId
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Doctor profile not found or unauthorized." });
+    }
+
+    return res.json({
+      message: "Doctor profile updated successfully",
+      doctor: result.rows[0]
+    });
+  } catch (err) {
+    console.error("Error updating doctor profile:", err);
+    return res.status(500).json({ error: "Server error updating profile", details: err.message });
   }
 });
 
