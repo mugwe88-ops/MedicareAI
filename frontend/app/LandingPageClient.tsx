@@ -41,37 +41,11 @@ interface SanityPost {
   mainImage?: any;
 }
 
-const SPECIALTIES = [
-  { name: "General Physician", icon: Stethoscope, count: "120+ Doctors" },
-  { name: "Cardiology", icon: Activity, count: "45+ Doctors" },
-  { name: "Neurology", icon: BrainCircuit, count: "30+ Doctors" },
-  { name: "Pediatrics", icon: ShieldCheck, count: "80+ Doctors" },
-];
-
-const FEATURED_DOCTORS = [
-  {
-    name: "Dr. Sarah Jenkins",
-    specialty: "Cardiologist",
-    experience: "14 yrs exp",
-    rating: "4.9",
-    reviews: "128 Reviews",
-    hospital: "Central Heart Institute",
-    nextAvailable: "Today at 03:00 PM",
-  },
-  {
-    name: "Dr. Marcus Vance",
-    specialty: "General Physician",
-    experience: "9 yrs exp",
-    rating: "4.8",
-    reviews: "95 Reviews",
-    hospital: "SwiftMD Care Center",
-    nextAvailable: "Today at 04:30 PM",
-  },
-];
-
 export default function LandingPageClient() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [posts, setPosts] = useState<SanityPost[]>([]);
+  const [specialties, setSpecialties] = useState<any[]>([]);
+  const [doctors, setDoctors] = useState<any[]>([]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -80,6 +54,7 @@ export default function LandingPageClient() {
     return () => clearInterval(timer);
   }, []);
 
+  // Fetch Sanity blog posts
   useEffect(() => {
     async function fetchPosts() {
       const query = `*[_type == "post"] | order(publishedAt desc)[0...3] {
@@ -102,6 +77,39 @@ export default function LandingPageClient() {
     }
     fetchPosts();
   }, []);
+
+  // Fetch dynamic Specialties and Doctors from your Backend API
+  useEffect(() => {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-backend.onrender.com/api";
+
+    async function fetchData() {
+      try {
+        const specRes = await fetch(`${backendUrl}/specialties`);
+        const specData = await specRes.json();
+        if (specData.success) {
+          setSpecialties(specData.data);
+        }
+
+        const docRes = await fetch(`${backendUrl}/doctors`);
+        const docData = await docRes.json();
+        if (docData.success) {
+          setDoctors(docData.data.slice(0, 2)); // Limit to top 2 for the homepage feature section
+        }
+      } catch (error) {
+        console.error("Error fetching backend data:", error);
+      }
+    }
+    fetchData();
+  }, []);
+
+  // Icon mapping helper fallback for dynamic specialties
+  const getSpecialtyIcon = (name: string) => {
+    const lower = name?.toLowerCase() || "";
+    if (lower.includes('cardio')) return Activity;
+    if (lower.includes('neuro')) return BrainCircuit;
+    if (lower.includes('pediatric')) return ShieldCheck;
+    return Stethoscope;
+  };
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -282,6 +290,7 @@ export default function LandingPageClient() {
             <HealthCalculators />
           </section>
 
+          {/* DYNAMIC SPECIALTIES SECTION */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -294,23 +303,28 @@ export default function LandingPageClient() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {SPECIALTIES.map((spec, i) => {
-                const Icon = spec.icon;
-                return (
-                  <div key={i} className="bg-white p-4 rounded-2xl border border-slate-200/80 flex items-center gap-3 hover:border-blue-400 hover:shadow-sm cursor-pointer transition">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 text-blue-600 flex items-center justify-center shrink-0">
-                      <Icon className="w-5 h-5" />
+              {specialties.length > 0 ? (
+                specialties.map((spec, i) => {
+                  const Icon = getSpecialtyIcon(spec.specialty);
+                  return (
+                    <div key={i} className="bg-white p-4 rounded-2xl border border-slate-200/80 flex items-center gap-3 hover:border-blue-400 hover:shadow-sm cursor-pointer transition">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 text-blue-600 flex items-center justify-center shrink-0">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900">{spec.specialty}</h3>
+                        <p className="text-[11px] text-slate-400">Available Doctors</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-xs sm:text-sm font-bold text-slate-900">{spec.name}</h3>
-                      <p className="text-[11px] text-slate-400">{spec.count}</p>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <p className="text-xs text-slate-400 col-span-4">Loading specialties from database...</p>
+              )}
             </div>
           </section>
 
+          {/* DYNAMIC TOP RATED DOCTORS SECTION */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -320,33 +334,37 @@ export default function LandingPageClient() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {FEATURED_DOCTORS.map((doc, i) => (
-                <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-bold text-slate-900">{doc.name}</h3>
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold inline-flex items-center gap-1">
-                        <Star className="w-3 h-3 fill-emerald-600" /> {doc.rating}
-                      </span>
+              {doctors.length > 0 ? (
+                doctors.map((doc, i) => (
+                  <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-slate-900">{doc.name || doc.full_name}</h3>
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold inline-flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-emerald-600" /> {doc.rating || "4.8"}
+                        </span>
+                      </div>
+                      <p className="text-xs font-medium text-slate-600">{doc.specialty} • {doc.experience || "5+ yrs exp"}</p>
+                      <p className="text-xs text-slate-400 flex items-center gap-1">
+                        <Building2 className="w-3.5 h-3.5" /> {doc.hospital || "SwiftMD Care Center"}
+                      </p>
+                      <p className="text-xs text-blue-600 font-medium flex items-center gap-1 pt-1">
+                        <Clock className="w-3.5 h-3.5" /> Next Available: {doc.nextAvailable || "Today at 03:00 PM"}
+                      </p>
                     </div>
-                    <p className="text-xs font-medium text-slate-600">{doc.specialty} • {doc.experience}</p>
-                    <p className="text-xs text-slate-400 flex items-center gap-1">
-                      <Building2 className="w-3.5 h-3.5" /> {doc.hospital}
-                    </p>
-                    <p className="text-xs text-blue-600 font-medium flex items-center gap-1 pt-1">
-                      <Clock className="w-3.5 h-3.5" /> Next Available: {doc.nextAvailable}
-                    </p>
+                    <div className="flex sm:flex-col justify-end gap-2 shrink-0">
+                      <Link
+                        href="/patient/dashboard"
+                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition text-center"
+                      >
+                        Book Visit
+                      </Link>
+                    </div>
                   </div>
-                  <div className="flex sm:flex-col justify-end gap-2 shrink-0">
-                    <Link
-                      href="/patient/dashboard"
-                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition text-center"
-                    >
-                      Book Visit
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-xs text-slate-400 col-span-2">Loading doctors from database...</p>
+              )}
             </div>
           </section>
 
