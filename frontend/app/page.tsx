@@ -1,4 +1,6 @@
-import type { Metadata } from "next";
+// import type { Metadata } from "next";
+"use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import HealthCalculators from "./health-calculators";
@@ -21,36 +23,15 @@ import {
   Clock
 } from "lucide-react";
 
-export const metadata: Metadata = {
-  title: "Swift MD | AI-Powered Telehealth & Remote Clinical Support",
-  description: "Connect with top-rated doctors for virtual consultations, lab tests, and access clinical evidence-based health calculators and medical guides.",
-  keywords: ["telehealth", "online doctor consultation", "health calculators", "BMI calculator", "LDL cholesterol test", "virtual clinic"],
-  alternates: {
-    canonical: "https://medicare-ai-two.vercel.app",
-  },
-  openGraph: {
-    title: "Swift MD | AI-Powered Telehealth & Medical Support",
-    description: "Rapid virtual consultations, clinical tools, and health resources.",
-    url: "https://medicare-ai-two.vercel.app",
-    siteName: "Swift MD",
-    images: [
-      {
-        url: "https://medicare-ai-two.vercel.app/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "Swift MD Telehealth Platform",
-      },
-    ],
-    locale: "en_US",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Swift MD | Telehealth Platform",
-    description: "AI-assisted clinical decision support and rapid telehealth consultations.",
-    images: ["https://medicare-ai-two.vercel.app/og-image.png"],
-  },
-};
+// Note: If you keep metadata in this file, Next.js requires it to be a Server Component. 
+// Since we are using client state for the slideshow, it's best to extract the hero slider 
+// or make this a client wrapper component. Below is the full implementation using client state:
+
+const slides = [
+  "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1920&q=80",
+  "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1920&q=80",
+  "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1920&q=80"
+];
 
 interface SanityPost {
   _id: string;
@@ -62,27 +43,6 @@ interface SanityPost {
   author?: string;
   publishedAt?: string;
   mainImage?: any;
-}
-
-async function getBlogPosts(): Promise<SanityPost[]> {
-  const query = `*[_type == "post"] | order(publishedAt desc)[0...3] {
-    _id,
-    title,
-    slug,
-    category,
-    summary,
-    readTime,
-    author,
-    publishedAt,
-    mainImage
-  }`;
-
-  try {
-    return await client.fetch(query);
-  } catch (error) {
-    console.error("Error fetching Sanity posts:", error);
-    return [];
-  }
 }
 
 const SPECIALTIES = [
@@ -113,8 +73,39 @@ const FEATURED_DOCTORS = [
   },
 ];
 
-export default async function LandingPage() {
-  const posts = await getBlogPosts();
+export default function LandingPage() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [posts, setPosts] = useState<SanityPost[]>([]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % slides.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    async function fetchPosts() {
+      const query = `*[_type == "post"] | order(publishedAt desc)[0...3] {
+        _id,
+        title,
+        slug,
+        category,
+        summary,
+        readTime,
+        author,
+        publishedAt,
+        mainImage
+      }`;
+      try {
+        const res = await client.fetch(query);
+        setPosts(res);
+      } catch (error) {
+        console.error("Error fetching Sanity posts:", error);
+      }
+    }
+    fetchPosts();
+  }, []);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -189,44 +180,67 @@ export default async function LandingPage() {
         </header>
 
         <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-12 w-full">
-          <section id="search" className="bg-slate-900 rounded-3xl p-6 sm:p-12 text-white shadow-xl relative overflow-hidden">
-            <div className="max-w-3xl space-y-4">
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold">
-                <ShieldCheck className="w-3.5 h-3.5" /> Rapid Health Management &amp; Medical Evidence Architecture
+          {/* BACKGROUND SLIDESHOW HERO SECTION */}
+          <section id="search" className="relative rounded-3xl p-6 sm:p-16 text-white shadow-xl overflow-hidden">
+            {/* Slideshow Background Images */}
+            {slides.map((image, index) => (
+              <div
+                key={image}
+                className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out z-0 ${
+                  index === currentIndex ? "opacity-100" : "opacity-0"
+                }`}
+                style={{ backgroundImage: `url('${image}')` }}
+              />
+            ))}
+
+            {/* Dark Overlay */}
+            <div className="absolute inset-0 bg-slate-900/80 z-0" />
+
+            {/* Content Container */}
+            <div className="relative z-10 max-w-3xl space-y-6">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider">
+                <ShieldCheck className="w-3.5 h-3.5" /> AI-Powered Telehealth &amp; Remote Clinical Support
               </span>
-              <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-                AI-Powered Telehealth &amp; <br />
-                <span className="text-blue-400">Remote Clinical Support.</span>
+              
+              <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight text-white">
+                Next-Generation Virtual Medical Care
               </h1>
-              <p className="text-sm sm:text-base text-slate-300">
+
+              <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
                 Swift MD seamlessly connects virtual consultations with live patient vitals, medical research, health calculators, and clinical evidence.
               </p>
 
-              <div className="pt-4">
-                <form role="search" aria-label="Search Doctors" className="bg-white rounded-2xl p-2 flex flex-col md:flex-row items-center gap-2 shadow-2xl text-slate-900">
-                  <div className="flex items-center gap-2 px-3 py-2 w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-200">
-                    <MapPin className="w-5 h-5 text-blue-600 shrink-0" aria-hidden="true" />
-                    <input
-                      type="text"
-                      aria-label="Location"
-                      placeholder="Location"
-                      defaultValue="Nairobi, Kenya"
-                      className="w-full text-xs sm:text-sm font-medium focus:outline-none bg-transparent"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-2 w-full md:w-2/3">
-                    <Search className="w-5 h-5 text-slate-400 shrink-0" aria-hidden="true" />
-                    <input
-                      type="text"
-                      aria-label="Search query"
-                      placeholder="Search doctors, specialties, symptoms, or clinics..."
-                      className="w-full text-xs sm:text-sm font-medium focus:outline-none bg-transparent"
-                    />
-                  </div>
-                  <button type="submit" className="w-full md:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition shrink-0">
-                    Search
-                  </button>
-                </form>
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-4 pt-2">
+                <Link
+                  href="/patient/dashboard"
+                  className="px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-blue-500/25 transition-all flex items-center gap-2 text-sm"
+                >
+                  <Calendar className="w-4 h-4" />
+                  Book Appointment
+                </Link>
+
+                <Link
+                  href="/patient/dashboard"
+                  className="px-6 py-3.5 bg-slate-800/80 hover:bg-slate-700 text-slate-100 border border-slate-600 font-semibold rounded-xl backdrop-blur-md shadow-lg transition-all flex items-center gap-2 text-sm"
+                >
+                  <Activity className="w-4 h-4 text-blue-400" />
+                  View Vitals
+                </Link>
+              </div>
+
+              {/* Slide Indicators */}
+              <div className="flex gap-2 pt-4">
+                {slides.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentIndex(idx)}
+                    className={`h-2 rounded-full transition-all ${
+                      idx === currentIndex ? "w-8 bg-blue-500" : "w-2 bg-white/40"
+                    }`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                ))}
               </div>
             </div>
           </section>
