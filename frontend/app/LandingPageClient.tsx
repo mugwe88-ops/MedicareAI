@@ -192,7 +192,7 @@ export default function LandingPageClient() {
 
             <div className="relative z-10 max-w-3xl space-y-6">
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider">
-                <ShieldCheck className="w-3.5 h-3.5" /> AI-Powered Telehealth &amp; Remote Clinical Support
+                <ShieldCheck className="w-3.5 h-3.5" /> AI-Powered Telehealth & Remote Clinical Support
               </span>
               
               <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight text-white">
@@ -273,7 +273,7 @@ export default function LandingPageClient() {
               </div>
               <div>
                 <h2 className="text-base font-bold text-slate-900">Medicines</h2>
-                <p className="text-xs text-slate-500 mt-1">Order &amp; doorstep delivery</p>
+                <p className="text-xs text-slate-500 mt-1">Order & doorstep delivery</p>
               </div>
             </Link>
           </section>
@@ -355,7 +355,7 @@ export default function LandingPageClient() {
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-                  Health Blog &amp; Wellness Guides
+                  Health Blog & Wellness Guides
                 </h2>
                 <p className="text-xs text-slate-500 mt-1">
                   Evidence-based clinical updates, preventive care guidelines, and medical insights.
@@ -465,7 +465,7 @@ export default function LandingPageClient() {
                 <Download className="w-3.5 h-3.5" /> Direct Access Resources
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-                Download Free Clinical &amp; Patient Care Guides
+                Download Free Clinical & Patient Care Guides
               </h2>
               <p className="text-xs sm:text-sm text-slate-300">
                 Instant, sign-up-free access to curated medical whitepapers, clinical checklists, and patient care resources.
@@ -535,7 +535,7 @@ export default function LandingPageClient() {
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-700">Swift MD</span> • Healthcare Platform
             </div>
-            <p>© {new Date().getFullYear()} Swift MD. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Swift MD. All rights reserved.</p>
           </div>
         </footer>
       </div>
