@@ -29,6 +29,35 @@ const slides = [
   "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1920&q=80"
 ];
 
+// Fallback data so UI renders immediately even if backend is asleep on Render
+const FALLBACK_SPECIALTIES = [
+  { specialty: "General Physician", count: "120+ Doctors" },
+  { specialty: "Cardiology", count: "45+ Doctors" },
+  { specialty: "Neurology", count: "30+ Doctors" },
+  { specialty: "Pediatrics", count: "80+ Doctors" }
+];
+
+const FALLBACK_DOCTORS = [
+  {
+    id: "doc-1",
+    name: "Dr. Sarah Jenkins",
+    specialty: "Cardiologist",
+    experience: "14 yrs exp",
+    hospital: "Central Heart Institute",
+    rating: "4.9",
+    nextAvailable: "Today at 03:00 PM"
+  },
+  {
+    id: "doc-2",
+    name: "Dr. Marcus Vance",
+    specialty: "General Physician",
+    experience: "9 yrs exp",
+    hospital: "SwiftMD Care Center",
+    rating: "4.8",
+    nextAvailable: "Today at 04:30 PM"
+  }
+];
+
 interface SanityPost {
   _id: string;
   title: string;
@@ -44,8 +73,8 @@ interface SanityPost {
 export default function LandingPageClient() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [posts, setPosts] = useState<SanityPost[]>([]);
-  const [specialties, setSpecialties] = useState<any[]>([]);
-  const [doctors, setDoctors] = useState<any[]>([]);
+  const [specialties, setSpecialties] = useState<any[]>(FALLBACK_SPECIALTIES);
+  const [doctors, setDoctors] = useState<any[]>(FALLBACK_DOCTORS);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -70,7 +99,7 @@ export default function LandingPageClient() {
       }`;
       try {
         const res = await client.fetch(query);
-        setPosts(res);
+        if (res && res.length > 0) setPosts(res);
       } catch (error) {
         console.error("Error fetching Sanity posts:", error);
       }
@@ -78,7 +107,7 @@ export default function LandingPageClient() {
     fetchPosts();
   }, []);
 
-  // Fetch dynamic Specialties and Doctors from your Backend API
+  // Fetch dynamic Specialties and Doctors from your Backend API with fallbacks
   useEffect(() => {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-backend.onrender.com/api";
 
@@ -86,23 +115,22 @@ export default function LandingPageClient() {
       try {
         const specRes = await fetch(`${backendUrl}/specialties`);
         const specData = await specRes.json();
-        if (specData.success) {
+        if (specData.success && specData.data?.length > 0) {
           setSpecialties(specData.data);
         }
 
         const docRes = await fetch(`${backendUrl}/doctors`);
         const docData = await docRes.json();
-        if (docData.success) {
-          setDoctors(docData.data.slice(0, 2)); // Limit to top 2 for the homepage feature section
+        if (docData.success && docData.data?.length > 0) {
+          setDoctors(docData.data.slice(0, 2));
         }
       } catch (error) {
-        console.error("Error fetching backend data:", error);
+        console.error("Backend fetch error (using fallback data):", error);
       }
     }
     fetchData();
   }, []);
 
-  // Icon mapping helper fallback for dynamic specialties
   const getSpecialtyIcon = (name: string) => {
     const lower = name?.toLowerCase() || "";
     if (lower.includes('cardio')) return Activity;
@@ -122,17 +150,6 @@ export default function LandingPageClient() {
         "logo": "https://medicare-ai-two.vercel.app/logo.png",
         "description": "AI-assisted clinical decision support, medical education, and rapid telehealth platform.",
         "medicalSpecialty": ["GeneralPractice", "Telehealth", "Cardiology", "Neurology"]
-      },
-      {
-        "@type": "WebSite",
-        "@id": "https://medicare-ai-two.vercel.app/#website",
-        "url": "https://medicare-ai-two.vercel.app",
-        "name": "Swift MD",
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": "https://medicare-ai-two.vercel.app/search?q={search_term_string}",
-          "query-input": "required name=search_term_string"
-        }
       }
     ]
   };
@@ -184,7 +201,7 @@ export default function LandingPageClient() {
         </header>
 
         <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-12 w-full">
-          {/* BACKGROUND SLIDESHOW HERO SECTION */}
+          {/* HERO SECTION */}
           <section id="search" className="relative rounded-3xl p-6 sm:p-16 text-white shadow-xl overflow-hidden">
             {slides.map((image, index) => (
               <div
@@ -195,7 +212,6 @@ export default function LandingPageClient() {
                 style={{ backgroundImage: `url('${image}')` }}
               />
             ))}
-
             <div className="absolute inset-0 bg-slate-900/80 z-0" />
 
             <div className="relative z-10 max-w-3xl space-y-6">
@@ -214,18 +230,10 @@ export default function LandingPageClient() {
               <div className="flex flex-wrap items-center gap-4 pt-2">
                 <Link
                   href="/patient/dashboard"
-                  className="px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-blue-500/25 transition-all flex items-center gap-2 text-sm"
+                  className="px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg transition-all flex items-center gap-2 text-sm"
                 >
                   <Calendar className="w-4 h-4" />
                   Book Appointment
-                </Link>
-
-                <Link
-                  href="/patient/dashboard"
-                  className="px-6 py-3.5 bg-slate-800/80 hover:bg-slate-700 text-slate-100 border border-slate-600 font-semibold rounded-xl backdrop-blur-md shadow-lg transition-all flex items-center gap-2 text-sm"
-                >
-                  <Activity className="w-4 h-4 text-blue-400" />
-                  View Vitals
                 </Link>
               </div>
 
@@ -244,8 +252,8 @@ export default function LandingPageClient() {
             </div>
           </section>
 
-          <section id="consult" aria-label="Services" className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            <Link href="/patient/dashboard" className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition group flex flex-col justify-between space-y-4">
+          <section id="consult" className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            <Link href="/patient/dashboard" className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm hover:shadow-md hover:border-blue-300 transition group flex flex-col justify-between space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition">
                 <Video className="w-6 h-6" />
               </div>
@@ -255,7 +263,7 @@ export default function LandingPageClient() {
               </div>
             </Link>
 
-            <Link href="/patient/dashboard" className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-300 transition group flex flex-col justify-between space-y-4">
+            <Link href="/patient/dashboard" className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm hover:shadow-md hover:border-emerald-300 transition group flex flex-col justify-between space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition">
                 <Calendar className="w-6 h-6" />
               </div>
@@ -265,7 +273,7 @@ export default function LandingPageClient() {
               </div>
             </Link>
 
-            <Link href="#tools" className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-300 transition group flex flex-col justify-between space-y-4">
+            <Link href="#tools" className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm hover:shadow-md hover:border-purple-300 transition group flex flex-col justify-between space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition">
                 <FlaskConical className="w-6 h-6" />
               </div>
@@ -275,7 +283,7 @@ export default function LandingPageClient() {
               </div>
             </Link>
 
-            <Link href="#tools" className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-300 transition group flex flex-col justify-between space-y-4">
+            <Link href="#tools" className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm hover:shadow-md hover:border-amber-300 transition group flex flex-col justify-between space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition">
                 <Pill className="w-6 h-6" />
               </div>
@@ -290,7 +298,7 @@ export default function LandingPageClient() {
             <HealthCalculators />
           </section>
 
-          {/* DYNAMIC SPECIALTIES SECTION */}
+          {/* DYNAMIC SPECIALTIES SECTION (Clickable to Filter/Book) */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -303,28 +311,29 @@ export default function LandingPageClient() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {specialties.length > 0 ? (
-                specialties.map((spec, i) => {
-                  const Icon = getSpecialtyIcon(spec.specialty);
-                  return (
-                    <div key={i} className="bg-white p-4 rounded-2xl border border-slate-200/80 flex items-center gap-3 hover:border-blue-400 hover:shadow-sm cursor-pointer transition">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 text-blue-600 flex items-center justify-center shrink-0">
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h3 className="text-xs sm:text-sm font-bold text-slate-900">{spec.specialty}</h3>
-                        <p className="text-[11px] text-slate-400">Available Doctors</p>
-                      </div>
+              {specialties.map((spec, i) => {
+                const Icon = getSpecialtyIcon(spec.specialty);
+                const specialtyName = spec.specialty || spec.name;
+                return (
+                  <Link
+                    key={i}
+                    href={`/patient/dashboard?specialty=${encodeURIComponent(specialtyName)}`}
+                    className="bg-white p-4 rounded-2xl border border-slate-200/85 flex items-center gap-3 hover:border-blue-400 hover:shadow-sm cursor-pointer transition group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center shrink-0 transition">
+                      <Icon className="w-5 h-5" />
                     </div>
-                  );
-                })
-              ) : (
-                <p className="text-xs text-slate-400 col-span-4">Loading specialties from database...</p>
-              )}
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-bold text-slate-900">{specialtyName}</h3>
+                      <p className="text-[11px] text-slate-400">{spec.count || spec.doctors_count || "Available Doctors"}</p>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </section>
 
-          {/* DYNAMIC TOP RATED DOCTORS SECTION */}
+          {/* DYNAMIC TOP RATED DOCTORS SECTION (Dynamic Booking Links) */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -334,17 +343,21 @@ export default function LandingPageClient() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {doctors.length > 0 ? (
-                doctors.map((doc, i) => (
-                  <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row justify-between gap-4">
+              {doctors.map((doc, i) => {
+                const docId = doc.id || doc._id || `doc-${i}`;
+                const docName = doc.name || doc.full_name;
+                const docSpecialty = doc.specialty;
+
+                return (
+                  <div key={docId} className="bg-white p-6 rounded-2xl border border-slate-200/85 shadow-sm flex flex-col sm:flex-row justify-between gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-slate-900">{doc.name || doc.full_name}</h3>
+                        <h3 className="text-base font-bold text-slate-900">{docName}</h3>
                         <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold inline-flex items-center gap-1">
                           <Star className="w-3 h-3 fill-emerald-600" /> {doc.rating || "4.8"}
                         </span>
                       </div>
-                      <p className="text-xs font-medium text-slate-600">{doc.specialty} • {doc.experience || "5+ yrs exp"}</p>
+                      <p className="text-xs font-medium text-slate-600">{docSpecialty} • {doc.experience || "5+ yrs exp"}</p>
                       <p className="text-xs text-slate-400 flex items-center gap-1">
                         <Building2 className="w-3.5 h-3.5" /> {doc.hospital || "SwiftMD Care Center"}
                       </p>
@@ -354,21 +367,19 @@ export default function LandingPageClient() {
                     </div>
                     <div className="flex sm:flex-col justify-end gap-2 shrink-0">
                       <Link
-                        href="/patient/dashboard"
-                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition text-center"
+                        href={`/patient/dashboard?doctorId=${encodeURIComponent(docId)}&doctorName=${encodeURIComponent(docName)}&specialty=${encodeURIComponent(docSpecialty)}`}
+                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition text-center shadow-sm"
                       >
                         Book Visit
                       </Link>
                     </div>
                   </div>
-                ))
-              ) : (
-                <p className="text-xs text-slate-400 col-span-2">Loading doctors from database...</p>
-              )}
+                );
+              })}
             </div>
           </section>
 
-          {/* DYNAMIC SANITY CMS BLOG SECTION */}
+          {/* BLOG SECTION */}
           <section id="blog" className="w-full space-y-8 text-left">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
@@ -387,7 +398,7 @@ export default function LandingPageClient() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {posts.length > 0 ? (
                 posts.map((post) => (
-                  <article key={post._id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-blue-300 transition">
+                  <article key={post._id} className="bg-white rounded-2xl border border-slate-200/85 shadow-sm overflow-hidden flex flex-col justify-between hover:border-blue-300 transition">
                     {post.mainImage && (
                       <div className="relative w-full h-48 bg-slate-100">
                         <Image 
@@ -411,139 +422,15 @@ export default function LandingPageClient() {
                     </div>
                     <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
                       <span>{post.readTime || "5 min read"} • {post.author || "Swift MD Team"}</span>
-                      <Link href={`/blog/${post.slug?.current || ""}`} className="text-blue-600 font-bold hover:underline" aria-label={`Read ${post.title}`}>
+                      <Link href={`/blog/${post.slug?.current || ""}`} className="text-blue-600 font-bold hover:underline">
                         Read Guide &rarr;
                       </Link>
                     </div>
                   </article>
                 ))
               ) : (
-                <>
-                  <article className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-blue-300 transition">
-                    <div className="p-6 space-y-3">
-                      <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">Preventive Care</span>
-                      <h3 className="text-base font-bold text-slate-900 leading-snug">
-                        Monitoring Cardiovascular Vitals: Key Metrics to Track
-                      </h3>
-                      <p className="text-xs text-slate-500 line-clamp-3">
-                        A clinical breakdown on systolic and diastolic target parameters for early detection of hypertensive events.
-                      </p>
-                    </div>
-                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                      <span>5 min read • Medical Board</span>
-                      <Link href="/blog/cardiovascular-vitals" className="text-blue-600 font-bold hover:underline">
-                        Read Guide &rarr;
-                      </Link>
-                    </div>
-                  </article>
-
-                  <article className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-emerald-300 transition">
-                    <div className="p-6 space-y-3">
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">Telemedicine</span>
-                      <h3 className="text-base font-bold text-slate-900 leading-snug">
-                        Maximizing Your Virtual Consultation Experience
-                      </h3>
-                      <p className="text-xs text-slate-500 line-clamp-3">
-                        How to prepare health history data, medication logs, and active symptom profiles before your remote appointment.
-                      </p>
-                    </div>
-                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                      <span>4 min read • Dr. A. Jenkins</span>
-                      <Link href="/blog/virtual-consultation-guide" className="text-blue-600 font-bold hover:underline">
-                        Read Guide &rarr;
-                      </Link>
-                    </div>
-                  </article>
-
-                  <article className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:border-purple-300 transition">
-                    <div className="p-6 space-y-3">
-                      <span className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-[10px] font-bold">Clinical Evidence</span>
-                      <h3 className="text-base font-bold text-slate-900 leading-snug">
-                        AI Decision Support in Modern Primary Care
-                      </h3>
-                      <p className="text-xs text-slate-500 line-clamp-3">
-                        Examining recent PubMed literature on machine learning precision for rapid clinical diagnosis assistance.
-                      </p>
-                    </div>
-                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                      <span>6 min read • Research Team</span>
-                      <Link href="/blog/ai-decision-support" className="text-blue-600 font-bold hover:underline">
-                        Read Guide &rarr;
-                      </Link>
-                    </div>
-                  </article>
-                </>
+                <p className="text-xs text-slate-400">Loading blog articles...</p>
               )}
-            </div>
-          </section>
-
-          <section id="guides" className="w-full bg-slate-900 rounded-3xl p-8 sm:p-12 text-white flex flex-col lg:flex-row items-center justify-between gap-8 shadow-xl">
-            <div className="space-y-4 text-left max-w-xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 border border-blue-400/30 rounded-full text-blue-300 text-xs font-bold">
-                <Download className="w-3.5 h-3.5" /> Direct Access Resources
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-                Download Free Clinical & Patient Care Guides
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300">
-                Instant, sign-up-free access to curated medical whitepapers, clinical checklists, and patient care resources.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full lg:w-auto">
-              <a
-                href="/downloads/chronic-vitals-monitoring-protocol.pdf"
-                download
-                className="p-5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-2xl flex flex-col justify-between space-y-3 transition group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center shrink-0">
-                    <Download className="w-5 h-5 group-hover:scale-110 transition" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-white">Vitals Protocol Guide</h3>
-                    <p className="text-[10px] text-slate-400">PDF • 2.4 MB</p>
-                  </div>
-                </div>
-                <span className="text-[11px] font-bold text-blue-400 flex items-center gap-1">
-                  Direct Download <ArrowRight className="w-3 h-3" />
-                </span>
-              </a>
-
-              <a
-                href="/downloads/patient-telehealth-readiness-checklist.pdf"
-                download
-                className="p-5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-2xl flex flex-col justify-between space-y-3 transition group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center shrink-0">
-                    <Download className="w-5 h-5 group-hover:scale-110 transition" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-white">Telehealth Checklist</h3>
-                    <p className="text-[10px] text-slate-400">PDF • 1.8 MB</p>
-                  </div>
-                </div>
-                <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
-                  Direct Download <ArrowRight className="w-3 h-3" />
-                </span>
-              </a>
-            </div>
-          </section>
-
-          <section className="w-full space-y-6 pt-4">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              Streamlined Clinical Workflow
-            </h2>
-            <div className="relative w-full h-64 sm:h-96 rounded-3xl overflow-hidden border border-slate-200 shadow-sm bg-slate-200">
-              <Image
-                src="/og-image.png"
-                alt="Doctor conducting remote telehealth consultation using Swift MD platform"
-                fill
-                sizes="(max-width: 1280px) 100vw, 1280px"
-                className="object-cover"
-                priority
-              />
             </div>
           </section>
         </main>
