@@ -229,7 +229,7 @@ export default function LandingPageClient() {
 
               <div className="flex flex-wrap items-center gap-4 pt-2">
                 <Link
-                  href="/patient/dashboard"
+                  href="/patient/dashboard?tab=book"
                   className="px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg transition-all flex items-center gap-2 text-sm"
                 >
                   <Calendar className="w-4 h-4" />
@@ -253,7 +253,7 @@ export default function LandingPageClient() {
           </section>
 
           <section id="consult" className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            <Link href="/patient/dashboard" className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm hover:shadow-md hover:border-blue-300 transition group flex flex-col justify-between space-y-4">
+            <Link href="/patient/dashboard?tab=book" className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm hover:shadow-md hover:border-blue-300 transition group flex flex-col justify-between space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition">
                 <Video className="w-6 h-6" />
               </div>
@@ -263,7 +263,7 @@ export default function LandingPageClient() {
               </div>
             </Link>
 
-            <Link href="/patient/dashboard" className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm hover:shadow-md hover:border-emerald-300 transition group flex flex-col justify-between space-y-4">
+            <Link href="/patient/dashboard?tab=book" className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm hover:shadow-md hover:border-emerald-300 transition group flex flex-col justify-between space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition">
                 <Calendar className="w-6 h-6" />
               </div>
@@ -305,7 +305,7 @@ export default function LandingPageClient() {
                 <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">Consult Top Specialties</h2>
                 <p className="text-xs sm:text-sm text-slate-500">Private consultations with verified doctors</p>
               </div>
-              <Link href="/patient/dashboard" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
+              <Link href="/patient/dashboard?tab=book" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
                 See All <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -317,7 +317,7 @@ export default function LandingPageClient() {
                 return (
                   <Link
                     key={i}
-                    href={`/patient/dashboard?specialty=${encodeURIComponent(specialtyName)}`}
+                    href={`/patient/dashboard?tab=book&specialty=${encodeURIComponent(specialtyName)}`}
                     className="bg-white p-4 rounded-2xl border border-slate-200/85 flex items-center gap-3 hover:border-blue-400 hover:shadow-sm cursor-pointer transition group"
                   >
                     <div className="w-10 h-10 rounded-xl bg-slate-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center shrink-0 transition">
@@ -367,7 +367,7 @@ export default function LandingPageClient() {
                     </div>
                     <div className="flex sm:flex-col justify-end gap-2 shrink-0">
                       <Link
-                        href={`/patient/dashboard?doctorId=${encodeURIComponent(docId)}&doctorName=${encodeURIComponent(docName)}&specialty=${encodeURIComponent(docSpecialty)}`}
+                        href={`/patient/dashboard?tab=book&doctorId=${encodeURIComponent(docId)}&doctorName=${encodeURIComponent(docName)}&specialty=${encodeURIComponent(docSpecialty)}`}
                         className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition text-center shadow-sm"
                       >
                         Book Visit
