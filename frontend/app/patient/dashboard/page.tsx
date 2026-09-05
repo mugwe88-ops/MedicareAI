@@ -5,7 +5,7 @@ import {
   Heart, Activity, TrendingUp, Calendar, FileText, 
   ArrowRight, ShieldCheck, User, LogOut, ArrowLeft, Search, Bell, Mail, RefreshCw, Clock, CheckCircle2 
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Appointment {
   id: string;
@@ -37,12 +37,23 @@ export default function PatientDashboardPage() {
     { id: "REC-2", testName: "Liver Biopsy", referredBy: "Dr. Fahim Ahmed", date: "12 Jan, 2024", comments: "Waiting for diagram", status: "Pending" },
     { id: "REC-3", testName: "Blood Test", referredBy: "Dr. Asad Khan", date: "10 Jan, 2024", comments: "As needed", status: "Normal" }
   ]);
+  
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Read URL query parameters on mount/change
+  const tabParam = searchParams.get("tab");
+  const specialtyParam = searchParams.get("specialty");
 
   useEffect(() => {
     const name = localStorage.getItem("userName");
     if (name) setUserName(name);
-  }, []);
+
+    // If URL specifies a tab or specialty, handle it smoothly without alerts
+    if (tabParam === "appointments" || specialtyParam) {
+      setActiveTab("appointments");
+    }
+  }, [tabParam, specialtyParam]);
 
   return (
     <div className="w-full min-h-screen bg-slate-50 text-slate-900 pb-16">
@@ -246,13 +257,20 @@ export default function PatientDashboardPage() {
         {/* Tab Content 2: Appointments */}
         {activeTab === "appointments" && (
           <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h3 className="text-base font-black text-slate-900">Your Booked Consultations</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Manage and track your appointments with medical specialists.</p>
+                {specialtyParam && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-100">
+                    Filtering booking view for specialty: <span className="underline">{specialtyParam}</span>
+                  </div>
+                )}
               </div>
               <button 
-                onClick={() => alert("Redirecting to booking system...")}
+                onClick={() => {
+                  // Handle booking action smoothly (e.g. open booking modal or route)
+                }}
                 className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-2xl transition shadow-md shadow-blue-500/20 cursor-pointer"
               >
                 + Book New Appointment
