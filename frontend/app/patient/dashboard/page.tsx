@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { 
   Heart, Activity, TrendingUp, Calendar, FileText, 
   ArrowRight, ShieldCheck, User, LogOut, ArrowLeft, Search, Bell, Mail, RefreshCw, Clock, CheckCircle2 
@@ -25,7 +25,7 @@ interface MedicalRecordItem {
   status: "Normal" | "Pending" | "Review Required";
 }
 
-export default function PatientDashboardPage() {
+function DashboardContent() {
   const [userName, setUserName] = useState("Patient");
   const [activeTab, setActiveTab] = useState<"overview" | "appointments" | "records">("overview");
   const [appointments, setAppointments] = useState<Appointment[]>([
@@ -41,7 +41,6 @@ export default function PatientDashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Read URL query parameters on mount/change
   const tabParam = searchParams.get("tab");
   const specialtyParam = searchParams.get("specialty");
 
@@ -49,7 +48,6 @@ export default function PatientDashboardPage() {
     const name = localStorage.getItem("userName");
     if (name) setUserName(name);
 
-    // If URL specifies a tab or specialty, handle it smoothly without alerts
     if (tabParam === "appointments" || specialtyParam) {
       setActiveTab("appointments");
     }
@@ -144,11 +142,7 @@ export default function PatientDashboardPage() {
         {/* Tab Content 1: Overview */}
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Left 2 Columns: Overall Performance & Vitals Analytics */}
             <div className="lg:col-span-2 space-y-6">
-              
-              {/* Overall Performance Card */}
               <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Overall Performance</span>
@@ -168,7 +162,6 @@ export default function PatientDashboardPage() {
                 </div>
               </div>
 
-              {/* Analytics & Vitals Overview */}
               <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wide">Vitals Analytics</h3>
@@ -207,10 +200,8 @@ export default function PatientDashboardPage() {
                   </div>
                 </div>
               </div>
-
             </div>
 
-            {/* Right Column: Profile Summary & Upcoming Appointments Widget */}
             <div className="space-y-6">
               <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
                 <h3 className="text-xs uppercase font-black tracking-wider text-slate-400">Profile Card</h3>
@@ -250,7 +241,6 @@ export default function PatientDashboardPage() {
                 </div>
               </div>
             </div>
-
           </div>
         )}
 
@@ -268,9 +258,7 @@ export default function PatientDashboardPage() {
                 )}
               </div>
               <button 
-                onClick={() => {
-                  // Handle booking action smoothly (e.g. open booking modal or route)
-                }}
+                onClick={() => {}}
                 className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-2xl transition shadow-md shadow-blue-500/20 cursor-pointer"
               >
                 + Book New Appointment
@@ -356,5 +344,13 @@ export default function PatientDashboardPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function PatientDashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-slate-500 font-medium text-sm">Loading dashboard...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }
