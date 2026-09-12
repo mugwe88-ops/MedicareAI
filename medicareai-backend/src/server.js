@@ -222,7 +222,7 @@ app.use("/api/availability", availabilityRoutes);
 app.use('/api/medications', patientDashboardRoutes);
 app.use('/api/records', patientDashboardRoutes);
 app.use('/api/messages', patientDashboardRoutes);
-app.use('/api', testSanityRouter);
+app.use('/', testSanityRouter);
 
 
 // --- LEGAL PAGES HTML ENDPOINTS ---
