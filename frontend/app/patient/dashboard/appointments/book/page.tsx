@@ -111,7 +111,12 @@ export default function BookAppointmentPage() {
       });
       if (!res.ok) throw new Error("Failed to load consultations");
       const data = await res.json();
-      const apptList = Array.isArray(data) ? data : data.appointments || [];
+      
+      // Robust extraction supporting multiple backend JSON structures
+      const apptList = Array.isArray(data) 
+        ? data 
+        : data.appointments || data.data || data.consultations || [];
+      
       setConsultations(apptList);
     } catch (err) {
       console.error("Consultations Fetch Error:", err);
@@ -137,7 +142,7 @@ export default function BookAppointmentPage() {
         return res.json();
       })
       .then((data) => {
-        const docList = Array.isArray(data) ? data : data.doctors || [];
+        const docList = Array.isArray(data) ? data : data.doctors || data.data || [];
         setDoctors(docList);
         setLoadingDoctors(false);
       })
@@ -164,7 +169,7 @@ export default function BookAppointmentPage() {
     try {
       const res = await fetch(`${API_BASE}/api/doctors/${doctorId}/availability`);
       const data = await res.json();
-      setAvailability(Array.isArray(data) ? data : data.availability || []);
+      setAvailability(Array.isArray(data) ? data : data.availability || data.data || []);
     } catch (err) {
       console.error("Availability Fetch Error:", err);
       setAvailability([]);
@@ -225,7 +230,7 @@ export default function BookAppointmentPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Booking failed");
+      if (!res.ok) throw new Error(data.error || data.message || "Booking failed");
 
       setSuccessMsg(`Appointment booked for ${selectedSlot.day} (${calculatedDate}) at ${selectedSlot.time}!`);
       
