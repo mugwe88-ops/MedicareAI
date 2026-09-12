@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Search, Bell, Mail, RefreshCw, Users, FileText, CheckCircle2, X, Calendar } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Bell, Mail, RefreshCw, Users, FileText, CheckCircle2, X, Calendar, Camera, Upload, Check } from "lucide-react";
 
 interface DoctorInfo {
   name: string;
@@ -60,6 +60,13 @@ export default function DoctorDashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [totalAppointmentsCount, setTotalAppointmentsCount] = useState<number>(0);
+
+  // Profile Picture Upload States
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
+  const [avatarUploadSuccess, setAvatarUploadSuccess] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Dynamic Medical Records state
   const [medicalRecordsData, setMedicalRecordsData] = useState<Record<string, RecordItem[]>>({
@@ -122,14 +129,18 @@ export default function DoctorDashboardPage() {
         let rawName = profile.name || profile.fullName || "Pressy Phides";
         const formattedName = rawName.toLowerCase().startsWith("dr.") ? rawName : `Dr. ${rawName}`;
 
+        const fetchedAvatar = profile.avatar || profile.avatarUrl || profile.profilePicture || "";
         setDoctorInfo({
           name: formattedName,
           email: profile.email || "willyweyru1@gmail.com",
           specialty: profile.specialty || profile.specialization || "pediatrics",
-          avatar: profile.avatar || profile.avatarUrl || profile.profilePicture || "",
+          avatar: fetchedAvatar,
           portalStatus: profile.portalStatus || profile.licenseStatus || "Verified MD",
           status: profile.status || (profile.isActive ? "Active Duty" : "On Leave") || "On Leave",
         });
+        if (fetchedAvatar && !previewUrl) {
+          setPreviewUrl(fetchedAvatar);
+        }
       } else {
         setDoctorInfo({
           name: "Dr. Pressy Phides",
@@ -295,7 +306,7 @@ export default function DoctorDashboardPage() {
     }
   };
 
-  // Fetch dynamic medical records (Lab Reports, Prescriptions, Medications, Diagnoses) from backend
+  // Fetch dynamic medical records
   const fetchMedicalRecords = async () => {
     setIsRecordsLoading(true);
     try {
@@ -360,7 +371,6 @@ export default function DoctorDashboardPage() {
           } else if (type.includes("diagnos")) {
             diagnoses.push(record);
           } else {
-            // Default category or lab report
             labReports.push(record);
           }
         });
@@ -421,6 +431,68 @@ export default function DoctorDashboardPage() {
     }
   };
 
+  // Picture Selection & Upload Handlers
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+      setAvatarUploadSuccess(false);
+    }
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!selectedFile && !previewUrl) return;
+    setIsUploadingAvatar(true);
+    setAvatarUploadSuccess(false);
+
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
+
+      // If we have a file, send via FormData, else fallback to JSON sync
+      let res;
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append("avatar", selectedFile);
+
+        res = await fetch(`${API_URL}/api/doctors/avatar`, {
+          method: "POST",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
+        });
+      } else {
+        res = await fetch(`${API_URL}/api/doctors/me`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ avatar: previewUrl }),
+        });
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        const updatedAvatar = data.avatar || data.doctor?.avatar || previewUrl;
+        if (doctorInfo) {
+          setDoctorInfo({ ...doctorInfo, avatar: updatedAvatar });
+        }
+        setAvatarUploadSuccess(true);
+        setSelectedFile(null);
+        setTimeout(() => setAvatarUploadSuccess(false), 4000);
+      } else {
+        console.error("Avatar upload failed with status:", res.status);
+      }
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .replace(/^Dr\.\s+/i, "")
@@ -476,12 +548,6 @@ export default function DoctorDashboardPage() {
 
   const currentWorkload = workloadDatasets[activeWorkloadTab];
   const currentTableData = medicalRecordsData[activeSubTab] || [];
-  const filteredAllAppointments = allAppointments.filter(
-    (apt) =>
-      apt.patientName.toLowerCase().includes(allAppointmentsSearch.toLowerCase()) ||
-      apt.specialty.toLowerCase().includes(allAppointmentsSearch.toLowerCase()) ||
-      apt.dateKey.includes(allAppointmentsSearch)
-  );
 
   return (
     <div className="flex-1 flex flex-col p-6 lg:p-8 space-y-6 overflow-y-auto bg-slate-50 w-full relative">
@@ -678,38 +744,118 @@ export default function DoctorDashboardPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Active Doctor Profile & Appointments */}
+        {/* RIGHT COLUMN: Active Doctor Profile & Picture Management */}
         <div className="space-y-6">
+          {/* Profile & Availability / Picture Upload Component */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 text-xs font-black uppercase tracking-wider text-slate-400">
-              <span className="text-blue-600">Active Doctor</span>
-              <span className="text-slate-300">•</span>
-              <span>Credentials</span>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-400">
+                <span className="text-blue-600">Profile & Availability</span>
+              </div>
+              <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-2.5 py-0.5 rounded-full">MD Sync</span>
             </div>
 
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-8 space-y-2">
                 <RefreshCw size={24} className="animate-spin text-blue-600" />
-                <p className="text-xs text-slate-400 font-bold">Fetching credentials...</p>
+                <p className="text-xs text-slate-400 font-bold">Loading profile data...</p>
               </div>
             ) : doctorInfo ? (
               <>
                 <div className="flex flex-col items-center text-center space-y-3 pt-2">
-                  {doctorInfo.avatar ? (
-                    <div className="w-24 h-24 rounded-3xl bg-slate-100 overflow-hidden shadow-inner border border-slate-200">
-                      <img src={doctorInfo.avatar} alt={doctorInfo.name} className="w-full h-full object-cover" />
-                    </div>
-                  ) : (
-                    <div className="w-24 h-24 rounded-3xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-md">
-                      {getInitials(doctorInfo.name)}
-                    </div>
-                  )}
+                  {/* Picture Preview Container */}
+                  <div className="relative group">
+                    {previewUrl || doctorInfo.avatar ? (
+                      <div className="w-24 h-24 rounded-3xl bg-slate-100 overflow-hidden shadow-inner border-2 border-slate-200">
+                        <img 
+                          src={previewUrl || doctorInfo.avatar} 
+                          alt={doctorInfo.name} 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 rounded-3xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-md">
+                        {getInitials(doctorInfo.name)}
+                      </div>
+                    )}
+
+                    {/* Camera Badge Trigger */}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center shadow-md transition cursor-pointer"
+                      title="Select new picture"
+                    >
+                      <Camera size={14} />
+                    </button>
+                  </div>
+
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    accept="image/*"
+                    className="hidden"
+                  />
+
                   <div>
                     <h3 className="text-base font-black text-slate-900">{doctorInfo.name}</h3>
-                    <p className="text-xs text-blue-600 font-bold">{doctorInfo.specialty}</p>
+                    <p className="text-xs text-blue-600 font-bold capitalize">{doctorInfo.specialty}</p>
                   </div>
                 </div>
 
+                {/* Upload Action Bar */}
+                <div className="pt-2">
+                  {selectedFile ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAvatarUpload}
+                        disabled={isUploadingAvatar}
+                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                      >
+                        {isUploadingAvatar ? (
+                          <>
+                            <RefreshCw size={14} className="animate-spin" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={14} />
+                            <span>Save Picture</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          setPreviewUrl(doctorInfo.avatar);
+                        }}
+                        className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                    >
+                      <Camera size={14} className="text-blue-600" />
+                      <span>Change Profile Picture</span>
+                    </button>
+                  )}
+
+                  {avatarUploadSuccess && (
+                    <p className="flex items-center justify-center gap-1 text-[11px] text-emerald-600 font-bold mt-2 animate-fade-in">
+                      <Check size={13} /> Picture updated successfully!
+                    </p>
+                  )}
+                </div>
+
+                {/* Credentials & Status Details */}
                 <div className="space-y-2.5 pt-3 border-t border-slate-100 text-xs text-slate-600 font-medium">
                   <p className="flex justify-between items-center">
                     <span className="text-slate-400">Email:</span>
@@ -720,7 +866,7 @@ export default function DoctorDashboardPage() {
                     <strong className="text-emerald-600">{doctorInfo.portalStatus}</strong>
                   </p>
                   <p className="flex justify-between items-center">
-                    <span className="text-slate-400">Status:</span>
+                    <span className="text-slate-400">Duty Status:</span>
                     <select
                       value={doctorInfo.status}
                       onChange={(e) => handleStatusChange(e.target.value)}
@@ -778,211 +924,31 @@ export default function DoctorDashboardPage() {
 
             <div className="space-y-3 pt-2">
               {isAppointmentsLoading ? (
-                <div className="flex flex-col items-center justify-center py-8 space-y-2">
+                <div className="flex flex-col items-center justify-center py-6 space-y-2">
                   <RefreshCw size={20} className="animate-spin text-blue-600" />
-                  <p className="text-[11px] text-slate-400 font-bold">Loading schedule from DB...</p>
+                  <p className="text-[11px] text-slate-400 font-bold">Loading appointments...</p>
                 </div>
               ) : appointments.length > 0 ? (
                 appointments.map((apt) => (
-                  <div key={apt.id} className="p-3.5 bg-slate-50 border border-slate-200/60 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <h4 className="font-black text-slate-900 text-xs">{apt.patientName}</h4>
-                      <p className="text-[10px] text-slate-400 font-bold">{apt.specialty}</p>
+                  <div key={apt.id} className="bg-slate-50 border border-slate-200/60 p-3.5 rounded-2xl space-y-1 hover:border-blue-300 transition">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black text-slate-900">{apt.patientName}</h4>
+                      <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">
+                        {apt.time}
+                      </span>
                     </div>
-                    <span className="text-xs font-black text-slate-800">{apt.time}</span>
+                    <p className="text-[11px] text-slate-500 font-medium">{apt.specialty}</p>
                   </div>
                 ))
               ) : (
-                <div className="py-6 text-center text-slate-400 text-xs font-medium bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                <div className="py-8 text-center text-slate-400 text-xs font-medium">
                   No appointments scheduled for this date.
                 </div>
               )}
             </div>
-
-            <button
-              onClick={() => setIsAllAppointmentsModalOpen(true)}
-              className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-2xl border border-slate-200 transition cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Calendar size={14} className="text-blue-600" /> View All Booked Appointments
-            </button>
           </div>
         </div>
       </div>
-
-      {/* FULL REPORT MODAL */}
-      {isReportModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
-                  <FileText size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900">Clinical Performance Report</h3>
-                  <p className="text-xs text-slate-400 font-medium">MedicareAI Practitioner Audit</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsReportModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {isPerformanceLoading ? (
-              <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                <RefreshCw size={28} className="animate-spin text-blue-600" />
-                <p className="text-xs text-slate-400 font-bold">Querying Neon DB metrics...</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400 font-bold">Practitioner Name:</span>
-                    <span className="text-slate-900 font-black">{doctorInfo?.name || "Dr. Pressy Phides"}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400 font-bold">Specialty:</span>
-                    <span className="text-blue-600 font-bold">{doctorInfo?.specialty || "pediatrics"}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400 font-bold">License Status:</span>
-                    <span className="text-emerald-600 font-bold flex items-center gap-1">
-                      <CheckCircle2 size={14} /> {doctorInfo?.portalStatus || "Verified MD"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100/60 text-center">
-                    <span className="text-[10px] text-blue-600 font-black uppercase tracking-wider">Efficiency Rating</span>
-                    <p className="text-2xl font-black text-slate-900 mt-1">
-                      {performanceData?.efficiency_rating ?? 95}%
-                    </p>
-                    <span className="text-[10px] text-emerald-600 font-bold">Top Quartile</span>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100/60 text-center">
-                    <span className="text-[10px] text-emerald-600 font-black uppercase tracking-wider">Practice Score</span>
-                    <p className="text-2xl font-black text-slate-900 mt-1">
-                      {performanceData?.practice_score ?? 492} / {performanceData?.max_score ?? 500}
-                    </p>
-                    <span className="text-[10px] text-emerald-600 font-bold">Excellent Standing</span>
-                  </div>
-                </div>
-
-                <div className="text-xs text-slate-500 space-y-1.5 font-medium px-1">
-                  <p>• <strong>Patient Satisfaction:</strong> {performanceData?.patient_satisfaction ?? 4.9} / 5.0 across {performanceData?.total_reviews ?? 142} reviews.</p>
-                  <p>• <strong>Consultation Timeliness:</strong> Average wait time under {performanceData?.avg_wait_time_mins ?? 4} minutes.</p>
-                  <p>• <strong>Compliance & Safety:</strong> {performanceData?.compliance_rate ?? 100}% adherence to electronic health records standards.</p>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-              <button
-                onClick={() => window.print()}
-                className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition cursor-pointer shadow-md"
-              >
-                Print / Save PDF Report
-              </button>
-              <button
-                onClick={() => setIsReportModalOpen(false)}
-                className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ALL APPOINTMENTS MODAL */}
-      {isAllAppointmentsModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
-                  <Calendar size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900">All Booked Appointments</h3>
-                  <p className="text-xs text-slate-400 font-medium">Live Schedule Ledger ({allAppointments.length} Total)</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsAllAppointmentsModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="relative shrink-0">
-              <Search className="absolute left-4 top-3 text-slate-400" size={15} />
-              <input
-                type="text"
-                placeholder="Filter by patient name, specialty, or date..."
-                value={allAppointmentsSearch}
-                onChange={(e) => setAllAppointmentsSearch(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-2.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition"
-              />
-            </div>
-
-            <div className="overflow-y-auto flex-1 divide-y divide-slate-100 pr-1">
-              {isAppointmentsLoading ? (
-                <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                  <RefreshCw size={28} className="animate-spin text-blue-600" />
-                  <p className="text-xs text-slate-400 font-bold">Loading appointments from database...</p>
-                </div>
-              ) : filteredAllAppointments.length > 0 ? (
-                filteredAllAppointments.map((apt) => (
-                  <div key={apt.id} className="py-3.5 px-3 flex items-center justify-between hover:bg-slate-50 rounded-2xl transition">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-black text-slate-900 text-xs">{apt.patientName}</h4>
-                        <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-md">
-                          Date: {apt.dateKey}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-blue-600 font-bold">{apt.specialty}</p>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-black text-slate-800 bg-slate-100 px-3 py-1 rounded-xl">
-                        {apt.time}
-                      </span>
-                      <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${
-                        apt.status === "Completed" ? "bg-purple-100 text-purple-700" :
-                        apt.status === "Pending" ? "bg-amber-100 text-amber-700" :
-                        "bg-emerald-100 text-emerald-700"
-                      }`}>
-                        {apt.status || "Confirmed"}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="py-12 text-center text-slate-400 text-xs font-medium">
-                  No appointments found in the database.
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100 shrink-0">
-              <span className="text-xs text-slate-400 font-medium">Showing {filteredAllAppointments.length} appointments</span>
-              <button
-                onClick={() => setIsAllAppointmentsModalOpen(false)}
-                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition cursor-pointer shadow-md"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

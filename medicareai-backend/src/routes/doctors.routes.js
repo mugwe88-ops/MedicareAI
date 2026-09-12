@@ -109,11 +109,12 @@ router.get("/earnings", authenticateToken, async (req, res) => {
   }
 });
 
+// ✅ UPDATED: Include avatar_url in profile fetch
 router.get("/profile", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     let result = await pool.query(
-      "SELECT id, name, email, specialization, bio, availability, status FROM users WHERE id = $1",
+      "SELECT id, name, email, specialization, bio, availability, status, avatar_url FROM users WHERE id = $1",
       [userId]
     );
 
@@ -128,10 +129,11 @@ router.get("/profile", authenticateToken, async (req, res) => {
   }
 });
 
+// ✅ UPDATED: Support updating avatar_url alongside other fields
 router.put("/profile", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, email, specialization, bio, availability, status } = req.body;
+    const { name, email, specialization, bio, availability, status, avatar_url } = req.body;
 
     const result = await pool.query(
       `UPDATE users 
@@ -140,10 +142,11 @@ router.put("/profile", authenticateToken, async (req, res) => {
            specialization = $3, 
            bio = $4, 
            availability = $5,
-           status = COALESCE($6, status)
-       WHERE id = $7 
-       RETURNING id, name, email, specialization, bio, availability, status`,
-      [name, email, specialization, bio, availability, status, userId]
+           status = COALESCE($6, status),
+           avatar_url = COALESCE($7, avatar_url)
+       WHERE id = $8 
+       RETURNING id, name, email, specialization, bio, availability, status, avatar_url`,
+      [name, email, specialization, bio, availability, status, avatar_url, userId]
     );
 
     if (result.rows.length === 0) {
