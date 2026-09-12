@@ -159,6 +159,28 @@ router.get("/:id/availability", async (req, res) => {
   }
 });
 
+// Get currently logged-in doctor's profile
+router.get("/profile", authenticateToken, async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+    const result = await pool.query(
+      `SELECT id, name, email, specialization, consultation_fee, experience_years, avatar_url, phone, availability 
+       FROM consultants 
+       WHERE id = $1`,
+      [doctorId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Doctor profile not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error fetching doctor profile:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // Add a doctor's availability slot (Protected)
 router.post("/:id/availability", authenticateToken, async (req, res) => {
   try {
