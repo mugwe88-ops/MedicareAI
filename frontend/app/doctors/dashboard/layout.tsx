@@ -35,7 +35,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
         const token = localStorage.getItem("token");
         if (!token) return;
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/auth/me`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
