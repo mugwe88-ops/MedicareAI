@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { 
   Search, Video, Calendar as CalendarIcon, User, AlertCircle, RefreshCw, 
   CheckCircle2, Clock, FileText, Pill, Stethoscope, Share2, AlertTriangle, 
-  XCircle, ArrowRight, Shield, Activity, PhoneCall
+  XCircle, ArrowRight, Shield, Activity, PhoneCall, FolderOpen, MessageSquare
 } from "lucide-react";
 
 interface PatientVitals {
@@ -18,24 +18,26 @@ interface PatientVitals {
 
 interface AppointmentItem {
   id: string;
+  patientId: string;
   patientName: string;
   patientEmail?: string;
   age: number;
   gender: string;
   bloodGroup: string;
+  lastVisitDate: string;
+  primaryDiagnosis: string;
+  clinicalStatus: "Stable" | "Observation" | "Critical";
   allergies: string[];
   currentMedications: string[];
-  previousDiagnosis: string[];
-  lastConsultationDate: string;
   insuranceType: string;
   emergencyContact: string;
   isNewPatient: boolean;
   specialty: string;
   consultationType: "Online" | "Physical";
-  date: string; // YYYY-MM-DD
+  date: string;
   time: string;
   status: "Confirmed" | "Waiting" | "Completed" | "Canceled" | "No Show";
-  riskFlags: string[]; // e.g. ["Chronic Disease", "High BP", "DM", "Pregnancy"]
+  riskFlags: string[];
   reason?: string;
   vitals?: PatientVitals;
 }
@@ -50,18 +52,11 @@ export default function DoctorAppointmentsPage() {
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [dateFilter, setDateFilter] = useState<string>("all"); // all, today, tomorrow, week
+  const [dateFilter, setDateFilter] = useState<string>("all");
   const [specialtyFilter, setSpecialtyFilter] = useState<string>("all");
-  const [modeFilter, setModeFilter] = useState<string>("all"); // all, Online, Physical
-  const [statusFilter, setStatusFilter] = useState<string>("all"); // all, Confirmed, Waiting, Completed, Canceled
-  const [patientTypeFilter, setPatientTypeFilter] = useState<string>("all"); // all, new, returning
-
-  // Active In-Consultation Drawer Tabs (SOAP, AI notes, E-Prescription, Labs)
-  const [activeTab, setActiveTab] = useState<"details" | "soap" | "prescription" | "labs" | "ai">("details");
-  const [soapNotes, setSoapNotes] = useState({ subject: "", objective: "", assessment: "", plan: "" });
-  const [prescription, setPrescription] = useState({ medication: "", dosage: "", frequency: "", duration: "" });
-  const [labOrder, setLabOrder] = useState({ testName: "", notes: "" });
-  const [aiTranscript, setAiTranscript] = useState<string>("Listening to consultation session...\n[00:00] Doctor: Hello, let's review your symptoms today.\n[00:15] Patient: Experiencing mild fatigue and elevated morning blood pressure.");
+  const [modeFilter, setModeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [patientTypeFilter, setPatientTypeFilter] = useState<string>("all");
 
   const fetchAppointments = async () => {
     setIsLoading(true);
@@ -99,15 +94,17 @@ export default function DoctorAppointmentsPage() {
       if (success && Array.isArray(fetchedData)) {
         const formatted: AppointmentItem[] = fetchedData.map((item: any, idx: number) => ({
           id: item.id || item._id || String(idx),
+          patientId: item.patientId || item.patient_id || `MED-ID-${1000 + idx}`,
           patientName: item.patientName || item.patient_name || item.patient?.name || item.name || "Patient",
           patientEmail: item.patientEmail || item.patient_email || item.patient?.email || "patient@medicare.ai",
-          age: item.age || 34,
+          age: item.age || 38,
           gender: item.gender || "Female",
           bloodGroup: item.bloodGroup || "O+",
-          allergies: item.allergies || ["Penicillin"],
-          currentMedications: item.currentMedications || ["Amlodipine 5mg"],
-          previousDiagnosis: item.previousDiagnosis || ["Essential Hypertension"],
-          lastConsultationDate: item.lastConsultationDate || "2026-08-10",
+          lastVisitDate: item.lastVisitDate || "2026-08-12",
+          primaryDiagnosis: item.primaryDiagnosis || "Essential Hypertension",
+          clinicalStatus: item.clinicalStatus || (idx === 0 ? "Critical" : idx === 1 ? "Observation" : "Stable"),
+          allergies: item.allergies || ["Penicillin", "Sulfa drugs"],
+          currentMedications: item.currentMedications || ["Amlodipine 5mg daily", "Metformin 500mg"],
           insuranceType: item.insuranceType || "SHA / NHIF",
           emergencyContact: item.emergencyContact || "+254 712 345 678",
           isNewPatient: idx % 2 === 0,
@@ -162,9 +159,16 @@ export default function DoctorAppointmentsPage() {
     }
   };
 
-  const handleStartConsultation = (id: string, withScreenShare: boolean = false) => {
-    const query = withScreenShare ? "?shareScreen=true" : "";
-    router.push(`/doctors/telehealth/${id}${query}`);
+  const handleStartConsultation = (id: string) => {
+    router.push(`/doctors/telehealth/${id}`);
+  };
+
+  const handleOpenRecord = (patientId: string) => {
+    router.push(`/doctors/patients/${patientId}`);
+  };
+
+  const handleMessage = (patientId: string) => {
+    router.push(`/doctors/messages?patient=${patientId}`);
   };
 
   // Filter Logic
@@ -176,11 +180,10 @@ export default function DoctorAppointmentsPage() {
     const matchesStatus = statusFilter === "all" || apt.status.toLowerCase() === statusFilter.toLowerCase();
     const matchesPatientType = patientTypeFilter === "all" || (patientTypeFilter === "new" ? apt.isNewPatient : !apt.isNewPatient);
 
-    // Simple date mockup matching
     let matchesDate = true;
-    const todayStr = "2026-09-17"; // simulated current date context
+    const todayStr = "2026-09-17";
     if (dateFilter === "today") matchesDate = apt.date === todayStr;
-    if (dateFilter === "tomorrow") matchesDate = apt.date !== todayStr; // mock rule for display
+    if (dateFilter === "tomorrow") matchesDate = apt.date !== todayStr;
 
     return matchesSearch && matchesSpecialty && matchesMode && matchesStatus && matchesPatientType && matchesDate;
   });
@@ -193,7 +196,7 @@ export default function DoctorAppointmentsPage() {
           <div>
             <h1 className="text-xl font-black text-slate-900 tracking-tight">Live Patient Queue & Consultations</h1>
             <p className="text-xs text-slate-400 font-medium mt-0.5">
-              Smart clinical management with AI transcription, SOAP notes, and real-time telehealth rooms.
+              Smart clinical management with instant patient profile views and real-time telehealth rooms.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -254,14 +257,14 @@ export default function DoctorAppointmentsPage() {
       {/* Main Grid Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left 2 Cols: Live Queue / Appointment Cards */}
+        {/* Left 2 Cols: Appointment Rows */}
         <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <span className="text-xs uppercase tracking-wider text-slate-400 font-black">
               Patient Queue & Schedule ({filteredAppointments.length})
             </span>
             <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-1 rounded-full flex items-center gap-1 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Smart Reminder: 10m Countdown Active
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Smart Reminder: Active
             </span>
           </div>
 
@@ -300,7 +303,6 @@ export default function DoctorAppointmentsPage() {
                           </span>
                         </div>
 
-                        {/* Risk Flags Display */}
                         {apt.riskFlags.length > 0 && (
                           <div className="flex items-center gap-1.5 pt-1">
                             <AlertTriangle size={13} className="text-rose-500" />
@@ -317,20 +319,13 @@ export default function DoctorAppointmentsPage() {
                         </p>
                       </div>
 
-                      {/* Quick Action Buttons on Card */}
+                      {/* Quick Actions on Row */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleStartConsultation(apt.id, false); }}
+                          onClick={(e) => { e.stopPropagation(); handleStartConsultation(apt.id); }}
                           className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
                         >
                           <Video size={13} /> Consult
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleStartConsultation(apt.id, true); }}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
-                          title="Share screen before call starts"
-                        >
-                          <Share2 size={13} /> Share Screen
                         </button>
                         <button
                           onClick={(e) => handleUpdateStatus(apt.id, "Canceled", e)}
@@ -338,13 +333,6 @@ export default function DoctorAppointmentsPage() {
                           title="Cancel Appointment"
                         >
                           <XCircle size={15} />
-                        </button>
-                        <button
-                          onClick={(e) => handleUpdateStatus(apt.id, "No Show", e)}
-                          className="p-1.5 bg-slate-200 hover:bg-amber-100 hover:text-amber-600 text-slate-600 rounded-xl text-xs transition cursor-pointer"
-                          title="Mark No Show"
-                        >
-                          <Clock size={15} />
                         </button>
                       </div>
                     </div>
@@ -355,110 +343,119 @@ export default function DoctorAppointmentsPage() {
           )}
         </div>
 
-        {/* Right Col: Advanced Patient Details & In-Consultation Toolkit Drawer */}
+        {/* Right Col: Detailed Patient Panel */}
         <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Clinical & Workspace Panel</span>
-            <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-2.5 py-1 rounded-lg">Active Session</span>
+            <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Patient Profile Details</span>
+            <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-2.5 py-1 rounded-lg">Live View</span>
           </div>
 
           {selectedPatient ? (
             <div className="space-y-4">
+              {/* Profile Avatar, Age, Gender & ID */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white font-black text-base flex items-center justify-center shadow-md">
                   {selectedPatient.patientName.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <h3 className="font-black text-slate-900 text-sm">{selectedPatient.patientName}</h3>
-                  <p className="text-xs text-slate-400">{selectedPatient.age} yrs • {selectedPatient.gender} • Blood: <strong className="text-slate-700">{selectedPatient.bloodGroup}</strong></p>
+                  <p className="text-xs text-slate-400">
+                    {selectedPatient.age} yrs • {selectedPatient.gender} • <strong className="text-blue-600">{selectedPatient.patientId}</strong>
+                  </p>
                 </div>
               </div>
 
-              {/* Navigation Tabs for In-Consultation Tools */}
-              <div className="flex bg-slate-100 p-1 rounded-xl text-[11px] font-bold">
-                <button onClick={() => setActiveTab("details")} className={`flex-1 py-1.5 rounded-lg transition ${activeTab === "details" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}>Details</button>
-                <button onClick={() => setActiveTab("soap")} className={`flex-1 py-1.5 rounded-lg transition ${activeTab === "soap" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}>SOAP</button>
-                <button onClick={() => setActiveTab("prescription")} className={`flex-1 py-1.5 rounded-lg transition ${activeTab === "prescription" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}>Rx</button>
-                <button onClick={() => setActiveTab("labs")} className={`flex-1 py-1.5 rounded-lg transition ${activeTab === "labs" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}>Labs</button>
-                <button onClick={() => setActiveTab("ai")} className={`flex-1 py-1.5 rounded-lg transition ${activeTab === "ai" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}>AI</button>
+              {/* Status & Primary Info Box */}
+              <div className="space-y-2.5 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Current Status:</span>
+                  <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase ${
+                    selectedPatient.clinicalStatus === "Critical" ? "bg-rose-100 text-rose-700 animate-pulse" :
+                    selectedPatient.clinicalStatus === "Observation" ? "bg-amber-100 text-amber-700" :
+                    "bg-emerald-100 text-emerald-700"
+                  }`}>
+                    {selectedPatient.clinicalStatus}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Primary Diagnosis:</span>
+                  <strong className="text-slate-800 text-right">{selectedPatient.primaryDiagnosis}</strong>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Last Visit Date:</span>
+                  <strong className="text-slate-800">{selectedPatient.lastVisitDate}</strong>
+                </div>
+
+                {/* Vitals: Latest BP & HR */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60">
+                  <div className="bg-white p-2 rounded-xl border border-slate-200/60">
+                    <span className="text-[10px] text-slate-400 block font-bold">Blood Pressure</span>
+                    <strong className="text-slate-800 text-xs">{selectedPatient.vitals?.bloodPressure}</strong>
+                  </div>
+                  <div className="bg-white p-2 rounded-xl border border-slate-200/60">
+                    <span className="text-[10px] text-slate-400 block font-bold">Heart Rate</span>
+                    <strong className="text-slate-800 text-xs">{selectedPatient.vitals?.heartRate}</strong>
+                  </div>
+                </div>
+
+                {/* Allergies */}
+                <div className="pt-2 border-t border-slate-200/60">
+                  <span className="text-slate-400 block font-bold mb-1">Allergies:</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {selectedPatient.allergies.map((a, i) => (
+                      <span key={i} className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md font-bold text-[10px]">{a}</span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Current Medication */}
+                <div className="pt-2 border-t border-slate-200/60">
+                  <span className="text-slate-400 block font-bold mb-1">Current Medication:</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {selectedPatient.currentMedications.map((m, i) => (
+                      <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md font-bold text-[10px]">{m}</span>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* Tab 1: Patient Details & History */}
-              {activeTab === "details" && (
-                <div className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <div className="flex justify-between"><span className="text-slate-400">Insurance:</span><strong className="text-slate-800">{selectedPatient.insuranceType}</strong></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Emergency Contact:</span><strong className="text-slate-800">{selectedPatient.emergencyContact}</strong></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Last Consultation:</span><strong className="text-slate-800">{selectedPatient.lastConsultationDate}</strong></div>
-                  
-                  <div className="pt-2 border-t border-slate-200">
-                    <span className="text-slate-400 block font-bold mb-1">Allergies:</span>
-                    <div className="flex gap-1 flex-wrap">{selectedPatient.allergies.map((a, i) => <span key={i} className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded-md font-bold">{a}</span>)}</div>
-                  </div>
+              {/* Action Buttons: Open Record, Start Telehealth, Message */}
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={() => handleStartConsultation(selectedPatient.id)}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase rounded-2xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Video size={16} /> Start Telehealth
+                </button>
 
-                  <div className="pt-2 border-t border-slate-200">
-                    <span className="text-slate-400 block font-bold mb-1">Current Medications:</span>
-                    <div className="flex gap-1 flex-wrap">{selectedPatient.currentMedications.map((m, i) => <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md font-bold">{m}</span>)}</div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-200">
-                    <span className="text-slate-400 block font-bold mb-1">Previous Diagnosis / History:</span>
-                    <p className="text-slate-700 italic">{selectedPatient.previousDiagnosis.join(", ")}</p>
-                  </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleOpenRecord(selectedPatient.patientId)}
+                    className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <FolderOpen size={15} /> Open Record
+                  </button>
+                  <button
+                    onClick={() => handleMessage(selectedPatient.patientId)}
+                    className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <MessageSquare size={15} /> Message
+                  </button>
                 </div>
-              )}
 
-              {/* Tab 2: SOAP Note Template */}
-              {activeTab === "soap" && (
-                <div className="space-y-2 text-xs">
-                  <span className="font-bold text-slate-700">SOAP Clinical Notes</span>
-                  <input placeholder="Subjective symptoms..." value={soapNotes.subject} onChange={e => setSoapNotes({...soapNotes, subject: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
-                  <input placeholder="Objective vitals/findings..." value={soapNotes.objective} onChange={e => setSoapNotes({...soapNotes, objective: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
-                  <input placeholder="Assessment..." value={soapNotes.assessment} onChange={e => setSoapNotes({...soapNotes, assessment: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
-                  <input placeholder="Plan & Treatment..." value={soapNotes.plan} onChange={e => setSoapNotes({...soapNotes, plan: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
-                  <button onClick={() => alert("SOAP notes saved successfully!")} className="w-full py-2 bg-blue-600 text-white rounded-xl font-bold cursor-pointer">Save SOAP Notes</button>
-                </div>
-              )}
-
-              {/* Tab 3: E-Prescription */}
-              {activeTab === "prescription" && (
-                <div className="space-y-2 text-xs">
-                  <span className="font-bold text-slate-700">Issue E-Prescription</span>
-                  <input placeholder="Medication Name" value={prescription.medication} onChange={e => setPrescription({...prescription, medication: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
-                  <input placeholder="Dosage (e.g. 50mg)" value={prescription.dosage} onChange={e => setPrescription({...prescription, dosage: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
-                  <input placeholder="Frequency (e.g. Twice daily)" value={prescription.frequency} onChange={e => setPrescription({...prescription, frequency: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
-                  <button onClick={() => alert("E-prescription sent to patient and pharmacy instantly!")} className="w-full py-2 bg-emerald-600 text-white rounded-xl font-bold cursor-pointer">Send E-Prescription</button>
-                </div>
-              )}
-
-              {/* Tab 4: Labs & Imaging Orders */}
-              {activeTab === "labs" && (
-                <div className="space-y-2 text-xs">
-                  <span className="font-bold text-slate-700">Order Lab Test / Imaging</span>
-                  <input placeholder="Test Name (e.g. Lipid Profile, Chest X-Ray)" value={labOrder.testName} onChange={e => setLabOrder({...labOrder, testName: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
-                  <textarea placeholder="Clinical notes for lab..." value={labOrder.notes} onChange={e => setLabOrder({...labOrder, notes: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl h-20" />
-                  <button onClick={() => alert("Lab order dispatched successfully!")} className="w-full py-2 bg-indigo-600 text-white rounded-xl font-bold cursor-pointer">Order Test</button>
-                </div>
-              )}
-
-              {/* Tab 5: AI Transcription */}
-              {activeTab === "ai" && (
-                <div className="space-y-2 text-xs">
-                  <span className="font-bold text-slate-700">Real-time AI Consultation Transcription</span>
-                  <textarea value={aiTranscript} readOnly className="w-full p-3 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded-xl h-36 outline-none resize-none" />
-                  <button onClick={() => setAiTranscript(prev => prev + "\n[01:05] Doctor: Advised low sodium diet and follow up in 2 weeks.")} className="w-full py-2 bg-slate-800 text-white rounded-xl font-bold cursor-pointer">Simulate AI Summary Extract</button>
-                </div>
-              )}
-
-              <button
-                onClick={() => handleUpdateStatus(selectedPatient.id, "Completed")}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-2xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <CheckCircle2 size={16} /> Mark Appointment as Complete
-              </button>
+                <button
+                  onClick={() => handleUpdateStatus(selectedPatient.id, "Completed")}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <CheckCircle2 size={15} /> Mark Complete
+                </button>
+              </div>
             </div>
           ) : (
             <div className="text-center py-12 text-slate-400 text-xs font-medium">
-              Select a patient from the queue to view their advanced medical toolkit.
+              Click on any patient appointment row to view their complete profile and medical details.
             </div>
           )}
         </div>
