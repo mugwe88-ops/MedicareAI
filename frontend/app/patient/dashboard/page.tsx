@@ -21,26 +21,22 @@ interface PatientProfile {
 }
 
 interface Appointment {
-  id: string;
   title: string;
   time: string;
   status: string;
 }
 
 interface Medication {
-  id: string;
   name: string;
   dueTime: string;
 }
 
 interface LabRecord {
-  id: string;
   name: string;
   status: string;
 }
 
 interface DoctorMessage {
-  id: string;
   doctor: string;
   preview: string;
   unread: boolean;
@@ -58,7 +54,7 @@ export default function PatientDashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
-  // Real backend dynamic state data
+  // Dynamic state data structure matching the unified backend response
   const [patient, setPatient] = useState<PatientProfile>({
     name: "Patient",
     email: "",
@@ -71,26 +67,22 @@ export default function PatientDashboardPage() {
   });
 
   const [nextAppointment, setNextAppointment] = useState<Appointment>({
-    id: "default-1",
     title: "Cardiology Consultation",
     time: "Today at 2:00 PM",
     status: "Confirmed"
   });
 
   const [medicationDue, setMedicationDue] = useState<Medication>({
-    id: "med-1",
     name: "Amlodipine 5mg",
     dueTime: "In 30 minutes"
   });
 
   const [pendingLab, setPendingLab] = useState<LabRecord>({
-    id: "lab-1",
     name: "Lipid Profile & Complete Blood Count",
     status: "Results ready to view with AI explanation"
   });
 
   const [doctorMessage, setDoctorMessage] = useState<DoctorMessage>({
-    id: "msg-1",
     doctor: "Dr. Robert",
     preview: "Your blood pressure readings look stable.",
     unread: true
@@ -103,14 +95,17 @@ export default function PatientDashboardPage() {
     temperature: "98.6 °F"
   });
 
+  const [sanityLabReports, setSanityLabReports] = useState<any[]>([]);
+  const [sanityInsights, setSanityInsights] = useState<any[]>([]);
+
   // AI Assistant Modal State
   const [aiQuery, setAiQuery] = useState<string>("");
   const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
   const [aiResponse, setAiResponse] = useState<string>("");
   const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
 
-  // Fetch actual patient information & real feature datasets from backend APIs
-  const fetchPatientData = async () => {
+  // Fetch unified dashboard payload from the single backend endpoint
+  const fetchDashboardData = async () => {
     setLoading(true);
     setErrorMsg("");
     try {
@@ -126,121 +121,32 @@ export default function PatientDashboardPage() {
 
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
-      // 1. Fetch Patient Profile
-      const profileEndpoints = ["/api/patients/profile", "/api/patient/profile", "/api/auth/me", "/api/users/profile"];
-      for (const endpoint of profileEndpoints) {
-        try {
-          const res = await fetch(`${API_URL}${endpoint}`, { headers });
-          if (res.ok) {
-            const json = await res.json();
-            const profileData = json.patient || json.user || json.data || json;
-            if (profileData) {
-              setPatient({
-                name: profileData.name || profileData.fullName || profileData.username || "Patient",
-                email: profileData.email || "",
-                age: profileData.age || 34,
-                gender: profileData.gender || "Male",
-                bloodGroup: profileData.bloodGroup || profileData.blood_group || "O+",
-                patientId: profileData.patientId || profileData.id || "#MED-8492",
-                allergies: profileData.allergies || ["Penicillin"],
-                insuranceStatus: profileData.insuranceStatus || profileData.insurance || "Verified & Active"
-              });
-              localStorage.setItem("patientName", profileData.name || profileData.fullName || "Patient");
-              break;
-            }
-          }
-        } catch (e) {}
-      }
-
-      // 2. Fetch Appointments
-      try {
-        const aptRes = await fetch(`${API_URL}/api/appointments/patient`, { headers });
-        if (aptRes.ok) {
-          const aptJson = await aptRes.json();
-          const aptList = aptJson.appointments || aptJson.data || (Array.isArray(aptJson) ? aptJson : []);
-          if (aptList.length > 0) {
-            const next = aptList[0];
-            setNextAppointment({
-              id: next.id || next._id || "apt-live",
-              title: next.specialty ? `${next.specialty} with ${next.doctorName || 'Doctor'}` : (next.title || "Consultation"),
-              time: `${next.date || 'Today'} at ${next.time || '2:00 PM'}`,
-              status: next.status || "Confirmed"
-            });
-          }
-        }
-      } catch (e) {}
-
-      // 3. Fetch Medications
-      try {
-        const medRes = await fetch(`${API_URL}/api/medications/patient`, { headers });
-        if (medRes.ok) {
-          const medJson = await medRes.json();
-          const medList = medJson.medications || medJson.data || (Array.isArray(medJson) ? medJson : []);
-          if (medList.length > 0) {
-            const m = medList[0];
-            setMedicationDue({
-              id: m.id || m._id || "med-live",
-              name: m.name || m.medicationName || "Prescription Item",
-              dueTime: m.dueTime || m.frequency || "Due Today"
-            });
-          }
-        }
-      } catch (e) {}
-
-      // 4. Fetch Lab Records / Reports
-      try {
-        const labRes = await fetch(`${API_URL}/api/records/patient`, { headers });
-        if (labRes.ok) {
-          const labJson = await labRes.json();
-          const labList = labJson.records || labJson.data || (Array.isArray(labJson) ? labJson : []);
-          if (labList.length > 0) {
-            const l = labList[0];
+      const res = await fetch(`${API_URL}/api/patient/dashboard-data`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          if (data.patient) setPatient(data.patient);
+          if (data.upcomingAppointment) setNextAppointment(data.upcomingAppointment);
+          if (data.vitals) setVitals(data.vitals);
+          if (data.labReports && data.labReports.length > 0) {
+            setSanityLabReports(data.labReports);
             setPendingLab({
-              id: l.id || l._id || "lab-live",
-              name: l.title || l.recordName || "Lab Test Results",
-              status: l.status || "Results ready to view with AI explanation"
+              name: data.labReports[0].title || "Lab Test Results",
+              status: data.labReports[0].summary || "Results ready to view with AI explanation"
             });
           }
-        }
-      } catch (e) {}
-
-      // 5. Fetch Doctor Messages / Chats
-      try {
-        const msgRes = await fetch(`${API_URL}/api/messages/patient`, { headers });
-        if (msgRes.ok) {
-          const msgJson = await msgRes.json();
-          const msgList = msgJson.messages || msgJson.data || (Array.isArray(msgJson) ? msgJson : []);
-          if (msgList.length > 0) {
-            const msg = msgList[msgList.length - 1];
-            setDoctorMessage({
-              id: msg.id || msg._id || "msg-live",
-              doctor: msg.doctorName || msg.sender || "Dr. Robert",
-              preview: msg.content || msg.text || "New message received.",
-              unread: msg.unread ?? true
-            });
+          if (data.healthInsights) {
+            setSanityInsights(data.healthInsights);
+          }
+          if (data.patient?.name) {
+            localStorage.setItem("patientName", data.patient.name);
           }
         }
-      } catch (e) {}
-
-      // 6. Fetch Latest Vitals
-      try {
-        const vitalsRes = await fetch(`${API_URL}/api/patients/vitals`, { headers });
-        if (vitalsRes.ok) {
-          const vJson = await vitalsRes.json();
-          const latestV = vJson.vitals || vJson[0];
-          if (latestV) {
-            setVitals({
-              bloodPressure: latestV.bloodPressure || latestV.bp || "138/88 mmHg",
-              heartRate: latestV.heartRate || latestV.hr || "78 bpm",
-              bloodSugar: latestV.bloodSugar || latestV.sugar || "5.4 mmol/L",
-              temperature: latestV.temperature || latestV.temp || "98.6 °F"
-            });
-          }
-        }
-      } catch (e) {}
-
+      } else {
+        setErrorMsg("Failed to synchronize live records from server.");
+      }
     } catch (err) {
-      console.error("Failed to load patient dashboard live data", err);
+      console.error("Failed to load dashboard data", err);
       setErrorMsg("Could not connect to live endpoints. Displaying active profile cached records.");
     } finally {
       setLoading(false);
@@ -248,7 +154,7 @@ export default function PatientDashboardPage() {
   };
 
   useEffect(() => {
-    fetchPatientData();
+    fetchDashboardData();
   }, []);
 
   const handleAiAssistantSubmit = (e: React.FormEvent) => {
@@ -277,7 +183,7 @@ export default function PatientDashboardPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Welcome Back, {patient.name}</h1>
-              <button onClick={fetchPatientData} className="p-1.5 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-xl transition cursor-pointer" title="Refresh Data">
+              <button onClick={fetchDashboardData} className="p-1.5 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-xl transition cursor-pointer" title="Refresh Data">
                 <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
               </button>
             </div>
