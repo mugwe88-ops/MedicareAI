@@ -59,7 +59,7 @@ export default function DoctorDashboardPage() {
   const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
-  const [totalAppointmentsCount, setTotalAppointmentsCount] = useState<number>(21);
+  const [totalAppointmentsCount, setTotalAppointmentsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPerformanceLoading, setIsPerformanceLoading] = useState<boolean>(false);
   const [isAppointmentsLoading, setIsAppointmentsLoading] = useState<boolean>(false);
@@ -206,7 +206,7 @@ export default function DoctorDashboardPage() {
     }
   };
 
-  // Fetch real appointments from backend
+  // Fetch live appointments from backend (Neon DB)
   const fetchAppointments = async () => {
     setIsAppointmentsLoading(true);
     try {
@@ -214,7 +214,9 @@ export default function DoctorDashboardPage() {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
 
       if (!token) {
-        loadMockAppointments(selectedDate);
+        setAllAppointments([]);
+        setAppointments([]);
+        setTotalAppointmentsCount(0);
         setIsAppointmentsLoading(false);
         return;
       }
@@ -250,7 +252,7 @@ export default function DoctorDashboardPage() {
 
       if (success && Array.isArray(fetchedData)) {
         const formatted: Appointment[] = fetchedData.map((item: any, idx: number) => {
-          let dateStr = item.date || item.appointmentDate || "2026-08-21";
+          let dateStr = item.date || item.appointmentDate || "2026-09-21";
           let dayKey = dateStr.includes("-") ? dateStr.split("-").pop() || selectedDate : selectedDate;
 
           return {
@@ -264,43 +266,23 @@ export default function DoctorDashboardPage() {
         });
 
         setAllAppointments(formatted);
-        setTotalAppointmentsCount(formatted.length > 0 ? formatted.length : 21);
+        setTotalAppointmentsCount(formatted.length);
 
         const filtered = formatted.filter((a) => a.dateKey.endsWith(selectedDate) || a.dateKey === selectedDate);
-        setAppointments(filtered.length > 0 ? filtered : formatted);
+        setAppointments(filtered);
       } else {
-        loadMockAppointments(selectedDate);
+        setAllAppointments([]);
+        setAppointments([]);
+        setTotalAppointmentsCount(0);
       }
     } catch (error) {
-      console.error("Failed to fetch appointments:", error);
-      loadMockAppointments(selectedDate);
+      console.error("Failed to fetch appointments from backend:", error);
+      setAllAppointments([]);
+      setAppointments([]);
+      setTotalAppointmentsCount(0);
     } finally {
       setIsAppointmentsLoading(false);
     }
-  };
-
-  const loadMockAppointments = (day: string) => {
-    const mockAll: Appointment[] = [
-      { id: "a1", patientName: "Sarah Jenkins", specialty: "General Consultation", time: "09:30", dateKey: "19", status: "Confirmed" },
-      { id: "a2", patientName: "Robert Fox", specialty: "Pediatrics", time: "14:00", dateKey: "19", status: "Completed" },
-      { id: "a3", patientName: "Emily Watson", specialty: "Cardiology Review", time: "11:15", dateKey: "20", status: "Confirmed" },
-      { id: "a4", patientName: "Friedric Ziccardi", specialty: "Cardiologist", time: "17:00", dateKey: "21", status: "Confirmed" },
-      { id: "a5", patientName: "Abagael Bitsul", specialty: "Medicine", time: "20:00", dateKey: "21", status: "Confirmed" },
-      { id: "a6", patientName: "Michael Brown", specialty: "Diabetic Screening", time: "10:00", dateKey: "22", status: "Pending" },
-      { id: "a7", patientName: "Jessica Taylor", specialty: "Pediatrics", time: "15:30", dateKey: "22", status: "Confirmed" },
-      { id: "a8", patientName: "David Miller", specialty: "Lab Review", time: "12:00", dateKey: "23", status: "Confirmed" },
-    ];
-    setAllAppointments(mockAll);
-    setTotalAppointmentsCount(21);
-
-    const mockMap: Record<string, Appointment[]> = {
-      "19": [mockAll[0], mockAll[1]],
-      "20": [mockAll[2]],
-      "21": [mockAll[3], mockAll[4]],
-      "22": [mockAll[5], mockAll[6]],
-      "23": [mockAll[7]],
-    };
-    setAppointments(mockMap[day] || []);
   };
 
   useEffect(() => {
@@ -312,8 +294,10 @@ export default function DoctorDashboardPage() {
     if (allAppointments.length > 0) {
       const filtered = allAppointments.filter((a) => a.dateKey.endsWith(selectedDate) || a.dateKey === selectedDate);
       setAppointments(filtered);
+    } else {
+      setAppointments([]);
     }
-  }, [selectedDate]);
+  }, [selectedDate, allAppointments]);
 
   const handleOpenReportModal = () => {
     setIsReportModalOpen(true);
@@ -357,7 +341,7 @@ export default function DoctorDashboardPage() {
     Consultations: {
       title: "Weekly Patient Consultations",
       unit: "Patients",
-      totalLabel: "38 Total",
+      totalLabel: `${totalAppointmentsCount} Total`,
       bars: [
         { height: "h-12", value: "4", day: "Sat" },
         { height: "h-20", value: "8", day: "Sun" },
@@ -686,11 +670,11 @@ export default function DoctorDashboardPage() {
 
             <div className="grid grid-cols-5 gap-1.5 text-center">
               {[
-                { day: "19", label: "Mon" },
-                { day: "20", label: "Mon" },
-                { day: "21", label: "Sun" },
-                { day: "22", label: "Mon" },
-                { day: "23", label: "Tue" },
+                { day: "19", label: "Sat" },
+                { day: "20", label: "Sun" },
+                { day: "21", label: "Mon" },
+                { day: "22", label: "Tue" },
+                { day: "23", label: "Wed" },
               ].map((item) => (
                 <button
                   key={item.day}
@@ -709,7 +693,7 @@ export default function DoctorDashboardPage() {
               {isAppointmentsLoading ? (
                 <div className="flex flex-col items-center justify-center py-8 space-y-2">
                   <RefreshCw size={20} className="animate-spin text-blue-600" />
-                  <p className="text-[11px] text-slate-400 font-bold">Loading schedule...</p>
+                  <p className="text-[11px] text-slate-400 font-bold">Loading live schedule from DB...</p>
                 </div>
               ) : appointments.length > 0 ? (
                 appointments.map((apt) => (
@@ -838,7 +822,7 @@ export default function DoctorDashboardPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900">All Booked Appointments</h3>
-                  <p className="text-xs text-slate-400 font-medium">Complete Schedule Ledger ({allAppointments.length} Total)</p>
+                  <p className="text-xs text-slate-400 font-medium">Live Schedule Ledger ({allAppointments.length} Total)</p>
                 </div>
               </div>
               <button
@@ -861,7 +845,12 @@ export default function DoctorDashboardPage() {
             </div>
 
             <div className="overflow-y-auto flex-1 divide-y divide-slate-100 pr-1">
-              {filteredAllAppointments.length > 0 ? (
+              {isAppointmentsLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                  <RefreshCw size={28} className="animate-spin text-blue-600" />
+                  <p className="text-xs text-slate-400 font-bold">Loading appointments from database...</p>
+                </div>
+              ) : filteredAllAppointments.length > 0 ? (
                 filteredAllAppointments.map((apt) => (
                   <div key={apt.id} className="py-3.5 px-3 flex items-center justify-between hover:bg-slate-50 rounded-2xl transition">
                     <div className="space-y-0.5">
@@ -890,7 +879,7 @@ export default function DoctorDashboardPage() {
                 ))
               ) : (
                 <div className="py-12 text-center text-slate-400 text-xs font-medium">
-                  No appointments match your search criteria.
+                  No appointments found in the database.
                 </div>
               )}
             </div>
