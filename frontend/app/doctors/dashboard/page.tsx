@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Bell, Mail, RefreshCw } from "lucide-react";
+import { Search, Bell, Mail, RefreshCw, Users, CalendarCheck, Clock } from "lucide-react";
 
 interface DoctorInfo {
   name: string;
@@ -29,18 +29,17 @@ interface Appointment {
   dateKey: string;
 }
 
-interface AnalyticsData {
+interface WorkloadDataset {
   title: string;
   unit: string;
-  peakLabel: string;
-  bars: { height: string; value: string; isPeak?: boolean }[];
+  totalLabel: string;
+  bars: { height: string; value: string; day: string; isPeak?: boolean }[];
 }
 
 export default function DoctorDashboardPage() {
   const [activeSubTab, setActiveSubTab] = useState<"Lab Reports" | "Prescription" | "Medication" | "Diagnosis">("Lab Reports");
   const [selectedDate, setSelectedDate] = useState<string>("21");
-  const [activeMetric, setActiveMetric] = useState<"Heart Rate" | "Blood Pressure" | "Glucose">("Heart Rate");
-  const [analyticsTimeframe, setAnalyticsTimeframe] = useState<"Weekly" | "Monthly">("Weekly");
+  const [activeWorkloadTab, setActiveWorkloadTab] = useState<"Consultations" | "Telehealth" | "Follow-ups">("Consultations");
 
   const [doctorInfo, setDoctorInfo] = useState<DoctorInfo | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -55,7 +54,6 @@ export default function DoctorDashboardPage() {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
 
       if (!token) {
-        // Fallback demo profile if no token is present so the UI still looks great
         setDoctorInfo({
           name: "Dr. Workspace",
           email: "doctor@medicareai.com",
@@ -130,11 +128,8 @@ export default function DoctorDashboardPage() {
     fetchDoctorProfile();
   }, []);
 
-  // Handler to update doctor status and sync to backend API
   const handleStatusChange = async (newStatus: string) => {
     if (!doctorInfo) return;
-    
-    // Optimistically update local state for instantaneous feedback
     setDoctorInfo({ ...doctorInfo, status: newStatus });
 
     try {
@@ -167,49 +162,50 @@ export default function DoctorDashboardPage() {
       .slice(0, 2) || "MD";
   };
 
-  const analyticsDatasets: Record<string, AnalyticsData> = {
-    "Heart Rate": {
-      title: "Heart Rate Analytics",
-      unit: "bpm",
-      peakLabel: "167 bpm",
+  // Replaced biometric analytics with useful doctor workload metrics
+  const workloadDatasets: Record<string, WorkloadDataset> = {
+    Consultations: {
+      title: "Weekly Patient Consultations",
+      unit: "Patients",
+      totalLabel: "38 Total",
       bars: [
-        { height: "h-12", value: "72" },
-        { height: "h-20", value: "98" },
-        { height: "h-14", value: "82" },
-        { height: "h-24", value: "167", isPeak: true },
-        { height: "h-16", value: "88" },
-        { height: "h-10", value: "75" },
+        { height: "h-12", value: "4", day: "Sat" },
+        { height: "h-20", value: "8", day: "Sun" },
+        { height: "h-14", value: "5", day: "Mon" },
+        { height: "h-24", value: "11", day: "Tue", isPeak: true },
+        { height: "h-16", value: "6", day: "Wed" },
+        { height: "h-10", value: "4", day: "Thu" },
       ],
     },
-    "Blood Pressure": {
-      title: "Blood Pressure Trends",
-      unit: "mmHg",
-      peakLabel: "140/90",
+    Telehealth: {
+      title: "Telehealth Room Sessions",
+      unit: "Sessions",
+      totalLabel: "24 Total",
       bars: [
-        { height: "h-14", value: "120/80" },
-        { height: "h-18", value: "125/82" },
-        { height: "h-16", value: "122/80" },
-        { height: "h-24", value: "140/90", isPeak: true },
-        { height: "h-16", value: "118/78" },
-        { height: "h-12", value: "120/80" },
+        { height: "h-10", value: "3", day: "Sat" },
+        { height: "h-16", value: "6", day: "Sun" },
+        { height: "h-12", value: "4", day: "Mon" },
+        { height: "h-24", value: "7", day: "Tue", isPeak: true },
+        { height: "h-14", value: "2", day: "Wed" },
+        { height: "h-10", value: "2", day: "Thu" },
       ],
     },
-    Glucose: {
-      title: "Blood Glucose Levels",
-      unit: "mg/dL",
-      peakLabel: "180 mg/dL",
+    "Follow-ups": {
+      title: "Scheduled Follow-up Reviews",
+      unit: "Reviews",
+      totalLabel: "19 Total",
       bars: [
-        { height: "h-10", value: "95" },
-        { height: "h-16", value: "110" },
-        { height: "h-12", value: "102" },
-        { height: "h-24", value: "180", isPeak: true },
-        { height: "h-14", value: "105" },
-        { height: "h-10", value: "98" },
+        { height: "h-8", value: "2", day: "Sat" },
+        { height: "h-12", value: "3", day: "Sun" },
+        { height: "h-16", value: "5", day: "Mon", isPeak: true },
+        { height: "h-14", value: "4", day: "Tue" },
+        { height: "h-10", value: "3", day: "Wed" },
+        { height: "h-8", value: "2", day: "Thu" },
       ],
     },
   };
 
-  const currentAnalytics = analyticsDatasets[activeMetric];
+  const currentWorkload = workloadDatasets[activeWorkloadTab];
 
   const tabDataMap: Record<string, RecordItem[]> = {
     "Lab Reports": [
@@ -297,37 +293,37 @@ export default function DoctorDashboardPage() {
               </button>
             </div>
 
-            {/* Analytics Chart Widget */}
+            {/* Replaced Analytics Widget: Patient Load & Workload Analytics */}
             <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Analytics</span>
-                <button
-                  onClick={() => setAnalyticsTimeframe((prev) => (prev === "Weekly" ? "Monthly" : "Weekly"))}
-                  className="text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded-xl transition cursor-pointer"
-                >
-                  {analyticsTimeframe} ▾
-                </button>
+                <div className="flex items-center gap-2">
+                  <Users size={16} className="text-blue-600" />
+                  <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Patient Workload</span>
+                </div>
+                <span className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded-xl">
+                  {currentWorkload.totalLabel}
+                </span>
               </div>
 
               <div className="flex items-center gap-2 overflow-x-auto py-2">
-                {(["Heart Rate", "Blood Pressure", "Glucose"] as const).map((metric) => (
+                {(["Consultations", "Telehealth", "Follow-ups"] as const).map((tab) => (
                   <button
-                    key={metric}
-                    onClick={() => setActiveMetric(metric)}
+                    key={tab}
+                    onClick={() => setActiveWorkloadTab(tab)}
                     className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 transition cursor-pointer ${
-                      activeMetric === metric
+                      activeWorkloadTab === tab
                         ? "bg-slate-900 text-white shadow-sm"
                         : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100"
                     }`}
                   >
-                    {metric}
+                    {tab}
                   </button>
                 ))}
               </div>
 
               <div className="space-y-2 pt-2">
                 <div className="flex items-end justify-between gap-2 h-28 pt-4 px-2 border-b border-dashed border-slate-200">
-                  {currentAnalytics.bars.map((bar, idx) => (
+                  {currentWorkload.bars.map((bar, idx) => (
                     <div
                       key={idx}
                       className={`w-8 rounded-t-xl transition-all duration-300 relative flex flex-col items-center ${
@@ -336,14 +332,16 @@ export default function DoctorDashboardPage() {
                     >
                       {bar.isPeak && (
                         <span className="absolute -top-6 bg-slate-900 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap">
-                          {bar.value} {currentAnalytics.unit}
+                          Peak ({bar.value})
                         </span>
                       )}
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-between text-[10px] text-slate-400 font-bold px-1">
-                  <span>Sat</span><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span>
+                  {currentWorkload.bars.map((bar, i) => (
+                    <span key={i}>{bar.day}</span>
+                  ))}
                 </div>
               </div>
             </div>
