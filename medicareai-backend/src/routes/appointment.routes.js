@@ -4,7 +4,7 @@ import pool from "../utils/db.js";
 
 const router = express.Router();
 
-/* Middleware to verify JWT and extract user context */
+/* Middleware to verify JWT and extract user context with ID fallback */
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -14,7 +14,11 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    req.user = decoded;
+    // Normalize user ID to ensure both .userId and .id are supported
+    req.user = {
+      ...decoded,
+      userId: decoded.userId || decoded.id,
+    };
     next();
   } catch (err) {
     return res.status(401).json({ error: "Session expired or token authentication failed." });
