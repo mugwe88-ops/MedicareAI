@@ -109,12 +109,12 @@ router.get("/earnings", authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ FIXED / ALIASED: Support both /profile and /me to fix frontend 404s
+// ✅ FIXED: Query the 'consultants' table instead of 'users' to prevent 500 errors
 router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     let result = await pool.query(
-      "SELECT id, name, email, specialization, bio, availability, status, avatar_url FROM users WHERE id = $1",
+      "SELECT id, name, email, specialization, bio, availability, status, avatar_url, consultation_fee, phone FROM consultants WHERE id = $1",
       [userId]
     );
 
@@ -129,19 +129,19 @@ router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ ADDED: Dedicated Avatar Upload Route (Fixes 404 on /api/doctors/avatar)
+// ✅ FIXED: Update avatar on the 'consultants' table
 router.post("/avatar", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { avatar } = req.body; // Expects avatar URL string or handle file upload if using multer
+    const { avatar } = req.body; // Expects avatar URL or Base64 string
 
     const result = await pool.query(
-      `UPDATE users SET avatar_url = COALESCE($1, avatar_url) WHERE id = $2 RETURNING avatar_url`,
+      `UPDATE consultants SET avatar_url = COALESCE($1, avatar_url) WHERE id = $2 RETURNING avatar_url`,
       [avatar, userId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "User not found for avatar update." });
+      return res.status(404).json({ message: "Doctor not found for avatar update." });
     }
 
     res.json({ success: true, avatar: result.rows[0].avatar_url });
@@ -151,26 +151,28 @@ router.post("/avatar", authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ UPDATED: Support updating profile fields and status/avatar via PUT and PATCH (/me and /profile)
+// ✅ FIXED: Update profile fields on the 'consultants' table via PUT/PATCH
 router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
   if (req.method !== "PUT" && req.method !== "PATCH") return next();
   try {
     const userId = req.user.id;
-    const { name, email, specialization, bio, availability, status, avatar_url, avatar } = req.body;
+    const { name, email, specialization, bio, availability, status, avatar_url, avatar, phone, consultation_fee } = req.body;
     const resolvedAvatar = avatar_url || avatar;
 
     const result = await pool.query(
-      `UPDATE users 
+      `UPDATE consultants 
        SET name = COALESCE($1, name), 
            email = COALESCE($2, email), 
            specialization = COALESCE($3, specialization), 
            bio = COALESCE($4, bio), 
            availability = COALESCE($5, availability),
            status = COALESCE($6, status),
-           avatar_url = COALESCE($7, avatar_url)
-       WHERE id = $8 
-       RETURNING id, name, email, specialization, bio, availability, status, avatar_url`,
-      [name, email, specialization, bio, availability, status, resolvedAvatar, userId]
+           avatar_url = COALESCE($7, avatar_url),
+           phone = COALESCE($8, phone),
+           consultation_fee = COALESCE($9, consultation_fee)
+       WHERE id = $10 
+       RETURNING id, name, email, specialization, bio, availability, status, avatar_url, phone, consultation_fee`,
+      [name, email, specialization, bio, availability, status, resolvedAvatar, phone, consultation_fee, userId]
     );
 
     if (result.rows.length === 0) {
