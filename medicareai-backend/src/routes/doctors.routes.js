@@ -9,7 +9,7 @@ router.get("/", async (req, res) => {
   try {
     const { search, category } = req.query;
     let query = `
-      SELECT id, name, email, specialization AS department, experience_years, avatar_url, phone, availability 
+      SELECT id, name, specialization AS department, experience_years, avatar_url, phone, availability 
       FROM consultants 
       WHERE role = 'doctor'
     `;
@@ -109,12 +109,34 @@ router.get("/earnings", authenticateToken, async (req, res) => {
   }
 });
 
+// ✅ MUST BE PLACED BEFORE /:id to prevent Express from treating "profile" as an ID parameter
+router.get("/profile", authenticateToken, async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+    const result = await pool.query(
+      `SELECT id, name, specialization, consultation_fee, experience_years, avatar_url, phone, availability 
+       FROM consultants 
+       WHERE id = $1`,
+      [doctorId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Doctor profile not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error fetching doctor profile:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // Get doctor details / profile (Dynamic parameter route comes AFTER static routes)
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT id, name, email, specialization, consultation_fee, experience_years, avatar_url 
+      `SELECT id, name, specialization, consultation_fee, experience_years, avatar_url 
        FROM consultants 
        WHERE id = $1`,
       [id]
@@ -155,28 +177,6 @@ router.get("/:id/availability", async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching doctor availability:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// Get currently logged-in doctor's profile
-router.get("/profile", authenticateToken, async (req, res) => {
-  try {
-    const doctorId = req.user.id;
-    const result = await pool.query(
-      `SELECT id, name, email, specialization, consultation_fee, experience_years, avatar_url, phone, availability 
-       FROM consultants 
-       WHERE id = $1`,
-      [doctorId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Doctor profile not found" });
-    }
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error("Error fetching doctor profile:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
