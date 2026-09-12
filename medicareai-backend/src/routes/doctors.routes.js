@@ -109,8 +109,6 @@ router.get("/earnings", authenticateToken, async (req, res) => {
   }
 });
 
-// BULLETPROOF PROFILE FETCH: Auto-provisions record with dual fallback
-// FAIL-SAFE PROFILE FETCH: Guaranteed never to throw a 500 error
 // SMART PROFILE GET: Always returns a profile, auto-creating if missing
 router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   try {
@@ -131,9 +129,9 @@ router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
          RETURNING id, name, email, specialization, avatar_url`,
         [userName, userEmail, "General Practitioner"]
       );
-      profile = insertRes.rows[0];
+      profile = insertRes.rows;
     } else {
-      profile = result.rows[0];
+      profile = result.rows;
     }
 
     res.json({ doctor: profile, ...profile });
@@ -152,7 +150,6 @@ router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
     const { name, email, specialization, avatar_url, avatar } = req.body;
     const resolvedAvatar = avatar_url || avatar;
 
-    // Check if profile exists
     let checkRes = await pool.query(
       "SELECT id FROM consultants WHERE id = $1 OR email = $2 LIMIT 1",
       [userId, userEmail]
@@ -160,7 +157,6 @@ router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
 
     let result;
     if (checkRes.rows.length === 0) {
-      // Insert if it didn't exist yet
       result = await pool.query(
         `INSERT INTO consultants (name, email, specialization, avatar_url, role) 
          VALUES ($1, $2, $3, $4, 'doctor') 
@@ -168,7 +164,6 @@ router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
         [name || "Dr. Pressy", userEmail, specialization || "General Practitioner", resolvedAvatar]
       );
     } else {
-      // Update existing profile
       const consultantId = checkRes.rows.id;
       result = await pool.query(
         `UPDATE consultants 
@@ -207,7 +202,6 @@ router.post("/avatar", authenticateToken, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      // Auto-insert if missing
       await pool.query(
         `INSERT INTO consultants (name, email, specialization, avatar_url, role) VALUES ('Dr. Pressy', $1, 'General Practitioner', $2, 'doctor')`,
         [userEmail, avatar]
@@ -218,63 +212,6 @@ router.post("/avatar", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Error updating avatar:", err);
     res.status(500).json({ message: "Server error updating avatar." });
-  }
-});
-
-// SAFE AVATAR UPLOAD ROUTE
-router.post("/avatar", authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { avatar } = req.body; 
-
-    const result = await pool.query(
-      `UPDATE consultants SET avatar_url = COALESCE($1, avatar_url) WHERE id = $2 RETURNING avatar_url`,
-      [avatar, userId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Doctor not found for avatar update." });
-    }
-
-    res.json({ success: true, avatar: result.rows[0].avatar_url });
-  } catch (err) {
-    console.error("Error updating avatar:", err);
-    res.status(500).json({ message: "Server error updating avatar." });
-  }
-});
-
-// SAFE PROFILE UPDATE ROUTE
-router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
-  if (req.method !== "PUT" && req.method !== "PATCH") return next();
-  try {
-    const userId = req.user.id;
-    const { name, email, specialization, avatar_url, avatar } = req.body;
-    const resolvedAvatar = avatar_url || avatar;
-
-    const result = await pool.query(
-      `UPDATE consultants 
-       SET name = COALESCE($1, name), 
-           email = COALESCE($2, email), 
-           specialization = COALESCE($3, specialization), 
-           avatar_url = COALESCE($4, avatar_url)
-       WHERE id = $5 
-       RETURNING id, name, email, specialization, avatar_url`,
-      [name, email, specialization, resolvedAvatar, userId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Doctor profile not found for update." });
-    }
-
-    res.json({
-      success: true,
-      message: "Profile updated successfully",
-      profile: result.rows[0],
-      doctor: result.rows[0]
-    });
-  } catch (err) {
-    console.error("Error updating doctor profile:", err);
-    res.status(500).json({ message: "Server error updating profile changes." });
   }
 });
 
@@ -296,7 +233,7 @@ router.get('/performance', authenticateToken, async (req, res) => {
 
     res.status(200).json({
       success: true,
-      performance: result.rows[0],
+      performance: result.rows,
     });
   } catch (error) {
     console.error('Error fetching doctor performance:', error);
@@ -322,7 +259,7 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ message: "Doctor not found" });
     }
 
-    res.json(result.rows[0]);
+    res.json(result.rows);
   } catch (err) {
     console.error("Error fetching doctor:", err);
     res.status(500).json({ message: "Server error" });
@@ -408,7 +345,7 @@ router.post("/:id/availability", authenticateToken, async (req, res) => {
       [id, day_of_week, start_time, end_time]
     );
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(result.rows);
   } catch (err) {
     console.error("Error adding doctor availability:", err);
     res.status(500).json({ message: "Server error" });
