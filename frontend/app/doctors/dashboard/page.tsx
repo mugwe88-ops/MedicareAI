@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Bell, Mail, RefreshCw, UserCheck } from "lucide-react";
+import { Search, Bell, Mail, RefreshCw } from "lucide-react";
 
 interface DoctorInfo {
   name: string;
@@ -42,7 +42,7 @@ export default function DoctorDashboardPage() {
   const [activeMetric, setActiveMetric] = useState<"Heart Rate" | "Blood Pressure" | "Glucose">("Heart Rate");
   const [analyticsTimeframe, setAnalyticsTimeframe] = useState<"Weekly" | "Monthly">("Weekly");
 
-  // Dynamic Profile State (Empty Defaults)
+  // Dynamic Profile State
   const [doctorInfo, setDoctorInfo] = useState<DoctorInfo | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -71,13 +71,11 @@ export default function DoctorDashboardPage() {
 
       if (res.ok) {
         const data = await res.json();
-        
-        // Extract fields dynamically supporting common API payload variations
         const profile = data.doctor || data.user || data;
 
         setDoctorInfo({
-          name: profile.name || profile.fullName || "Authenticated Doctor",
-          email: profile.email || "N/A",
+          name: profile.name || profile.fullName || "Dr. Pressy",
+          email: profile.email || "doctor@medicareai.com",
           specialty: profile.specialty || profile.specialization || "General Practitioner",
           avatar: profile.avatar || profile.avatarUrl || profile.profilePicture || "",
           portalStatus: profile.portalStatus || profile.licenseStatus || "Verified MD",
@@ -89,7 +87,16 @@ export default function DoctorDashboardPage() {
       }
     } catch (error) {
       console.error("Failed to fetch doctor profile from backend:", error);
-      setFetchError("Unable to reach backend API endpoint.");
+      // Fallback default for demo/development if backend unreachable
+      setDoctorInfo({
+        name: "Dr. Pressy",
+        email: "pressy@medicareai.com",
+        specialty: "General Practitioner",
+        avatar: "",
+        portalStatus: "Verified MD",
+        status: "Active Duty"
+      });
+      setFetchError(null);
     } finally {
       setIsLoading(false);
     }
@@ -99,7 +106,6 @@ export default function DoctorDashboardPage() {
     fetchDoctorProfile();
   }, []);
 
-  // Helper function to extract initials if avatar image is missing
   const getInitials = (name: string) => {
     return name
       .replace(/^Dr\.\s+/i, "")
@@ -111,7 +117,6 @@ export default function DoctorDashboardPage() {
       .slice(0, 2) || "MD";
   };
 
-  // Analytics Datasets
   const analyticsDatasets: Record<string, AnalyticsData> = {
     "Heart Rate": {
       title: "Heart Rate Analytics",
@@ -156,41 +161,33 @@ export default function DoctorDashboardPage() {
 
   const currentAnalytics = analyticsDatasets[activeMetric];
 
-  // Records & Appointments Datasets
   const tabDataMap: Record<string, RecordItem[]> = {
     "Lab Reports": [
-      { id: "1", primaryText: "Electrocardiography", secondaryText: "Dr. Rafiqul Islam", date: "28 Jan, 2024", comments: "Good! Take rest", status: "Normal" },
-      { id: "2", primaryText: "Liver biopsy", secondaryText: "Dr. Fahim Ahmed", date: "12 Jan, 2024", comments: "Waiting for diagram", status: "Pending" },
-      { id: "3", primaryText: "Blood Test", secondaryText: "Dr. Asad Khan", date: "10 Jan, 2024", comments: "As needed", status: "Normal" },
-      { id: "4", primaryText: "Esophageal pH test", secondaryText: "Dr. Shahid Ali", date: "24 Dec, 2023", comments: "Good", status: "Hepatitis" },
+      { id: "1", primaryText: "Electrocardiography", secondaryText: "Dr. Rafiqul Islam", date: "28 Jan, 2026", comments: "Good! Take rest", status: "Normal" },
+      { id: "2", primaryText: "Liver biopsy", secondaryText: "Dr. Fahim Ahmed", date: "12 Jan, 2026", comments: "Waiting for diagram", status: "Pending" },
     ],
     Prescription: [
-      { id: "p1", primaryText: "Amoxicillin 500mg", secondaryText: doctorInfo?.name || "Attending Physician", date: "28 Jan, 2024", comments: "Take 3 times daily", status: "Active" },
-      { id: "p2", primaryText: "Omeprazole 20mg", secondaryText: "Dr. Fahim Ahmed", date: "15 Jan, 2024", comments: "Before breakfast", status: "Completed" },
+      { id: "p1", primaryText: "Amoxicillin 500mg", secondaryText: doctorInfo?.name || "Dr. Pressy", date: "28 Jan, 2026", comments: "Take 3 times daily", status: "Active" },
     ],
     Medication: [
-      { id: "m1", primaryText: "Metformin 850mg", secondaryText: "Dr. Asad Khan", date: "20 Jan, 2024", comments: "With meals", status: "Ongoing" },
-      { id: "m2", primaryText: "Lisinopril 10mg", secondaryText: "Dr. Shahid Ali", date: "18 Jan, 2024", comments: "Once daily morning", status: "Ongoing" },
+      { id: "m1", primaryText: "Metformin 850mg", secondaryText: "Dr. Asad Khan", date: "20 Jan, 2026", comments: "With meals", status: "Ongoing" },
     ],
     Diagnosis: [
-      { id: "d1", primaryText: "Type 2 Diabetes Mellitus", secondaryText: doctorInfo?.name || "Attending Physician", date: "28 Jan, 2024", comments: "Monitor glucose levels", status: "Confirmed" },
-      { id: "d2", primaryText: "Essential Hypertension", secondaryText: "Dr. Rafiqul Islam", date: "10 Jan, 2024", comments: "Low sodium diet advised", status: "Stable" },
+      { id: "d1", primaryText: "Type 2 Diabetes Mellitus", secondaryText: doctorInfo?.name || "Dr. Pressy", date: "28 Jan, 2026", comments: "Monitor glucose levels", status: "Confirmed" },
     ],
   };
 
   const appointmentsMap: Record<string, Appointment[]> = {
     "19": [
       { id: "a1", patientName: "Sarah Jenkins", specialty: "General Consultation", time: "09:30", dateKey: "19" },
-      { id: "a2", patientName: "Robert Fox", specialty: "Follow-up", time: "14:00", dateKey: "19" },
     ],
     "20": [{ id: "a3", patientName: "Emily Watson", specialty: "Cardiology Review", time: "11:15", dateKey: "20" }],
     "21": [
-      { id: "a4", patientName: "Dr. Friedric Ziccardi", specialty: "Cardiologist", time: "17:00", dateKey: "21" },
-      { id: "a5", patientName: "Dr. Abagael Bitsul", specialty: "Medicine", time: "20:00", dateKey: "21" },
+      { id: "a4", patientName: "Friedric Ziccardi", specialty: "Cardiologist", time: "17:00", dateKey: "21" },
+      { id: "a5", patientName: "Abagael Bitsul", specialty: "Medicine", time: "20:00", dateKey: "21" },
     ],
     "22": [
       { id: "a6", patientName: "Michael Brown", specialty: "Diabetic Screening", time: "10:00", dateKey: "22" },
-      { id: "a7", patientName: "Jessica Taylor", specialty: "General Checkup", time: "15:30", dateKey: "22" },
     ],
     "23": [{ id: "a8", patientName: "David Miller", specialty: "Lab Review", time: "12:00", dateKey: "23" }],
   };
@@ -226,7 +223,6 @@ export default function DoctorDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT 2 COLUMNS */}
         <div className="lg:col-span-2 space-y-6">
-          {/* TOP ROW: Overall Performance & Analytics */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Overall Performance Card */}
             <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
@@ -243,12 +239,12 @@ export default function DoctorDashboardPage() {
                   <span className="text-3xl font-black text-slate-900 mt-0.5">492</span>
                 </div>
                 <p className="text-xs text-slate-500 font-medium mt-4 text-center">
-                  <strong className="text-slate-900 font-bold">{doctorInfo?.name || "Practitioner"}</strong> operates at <span className="text-blue-600 font-bold">95% efficiency</span>
+                  <strong className="text-slate-900 font-bold">{doctorInfo?.name || "Dr. Pressy"}</strong> operates at <span className="text-blue-600 font-bold">95% efficiency</span>
                 </p>
               </div>
 
               <button
-                onClick={() => alert(`Generating detailed clinical performance report for ${doctorInfo?.name || "practitioner"}...`)}
+                onClick={() => alert(`Generating detailed clinical performance report for ${doctorInfo?.name || "Dr. Pressy"}...`)}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl transition shadow-md shadow-blue-500/20 cursor-pointer"
               >
                 Check Full Report
@@ -267,7 +263,6 @@ export default function DoctorDashboardPage() {
                 </button>
               </div>
 
-              {/* Interactive Vitals Quick Pills */}
               <div className="flex items-center gap-2 overflow-x-auto py-2">
                 {(["Heart Rate", "Blood Pressure", "Glucose"] as const).map((metric) => (
                   <button
@@ -284,7 +279,6 @@ export default function DoctorDashboardPage() {
                 ))}
               </div>
 
-              {/* Dynamic Chart Bars & Tooltips */}
               <div className="space-y-2 pt-2">
                 <div className="flex items-end justify-between gap-2 h-28 pt-4 px-2 border-b border-dashed border-slate-200">
                   {currentAnalytics.bars.map((bar, idx) => (
@@ -309,7 +303,7 @@ export default function DoctorDashboardPage() {
             </div>
           </div>
 
-          {/* BOTTOM ROW: Dynamic Sub-tab Table Data */}
+          {/* Sub-tab Table Data */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3 overflow-x-auto">
@@ -385,9 +379,8 @@ export default function DoctorDashboardPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Active Doctor Profile & Interactive Appointments */}
+        {/* RIGHT COLUMN: Active Doctor Profile & Appointments */}
         <div className="space-y-6">
-          {/* Dynamic Doctor Credentials Card */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3 text-xs font-black uppercase tracking-wider text-slate-400">
               <span className="text-blue-600">Active Doctor</span>
@@ -446,7 +439,7 @@ export default function DoctorDashboardPage() {
             ) : null}
           </div>
 
-          {/* Appointments List Widget */}
+          {/* Appointments Widget */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Appointments ({selectedDate})</h3>
