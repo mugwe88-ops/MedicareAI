@@ -48,6 +48,7 @@ export default function DoctorSettingsPage() {
 
           if (profileData.avatar_url) {
             setPreviewUrl(profileData.avatar_url);
+            localStorage.setItem("doctor_avatar", profileData.avatar_url);
           }
         }
       } catch (err) {
@@ -106,7 +107,7 @@ export default function DoctorSettingsPage() {
 
         if (avatarRes.ok) {
           const avatarData = await avatarRes.json();
-          currentAvatarUrl = avatarData.avatar || currentAvatarUrl;
+          currentAvatarUrl = avatarData.avatar || avatarData.avatar_url || currentAvatarUrl;
         } else {
           throw new Error("Failed to upload profile picture.");
         }
@@ -129,6 +130,13 @@ export default function DoctorSettingsPage() {
 
       setFormData((prev) => ({ ...prev, avatar_url: currentAvatarUrl }));
       setSelectedFile(null);
+
+      // Save to localStorage and notify global components
+      if (currentAvatarUrl) {
+        localStorage.setItem("doctor_avatar", currentAvatarUrl);
+      }
+      window.dispatchEvent(new Event("doctorAvatarUpdated"));
+
       setSuccessMsg("Profile settings and picture updated successfully!");
     } catch (err: any) {
       setErrorMsg(err.message || "An error occurred.");
