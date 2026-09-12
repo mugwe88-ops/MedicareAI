@@ -110,11 +110,12 @@ router.get("/earnings", authenticateToken, async (req, res) => {
 });
 
 // Query the 'consultants' table to fetch profile data
+// SAFE PROFILE FETCH: Only queries columns guaranteed to exist
 router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     let result = await pool.query(
-      "SELECT id, name, email, specialization, bio, availability, status, avatar_url, consultation_fee, phone FROM consultants WHERE id = $1",
+      "SELECT id, name, email, specialization, avatar_url FROM consultants WHERE id = $1",
       [userId]
     );
 
@@ -129,7 +130,7 @@ router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   }
 });
 
-// Update avatar on the 'consultants' table
+// SAFE AVATAR UPLOAD ROUTE
 router.post("/avatar", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -148,6 +149,41 @@ router.post("/avatar", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Error updating avatar:", err);
     res.status(500).json({ message: "Server error updating avatar." });
+  }
+});
+
+// SAFE PROFILE UPDATE ROUTE
+router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
+  if (req.method !== "PUT" && req.method !== "PATCH") return next();
+  try {
+    const userId = req.user.id;
+    const { name, email, specialization, avatar_url, avatar } = req.body;
+    const resolvedAvatar = avatar_url || avatar;
+
+    const result = await pool.query(
+      `UPDATE consultants 
+       SET name = COALESCE($1, name), 
+           email = COALESCE($2, email), 
+           specialization = COALESCE($3, specialization), 
+           avatar_url = COALESCE($4, avatar_url)
+       WHERE id = $5 
+       RETURNING id, name, email, specialization, avatar_url`,
+      [name, email, specialization, resolvedAvatar, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Doctor profile not found for update." });
+    }
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      profile: result.rows[0],
+      doctor: result.rows[0]
+    });
+  } catch (err) {
+    console.error("Error updating doctor profile:", err);
+    res.status(500).json({ message: "Server error updating profile changes." });
   }
 });
 
