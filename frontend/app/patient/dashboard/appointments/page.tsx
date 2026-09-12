@@ -1,3 +1,4 @@
+// frontend/app/patient/dashboard/appointments/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -34,19 +35,15 @@ export default function PatientAppointmentsPage() {
         process.env.NEXT_PUBLIC_BACKEND_URL ||
         "https://medicareai-1.onrender.com";
 
-      // FIXED: Changed from /api/my-appointments to /api/appointments to match backend routes
       const aptRes = await fetch(`${backendUrl}/api/appointments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (aptRes.ok) {
         const aptData = await aptRes.json();
-        
-        // Robust extraction handling direct arrays or wrapped objects
         const list = Array.isArray(aptData)
           ? aptData
           : aptData.appointments || aptData.data || [];
-          
         setAppointments(list);
       }
     } catch (err) {
@@ -78,7 +75,7 @@ export default function PatientAppointmentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Top Actions Row: Back & Log Out */}
+      {/* Top Actions Row */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => router.back()}

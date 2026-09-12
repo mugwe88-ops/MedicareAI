@@ -1,6 +1,9 @@
+// frontend/app/doctors/dashboard/page.tsx
 "use client";
+
 import { useState, useEffect, useRef } from "react";
-import { Search, Bell, Mail, RefreshCw, Users, FileText, CheckCircle2, X, Calendar, Camera, Upload, Check } from "lucide-react";
+import { Search, Bell, Mail, Users, Video, Camera, Upload, Check, X, Calendar } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface DoctorInfo {
   name: string;
@@ -37,6 +40,7 @@ interface Appointment {
   time: string;
   dateKey: string;
   status?: string;
+  reason?: string;
 }
 
 interface WorkloadDataset {
@@ -47,6 +51,7 @@ interface WorkloadDataset {
 }
 
 export default function DoctorDashboardPage() {
+  const router = useRouter();
   const [activeSubTab, setActiveSubTab] = useState<"Lab Reports" | "Prescription" | "Medication" | "Diagnosis">("Lab Reports");
   const [selectedDate, setSelectedDate] = useState<string>("21");
   const [activeWorkloadTab, setActiveWorkloadTab] = useState<"Consultations" | "Telehealth" | "Follow-ups">("Consultations");
@@ -226,7 +231,7 @@ export default function DoctorDashboardPage() {
     }
   };
 
-  // Fetch live appointments from backend (Neon DB)
+  // Fetch live appointments from backend
   const fetchAppointments = async () => {
     setIsAppointmentsLoading(true);
     try {
@@ -272,16 +277,17 @@ export default function DoctorDashboardPage() {
 
       if (success && Array.isArray(fetchedData)) {
         const formatted: Appointment[] = fetchedData.map((item: any, idx: number) => {
-          let dateStr = item.date || item.appointmentDate || "2026-09-21";
+          let dateStr = item.date || item.appointment_date || item.appointmentDate || "2026-09-21";
           let dayKey = dateStr.includes("-") ? dateStr.split("-").pop() || selectedDate : selectedDate;
 
           return {
             id: item.id || item._id || String(idx),
-            patientName: item.patientName || item.patient?.name || item.name || "Patient",
+            patientName: item.patientName || item.patient_name || item.patient?.name || item.name || "Patient",
             specialty: item.specialty || item.type || item.department || "General Consultation",
-            time: item.time || item.slot || "10:00",
+            time: item.time || item.appointment_time || item.slot || "10:00",
             dateKey: dayKey,
-            status: item.status || "Confirmed"
+            status: item.status || "Confirmed",
+            reason: item.reason || "General Checkup"
           };
         });
 
@@ -394,18 +400,41 @@ export default function DoctorDashboardPage() {
     fetchMedicalRecords();
   }, []);
 
-  useEffect(() => {
-    if (allAppointments.length > 0) {
-      const filtered = allAppointments.filter((a) => a.dateKey.endsWith(selectedDate) || a.dateKey === selectedDate);
-      setAppointments(filtered);
-    } else {
-      setAppointments([]);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
     }
-  }, [selectedDate, allAppointments]);
+  };
 
-  const handleOpenReportModal = () => {
-    setIsReportModalOpen(true);
-    fetchPerformanceData(); 
+  const handleAvatarUpload = async () => {
+    if (!selectedFile) return;
+    setIsUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append("avatar", selectedFile);
+
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
+
+      const res = await fetch(`${API_URL}/api/doctors/avatar`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (res.ok) {
+        setAvatarUploadSuccess(true);
+        setTimeout(() => setAvatarUploadSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const handleStatusChange = async (newStatus: string) => {
@@ -428,86 +457,6 @@ export default function DoctorDashboardPage() {
     } catch (error) {
       console.error("Failed to update status on backend:", error);
     }
-  };
-
-  // Picture Selection & Upload Handlers
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        alert("Image size must be less than 2MB");
-        return;
-      }
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-      setAvatarUploadSuccess(false);
-    }
-  };
-
-  const handleAvatarUpload = async () => {
-    if (!selectedFile && !previewUrl) return;
-    setIsUploadingAvatar(true);
-    setAvatarUploadSuccess(false);
-
-    try {
-      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
-
-      // Convert file to Base64 to match the backend direct upload endpoint structure (`/api/doctors/avatar`)
-      const convertToBase64 = (file: File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (error) => reject(error);
-        });
-      };
-
-      let base64Image = previewUrl;
-      if (selectedFile) {
-        base64Image = await convertToBase64(selectedFile);
-      }
-
-      const res = await fetch(`${API_URL}/api/doctors/avatar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ avatar: base64Image }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const updatedAvatar = data.avatar || base64Image;
-        if (doctorInfo) {
-          setDoctorInfo({ ...doctorInfo, avatar: updatedAvatar });
-        }
-        setPreviewUrl(updatedAvatar);
-        setAvatarUploadSuccess(true);
-        setSelectedFile(null);
-        setTimeout(() => setAvatarUploadSuccess(false), 4000);
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        alert(errData.message || "Failed to update avatar");
-      }
-    } catch (error) {
-      console.error("Error uploading avatar:", error);
-      alert("Server error uploading profile picture.");
-    } finally {
-      setIsUploadingAvatar(false);
-    }
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .replace(/^Dr\.\s+/i, "")
-      .split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2) || "MD";
   };
 
   const workloadDatasets: Record<string, WorkloadDataset> = {
@@ -604,7 +553,7 @@ export default function DoctorDashboardPage() {
               </div>
 
               <button
-                onClick={handleOpenReportModal}
+                onClick={() => setIsReportModalOpen(true)}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl transition shadow-md shadow-blue-500/20 cursor-pointer"
               >
                 Check Full Report
@@ -665,256 +614,331 @@ export default function DoctorDashboardPage() {
             </div>
           </div>
 
+          {/* Booked Patients & Consultations Section */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Booked Patients & Scheduled Visits</h3>
+                <p className="text-xs text-slate-400 font-medium">Patients who have booked appointments with you</p>
+              </div>
+              <button
+                onClick={() => setIsAllAppointmentsModalOpen(true)}
+                className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+              >
+                View All ({allAppointments.length})
+              </button>
+            </div>
+
+            {isAppointmentsLoading ? (
+              <div className="py-8 text-center text-xs text-slate-400 font-bold">Loading booked appointments...</div>
+            ) : allAppointments.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400 font-medium bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                No patients have booked consultations with you yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {allAppointments.slice(0, 5).map((apt) => (
+                  <div key={apt.id} className="flex items-center justify-between p-4 bg-slate-50/80 rounded-2xl border border-slate-100 hover:bg-slate-50 transition">
+                    <div>
+                      <p className="font-bold text-slate-900 text-sm">{apt.patientName}</p>
+                      <p className="text-xs text-blue-600 font-semibold mt-0.5">
+                        {apt.dateKey} @ {apt.time} • <span className="text-slate-500">{apt.specialty}</span>
+                      </p>
+                      {apt.reason && <p className="text-xs italic text-slate-400 mt-1">"{apt.reason}"</p>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-xs font-bold rounded-full uppercase">
+                        {apt.status || "Confirmed"}
+                      </span>
+                      <button
+                        onClick={() => router.push(`/doctors/telehealth/${apt.id}`)}
+                        className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition cursor-pointer"
+                        title="Start Telehealth Session"
+                      >
+                        <Video size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Dynamic Medical Records Table Widget */}
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3 overflow-x-auto">
-                {(["Lab Reports", "Prescription", "Medication", "Diagnosis"] as const).map((tab) => (
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {(["Lab Reports", "Prescription", "Medication", "Diagnosis"] as const).map((subTab) => (
                   <button
-                    key={tab}
-                    onClick={() => setActiveSubTab(tab)}
-                    className={`text-xs font-black transition cursor-pointer pb-1 whitespace-nowrap ${
-                      activeSubTab === tab ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"
+                    key={subTab}
+                    onClick={() => setActiveSubTab(subTab)}
+                    className={`px-4 py-2 rounded-2xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      activeSubTab === subTab
+                        ? "bg-slate-900 text-white shadow-sm"
+                        : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100"
                     }`}
                   >
-                    {tab}
+                    {subTab}
                   </button>
                 ))}
               </div>
-              <span className="text-xs font-bold text-slate-400">Recent ▾</span>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="text-slate-400 font-black uppercase tracking-wider border-b border-slate-100">
-                    <th className="pb-3 px-2">
-                      {activeSubTab === "Prescription"
-                        ? "Medicine Name"
-                        : activeSubTab === "Medication"
-                        ? "Drug / Regimen"
-                        : activeSubTab === "Diagnosis"
-                        ? "Condition"
-                        : "Test Name"}
-                    </th>
-                    <th className="pb-3 px-2">
-                      {["Prescription", "Medication", "Diagnosis"].includes(activeSubTab) ? "Prescribed By" : "Referred by"}
-                    </th>
-                    <th className="pb-3 px-2">Date</th>
-                    <th className="pb-3 px-2">Comments</th>
-                    <th className="pb-3 px-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {isRecordsLoading ? (
-                    <tr>
-                      <td colSpan={5} className="py-10 text-center">
-                        <div className="flex items-center justify-center gap-2 text-slate-400 font-bold">
-                          <RefreshCw size={16} className="animate-spin text-blue-600" />
-                          <span>Loading records from database...</span>
-                        </div>
-                      </td>
+            {isRecordsLoading ? (
+              <div className="py-12 text-center text-xs text-slate-400 font-bold">Loading records...</div>
+            ) : currentTableData.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400 font-medium bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                No records found for {activeSubTab}.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                      <th className="py-3 px-4">Primary Info</th>
+                      <th className="py-3 px-4">Reference</th>
+                      <th className="py-3 px-4">Date</th>
+                      <th className="py-3 px-4">Comments</th>
+                      <th className="py-3 px-4">Status</th>
                     </tr>
-                  ) : currentTableData.length > 0 ? (
-                    currentTableData.map((rec) => (
-                      <tr key={rec.id} className="hover:bg-slate-50 transition">
-                        <td className="py-3.5 px-2 font-black text-slate-900">{rec.primaryText}</td>
-                        <td className="py-3.5 px-2 text-slate-600 font-medium">{rec.secondaryText}</td>
-                        <td className="py-3.5 px-2 text-slate-500 font-medium">{rec.date}</td>
-                        <td className="py-3.5 px-2 text-slate-700 font-bold">{rec.comments}</td>
-                        <td className="py-3.5 px-2">
-                          <span
-                            className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                              ["Normal", "Active", "Confirmed"].includes(rec.status)
-                                ? "bg-emerald-100 text-emerald-700"
-                                : ["Pending", "Ongoing"].includes(rec.status)
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-purple-100 text-purple-700"
-                            }`}
-                          >
-                            {rec.status}
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 text-xs">
+                    {currentTableData.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition">
+                        <td className="py-4 px-4 font-bold text-slate-900">{item.primaryText}</td>
+                        <td className="py-4 px-4 text-slate-600">{item.secondaryText}</td>
+                        <td className="py-4 px-4 text-slate-500">{item.date}</td>
+                        <td className="py-4 px-4 italic text-slate-400">{item.comments}</td>
+                        <td className="py-4 px-4">
+                          <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full font-bold uppercase text-[10px]">
+                            {item.status}
                           </span>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="py-10 text-center text-slate-400 font-medium">
-                        No {activeSubTab.toLowerCase()} found in the database.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Active Doctor Profile & Picture Management */}
+        {/* RIGHT COLUMN: PROFILE & AVAILABILITY */}
         <div className="space-y-6">
-          {/* Profile & Availability / Picture Upload Component */}
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-400">
-                <span className="text-blue-600">Profile & Availability</span>
-              </div>
-              <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-2.5 py-0.5 rounded-full">MD Sync</span>
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
+              <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Profile & Availability</span>
+              <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-2.5 py-1 rounded-lg">MD Sync</span>
             </div>
 
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-8 space-y-2">
-                <RefreshCw size={24} className="animate-spin text-blue-600" />
-                <p className="text-xs text-slate-400 font-bold">Loading profile data...</p>
-              </div>
-            ) : doctorInfo ? (
-              <>
-                <div className="flex flex-col items-center text-center space-y-3 pt-2">
-                  {/* Picture Preview Container */}
-                  <div className="relative group">
-                    {previewUrl || doctorInfo.avatar ? (
-                      <div className="w-24 h-24 rounded-3xl bg-slate-100 overflow-hidden shadow-inner border-2 border-slate-200">
-                        <img 
-                          src={previewUrl || doctorInfo.avatar} 
-                          alt={doctorInfo.name} 
-                          className="w-full h-full object-cover" 
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-24 h-24 rounded-3xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-md">
-                        {getInitials(doctorInfo.name)}
-                      </div>
-                    )}
-
-                    {/* Camera Badge Trigger */}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center shadow-md transition cursor-pointer"
-                      title="Select new picture"
-                    >
-                      <Camera size={14} />
-                    </button>
-                  </div>
-
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileSelect}
-                    accept="image/*"
-                    className="hidden"
-                  />
-
-                  <div>
-                    <h3 className="text-base font-black text-slate-900">{doctorInfo.name}</h3>
-                    <p className="text-xs text-blue-600 font-bold capitalize">{doctorInfo.specialty}</p>
-                  </div>
-                </div>
-
-                {/* Upload Action Bar */}
-                <div className="pt-2">
-                  {selectedFile ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleAvatarUpload}
-                        disabled={isUploadingAvatar}
-                        className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        {isUploadingAvatar ? (
-                          <>
-                            <RefreshCw size={14} className="animate-spin" />
-                            <span>Uploading...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Upload size={14} />
-                            <span>Save Photo</span>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedFile(null);
-                          setPreviewUrl(doctorInfo.avatar);
-                        }}
-                        className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+            {/* Avatar & Upload Section */}
+            <div className="flex flex-col items-center text-center space-y-3">
+              <div className="relative group">
+                <div className="w-24 h-24 rounded-3xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center overflow-hidden shadow-md">
+                  {previewUrl ? (
+                    <img src={previewUrl} alt="Doctor Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                    >
-                      <Upload size={14} className="text-blue-600" />
-                      <span>Change Profile Picture</span>
-                    </button>
-                  )}
-
-                  {avatarUploadSuccess && (
-                    <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-700 font-bold flex items-center justify-center gap-1.5">
-                      <Check size={14} />
-                      <span>Profile picture updated successfully!</span>
-                    </div>
+                    doctorInfo?.name ? getInitials(doctorInfo.name) : "MD"
                   )}
                 </div>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-0 right-0 p-2 bg-slate-900 hover:bg-black text-white rounded-xl shadow-lg transition cursor-pointer"
+                  title="Change Profile Picture"
+                >
+                  <Camera size={14} />
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept="image/*"
+                  className="hidden"
+                />
+              </div>
 
-                {/* Status Indicator & Toggler */}
-                <div className="pt-4 border-t border-slate-100 space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Duty Status</span>
-                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${
-                      doctorInfo.status === "Active Duty" 
-                        ? "bg-emerald-100 text-emerald-700" 
-                        : "bg-amber-100 text-amber-700"
-                    }`}>
-                      {doctorInfo.status}
-                    </span>
-                  </div>
+              <div>
+                <h4 className="font-black text-slate-900 text-lg">{doctorInfo?.name || "Dr. Pressy Phides"}</h4>
+                <p className="text-xs text-slate-400 font-bold capitalize">{doctorInfo?.specialty || "General Practitioner"}</p>
+              </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleStatusChange("Active Duty")}
-                      className={`py-2 rounded-xl text-[11px] font-bold transition cursor-pointer ${
-                        doctorInfo.status === "Active Duty"
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      Active Duty
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange("On Leave")}
-                      className={`py-2 rounded-xl text-[11px] font-bold transition cursor-pointer ${
-                        doctorInfo.status === "On Leave"
-                          ? "bg-amber-600 text-white shadow-sm"
-                          : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      On Leave
-                    </button>
-                  </div>
-                </div>
+              {selectedFile && (
+                <button
+                  onClick={handleAvatarUpload}
+                  disabled={isUploadingAvatar}
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                >
+                  {isUploadingAvatar ? "Uploading..." : <><Upload size={14} /> Save New Photo</>}
+                </button>
+              )}
 
-                {/* Additional Profile Info */}
-                <div className="pt-4 border-t border-slate-100 space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-medium">Email</span>
-                    <span className="text-slate-800 font-bold truncate max-w-[180px]">{doctorInfo.email}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-medium">Credential</span>
-                    <span className="text-emerald-600 font-bold">{doctorInfo.portalStatus}</span>
-                  </div>
-                </div>
-              </>
-            ) : null}
+              {avatarUploadSuccess && (
+                <p className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                  <Check size={14} /> Photo updated successfully!
+                </p>
+              )}
+            </div>
+
+            {/* Duty Status Toggle */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400 font-medium">Duty Status</span>
+                <span className={`font-bold ${doctorInfo?.status === "Active Duty" ? "text-emerald-600" : "text-amber-600"}`}>
+                  {doctorInfo?.status || "On Leave"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={() => handleStatusChange("Active Duty")}
+                  className={`py-2 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                    doctorInfo?.status === "Active Duty"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  Active Duty
+                </button>
+                <button
+                  onClick={() => handleStatusChange("On Leave")}
+                  className={`py-2 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                    doctorInfo?.status === "On Leave"
+                      ? "bg-amber-600 text-white shadow-sm"
+                      : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  On Leave
+                </button>
+              </div>
+            </div>
+
+            {/* Additional Info */}
+            <div className="pt-4 border-t border-slate-100 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Email</span>
+                <span className="text-slate-800 font-bold truncate max-w-[180px]">{doctorInfo?.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Credential</span>
+                <span className="text-emerald-600 font-bold">{doctorInfo?.portalStatus}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* ALL APPOINTMENTS MODAL */}
+      {isAllAppointmentsModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-6 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">All Booked Patient Consultations</h3>
+                <p className="text-xs text-slate-400 font-bold">Manage and review all scheduled patient sessions</p>
+              </div>
+              <button
+                onClick={() => setIsAllAppointmentsModalOpen(false)}
+                className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-4 top-3 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder="Search by patient name or specialty..."
+                value={allAppointmentsSearch}
+                onChange={(e) => setAllAppointmentsSearch(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-2.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-600"
+              />
+            </div>
+
+            <div className="space-y-3">
+              {allAppointments
+                .filter(a => a.patientName.toLowerCase().includes(allAppointmentsSearch.toLowerCase()) || a.specialty.toLowerCase().includes(allAppointmentsSearch.toLowerCase()))
+                .map((apt) => (
+                  <div key={apt.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div>
+                      <p className="font-bold text-slate-900 text-sm">{apt.patientName}</p>
+                      <p className="text-xs text-blue-600 font-semibold">
+                        {apt.dateKey} @ {apt.time} • <span className="text-slate-500">{apt.specialty}</span>
+                      </p>
+                      {apt.reason && <p className="text-xs italic text-slate-400 mt-1">"{apt.reason}"</p>}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setIsAllAppointmentsModalOpen(false);
+                        router.push(`/doctors/telehealth/${apt.id}`);
+                      }}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Video size={14} /> Join
+                    </button>
+                  </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULL PERFORMANCE REPORT MODAL */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">Performance Report</h3>
+                <p className="text-xs text-slate-400 font-bold">Detailed practice metrics & analytics</p>
+              </div>
+              <button
+                onClick={() => setIsReportModalOpen(false)}
+                className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {isPerformanceLoading ? (
+              <div className="py-8 text-center text-xs text-slate-400 font-bold">Loading metrics...</div>
+            ) : (
+              <div className="space-y-4 text-xs">
+                <div className="flex justify-between p-3 bg-slate-50 rounded-2xl">
+                  <span className="text-slate-500 font-medium">Efficiency Rating</span>
+                  <span className="font-bold text-slate-900">{performanceData?.efficiency_rating || 95}%</span>
+                </div>
+                <div className="flex justify-between p-3 bg-slate-50 rounded-2xl">
+                  <span className="text-slate-500 font-medium">Practice Score</span>
+                  <span className="font-bold text-slate-900">{performanceData?.practice_score || 492} / {performanceData?.max_score || 500}</span>
+                </div>
+                <div className="flex justify-between p-3 bg-slate-50 rounded-2xl">
+                  <span className="text-slate-500 font-medium">Patient Satisfaction</span>
+                  <span className="font-bold text-emerald-600">⭐ {performanceData?.patient_satisfaction || 4.9} ({performanceData?.total_reviews || 142} reviews)</span>
+                </div>
+                <div className="flex justify-between p-3 bg-slate-50 rounded-2xl">
+                  <span className="text-slate-500 font-medium">Average Wait Time</span>
+                  <span className="font-bold text-slate-900">{performanceData?.avg_wait_time_mins || 4} mins</span>
+                </div>
+                <div className="flex justify-between p-3 bg-slate-50 rounded-2xl">
+                  <span className="text-slate-500 font-medium">Compliance Rate</span>
+                  <span className="font-bold text-blue-600">{performanceData?.compliance_rate || 100}%</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function getInitials(name: string): string {
+  return name
+    .replace(/^Dr\.\s+/i, "")
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "MD";
 }
