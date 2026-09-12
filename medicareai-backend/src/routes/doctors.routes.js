@@ -110,24 +110,56 @@ router.get("/earnings", authenticateToken, async (req, res) => {
 });
 
 // ✅ MUST BE PLACED BEFORE /:id to prevent Express from treating "profile" as an ID parameter
+// --- GET DOCTOR PROFILE ---
 router.get("/profile", authenticateToken, async (req, res) => {
   try {
-    const doctorId = req.user.id;
-    const result = await pool.query(
-      `SELECT id, name, specialization, consultation_fee, experience_years, avatar_url, phone, availability 
-       FROM consultants 
-       WHERE id = $1`,
-      [doctorId]
+    const userId = req.user.id;
+    let result = await pool.query(
+      "SELECT id, name, email, specialization, bio, availability FROM users WHERE id = $1",
+      [userId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Doctor profile not found" });
+      // Fallback: If user ID from token isn't found, try to find by email or return a base template
+      return res.status(404).json({ message: "Doctor profile record not found in database. Try logging out and back in." });
     }
 
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Error fetching doctor profile:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error fetching profile." });
+  }
+});
+
+// --- UPDATE DOCTOR PROFILE ---
+router.put("/profile", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, email, specialization, bio, availability } = req.body;
+
+    const result = await pool.query(
+      `UPDATE users 
+       SET name = COALESCE($1, name), 
+           email = COALESCE($2, email), 
+           specialization = $3, 
+           bio = $4, 
+           availability = $5 
+       WHERE id = $6 
+       RETURNING id, name, email, specialization, bio, availability`,
+      [name, email, specialization, bio, availability, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Doctor profile not found for update." });
+    }
+
+    res.json({
+      message: "Profile updated successfully",
+      profile: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Error updating doctor profile:", err);
+    res.status(500).json({ message: "Server error updating profile changes." });
   }
 });
 
