@@ -110,30 +110,44 @@ router.get("/earnings", authenticateToken, async (req, res) => {
 });
 
 // SMART PROFILE FETCH: Auto-creates record if missing to prevent 404/500 errors
+// SMART PROFILE FETCH: Auto-creates record safely without crashing on serial IDs
 router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userEmail = req.user.email || "doctor@example.com";
     const userName = req.user.name || "Dr. User";
 
+    // 1. Try finding by user ID first
     let result = await pool.query(
       "SELECT id, name, email, specialization, avatar_url FROM consultants WHERE id = $1",
       [userId]
     );
 
+    // 2. If not found by ID, try finding by email
+    if (result.rows.length === 0 && userEmail) {
+      result = await pool.query(
+        "SELECT id, name, email, specialization, avatar_url FROM consultants WHERE email = $1",
+        [userEmail]
+      );
+    }
+
+    // 3. If still not found, insert a new record letting the database auto-generate the ID
     if (result.rows.length === 0) {
       result = await pool.query(
-        `INSERT INTO consultants (id, name, email, specialization, role) 
-         VALUES ($1, $2, $3, $4, 'doctor') 
+        `INSERT INTO consultants (name, email, specialization, role) 
+         VALUES ($1, $2, $3, 'doctor') 
          RETURNING id, name, email, specialization, avatar_url`,
-        [userId, userName, userEmail, "General Practitioner"]
+        [userName, userEmail, "General Practitioner"]
       );
     }
 
     res.json({ doctor: result.rows[0], ...result.rows[0] });
   } catch (err) {
     console.error("Error fetching/creating doctor profile:", err);
-    res.status(500).json({ message: "Server error fetching profile." });
+    res.status(500).json({ 
+      message: "Server error fetching profile.", 
+      error: err.message 
+    });
   }
 });
 
