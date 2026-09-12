@@ -109,8 +109,8 @@ router.get("/earnings", authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ UPDATED: Include avatar_url in profile fetch
-router.get("/profile", authenticateToken, async (req, res) => {
+// ✅ FIXED / ALIASED: Support both /profile and /me to fix frontend 404s
+router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     let result = await pool.query(
@@ -119,34 +119,58 @@ router.get("/profile", authenticateToken, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Doctor profile record not found in database. Try logging out and back in." });
+      return res.status(404).json({ message: "Doctor profile record not found in database." });
     }
 
-    res.json(result.rows[0]);
+    res.json({ doctor: result.rows[0], ...result.rows[0] });
   } catch (err) {
     console.error("Error fetching doctor profile:", err);
     res.status(500).json({ message: "Server error fetching profile." });
   }
 });
 
-// ✅ UPDATED: Support updating avatar_url alongside other fields
-router.put("/profile", authenticateToken, async (req, res) => {
+// ✅ ADDED: Dedicated Avatar Upload Route (Fixes 404 on /api/doctors/avatar)
+router.post("/avatar", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, email, specialization, bio, availability, status, avatar_url } = req.body;
+    const { avatar } = req.body; // Expects avatar URL string or handle file upload if using multer
+
+    const result = await pool.query(
+      `UPDATE users SET avatar_url = COALESCE($1, avatar_url) WHERE id = $2 RETURNING avatar_url`,
+      [avatar, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found for avatar update." });
+    }
+
+    res.json({ success: true, avatar: result.rows[0].avatar_url });
+  } catch (err) {
+    console.error("Error updating avatar:", err);
+    res.status(500).json({ message: "Server error updating avatar." });
+  }
+});
+
+// ✅ UPDATED: Support updating profile fields and status/avatar via PUT and PATCH (/me and /profile)
+router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
+  if (req.method !== "PUT" && req.method !== "PATCH") return next();
+  try {
+    const userId = req.user.id;
+    const { name, email, specialization, bio, availability, status, avatar_url, avatar } = req.body;
+    const resolvedAvatar = avatar_url || avatar;
 
     const result = await pool.query(
       `UPDATE users 
        SET name = COALESCE($1, name), 
            email = COALESCE($2, email), 
-           specialization = $3, 
-           bio = $4, 
-           availability = $5,
+           specialization = COALESCE($3, specialization), 
+           bio = COALESCE($4, bio), 
+           availability = COALESCE($5, availability),
            status = COALESCE($6, status),
            avatar_url = COALESCE($7, avatar_url)
        WHERE id = $8 
        RETURNING id, name, email, specialization, bio, availability, status, avatar_url`,
-      [name, email, specialization, bio, availability, status, avatar_url, userId]
+      [name, email, specialization, bio, availability, status, resolvedAvatar, userId]
     );
 
     if (result.rows.length === 0) {
@@ -154,8 +178,10 @@ router.put("/profile", authenticateToken, async (req, res) => {
     }
 
     res.json({
+      success: true,
       message: "Profile updated successfully",
       profile: result.rows[0],
+      doctor: result.rows[0]
     });
   } catch (err) {
     console.error("Error updating doctor profile:", err);
@@ -163,7 +189,6 @@ router.put("/profile", authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ FIXED: Moved /performance here so it matches before /:id
 router.get('/performance', authenticateToken, async (req, res) => {
   try {
     const doctorId = req.user.id;
@@ -262,7 +287,6 @@ router.get("/records", authenticateToken, async (req, res) => {
 
     const result = await pool.query(query, queryParams);
     
-    // Fallback default row if none exist yet for this doctor
     if (result.rows.length === 0 && !type) {
       return res.json([
         { id: 1, record_type: 'Lab Reports', primary_text: 'Electrocardiography', secondary_text: 'Attending Physician', record_date: '28 Jan, 2026', comments: 'Normal vitals', status: 'Normal' }
