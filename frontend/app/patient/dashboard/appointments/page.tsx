@@ -34,13 +34,20 @@ export default function PatientAppointmentsPage() {
         process.env.NEXT_PUBLIC_BACKEND_URL ||
         "https://medicareai-1.onrender.com";
 
-      const aptRes = await fetch(`${backendUrl}/api/my-appointments`, {
+      // FIXED: Changed from /api/my-appointments to /api/appointments to match backend routes
+      const aptRes = await fetch(`${backendUrl}/api/appointments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (aptRes.ok) {
         const aptData = await aptRes.json();
-        setAppointments(aptData);
+        
+        // Robust extraction handling direct arrays or wrapped objects
+        const list = Array.isArray(aptData)
+          ? aptData
+          : aptData.appointments || aptData.data || [];
+          
+        setAppointments(list);
       }
     } catch (err) {
       console.error("Failed loading appointments", err);
@@ -132,11 +139,11 @@ export default function PatientAppointmentsPage() {
                     </td>
                     <td className="py-5 px-6">
                       <p className="font-bold text-slate-900">
-                        {new Date(apt.appointment_date).toLocaleDateString("en-GB", {
+                        {apt.appointment_date ? new Date(apt.appointment_date).toLocaleDateString("en-GB", {
                           day: "2-digit",
                           month: "short",
                           year: "numeric",
-                        })}
+                        }) : "N/A"}
                       </p>
                       <p className="text-xs text-blue-600 font-bold">{apt.appointment_time}</p>
                     </td>
