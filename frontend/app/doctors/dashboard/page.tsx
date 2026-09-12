@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Bell, Mail, RefreshCw, Users, Award, FileText, CheckCircle2, X } from "lucide-react";
+import { Search, Bell, Mail, RefreshCw, Users, FileText, CheckCircle2, X, Calendar } from "lucide-react";
 
 interface DoctorInfo {
   name: string;
@@ -37,6 +37,7 @@ interface Appointment {
   specialty: string;
   time: string;
   dateKey: string;
+  status?: string;
 }
 
 interface WorkloadDataset {
@@ -51,10 +52,14 @@ export default function DoctorDashboardPage() {
   const [selectedDate, setSelectedDate] = useState<string>("21");
   const [activeWorkloadTab, setActiveWorkloadTab] = useState<"Consultations" | "Telehealth" | "Follow-ups">("Consultations");
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [isAllAppointmentsModalOpen, setIsAllAppointmentsModalOpen] = useState<boolean>(false);
+  const [allAppointmentsSearch, setAllAppointmentsSearch] = useState<string>("");
 
   const [doctorInfo, setDoctorInfo] = useState<DoctorInfo | null>(null);
   const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
+  const [totalAppointmentsCount, setTotalAppointmentsCount] = useState<number>(21);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPerformanceLoading, setIsPerformanceLoading] = useState<boolean>(false);
   const [isAppointmentsLoading, setIsAppointmentsLoading] = useState<boolean>(false);
@@ -69,11 +74,11 @@ export default function DoctorDashboardPage() {
       if (!token) {
         setDoctorInfo({
           name: "Dr. Pressy Phides",
-          email: "doctor@medicareai.com",
-          specialty: "General Practitioner",
+          email: "willyweyru1@gmail.com",
+          specialty: "pediatrics",
           avatar: "",
           portalStatus: "Verified MD",
-          status: "Active Duty"
+          status: "On Leave"
         });
         setIsLoading(false);
         return;
@@ -109,31 +114,31 @@ export default function DoctorDashboardPage() {
 
         setDoctorInfo({
           name: formattedName,
-          email: profile.email || "doctor@medicareai.com",
-          specialty: profile.specialty || profile.specialization || "General Practitioner",
+          email: profile.email || "willyweyru1@gmail.com",
+          specialty: profile.specialty || profile.specialization || "pediatrics",
           avatar: profile.avatar || profile.avatarUrl || profile.profilePicture || "",
           portalStatus: profile.portalStatus || profile.licenseStatus || "Verified MD",
-          status: profile.status || (profile.isActive ? "Active Duty" : "On Leave") || "Active Duty",
+          status: profile.status || (profile.isActive ? "Active Duty" : "On Leave") || "On Leave",
         });
       } else {
         setDoctorInfo({
           name: "Dr. Pressy Phides",
-          email: "doctor@medicareai.com",
-          specialty: "General Practitioner",
+          email: "willyweyru1@gmail.com",
+          specialty: "pediatrics",
           avatar: "",
           portalStatus: "Verified MD",
-          status: "Active Duty"
+          status: "On Leave"
         });
       }
     } catch (error) {
       console.error("Failed to fetch doctor profile:", error);
       setDoctorInfo({
         name: "Dr. Pressy Phides",
-        email: "doctor@medicareai.com",
-        specialty: "General Practitioner",
+        email: "willyweyru1@gmail.com",
+        specialty: "pediatrics",
         avatar: "",
         portalStatus: "Verified MD",
-        status: "Active Duty"
+        status: "On Leave"
       });
     } finally {
       setIsLoading(false);
@@ -215,8 +220,8 @@ export default function DoctorDashboardPage() {
       }
 
       const endpoints = [
-        `/api/appointments?date=${selectedDate}`,
-        `/api/doctors/appointments?date=${selectedDate}`,
+        `/api/appointments`,
+        `/api/doctors/appointments`,
         `/api/appointments/me`
       ];
 
@@ -244,7 +249,6 @@ export default function DoctorDashboardPage() {
       }
 
       if (success && Array.isArray(fetchedData)) {
-        // Map backend appointment fields to component structure
         const formatted: Appointment[] = fetchedData.map((item: any, idx: number) => {
           let dateStr = item.date || item.appointmentDate || "2026-08-21";
           let dayKey = dateStr.includes("-") ? dateStr.split("-").pop() || selectedDate : selectedDate;
@@ -255,10 +259,13 @@ export default function DoctorDashboardPage() {
             specialty: item.specialty || item.type || item.department || "General Consultation",
             time: item.time || item.slot || "10:00",
             dateKey: dayKey,
+            status: item.status || "Confirmed"
           };
         });
 
-        // Filter for selected date if API returns all appointments
+        setAllAppointments(formatted);
+        setTotalAppointmentsCount(formatted.length > 0 ? formatted.length : 21);
+
         const filtered = formatted.filter((a) => a.dateKey.endsWith(selectedDate) || a.dateKey === selectedDate);
         setAppointments(filtered.length > 0 ? filtered : formatted);
       } else {
@@ -273,25 +280,39 @@ export default function DoctorDashboardPage() {
   };
 
   const loadMockAppointments = (day: string) => {
+    const mockAll: Appointment[] = [
+      { id: "a1", patientName: "Sarah Jenkins", specialty: "General Consultation", time: "09:30", dateKey: "19", status: "Confirmed" },
+      { id: "a2", patientName: "Robert Fox", specialty: "Pediatrics", time: "14:00", dateKey: "19", status: "Completed" },
+      { id: "a3", patientName: "Emily Watson", specialty: "Cardiology Review", time: "11:15", dateKey: "20", status: "Confirmed" },
+      { id: "a4", patientName: "Friedric Ziccardi", specialty: "Cardiologist", time: "17:00", dateKey: "21", status: "Confirmed" },
+      { id: "a5", patientName: "Abagael Bitsul", specialty: "Medicine", time: "20:00", dateKey: "21", status: "Confirmed" },
+      { id: "a6", patientName: "Michael Brown", specialty: "Diabetic Screening", time: "10:00", dateKey: "22", status: "Pending" },
+      { id: "a7", patientName: "Jessica Taylor", specialty: "Pediatrics", time: "15:30", dateKey: "22", status: "Confirmed" },
+      { id: "a8", patientName: "David Miller", specialty: "Lab Review", time: "12:00", dateKey: "23", status: "Confirmed" },
+    ];
+    setAllAppointments(mockAll);
+    setTotalAppointmentsCount(21);
+
     const mockMap: Record<string, Appointment[]> = {
-      "19": [{ id: "a1", patientName: "Sarah Jenkins", specialty: "General Consultation", time: "09:30", dateKey: "19" }],
-      "20": [{ id: "a3", patientName: "Emily Watson", specialty: "Cardiology Review", time: "11:15", dateKey: "20" }],
-      "21": [
-        { id: "a4", patientName: "Friedric Ziccardi", specialty: "Cardiologist", time: "17:00", dateKey: "21" },
-        { id: "a5", patientName: "Abagael Bitsul", specialty: "Medicine", time: "20:00", dateKey: "21" },
-      ],
-      "22": [{ id: "a6", patientName: "Michael Brown", specialty: "Diabetic Screening", time: "10:00", dateKey: "22" }],
-      "23": [{ id: "a8", patientName: "David Miller", specialty: "Lab Review", time: "12:00", dateKey: "23" }],
+      "19": [mockAll[0], mockAll[1]],
+      "20": [mockAll[2]],
+      "21": [mockAll[3], mockAll[4]],
+      "22": [mockAll[5], mockAll[6]],
+      "23": [mockAll[7]],
     };
     setAppointments(mockMap[day] || []);
   };
 
   useEffect(() => {
     fetchDoctorProfile();
+    fetchAppointments();
   }, []);
 
   useEffect(() => {
-    fetchAppointments();
+    if (allAppointments.length > 0) {
+      const filtered = allAppointments.filter((a) => a.dateKey.endsWith(selectedDate) || a.dateKey === selectedDate);
+      setAppointments(filtered);
+    }
   }, [selectedDate]);
 
   const handleOpenReportModal = () => {
@@ -393,6 +414,12 @@ export default function DoctorDashboardPage() {
   };
 
   const currentTableData = tabDataMap[activeSubTab] || [];
+  const filteredAllAppointments = allAppointments.filter(
+    (apt) =>
+      apt.patientName.toLowerCase().includes(allAppointmentsSearch.toLowerCase()) ||
+      apt.specialty.toLowerCase().includes(allAppointmentsSearch.toLowerCase()) ||
+      apt.dateKey.includes(allAppointmentsSearch)
+  );
 
   return (
     <div className="flex-1 flex flex-col p-6 lg:p-8 space-y-6 overflow-y-auto bg-slate-50 w-full relative">
@@ -644,7 +671,14 @@ export default function DoctorDashboardPage() {
           {/* Live Appointments Widget */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Appointments ({selectedDate})</h3>
+              <button
+                onClick={() => setIsAllAppointmentsModalOpen(true)}
+                className="text-xs font-black uppercase tracking-wider text-slate-400 hover:text-blue-600 transition flex items-center gap-1.5 cursor-pointer group"
+                title="Click to view all booked appointments"
+              >
+                <span>Appointments ({totalAppointmentsCount})</span>
+                <span className="text-blue-600 opacity-0 group-hover:opacity-100 transition text-[10px]">View All →</span>
+              </button>
               <div className="flex items-center gap-1 text-slate-400 font-bold text-xs">
                 <span>‹</span><span>›</span>
               </div>
@@ -693,6 +727,13 @@ export default function DoctorDashboardPage() {
                 </div>
               )}
             </div>
+
+            <button
+              onClick={() => setIsAllAppointmentsModalOpen(true)}
+              className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-2xl border border-slate-200 transition cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Calendar size={14} className="text-blue-600" /> View All Booked Appointments
+            </button>
           </div>
         </div>
       </div>
@@ -733,7 +774,7 @@ export default function DoctorDashboardPage() {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-400 font-bold">Specialty:</span>
-                    <span className="text-blue-600 font-bold">{doctorInfo?.specialty || "General Practitioner"}</span>
+                    <span className="text-blue-600 font-bold">{doctorInfo?.specialty || "pediatrics"}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-400 font-bold">License Status:</span>
@@ -778,6 +819,87 @@ export default function DoctorDashboardPage() {
               <button
                 onClick={() => setIsReportModalOpen(false)}
                 className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ALL APPOINTMENTS MODAL */}
+      {isAllAppointmentsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
+                  <Calendar size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">All Booked Appointments</h3>
+                  <p className="text-xs text-slate-400 font-medium">Complete Schedule Ledger ({allAppointments.length} Total)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAllAppointmentsModalOpen(false)}
+                className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="relative shrink-0">
+              <Search className="absolute left-4 top-3 text-slate-400" size={15} />
+              <input
+                type="text"
+                placeholder="Filter by patient name, specialty, or date..."
+                value={allAppointmentsSearch}
+                onChange={(e) => setAllAppointmentsSearch(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-2.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition"
+              />
+            </div>
+
+            <div className="overflow-y-auto flex-1 divide-y divide-slate-100 pr-1">
+              {filteredAllAppointments.length > 0 ? (
+                filteredAllAppointments.map((apt) => (
+                  <div key={apt.id} className="py-3.5 px-3 flex items-center justify-between hover:bg-slate-50 rounded-2xl transition">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-black text-slate-900 text-xs">{apt.patientName}</h4>
+                        <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-md">
+                          Date: {apt.dateKey}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-blue-600 font-bold">{apt.specialty}</p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-black text-slate-800 bg-slate-100 px-3 py-1 rounded-xl">
+                        {apt.time}
+                      </span>
+                      <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${
+                        apt.status === "Completed" ? "bg-purple-100 text-purple-700" :
+                        apt.status === "Pending" ? "bg-amber-100 text-amber-700" :
+                        "bg-emerald-100 text-emerald-700"
+                      }`}>
+                        {apt.status || "Confirmed"}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 text-center text-slate-400 text-xs font-medium">
+                  No appointments match your search criteria.
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 shrink-0">
+              <span className="text-xs text-slate-400 font-medium">Showing {filteredAllAppointments.length} appointments</span>
+              <button
+                onClick={() => setIsAllAppointmentsModalOpen(false)}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition cursor-pointer shadow-md"
               >
                 Close
               </button>
