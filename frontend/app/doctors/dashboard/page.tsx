@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useRef } from "react";
 import { Search, Bell, Mail, RefreshCw, Users, FileText, CheckCircle2, X, Calendar, Camera, Upload, Check } from "lucide-react";
 
@@ -435,6 +434,10 @@ export default function DoctorDashboardPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Image size must be less than 2MB");
+        return;
+      }
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setAvatarUploadSuccess(false);
@@ -450,44 +453,47 @@ export default function DoctorDashboardPage() {
       const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
 
-      // If we have a file, send via FormData, else fallback to JSON sync
-      let res;
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append("avatar", selectedFile);
+      // Convert file to Base64 to match the backend direct upload endpoint structure (`/api/doctors/avatar`)
+      const convertToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+        });
+      };
 
-        res = await fetch(`${API_URL}/api/doctors/avatar`, {
-          method: "POST",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        });
-      } else {
-        res = await fetch(`${API_URL}/api/doctors/me`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ avatar: previewUrl }),
-        });
+      let base64Image = previewUrl;
+      if (selectedFile) {
+        base64Image = await convertToBase64(selectedFile);
       }
+
+      const res = await fetch(`${API_URL}/api/doctors/avatar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ avatar: base64Image }),
+      });
 
       if (res.ok) {
         const data = await res.json();
-        const updatedAvatar = data.avatar || data.doctor?.avatar || previewUrl;
+        const updatedAvatar = data.avatar || base64Image;
         if (doctorInfo) {
           setDoctorInfo({ ...doctorInfo, avatar: updatedAvatar });
         }
+        setPreviewUrl(updatedAvatar);
         setAvatarUploadSuccess(true);
         setSelectedFile(null);
         setTimeout(() => setAvatarUploadSuccess(false), 4000);
       } else {
-        console.error("Avatar upload failed with status:", res.status);
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.message || "Failed to update avatar");
       }
     } catch (error) {
       console.error("Error uploading avatar:", error);
+      alert("Server error uploading profile picture.");
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -812,7 +818,7 @@ export default function DoctorDashboardPage() {
                         type="button"
                         onClick={handleAvatarUpload}
                         disabled={isUploadingAvatar}
-                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                        className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         {isUploadingAvatar ? (
                           <>
@@ -822,7 +828,7 @@ export default function DoctorDashboardPage() {
                         ) : (
                           <>
                             <Upload size={14} />
-                            <span>Save Picture</span>
+                            <span>Save Photo</span>
                           </>
                         )}
                       </button>
@@ -832,7 +838,7 @@ export default function DoctorDashboardPage() {
                           setSelectedFile(null);
                           setPreviewUrl(doctorInfo.avatar);
                         }}
-                        className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition cursor-pointer"
+                        className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition"
                       >
                         Cancel
                       </button>
@@ -843,109 +849,69 @@ export default function DoctorDashboardPage() {
                       onClick={() => fileInputRef.current?.click()}
                       className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                     >
-                      <Camera size={14} className="text-blue-600" />
+                      <Upload size={14} className="text-blue-600" />
                       <span>Change Profile Picture</span>
                     </button>
                   )}
 
                   {avatarUploadSuccess && (
-                    <p className="flex items-center justify-center gap-1 text-[11px] text-emerald-600 font-bold mt-2 animate-fade-in">
-                      <Check size={13} /> Picture updated successfully!
-                    </p>
+                    <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-700 font-bold flex items-center justify-center gap-1.5">
+                      <Check size={14} />
+                      <span>Profile picture updated successfully!</span>
+                    </div>
                   )}
                 </div>
 
-                {/* Credentials & Status Details */}
-                <div className="space-y-2.5 pt-3 border-t border-slate-100 text-xs text-slate-600 font-medium">
-                  <p className="flex justify-between items-center">
-                    <span className="text-slate-400">Email:</span>
-                    <strong className="text-slate-900 text-right truncate max-w-[180px]">{doctorInfo.email}</strong>
-                  </p>
-                  <p className="flex justify-between items-center">
-                    <span className="text-slate-400">Portal:</span>
-                    <strong className="text-emerald-600">{doctorInfo.portalStatus}</strong>
-                  </p>
-                  <p className="flex justify-between items-center">
-                    <span className="text-slate-400">Duty Status:</span>
-                    <select
-                      value={doctorInfo.status}
-                      onChange={(e) => handleStatusChange(e.target.value)}
-                      className={`font-bold text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 outline-none cursor-pointer transition ${
-                        doctorInfo.status === "Active Duty" 
-                          ? "text-emerald-600 border-emerald-200 bg-emerald-50/50" 
-                          : "text-amber-600 border-amber-200 bg-amber-50/50"
+                {/* Status Indicator & Toggler */}
+                <div className="pt-4 border-t border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-medium">Duty Status</span>
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${
+                      doctorInfo.status === "Active Duty" 
+                        ? "bg-emerald-100 text-emerald-700" 
+                        : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {doctorInfo.status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleStatusChange("Active Duty")}
+                      className={`py-2 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                        doctorInfo.status === "Active Duty"
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
                       }`}
                     >
-                      <option value="Active Duty">Active Duty</option>
-                      <option value="On Leave">On Leave</option>
-                    </select>
-                  </p>
+                      Active Duty
+                    </button>
+                    <button
+                      onClick={() => handleStatusChange("On Leave")}
+                      className={`py-2 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                        doctorInfo.status === "On Leave"
+                          ? "bg-amber-600 text-white shadow-sm"
+                          : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      On Leave
+                    </button>
+                  </div>
+                </div>
+
+                {/* Additional Profile Info */}
+                <div className="pt-4 border-t border-slate-100 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Email</span>
+                    <span className="text-slate-800 font-bold truncate max-w-[180px]">{doctorInfo.email}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Credential</span>
+                    <span className="text-emerald-600 font-bold">{doctorInfo.portalStatus}</span>
+                  </div>
                 </div>
               </>
             ) : null}
-          </div>
-
-          {/* Live Appointments Widget */}
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => setIsAllAppointmentsModalOpen(true)}
-                className="text-xs font-black uppercase tracking-wider text-slate-400 hover:text-blue-600 transition flex items-center gap-1.5 cursor-pointer group"
-                title="Click to view all booked appointments"
-              >
-                <span>Appointments ({totalAppointmentsCount})</span>
-                <span className="text-blue-600 opacity-0 group-hover:opacity-100 transition text-[10px]">View All →</span>
-              </button>
-              <div className="flex items-center gap-1 text-slate-400 font-bold text-xs">
-                <span>‹</span><span>›</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-5 gap-1.5 text-center">
-              {[
-                { day: "19", label: "Sat" },
-                { day: "20", label: "Sun" },
-                { day: "21", label: "Mon" },
-                { day: "22", label: "Tue" },
-                { day: "23", label: "Wed" },
-              ].map((item) => (
-                <button
-                  key={item.day}
-                  onClick={() => setSelectedDate(item.day)}
-                  className={`p-2 rounded-xl text-[10px] font-bold transition cursor-pointer ${
-                    selectedDate === item.day ? "bg-blue-600 text-white font-black shadow-sm" : "bg-slate-50 text-slate-400 hover:bg-slate-100"
-                  }`}
-                >
-                  <span className="block text-xs">{item.day}</span>
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="space-y-3 pt-2">
-              {isAppointmentsLoading ? (
-                <div className="flex flex-col items-center justify-center py-6 space-y-2">
-                  <RefreshCw size={20} className="animate-spin text-blue-600" />
-                  <p className="text-[11px] text-slate-400 font-bold">Loading appointments...</p>
-                </div>
-              ) : appointments.length > 0 ? (
-                appointments.map((apt) => (
-                  <div key={apt.id} className="bg-slate-50 border border-slate-200/60 p-3.5 rounded-2xl space-y-1 hover:border-blue-300 transition">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-black text-slate-900">{apt.patientName}</h4>
-                      <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">
-                        {apt.time}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 font-medium">{apt.specialty}</p>
-                  </div>
-                ))
-              ) : (
-                <div className="py-8 text-center text-slate-400 text-xs font-medium">
-                  No appointments scheduled for this date.
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>
