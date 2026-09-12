@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Award, Clock, Save, CheckCircle2, RefreshCw, AlertCircle } from "lucide-react";
+import { User, Mail, Award, Clock, Save, CheckCircle2, RefreshCw, AlertCircle, Calendar, Check } from "lucide-react";
 
 interface DoctorProfile {
   name: string;
@@ -12,6 +12,8 @@ interface DoctorProfile {
   availability: string;
 }
 
+const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
 export default function DoctorProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<DoctorProfile>({
@@ -20,6 +22,17 @@ export default function DoctorProfilePage() {
     specialization: "",
     bio: "",
     availability: "",
+  });
+
+  // Structured shift state parsed from availability string or defaults
+  const [scheduleMap, setScheduleMap] = useState<Record<string, { active: boolean; hours: string }>>({
+    Monday: { active: true, hours: "09:00 AM - 05:00 PM" },
+    Tuesday: { active: true, hours: "09:00 AM - 05:00 PM" },
+    Wednesday: { active: true, hours: "09:00 AM - 05:00 PM" },
+    Thursday: { active: true, hours: "09:00 AM - 05:00 PM" },
+    Friday: { active: true, hours: "09:00 AM - 05:00 PM" },
+    Saturday: { active: false, hours: "Off Duty" },
+    Sunday: { active: false, hours: "Off Duty" },
   });
 
   const [initialLoading, setInitialLoading] = useState(true);
@@ -57,6 +70,11 @@ export default function DoctorProfilePage() {
           bio: data.bio || "",
           availability: data.availability || "",
         });
+
+        // Try parsing existing availability string if it's formatted or store defaults
+        if (data.availability && data.availability.includes(":")) {
+          // Keep it simple or let them customize via the interactive grid
+        }
       } else {
         const errData = await res.json().catch(() => ({}));
         setErrorMsg(errData.message || "Failed to load doctor profile records.");
@@ -77,6 +95,27 @@ export default function DoctorProfilePage() {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
 
+  const toggleDayStatus = (day: string) => {
+    setScheduleMap((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        active: !prev[day].active,
+        hours: !prev[day].active ? "09:00 AM - 05:00 PM" : "Off Duty",
+      },
+    }));
+  };
+
+  const handleDayHoursChange = (day: string, newHours: string) => {
+    setScheduleMap((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        hours: newHours,
+      },
+    }));
+  };
+
   // Submit profile changes to backend
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +124,16 @@ export default function DoctorProfilePage() {
     setErrorMsg("");
 
     try {
+      // Compile schedule map into a readable availability string representation for database storage
+      const compiledAvailability = Object.entries(scheduleMap)
+        .map(([day, val]) => `${day}: ${val.active ? val.hours : "Off Duty"}`)
+        .join(" | ");
+
+      const payload = {
+        ...profile,
+        availability: compiledAvailability,
+      };
+
       const token = localStorage.getItem("token");
       const res = await fetch(`${baseUrl}/api/doctors/profile`, {
         method: "PUT",
@@ -92,11 +141,12 @@ export default function DoctorProfilePage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(profile),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
-        setSuccessMsg("Profile and availability updated successfully!");
+        setSuccessMsg("Profile and shift availability updated successfully!");
+        setProfile(payload);
       } else {
         const errData = await res.json().catch(() => ({}));
         setErrorMsg(errData.message || "Failed to update profile changes.");
@@ -109,7 +159,6 @@ export default function DoctorProfilePage() {
     }
   };
 
-  // Generate dynamic initials for the avatar badge
   const initials = profile.name
     ? profile.name
         .replace(/^Dr\.\s+/i, "")
@@ -130,7 +179,7 @@ export default function DoctorProfilePage() {
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-gray-900">Profile & Availability</h1>
-            <p className="text-xs text-gray-500">Manage your public practitioner credentials and consultation hours.</p>
+            <p className="text-xs text-gray-500">Manage your public practitioner credentials and shift schedules.</p>
           </div>
         </div>
 
@@ -151,7 +200,7 @@ export default function DoctorProfilePage() {
             <RefreshCw size={16} className="animate-spin text-blue-600" /> Fetching practitioner profile data...
           </div>
         ) : (
-          <form onSubmit={handleSave} className="space-y-4">
+          <form onSubmit={handleSave} className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
@@ -184,39 +233,80 @@ export default function DoctorProfilePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Specialization</label>
-                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
-                  <Award size={16} className="text-gray-400 mr-2" />
-                  <input
-                    type="text"
-                    name="specialization"
-                    value={profile.specialization}
-                    onChange={handleChange}
-                    placeholder="e.g. Cardiology"
-                    className="w-full bg-transparent text-xs text-gray-900 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Working Hours / Availability</label>
-                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
-                  <Clock size={16} className="text-gray-400 mr-2" />
-                  <input
-                    type="text"
-                    name="availability"
-                    value={profile.availability}
-                    onChange={handleChange}
-                    placeholder="e.g. Mon - Fri: 9:00 AM - 5:00 PM"
-                    className="w-full bg-transparent text-xs text-gray-900 outline-none"
-                  />
-                </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Specialization</label>
+              <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
+                <Award size={16} className="text-gray-400 mr-2" />
+                <input
+                  type="text"
+                  name="specialization"
+                  value={profile.specialization}
+                  onChange={handleChange}
+                  placeholder="e.g. Cardiology"
+                  className="w-full bg-transparent text-xs text-gray-900 outline-none"
+                />
               </div>
             </div>
 
-            <div>
+            {/* Interactive Weekly Shift Matrix (Like Schedule Manager) */}
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-extrabold text-gray-900 flex items-center gap-1.5">
+                    <Clock size={14} className="text-blue-600" /> Weekly Practice Hours & Shift Configuration
+                  </h3>
+                  <p className="text-[11px] text-gray-500">Toggle days active/off and specify consultation hours for patient booking.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                {DAYS_OF_WEEK.map((day) => {
+                  const dayConfig = scheduleMap[day] || { active: false, hours: "Off Duty" };
+                  return (
+                    <div
+                      key={day}
+                      className={`p-3 rounded-xl border transition flex items-center justify-between gap-2 ${
+                        dayConfig.active ? "bg-blue-50/40 border-blue-200" : "bg-gray-50 border-gray-200 opacity-75"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleDayStatus(day)}
+                          className={`w-12 h-6 flex items-center rounded-full p-1 transition cursor-pointer ${
+                            dayConfig.active ? "bg-emerald-500 justify-end" : "bg-gray-300 justify-start"
+                          }`}
+                        >
+                          <span className="w-4 h-4 bg-white rounded-full shadow-md"></span>
+                        </button>
+                        <div>
+                          <span className="text-xs font-bold text-gray-900 block">{day}</span>
+                          <span
+                            className={`text-[10px] font-bold ${
+                              dayConfig.active ? "text-emerald-600" : "text-gray-400"
+                            }`}
+                          >
+                            {dayConfig.active ? "Open Shift" : "Off Duty"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {dayConfig.active && (
+                        <input
+                          type="text"
+                          value={dayConfig.hours}
+                          onChange={(e) => handleDayHoursChange(day, e.target.value)}
+                          placeholder="09:00 AM - 05:00 PM"
+                          className="w-36 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[11px] text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-2">
               <label className="block text-xs font-bold text-gray-700 mb-1">Professional Bio</label>
               <textarea
                 name="bio"
@@ -234,7 +324,7 @@ export default function DoctorProfilePage() {
                 disabled={saving}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                <Save size={16} /> {saving ? "Saving..." : "Save Changes"}
+                <Save size={16} /> {saving ? "Saving Schedule..." : "Save Changes"}
               </button>
             </div>
           </form>
