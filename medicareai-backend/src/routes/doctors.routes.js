@@ -109,7 +109,7 @@ router.get("/earnings", authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ FIXED: Query the 'consultants' table instead of 'users' to prevent 500 errors
+// Query the 'consultants' table to fetch profile data
 router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -129,11 +129,11 @@ router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ FIXED: Update avatar on the 'consultants' table
+// Update avatar on the 'consultants' table
 router.post("/avatar", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { avatar } = req.body; // Expects avatar URL or Base64 string
+    const { avatar } = req.body; 
 
     const result = await pool.query(
       `UPDATE consultants SET avatar_url = COALESCE($1, avatar_url) WHERE id = $2 RETURNING avatar_url`,
@@ -151,7 +151,7 @@ router.post("/avatar", authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ FIXED: Update profile fields on the 'consultants' table via PUT/PATCH
+// Safe Profile Update route using COALESCE across standard columns
 router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
   if (req.method !== "PUT" && req.method !== "PATCH") return next();
   try {
@@ -269,7 +269,6 @@ router.get("/:id/availability", async (req, res) => {
   }
 });
 
-// GET /api/doctors/records?type=Lab Reports
 router.get("/records", authenticateToken, async (req, res) => {
   try {
     const doctorId = req.user.id;

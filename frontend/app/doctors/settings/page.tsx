@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Camera, Upload, Check, RefreshCw } from "lucide-react";
+import { Camera, Upload, RefreshCw } from "lucide-react";
 
 export default function DoctorSettingsPage() {
   const [formData, setFormData] = useState({
@@ -35,7 +35,7 @@ export default function DoctorSettingsPage() {
 
         if (res.ok) {
           const data = await res.json();
-          const profileData = data.doctor || data; // handle object wrapper if any
+          const profileData = data.doctor || data;
           
           setFormData({
             name: profileData.name || "",
@@ -66,7 +66,6 @@ export default function DoctorSettingsPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Handle choosing a profile picture file
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -87,7 +86,7 @@ export default function DoctorSettingsPage() {
 
       let currentAvatarUrl = formData.avatar_url;
 
-      // 1. If a new file was chosen, convert it to Base64 (or upload via endpoint)
+      // 1. If a new file was chosen, convert to Base64 and post to the avatar endpoint
       if (selectedFile) {
         const base64data = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
@@ -131,7 +130,6 @@ export default function DoctorSettingsPage() {
       setFormData((prev) => ({ ...prev, avatar_url: currentAvatarUrl }));
       setSelectedFile(null);
 
-      // Save to localStorage and notify global components
       if (currentAvatarUrl) {
         localStorage.setItem("doctor_avatar", currentAvatarUrl);
       }
