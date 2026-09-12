@@ -30,7 +30,6 @@ import apiRoutes from './routes/index.js';
 import { verifyToken } from "./utils/jwt.js";
 import adminRoutes from './routes/admin.js';
 import availabilityRoutes from "./routes/availability.routes.js";
-import patientDashboardRoutes from './routes/patientDashboardRoutes.js';
 import testSanityRouter from './routes/testSanity.js';
 import patientDashboardRoutes from './routes/patientDashboard.js';
 
