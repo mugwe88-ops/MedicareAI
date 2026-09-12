@@ -102,7 +102,6 @@ export default function DoctorDashboardPage() {
           status: profile.status || (profile.isActive ? "Active Duty" : "On Leave") || "Active Duty",
         });
       } else {
-        // Fallback graceful profile mapping if backend routes fail completely
         setDoctorInfo({
           name: "Dr. Workspace",
           email: "doctor@medicareai.com",
@@ -130,6 +129,32 @@ export default function DoctorDashboardPage() {
   useEffect(() => {
     fetchDoctorProfile();
   }, []);
+
+  // Handler to update doctor status and sync to backend API
+  const handleStatusChange = async (newStatus: string) => {
+    if (!doctorInfo) return;
+    
+    // Optimistically update local state for instantaneous feedback
+    setDoctorInfo({ ...doctorInfo, status: newStatus });
+
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
+      
+      if (!token) return;
+
+      await fetch(`${API_URL}/api/doctors/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch (error) {
+      console.error("Failed to update status on backend:", error);
+    }
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -443,7 +468,18 @@ export default function DoctorDashboardPage() {
                   </p>
                   <p className="flex justify-between items-center">
                     <span className="text-slate-400">Status:</span>
-                    <strong className="text-slate-900">{doctorInfo.status}</strong>
+                    <select
+                      value={doctorInfo.status}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      className={`font-bold text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 outline-none cursor-pointer transition ${
+                        doctorInfo.status === "Active Duty" 
+                          ? "text-emerald-600 border-emerald-200 bg-emerald-50/50" 
+                          : "text-amber-600 border-amber-200 bg-amber-50/50"
+                      }`}
+                    >
+                      <option value="Active Duty">Active Duty</option>
+                      <option value="On Leave">On Leave</option>
+                    </select>
                   </p>
                 </div>
               </>
