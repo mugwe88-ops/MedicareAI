@@ -1,143 +1,58 @@
-// src/routes/patientDashboard.js
+// backend/routes/patientDashboardRoutes.js
 import express from 'express';
-import { createClient } from '@sanity/client';
-import pool from '../utils/db.js';
-import { verifyToken } from '../utils/jwt.js';
+import pool from '../utils/db.js'; // Adjust path to your Neon DB pool connection
 
 const router = express.Router();
 
-const client = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
-  dataset: process.env.NEXT_PUBLIC_SANITY_DATABASE || 'production',
-  apiVersion: '2024-01-01',
-  useCdn: false,
-  token: process.env.SANITY_API_READ_TOKEN,
+// 1. Get Patient Medications
+router.get('/medications', async (req, res) => {
+  try {
+    // Assuming you verify authentication and have req.user.id
+    const patientId = req.user?.id || req.query.patientId;
+    
+    const result = await pool.query(
+      'SELECT id, name, frequency as "dueTime", status FROM medications WHERE patient_id = $1 ORDER BY created_at DESC',
+      [patientId]
+    );
+    
+    res.json({ medications: result.rows });
+  } catch (err) {
+    console.error('Error fetching medications:', err);
+    res.status(500).json({ error: 'Server error fetching medications' });
+  }
 });
 
-// GET /api/patient/dashboard-data
-router.get('/dashboard-data', verifyToken, async (req, res) => {
+// 2. Get Patient Lab Records / Reports
+router.get('/records', async (req, res) => {
   try {
-    const userId = req.user?.id || req.userId;
-
-    let patientData = {
-      name: "Patient",
-      email: "",
-      age: 34,
-      gender: "Male",
-      bloodGroup: "O+",
-      patientId: `#MED-${userId || 8492}`,
-      allergies: ["Penicillin"],
-      insuranceStatus: "Active"
-    };
-
-    let upcomingAppointment = {
-      title: "General Consultation",
-      time: "Scheduled soon",
-      status: "Confirmed"
-    };
-
-    let vitals = {
-      bloodPressure: "120/80 mmHg",
-      heartRate: "72 bpm",
-      bloodSugar: "5.2 mmol/L",
-      temperature: "98.6 °F"
-    };
-
-    // 1. Safely fetch user profile (only querying columns that exist)
-    if (userId) {
-      try {
-        const userQuery = await pool.query(
-          'SELECT name, email FROM users WHERE id = $1',
-          [userId]
-        );
-        if (userQuery.rows.length > 0) {
-          const row = userQuery.rows[0];
-          patientData.name = row.name || "Patient";
-          patientData.email = row.email || "";
-        }
-      } catch (dbErr) {
-        console.warn("Could not fetch user profile columns:", dbErr.message);
-      }
-    }
-
-    // 2. Safely fetch appointments
-    if (userId) {
-      try {
-        const aptQuery = await pool.query(
-          'SELECT specialty, doctor_name, date, time, status FROM appointments WHERE patient_id = $1 ORDER BY date ASC LIMIT 1',
-          [userId]
-        );
-        if (aptQuery.rows.length > 0) {
-          const apt = aptQuery.rows[0];
-          upcomingAppointment = {
-            title: `${apt.specialty || 'Consultation'} with ${apt.doctor_name || 'Doctor'}`,
-            time: `${apt.date ? new Date(apt.date).toLocaleDateString() : 'Today'} at ${apt.time || '2:00 PM'}`,
-            status: apt.status || "Confirmed"
-          };
-        }
-      } catch (dbErr) {
-        console.warn("Appointments table query skipped:", dbErr.message);
-      }
-    }
-
-    // 3. Safely fetch vitals
-    if (userId) {
-      try {
-        const vitalsQuery = await pool.query(
-          'SELECT blood_pressure, heart_rate, blood_sugar, temperature FROM vitals WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 1',
-          [userId]
-        );
-        if (vitalsQuery.rows.length > 0) {
-          const v = vitalsQuery.rows[0];
-          vitals = {
-            bloodPressure: v.blood_pressure || "120/80 mmHg",
-            heartRate: v.heart_rate || "72 bpm",
-            bloodSugar: v.blood_sugar || "5.2 mmol/L",
-            temperature: v.temperature || "98.6 °F"
-          };
-        }
-      } catch (dbErr) {
-        console.warn("Vitals table query skipped:", dbErr.message);
-      }
-    }
-
-    // 4. Fetch dynamic Lab Reports and Health Insights from Sanity CMS
-    let labReports = [];
-    let healthInsights = [];
-    try {
-      labReports = await client.fetch(`*[_type == "labReport"]{
-        title,
-        date,
-        summary,
-        "fileUrl": file.asset->url
-      }`);
-    } catch (sanityErr) {
-      console.warn("Sanity lab reports fetch failed:", sanityErr.message);
-    }
-
-    try {
-      healthInsights = await client.fetch(`*[_type == "healthInsight"]{
-        title,
-        description,
-        category
-      }`);
-    } catch (sanityErr) {
-      console.warn("Sanity health insights fetch failed:", sanityErr.message);
-    }
-
-    res.json({
-      success: true,
-      patient: patientData,
-      patientName: patientData.name,
-      upcomingAppointment,
-      vitals,
-      labReports: labReports || [],
-      healthInsights: healthInsights || []
-    });
-
+    const patientId = req.user?.id || req.query.patientId;
+    
+    const result = await pool.query(
+      'SELECT id, title, status, created_at FROM medical_records WHERE patient_id = $1 ORDER BY created_at DESC',
+      [patientId]
+    );
+    
+    res.json({ records: result.rows });
   } catch (err) {
-    console.error("Dashboard data fatal error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Error fetching medical records:', err);
+    res.status(500).json({ error: 'Server error fetching records' });
+  }
+});
+
+// 3. Get Patient Doctor Messages / Chats
+router.get('/messages', async (req, res) => {
+  try {
+    const patientId = req.user?.id || req.query.patientId;
+    
+    const result = await pool.query(
+      'SELECT id, doctor_name as "doctorName", content, unread, created_at FROM messages WHERE patient_id = $1 ORDER BY created_at ASC',
+      [patientId]
+    );
+    
+    res.json({ messages: result.rows });
+  } catch (err) {
+    console.error('Error fetching messages:', err);
+    res.status(500).json({ error: 'Server error fetching messages' });
   }
 });
 
