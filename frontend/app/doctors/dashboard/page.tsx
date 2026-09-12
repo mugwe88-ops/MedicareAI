@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Bell, Mail, RefreshCw, Users, CalendarCheck, Clock } from "lucide-react";
+import { Search, Bell, Mail, RefreshCw, Users, Award, FileText, CheckCircle2, X } from "lucide-react";
 
 interface DoctorInfo {
   name: string;
@@ -40,6 +40,7 @@ export default function DoctorDashboardPage() {
   const [activeSubTab, setActiveSubTab] = useState<"Lab Reports" | "Prescription" | "Medication" | "Diagnosis">("Lab Reports");
   const [selectedDate, setSelectedDate] = useState<string>("21");
   const [activeWorkloadTab, setActiveWorkloadTab] = useState<"Consultations" | "Telehealth" | "Follow-ups">("Consultations");
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
 
   const [doctorInfo, setDoctorInfo] = useState<DoctorInfo | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -55,7 +56,7 @@ export default function DoctorDashboardPage() {
 
       if (!token) {
         setDoctorInfo({
-          name: "Dr. Workspace",
+          name: "Dr. Pressy Phides",
           email: "doctor@medicareai.com",
           specialty: "General Practitioner",
           avatar: "",
@@ -91,8 +92,12 @@ export default function DoctorDashboardPage() {
 
       if (success && data) {
         const profile = data.doctor || data.user || data.profile || data;
+        let rawName = profile.name || profile.fullName || "Pressy Phides";
+        // Ensure proper professional prefix if not already present
+        const formattedName = rawName.toLowerCase().startsWith("dr.") ? rawName : `Dr. ${rawName}`;
+
         setDoctorInfo({
-          name: profile.name || profile.fullName || "Dr. Workspace",
+          name: formattedName,
           email: profile.email || "doctor@medicareai.com",
           specialty: profile.specialty || profile.specialization || "General Practitioner",
           avatar: profile.avatar || profile.avatarUrl || profile.profilePicture || "",
@@ -101,7 +106,7 @@ export default function DoctorDashboardPage() {
         });
       } else {
         setDoctorInfo({
-          name: "Dr. Workspace",
+          name: "Dr. Pressy Phides",
           email: "doctor@medicareai.com",
           specialty: "General Practitioner",
           avatar: "",
@@ -112,7 +117,7 @@ export default function DoctorDashboardPage() {
     } catch (error) {
       console.error("Failed to fetch doctor profile:", error);
       setDoctorInfo({
-        name: "Dr. Workspace",
+        name: "Dr. Pressy Phides",
         email: "doctor@medicareai.com",
         specialty: "General Practitioner",
         avatar: "",
@@ -162,7 +167,6 @@ export default function DoctorDashboardPage() {
       .slice(0, 2) || "MD";
   };
 
-  // Replaced biometric analytics with useful doctor workload metrics
   const workloadDatasets: Record<string, WorkloadDataset> = {
     Consultations: {
       title: "Weekly Patient Consultations",
@@ -238,7 +242,7 @@ export default function DoctorDashboardPage() {
   const currentAppointments = appointmentsMap[selectedDate] || [];
 
   return (
-    <div className="flex-1 flex flex-col p-6 lg:p-8 space-y-6 overflow-y-auto bg-slate-50 w-full">
+    <div className="flex-1 flex flex-col p-6 lg:p-8 space-y-6 overflow-y-auto bg-slate-50 w-full relative">
       {/* TOP SEARCH & NOTIFICATION BAR */}
       <header className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-6 py-4 rounded-3xl border border-slate-200/80 shadow-sm">
         <div className="relative w-full sm:w-96">
@@ -286,14 +290,14 @@ export default function DoctorDashboardPage() {
               </div>
 
               <button
-                onClick={() => alert(`Generating detailed clinical performance report for ${doctorInfo?.name || "practitioner"}...`)}
+                onClick={() => setIsReportModalOpen(true)}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl transition shadow-md shadow-blue-500/20 cursor-pointer"
               >
                 Check Full Report
               </button>
             </div>
 
-            {/* Replaced Analytics Widget: Patient Load & Workload Analytics */}
+            {/* Patient Workload & Analytics Widget */}
             <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -534,6 +538,86 @@ export default function DoctorDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* FULL REPORT MODAL */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Clinical Performance Report</h3>
+                  <p className="text-xs text-slate-400 font-medium">MedicareAI Practitioner Audit</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsReportModalOpen(false)}
+                className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400 font-bold">Practitioner Name:</span>
+                  <span className="text-slate-900 font-black">{doctorInfo?.name || "Dr. Pressy Phides"}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400 font-bold">Specialty:</span>
+                  <span className="text-blue-600 font-bold">{doctorInfo?.specialty || "General Practitioner"}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400 font-bold">License Status:</span>
+                  <span className="text-emerald-600 font-bold flex items-center gap-1">
+                    <CheckCircle2 size={14} /> {doctorInfo?.portalStatus || "Verified MD"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100/60 text-center">
+                  <span className="text-[10px] text-blue-600 font-black uppercase tracking-wider">Efficiency Rating</span>
+                  <p className="text-2xl font-black text-slate-900 mt-1">95%</p>
+                  <span className="text-[10px] text-emerald-600 font-bold">Top Quartile</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100/60 text-center">
+                  <span className="text-[10px] text-emerald-600 font-black uppercase tracking-wider">Practice Score</span>
+                  <p className="text-2xl font-black text-slate-900 mt-1">492 / 500</p>
+                  <span className="text-[10px] text-emerald-600 font-bold">Excellent Standing</span>
+                </div>
+              </div>
+
+              <div className="text-xs text-slate-500 space-y-1.5 font-medium px-1">
+                <p>• <strong>Patient Satisfaction:</strong> 4.9 / 5.0 across 142 reviews.</p>
+                <p>• <strong>Consultation Timeliness:</strong> Average wait time under 4 minutes.</p>
+                <p>• <strong>Compliance & Safety:</strong> 100% adherence to electronic health records standards.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  window.print();
+                }}
+                className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition cursor-pointer shadow-md"
+              >
+                Print / Save PDF Report
+              </button>
+              <button
+                onClick={() => setIsReportModalOpen(false)}
+                className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
