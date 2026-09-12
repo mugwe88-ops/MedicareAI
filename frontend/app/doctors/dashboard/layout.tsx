@@ -1,3 +1,4 @@
+// frontend/app/doctors/layout.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,6 +7,7 @@ import Link from "next/link";
 import { 
   LayoutDashboard, 
   Calendar, 
+  Clock,
   Users, 
   MessageSquare, 
   DollarSign, 
@@ -32,7 +34,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     const fetchDoctorProfile = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
         if (!token) return;
 
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/auth/me`, {
@@ -41,7 +43,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
 
         if (res.ok) {
           const data = await res.json();
-          setDoctor(data);
+          setDoctor(data.doctor || data.user || data);
         }
       } catch (err) {
         console.error("Failed to load doctor profile in layout:", err);
@@ -53,6 +55,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("accessToken");
     localStorage.removeItem("user");
     window.location.href = "/login";
   };
@@ -69,7 +72,8 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
 
   const navItems = [
     { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
-    { name: "Appointment Schedule", href: "/doctors/dashboard/schedule", icon: Calendar },
+    { name: "Appointments", href: "/doctors/dashboard/appointments", icon: Calendar },
+    { name: "Appointment Schedule", href: "/doctors/dashboard/schedule", icon: Clock },
     { name: "Patient Records", href: "/doctors/dashboard/patients", icon: Users },
     { name: "Messaging Center", href: "/doctors/dashboard/messages", icon: MessageSquare },
     { name: "Earnings & Payments", href: "/doctors/dashboard/earnings", icon: DollarSign },
