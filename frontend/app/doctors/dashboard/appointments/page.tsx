@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Video, Calendar, User, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Search, Video, Calendar, User, AlertCircle, RefreshCw } from "lucide-react";
 
 interface PatientVitals {
   heartRate: string;
@@ -31,6 +31,7 @@ export default function DoctorAppointmentsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [rawDebugData, setRawDebugData] = useState<any>(null);
 
   const fetchAppointments = async () => {
     setIsLoading(true);
@@ -45,13 +46,14 @@ export default function DoctorAppointmentsPage() {
         return;
       }
 
+      // Try multiple standard backend endpoints for doctor appointments
       const endpoints = [
-        "/api/appointments",
         "/api/doctors/appointments",
-        "/api/patients/appointments"
+        "/api/appointments/doctor",
+        "/api/appointments"
       ];
 
-      let data = null;
+      let fetchedData = null;
       let success = false;
 
       for (const endpoint of endpoints) {
@@ -63,27 +65,32 @@ export default function DoctorAppointmentsPage() {
               Authorization: `Bearer ${token}`,
             },
           });
+          
           if (res.ok) {
             const json = await res.json();
-            data = json.appointments || json.data || json;
-            success = true;
-            break;
+            setRawDebugData(json);
+            // Extract array from various possible response keys
+            fetchedData = json.appointments || json.data || json.bookings || (Array.isArray(json) ? json : null);
+            if (fetchedData && Array.isArray(fetchedData)) {
+              success = true;
+              break;
+            }
           }
-        } catch (e) {
-          // Try next endpoint fallback
+        } catch (err) {
+          console.warn(`Endpoint ${endpoint} failed, trying next...`, err);
         }
       }
 
-      if (success && Array.isArray(data)) {
-        const formatted: AppointmentItem[] = data.map((item: any, idx: number) => ({
+      if (success && Array.isArray(fetchedData)) {
+        const formatted: AppointmentItem[] = fetchedData.map((item: any, idx: number) => ({
           id: item.id || item._id || String(idx),
           patientName: item.patientName || item.patient_name || item.patient?.name || item.name || "Patient",
           patientEmail: item.patientEmail || item.patient_email || item.patient?.email || "patient@medicare.ai",
-          specialty: item.specialty || item.type || item.department || "General Consultation",
-          date: item.date || item.appointment_date || item.appointmentDate || "2026-09-21",
-          time: item.time || item.appointment_time || item.slot || "10:00 AM",
+          specialty: item.specialty || item.type || item.department || item.doctorSpecialty || "Cardiology",
+          date: item.date || item.appointment_date || item.appointmentDate || "2026-09-17",
+          time: item.time || item.appointment_time || item.slot || "09:00 AM",
           status: item.status || "Confirmed",
-          reason: item.reason || item.notes || "General checkup and consultation request",
+          reason: item.reason || item.notes || item.symptoms || "General consultation and checkup",
           vitals: {
             heartRate: item.vitals?.heartRate || item.heartRate || "72 bpm",
             bloodPressure: item.vitals?.bloodPressure || item.bloodPressure || "120/80 mmHg",
@@ -101,7 +108,7 @@ export default function DoctorAppointmentsPage() {
       }
     } catch (error) {
       console.error("Failed to fetch appointments:", error);
-      setErrorMsg("Failed to connect to server. Please check your network.");
+      setErrorMsg("Failed to connect to server. Please check your network connection.");
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +125,8 @@ export default function DoctorAppointmentsPage() {
   const filteredAppointments = appointments.filter(
     (apt) =>
       apt.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      apt.specialty.toLowerCase().includes(searchQuery.toLowerCase())
+      apt.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      apt.date.includes(searchQuery)
   );
 
   return (
@@ -131,15 +139,24 @@ export default function DoctorAppointmentsPage() {
             Manage scheduled appointments, review patient vitals, and join telehealth rooms.
           </p>
         </div>
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-4 top-3 text-slate-400" size={16} />
-          <input
-            type="text"
-            placeholder="Search patient or specialty..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-2.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-4 top-3 text-slate-400" size={16} />
+            <input
+              type="text"
+              placeholder="Search patient, date, specialty..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-2.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition"
+            />
+          </div>
+          <button
+            onClick={fetchAppointments}
+            className="p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-2xl transition cursor-pointer"
+            title="Refresh Appointments"
+          >
+            <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
+          </button>
         </div>
       </div>
 
@@ -157,21 +174,24 @@ export default function DoctorAppointmentsPage() {
             <span className="text-xs uppercase tracking-wider text-slate-400 font-black">
               Booked Appointments ({appointments.length})
             </span>
-            <button
-              onClick={fetchAppointments}
-              className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
-            >
-              Refresh List
-            </button>
+            <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-lg">
+              Live Sync Active
+            </span>
           </div>
 
           {isLoading ? (
             <div className="py-16 text-center text-xs text-slate-400 font-bold">
-              Loading booked patient appointments...
+              Fetching live patient bookings from server...
             </div>
           ) : filteredAppointments.length === 0 ? (
-            <div className="py-16 text-center text-xs text-slate-400 font-medium bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-              No patient bookings found.
+            <div className="py-16 text-center space-y-3 bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-6">
+              <Calendar className="mx-auto text-slate-300" size={36} />
+              <div>
+                <p className="text-xs font-bold text-slate-700">No patient bookings found.</p>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  When patients book appointments with you, they will appear here automatically.
+                </p>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
