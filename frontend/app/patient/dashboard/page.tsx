@@ -1,356 +1,371 @@
+// frontend/app/patient/dashboard/page.tsx
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { 
-  Heart, Activity, TrendingUp, Calendar, FileText, 
-  ArrowRight, ShieldCheck, User, LogOut, ArrowLeft, Search, Bell, Mail, RefreshCw, Clock, CheckCircle2 
+  Calendar, Clock, Pill, FileText, MessageSquare, Shield, Activity, 
+  AlertTriangle, PhoneCall, Users, Sparkles, Search, ArrowRight, 
+  CheckCircle2, Heart, Thermometer, Droplet, UserCheck, LogOut, ChevronRight
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 
-interface Appointment {
-  id: string;
-  doctorName: string;
-  specialty: string;
-  date: string;
-  time: string;
-  status: "Upcoming" | "Completed" | "Cancelled";
-}
-
-interface MedicalRecordItem {
-  id: string;
-  testName: string;
-  referredBy: string;
-  date: string;
-  comments: string;
-  status: "Normal" | "Pending" | "Review Required";
-}
-
-function DashboardContent() {
-  const [userName, setUserName] = useState("Patient");
-  const [activeTab, setActiveTab] = useState<"overview" | "appointments" | "records">("overview");
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    { id: "APT-01", doctorName: "Dr. Friedric Ziccardi", specialty: "Cardiologist", date: "21 Jan, 2024", time: "17:00", status: "Upcoming" },
-    { id: "APT-02", doctorName: "Dr. Abagael Bitsul", specialty: "General Practitioner", date: "22 Jan, 2024", time: "20:00", status: "Upcoming" }
-  ]);
-  const [records, setRecords] = useState<MedicalRecordItem[]>([
-    { id: "REC-1", testName: "Electrocardiography", referredBy: "Dr. Rafiqul Islam", date: "20 Jan, 2024", comments: "Good! Take rest", status: "Normal" },
-    { id: "REC-2", testName: "Liver Biopsy", referredBy: "Dr. Fahim Ahmed", date: "12 Jan, 2024", comments: "Waiting for diagram", status: "Pending" },
-    { id: "REC-3", testName: "Blood Test", referredBy: "Dr. Asad Khan", date: "10 Jan, 2024", comments: "As needed", status: "Normal" }
-  ]);
-  
+export default function PatientDashboardPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [patientName, setPatientName] = useState<string>("Patient");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [aiQuery, setAiQuery] = useState<string>("");
+  const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
+  const [aiResponse, setAiResponse] = useState<string>("");
+  const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
 
-  const tabParam = searchParams.get("tab");
-  const specialtyParam = searchParams.get("specialty");
+  // Dynamic Dashboard Stats State
+  const [nextAppointment, setNextAppointment] = useState({ title: "Cardiology with Dr. Jane", time: "Today at 2:00 PM", status: "Confirmed" });
+  const [medicationDue, setMedicationDue] = useState({ name: "Amlodipine 5mg", dueTime: "In 30 minutes", taken: false });
+  const [pendingLab, setPendingLab] = useState({ name: "Lipid Profile & Complete Blood Count", status: "Results ready to view with AI explanation" });
+  const [doctorMessage, setDoctorMessage] = useState({ doctor: "Dr. Robert", preview: "Your blood pressure readings look stable. Keep up the routine.", unread: true });
 
   useEffect(() => {
-    const name = localStorage.getItem("userName");
-    if (name) setUserName(name);
+    // Fetch patient session/profile if available
+    const storedName = localStorage.getItem("userName") || localStorage.getItem("patientName");
+    if (storedName) setPatientName(storedName);
+    setLoading(false);
+  }, []);
 
-    if (tabParam === "appointments" || specialtyParam) {
-      setActiveTab("appointments");
-    }
-  }, [tabParam, specialtyParam]);
+  const handleAiAssistantSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiQuery.trim()) return;
+    setIsAiLoading(true);
+    setAiModalOpen(true);
+    
+    setTimeout(() => {
+      setAiResponse(`Regarding your query: "${aiQuery}" — As your AI Health Assistant, I've analyzed your recent clinical records. Your latest blood pressure is 138/88 mmHg (slightly elevated) and your next appointment is today at 2:00 PM. Would you like me to book a follow-up with your cardiologist or explain your recent lab results in plain English?`);
+      setIsAiLoading(false);
+    }, 1200);
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push("/login");
+  };
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 text-slate-900 pb-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        
-        {/* Top Header Search & Notifications Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white border border-slate-100 rounded-3xl p-5 sm:p-6 shadow-sm">
-          <div className="relative w-full sm:w-96">
-            <Search className="absolute left-4 top-3.5 text-slate-400" size={16} />
-            <input
-              type="text"
-              placeholder="Search appointments, health metrics, reports..."
-              className="w-full bg-slate-50 border border-slate-200/80 rounded-2xl pl-11 pr-4 py-3 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition"
-            />
-          </div>
-
-          <div className="flex items-center justify-between sm:justify-end gap-3">
-            <button className="h-11 w-11 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition border border-slate-200/80 shadow-sm cursor-pointer">
-              <Bell size={18} />
-            </button>
-            <button className="h-11 w-11 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition border border-slate-200/80 shadow-sm cursor-pointer">
-              <Mail size={18} />
-            </button>
-            <div className="h-10 px-3.5 rounded-2xl bg-blue-50 text-blue-700 font-bold text-xs flex items-center gap-2 border border-blue-100">
-              <User size={14} /> {userName}
-            </div>
-          </div>
-        </div>
-
-        {/* Welcome Section & Navigation Action Buttons */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="flex-1 flex flex-col p-6 lg:p-8 space-y-6 overflow-y-auto bg-slate-50 w-full">
+      
+      {/* Top Bar: Welcome & AI Health Assistant Search Bar */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-              Welcome Back, {userName}
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-              Monitor your overall performance, active clinical records, and upcoming appointments.
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Welcome Back, {patientName}</h1>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">
+              Your personalized health hub. Monitor medications, upcoming appointments, and AI-powered insights.
             </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
+          
+          <div className="flex items-center gap-2">
             <button 
-              onClick={() => router.back()}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer"
+              onClick={() => router.push("/patient/emergency")}
+              className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer animate-pulse"
             >
-              <ArrowLeft size={15} /> Back
+              <PhoneCall size={15} /> Emergency Help
             </button>
             <button 
-              onClick={() => {
-                localStorage.clear();
-                router.push("/login");
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-100 hover:bg-rose-100 text-rose-700 rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer"
+              onClick={handleLogout}
+              className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl transition cursor-pointer"
+              title="Log Out"
             >
-              <LogOut size={15} /> Log Out
+              <LogOut size={16} />
             </button>
           </div>
         </div>
 
-        {/* Interactive Tab Switcher */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-              activeTab === "overview" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-            }`}
+        {/* AI Health Assistant Search Bar (Replaces old plain search bar) */}
+        <form onSubmit={handleAiAssistantSubmit} className="relative w-full">
+          <div className="absolute left-4 top-3.5 text-blue-600 flex items-center gap-1.5 font-bold text-xs">
+            <Sparkles size={16} className="animate-spin text-blue-500" />
+            <span className="hidden sm:inline">AI Assistant:</span>
+          </div>
+          <input
+            type="text"
+            placeholder="Ask anything e.g. 'What does my lab result mean?' or 'Remind me to take my medication'..."
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            className="w-full bg-blue-50/50 border border-blue-200/80 rounded-2xl pl-28 sm:pl-32 pr-28 py-3 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition shadow-sm"
+          />
+          <button 
+            type="submit"
+            className="absolute right-2 top-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
           >
-            Dashboard Overview
+            Ask AI
           </button>
-          <button
-            onClick={() => setActiveTab("appointments")}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-              activeTab === "appointments" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            Appointments & Schedule
-          </button>
-          <button
-            onClick={() => setActiveTab("records")}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-              activeTab === "records" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            Lab Reports & History
-          </button>
+        </form>
+      </div>
+
+      {/* SECTION 1: Today's Health Hub (Replaces ambiguous Health Score gauge) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs uppercase tracking-wider text-slate-400 font-black flex items-center gap-1.5">
+            <Activity size={14} className="text-blue-600" /> Today's Health Hub
+          </h2>
+          <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full">Live Updates Active</span>
         </div>
 
-        {/* Tab Content 1: Overview */}
-        {activeTab === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Overall Performance</span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-xs font-bold self-start sm:self-auto">
-                    <TrendingUp size={14} /> 95%
-                  </span>
-                </div>
-
-                <div className="flex flex-col items-center justify-center py-4">
-                  <div className="relative h-44 w-44 sm:h-52 sm:w-52 rounded-full border-8 border-slate-100 border-t-blue-600 flex flex-col items-center justify-center text-center shadow-inner">
-                    <span className="text-3xl sm:text-4xl font-black text-slate-900">468</span>
-                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider mt-1">Health Score</span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-500 font-medium mt-6 text-center">
-                    Patient is healthier than <strong className="text-slate-900">95%</strong> of people.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wide">Vitals Analytics</h3>
-                  <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl">Weekly</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-2xl bg-slate-900 text-white shadow-md flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Heart Rate</span>
-                      <span className="text-lg font-black mt-1 block">72 bpm</span>
-                    </div>
-                    <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-rose-400">
-                      <Heart size={20} />
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Blood Pressure</span>
-                      <span className="text-lg font-black text-slate-900 mt-1 block">120/80</span>
-                    </div>
-                    <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-                      <Activity size={20} />
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Glucose Level</span>
-                      <span className="text-lg font-black text-slate-900 mt-1 block">98 mg/dL</span>
-                    </div>
-                    <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-                      <ShieldCheck size={20} />
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* Card 1: Next Appointment Countdown */}
+          <div 
+            onClick={() => router.push("/patient/consultations")}
+            className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-blue-300 transition cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition">
+                <Calendar size={18} />
+              </span>
+              <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">
+                {nextAppointment.status}
+              </span>
             </div>
-
-            <div className="space-y-6">
-              <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
-                <h3 className="text-xs uppercase font-black tracking-wider text-slate-400">Profile Card</h3>
-                <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100">
-                  <div className="h-14 w-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-black text-lg">
-                    {userName.charAt(0)}
-                  </div>
-                  <div>
-                    <h4 className="font-black text-slate-900 text-sm">{userName}</h4>
-                    <p className="text-xs text-slate-500 font-medium">Male • 34 yrs</p>
-                  </div>
-                </div>
-                <div className="space-y-2 text-xs text-slate-600 font-medium">
-                  <p className="flex justify-between"><span>Phone:</span> <strong className="text-slate-900">+1 310-351-7774</strong></p>
-                  <p className="flex justify-between"><span>Location:</span> <strong className="text-slate-900">Waukesha, WI</strong></p>
-                  <p className="flex justify-between"><span>Last Visit:</span> <strong className="text-slate-900">24 Jan, 2024</strong></p>
-                </div>
-              </div>
-
-              <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs uppercase font-black tracking-wider text-slate-400">Scheduled Visits</h3>
-                  <button onClick={() => setActiveTab("appointments")} className="text-xs text-blue-600 font-bold hover:underline">View All</button>
-                </div>
-                <div className="space-y-3">
-                  {appointments.map((apt) => (
-                    <div key={apt.id} className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between">
-                      <div>
-                        <h5 className="font-black text-slate-900 text-xs">{apt.doctorName}</h5>
-                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">{apt.specialty} • {apt.date}</p>
-                      </div>
-                      <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-[10px] font-black rounded-xl">
-                        {apt.time}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div>
+              <span className="text-[11px] text-slate-400 font-bold block">Next Appointment</span>
+              <h3 className="font-black text-slate-900 text-sm mt-0.5">{nextAppointment.title}</h3>
+              <p className="text-xs font-bold text-blue-600 mt-1 flex items-center gap-1">
+                <Clock size={12} /> {nextAppointment.time}
+              </p>
             </div>
           </div>
-        )}
 
-        {/* Tab Content 2: Appointments */}
-        {activeTab === "appointments" && (
-          <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h3 className="text-base font-black text-slate-900">Your Booked Consultations</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Manage and track your appointments with medical specialists.</p>
-                {specialtyParam && (
-                  <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-100">
-                    Filtering booking view for specialty: <span className="underline">{specialtyParam}</span>
-                  </div>
-                )}
-              </div>
+          {/* Card 2: Medication Due Soon */}
+          <div 
+            onClick={() => router.push("/patient/medications")}
+            className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-purple-300 transition cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="p-2.5 bg-purple-50 text-purple-600 rounded-2xl group-hover:bg-purple-600 group-hover:text-white transition">
+                <Pill size={18} />
+              </span>
+              <span className="text-[10px] font-black uppercase bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full">
+                Action Required
+              </span>
+            </div>
+            <div>
+              <span className="text-[11px] text-slate-400 font-bold block">Medication Status</span>
+              <h3 className="font-black text-slate-900 text-sm mt-0.5">{medicationDue.name}</h3>
+              <p className="text-xs font-bold text-purple-600 mt-1 flex items-center gap-1">
+                <Clock size={12} /> Due {medicationDue.dueTime}
+              </p>
+            </div>
+          </div>
+
+          {/* Card 3: Pending Lab Results Explained by AI */}
+          <div 
+            onClick={() => router.push("/patient/records")}
+            className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-emerald-300 transition cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:bg-emerald-600 group-hover:text-white transition">
+                <FileText size={18} />
+              </span>
+              <span className="text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full">
+                AI Ready
+              </span>
+            </div>
+            <div>
+              <span className="text-[11px] text-slate-400 font-bold block">Lab Reports</span>
+              <h3 className="font-black text-slate-900 text-sm mt-0.5 truncate">{pendingLab.name}</h3>
+              <p className="text-xs font-bold text-emerald-600 mt-1">Tap for AI Plain-English breakdown</p>
+            </div>
+          </div>
+
+          {/* Card 4: Doctor Message Waiting */}
+          <div 
+            onClick={() => router.push("/patient/messages")}
+            className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-indigo-300 transition cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="p-2.5 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition">
+                <MessageSquare size={18} />
+              </span>
+              {doctorMessage.unread && (
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+              )}
+            </div>
+            <div>
+              <span className="text-[11px] text-slate-400 font-bold block">Message from {doctorMessage.doctor}</span>
+              <h3 className="font-black text-slate-900 text-xs mt-0.5 truncate">{doctorMessage.preview}</h3>
+              <p className="text-xs font-bold text-indigo-600 mt-1 flex items-center gap-1">Open Chat <ArrowRight size={12} /></p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* SECTION 2: Quick Features Grid (Telehealth, Vitals, Family, Insurance) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Left 2 Cols: Core Actions & Vitals Summary */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* One-Tap Telehealth Banner */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="space-y-1.5 text-center sm:text-left">
+              <span className="px-3 py-1 bg-white/20 text-white rounded-full text-[10px] font-black uppercase">Ready for Consultation</span>
+              <h3 className="text-lg font-black tracking-tight">Dr. Jane is waiting in the Virtual Room</h3>
+              <p className="text-xs text-blue-100">Join via HD Video or Low-Data Audio mode instantly.</p>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button 
-                onClick={() => {}}
-                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-2xl transition shadow-md shadow-blue-500/20 cursor-pointer"
+                onClick={() => router.push("/patient/telehealth/room-1")}
+                className="flex-1 sm:flex-none px-5 py-3 bg-white text-blue-700 hover:bg-blue-50 font-black text-xs uppercase rounded-2xl shadow transition cursor-pointer flex items-center justify-center gap-2"
               >
-                + Book New Appointment
+                Join Video Call
+              </button>
+            </div>
+          </div>
+
+          {/* Vitals Tracking Preview Card */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Latest Vitals Trend</span>
+              <button 
+                onClick={() => router.push("/patient/vitals")}
+                className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"
+              >
+                View Full History <ChevronRight size={14} />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {appointments.map((apt) => (
-                <div key={apt.id} className="p-5 border border-slate-200/80 rounded-2xl bg-slate-50 flex flex-col justify-between space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-600">{apt.id}</span>
-                      <h4 className="text-sm font-black text-slate-900 mt-0.5">{apt.doctorName}</h4>
-                      <p className="text-xs text-slate-500 font-medium">{apt.specialty}</p>
-                    </div>
-                    <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[10px] font-black uppercase">
-                      {apt.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-200/60 text-xs font-bold text-slate-600">
-                    <span className="flex items-center gap-1.5"><Calendar size={13} /> {apt.date}</span>
-                    <span className="flex items-center gap-1.5"><Clock size={13} /> {apt.time}</span>
-                  </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold block">Blood Pressure</span>
+                <span className="text-sm font-black text-slate-800 mt-1 block">138/88 <span className="text-[10px] text-amber-600">mmHg</span></span>
+              </div>
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold block">Heart Rate</span>
+                <span className="text-sm font-black text-slate-800 mt-1 block">78 <span className="text-[10px] text-emerald-600">bpm</span></span>
+              </div>
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold block">Blood Sugar</span>
+                <span className="text-sm font-black text-slate-800 mt-1 block">5.4 <span className="text-[10px] text-emerald-600">mmol/L</span></span>
+              </div>
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold block">Temperature</span>
+                <span className="text-sm font-black text-slate-800 mt-1 block">98.6 <span className="text-[10px] text-emerald-600">°F</span></span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Right Col: Profile Summary, Family & Insurance (SHA/NHIF) */}
+        <div className="space-y-6">
+          
+          {/* Patient Medical Profile Card */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Medical Summary</span>
+              <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-0.5 rounded-full">Active Patient</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white font-black text-base flex items-center justify-center shadow">
+                {patientName.substring(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-sm">{patientName}</h3>
+                <p className="text-xs text-slate-400">Male • 34 yrs • ID: #MED-8492</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-xs pt-2">
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-medium">Blood Group:</span>
+                <strong className="text-slate-800 font-bold">O Positive (O+)</strong>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-medium">Known Allergies:</span>
+                <strong className="text-rose-600 font-bold">Penicillin</strong>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-slate-400 font-medium">SHA / NHIF Status:</span>
+                <strong className="text-emerald-600 font-bold">Verified & Active</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Family Profiles & Insurance Widget */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Family & Insurance</span>
+              <button onClick={() => router.push("/patient/family")} className="text-xs text-blue-600 font-bold hover:underline">Manage</button>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Users size={16} className="text-blue-600" />
+                  <span className="font-bold text-slate-800">Linked Family Accounts</span>
                 </div>
-              ))}
+                <span className="text-slate-500 font-bold">2 Members</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Shield size={16} className="text-emerald-600" />
+                  <span className="font-bold text-slate-800">Private Insurance / SHA</span>
+                </div>
+                <span className="text-emerald-600 font-bold">Covered</span>
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Tab Content 3: Lab Reports & History */}
-        {activeTab === "records" && (
-          <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-            <div>
-              <h3 className="text-base font-black text-slate-900">Medical Records & Lab Reports</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Comprehensive view of your diagnostic test results and physician comments.</p>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-black uppercase tracking-wider">
-                    <th className="pb-3 px-3">Test Name</th>
-                    <th className="pb-3 px-3">Referred By</th>
-                    <th className="pb-3 px-3">Date</th>
-                    <th className="pb-3 px-3">Comments</th>
-                    <th className="pb-3 px-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {records.map((rec) => (
-                    <tr key={rec.id} className="hover:bg-slate-50 transition">
-                      <td className="py-4 px-3 font-black text-slate-900">{rec.testName}</td>
-                      <td className="py-4 px-3 text-slate-600 font-medium">{rec.referredBy}</td>
-                      <td className="py-4 px-3 text-slate-600 font-medium">{rec.date}</td>
-                      <td className="py-4 px-3 text-slate-600 font-semibold">{rec.comments}</td>
-                      <td className="py-4 px-3">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                          rec.status === "Normal" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                        }`}>
-                          {rec.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Footer Quick Actions */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-200/80">
-          <span className="text-[11px] text-slate-400 font-bold flex items-center gap-1.5">
-            <Calendar size={13} /> MedicareAI Portal System v2.4
-          </span>
-          <button
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-1 px-4 py-2 bg-slate-900 hover:bg-blue-600 text-white text-xs font-bold rounded-2xl transition cursor-pointer shadow-sm"
-          >
-            <RefreshCw size={13} /> Refresh Data
-          </button>
         </div>
 
       </div>
-    </div>
-  );
-}
 
-export default function PatientDashboardPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-slate-500 font-medium text-sm">Loading dashboard...</div>}>
-      <DashboardContent />
-    </Suspense>
+      {/* AI Assistant Modal Result Popup */}
+      {aiModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span className="text-xs uppercase tracking-wider text-blue-600 font-black flex items-center gap-1.5">
+                <Sparkles size={16} /> SwiftMD AI Health Assistant
+              </span>
+              <button 
+                onClick={() => setAiModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {isAiLoading ? (
+              <div className="py-12 text-center space-y-3">
+                <Sparkles size={32} className="mx-auto text-blue-600 animate-spin" />
+                <p className="text-xs text-slate-500 font-bold">Analyzing your health records & symptoms...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-blue-50/60 p-4 rounded-2xl border border-blue-100 text-xs text-slate-700 leading-relaxed font-medium">
+                  {aiResponse}
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => { setAiModalOpen(false); router.push("/patient/consultations"); }}
+                    className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition cursor-pointer"
+                  >
+                    Book Consultation
+                  </button>
+                  <button 
+                    onClick={() => setAiModalOpen(false)}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+    </div>
   );
 }
