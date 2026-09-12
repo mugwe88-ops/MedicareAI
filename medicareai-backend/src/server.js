@@ -30,6 +30,7 @@ import apiRoutes from './routes/index.js';
 import { verifyToken } from "./utils/jwt.js";
 import adminRoutes from './routes/admin.js';
 import availabilityRoutes from "./routes/availability.routes.js";
+import patientDashboardRoutes from './routes/patientDashboardRoutes.js';
 
 /* ======================
     1️⃣ APP & SOCKET.IO INIT
@@ -217,6 +218,9 @@ app.use("/api/doctor/prescriptions", prescriptionRoutes);
 app.use("/api/records", recordsRouter);
 app.use('/api/admin', adminRoutes);
 app.use("/api/availability", availabilityRoutes);
+app.use('/api/medications', patientDashboardRoutes);
+app.use('/api/records', patientDashboardRoutes);
+app.use('/api/messages', patientDashboardRoutes);
 
 
 // --- LEGAL PAGES HTML ENDPOINTS ---

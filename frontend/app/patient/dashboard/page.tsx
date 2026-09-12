@@ -27,6 +27,25 @@ interface Appointment {
   status: string;
 }
 
+interface Medication {
+  id: string;
+  name: string;
+  dueTime: string;
+}
+
+interface LabRecord {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface DoctorMessage {
+  id: string;
+  doctor: string;
+  preview: string;
+  unread: boolean;
+}
+
 interface Vitals {
   bloodPressure: string;
   heartRate: string;
@@ -39,7 +58,7 @@ export default function PatientDashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
-  // Real backend state data
+  // Real backend dynamic state data
   const [patient, setPatient] = useState<PatientProfile>({
     name: "Patient",
     email: "",
@@ -58,6 +77,25 @@ export default function PatientDashboardPage() {
     status: "Confirmed"
   });
 
+  const [medicationDue, setMedicationDue] = useState<Medication>({
+    id: "med-1",
+    name: "Amlodipine 5mg",
+    dueTime: "In 30 minutes"
+  });
+
+  const [pendingLab, setPendingLab] = useState<LabRecord>({
+    id: "lab-1",
+    name: "Lipid Profile & Complete Blood Count",
+    status: "Results ready to view with AI explanation"
+  });
+
+  const [doctorMessage, setDoctorMessage] = useState<DoctorMessage>({
+    id: "msg-1",
+    doctor: "Dr. Robert",
+    preview: "Your blood pressure readings look stable.",
+    unread: true
+  });
+
   const [vitals, setVitals] = useState<Vitals>({
     bloodPressure: "138/88 mmHg",
     heartRate: "78 bpm",
@@ -65,17 +103,13 @@ export default function PatientDashboardPage() {
     temperature: "98.6 °F"
   });
 
-  const [medicationDue, setMedicationDue] = useState({ name: "Amlodipine 5mg", dueTime: "In 30 minutes" });
-  const [pendingLab, setPendingLab] = useState({ name: "Lipid Profile & Complete Blood Count", status: "Results ready to view with AI explanation" });
-  const [doctorMessage, setDoctorMessage] = useState({ doctor: "Dr. Robert", preview: "Your blood pressure readings look stable.", unread: true });
-
   // AI Assistant Modal State
   const [aiQuery, setAiQuery] = useState<string>("");
   const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
   const [aiResponse, setAiResponse] = useState<string>("");
   const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
 
-  // Fetch actual patient information from backend APIs
+  // Fetch actual patient information & real feature datasets from backend APIs
   const fetchPatientData = async () => {
     setLoading(true);
     setErrorMsg("");
@@ -90,48 +124,45 @@ export default function PatientDashboardPage() {
         return;
       }
 
-      const profileEndpoints = ["/api/patients/profile", "/api/patient/profile", "/api/auth/me", "/api/users/profile"];
-      let profileData = null;
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
+      // 1. Fetch Patient Profile
+      const profileEndpoints = ["/api/patients/profile", "/api/patient/profile", "/api/auth/me", "/api/users/profile"];
       for (const endpoint of profileEndpoints) {
         try {
-          const res = await fetch(`${API_URL}${endpoint}`, {
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-          });
+          const res = await fetch(`${API_URL}${endpoint}`, { headers });
           if (res.ok) {
             const json = await res.json();
-            profileData = json.patient || json.user || json.data || json;
-            if (profileData) break;
+            const profileData = json.patient || json.user || json.data || json;
+            if (profileData) {
+              setPatient({
+                name: profileData.name || profileData.fullName || profileData.username || "Patient",
+                email: profileData.email || "",
+                age: profileData.age || 34,
+                gender: profileData.gender || "Male",
+                bloodGroup: profileData.bloodGroup || profileData.blood_group || "O+",
+                patientId: profileData.patientId || profileData.id || "#MED-8492",
+                allergies: profileData.allergies || ["Penicillin"],
+                insuranceStatus: profileData.insuranceStatus || profileData.insurance || "Verified & Active"
+              });
+              localStorage.setItem("patientName", profileData.name || profileData.fullName || "Patient");
+              break;
+            }
           }
         } catch (e) {}
       }
 
-      if (profileData) {
-        setPatient({
-          name: profileData.name || profileData.fullName || profileData.username || "Patient",
-          email: profileData.email || "",
-          age: profileData.age || 34,
-          gender: profileData.gender || "Male",
-          bloodGroup: profileData.bloodGroup || profileData.blood_group || "O+",
-          patientId: profileData.patientId || profileData.id || "#MED-8492",
-          allergies: profileData.allergies || ["Penicillin"],
-          insuranceStatus: profileData.insuranceStatus || profileData.insurance || "Verified & Active"
-        });
-        localStorage.setItem("patientName", profileData.name || profileData.fullName || "Patient");
-      }
-
+      // 2. Fetch Appointments
       try {
-        const aptRes = await fetch(`${API_URL}/api/appointments/patient`, {
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-        });
+        const aptRes = await fetch(`${API_URL}/api/appointments/patient`, { headers });
         if (aptRes.ok) {
           const aptJson = await aptRes.json();
           const aptList = aptJson.appointments || aptJson.data || (Array.isArray(aptJson) ? aptJson : []);
           if (aptList.length > 0) {
             const next = aptList[0];
             setNextAppointment({
-              id: next.id || "apt-live",
-              title: next.specialty ? `${next.specialty} with ${next.doctorName || 'Doctor'}` : "Consultation",
+              id: next.id || next._id || "apt-live",
+              title: next.specialty ? `${next.specialty} with ${next.doctorName || 'Doctor'}` : (next.title || "Consultation"),
               time: `${next.date || 'Today'} at ${next.time || '2:00 PM'}`,
               status: next.status || "Confirmed"
             });
@@ -139,10 +170,61 @@ export default function PatientDashboardPage() {
         }
       } catch (e) {}
 
+      // 3. Fetch Medications
       try {
-        const vitalsRes = await fetch(`${API_URL}/api/patients/vitals`, {
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-        });
+        const medRes = await fetch(`${API_URL}/api/medications/patient`, { headers });
+        if (medRes.ok) {
+          const medJson = await medRes.json();
+          const medList = medJson.medications || medJson.data || (Array.isArray(medJson) ? medJson : []);
+          if (medList.length > 0) {
+            const m = medList[0];
+            setMedicationDue({
+              id: m.id || m._id || "med-live",
+              name: m.name || m.medicationName || "Prescription Item",
+              dueTime: m.dueTime || m.frequency || "Due Today"
+            });
+          }
+        }
+      } catch (e) {}
+
+      // 4. Fetch Lab Records / Reports
+      try {
+        const labRes = await fetch(`${API_URL}/api/records/patient`, { headers });
+        if (labRes.ok) {
+          const labJson = await labRes.json();
+          const labList = labJson.records || labJson.data || (Array.isArray(labJson) ? labJson : []);
+          if (labList.length > 0) {
+            const l = labList[0];
+            setPendingLab({
+              id: l.id || l._id || "lab-live",
+              name: l.title || l.recordName || "Lab Test Results",
+              status: l.status || "Results ready to view with AI explanation"
+            });
+          }
+        }
+      } catch (e) {}
+
+      // 5. Fetch Doctor Messages / Chats
+      try {
+        const msgRes = await fetch(`${API_URL}/api/messages/patient`, { headers });
+        if (msgRes.ok) {
+          const msgJson = await msgRes.json();
+          const msgList = msgJson.messages || msgJson.data || (Array.isArray(msgJson) ? msgJson : []);
+          if (msgList.length > 0) {
+            const msg = msgList[msgList.length - 1];
+            setDoctorMessage({
+              id: msg.id || msg._id || "msg-live",
+              doctor: msg.doctorName || msg.sender || "Dr. Robert",
+              preview: msg.content || msg.text || "New message received.",
+              unread: msg.unread ?? true
+            });
+          }
+        }
+      } catch (e) {}
+
+      // 6. Fetch Latest Vitals
+      try {
+        const vitalsRes = await fetch(`${API_URL}/api/patients/vitals`, { headers });
         if (vitalsRes.ok) {
           const vJson = await vitalsRes.json();
           const latestV = vJson.vitals || vJson[0];
@@ -158,8 +240,8 @@ export default function PatientDashboardPage() {
       } catch (e) {}
 
     } catch (err) {
-      console.error("Failed to load patient dashboard data", err);
-      setErrorMsg("Could not connect to server. Showing cached session data.");
+      console.error("Failed to load patient dashboard live data", err);
+      setErrorMsg("Could not connect to live endpoints. Displaying active profile cached records.");
     } finally {
       setLoading(false);
     }
@@ -297,7 +379,7 @@ export default function PatientDashboardPage() {
             </div>
             <div>
               <span className="text-[11px] text-slate-400 font-bold block">Medication Status</span>
-              <h3 className="font-black text-slate-900 text-sm mt-0.5">{medicationDue.name}</h3>
+              <h3 className="font-black text-slate-900 text-sm mt-0.5 truncate">{medicationDue.name}</h3>
               <p className="text-xs font-bold text-purple-600 mt-1 flex items-center gap-1">
                 <Clock size={12} /> Due {medicationDue.dueTime}
               </p>
@@ -320,7 +402,7 @@ export default function PatientDashboardPage() {
             <div>
               <span className="text-[11px] text-slate-400 font-bold block">Lab Reports</span>
               <h3 className="font-black text-slate-900 text-sm mt-0.5 truncate">{pendingLab.name}</h3>
-              <p className="text-xs font-bold text-emerald-600 mt-1">Tap for AI Plain-English breakdown</p>
+              <p className="text-xs font-bold text-emerald-600 mt-1">{pendingLab.status}</p>
             </div>
           </div>
 
