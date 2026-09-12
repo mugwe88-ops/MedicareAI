@@ -35,7 +35,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ✅ MUST BE PLACED BEFORE /:id to prevent Express from treating "patients" as an ID parameter
+// ==========================================
+// STATIC ROUTES (MUST BE BEFORE /:id ROUTES)
+// ==========================================
+
 router.get("/patients", authenticateToken, async (req, res) => {
   try {
     const doctorId = req.user.id;
@@ -48,7 +51,6 @@ router.get("/patients", authenticateToken, async (req, res) => {
       [doctorId]
     );
 
-    // Map rows to match the frontend TypeScript interface structure
     const formattedPatients = result.rows.map(row => ({
       id: row.id_str || `PT-00${row.id}`,
       name: row.name,
@@ -77,13 +79,11 @@ router.get("/earnings", authenticateToken, async (req, res) => {
   try {
     const doctorId = req.user.id;
 
-    // Get summary metrics
     const earningsRes = await pool.query(
       `SELECT * FROM doctor_earnings WHERE doctor_id = $1`,
       [doctorId]
     );
 
-    // Get recent payouts list
     const payoutsRes = await pool.query(
       `SELECT * FROM doctor_payouts WHERE doctor_id = $1 ORDER BY id DESC`,
       [doctorId]
@@ -109,8 +109,6 @@ router.get("/earnings", authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ MUST BE PLACED BEFORE /:id to prevent Express from treating "profile" as an ID parameter
-// --- GET DOCTOR PROFILE ---
 router.get("/profile", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -130,7 +128,6 @@ router.get("/profile", authenticateToken, async (req, res) => {
   }
 });
 
-// --- UPDATE DOCTOR PROFILE ---
 router.put("/profile", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -163,7 +160,37 @@ router.put("/profile", authenticateToken, async (req, res) => {
   }
 });
 
-// Get doctor details / profile (Dynamic parameter route comes AFTER static routes)
+// ✅ FIXED: Moved /performance here so it matches before /:id
+router.get('/performance', authenticateToken, async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+
+    let result = await pool.query(
+      'SELECT * FROM doctor_performance WHERE doctor_id = $1',
+      [doctorId]
+    );
+
+    if (result.rows.length === 0) {
+      result = await pool.query(
+        `INSERT INTO doctor_performance (doctor_id) VALUES ($1) RETURNING *`,
+        [doctorId]
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      performance: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Error fetching doctor performance:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ==========================================
+// DYNAMIC PARAMETER ROUTES (/:id)
+// ==========================================
+
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -185,7 +212,6 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Get doctor's availability slots
 router.get("/:id/availability", async (req, res) => {
   try {
     const { id } = req.params;
@@ -213,36 +239,6 @@ router.get("/:id/availability", async (req, res) => {
   }
 });
 
-// GET /api/doctors/performance - Fetch real clinical performance metrics
-router.get('/performance', verifyToken, async (req, res) => {
-  try {
-    const doctorId = req.user.id; // From authenticated token
-
-    // Check if performance record exists
-    let result = await pool.query(
-      'SELECT * FROM doctor_performance WHERE doctor_id = $1',
-      [doctorId]
-    );
-
-    // If no record exists yet, initialize a default row for this doctor
-    if (result.rows.length === 0) {
-      result = await pool.query(
-        `INSERT INTO doctor_performance (doctor_id) VALUES ($1) RETURNING *`,
-        [doctorId]
-      );
-    }
-
-    res.status(200).json({
-      success: true,
-      performance: result.rows[0],
-    });
-  } catch (error) {
-    console.error('Error fetching doctor performance:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
-
-// Add a doctor's availability slot (Protected)
 router.post("/:id/availability", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -270,7 +266,6 @@ router.post("/:id/availability", authenticateToken, async (req, res) => {
   }
 });
 
-// Delete doctor availability slot (Protected)
 router.delete("/:id/availability/:slotId", authenticateToken, async (req, res) => {
   try {
     const { id, slotId } = req.params;
