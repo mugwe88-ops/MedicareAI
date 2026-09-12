@@ -129,9 +129,9 @@ router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
          RETURNING id, name, email, specialization, avatar_url`,
         [userName, userEmail, "General Practitioner"]
       );
-      profile = insertRes.rows;
+      profile = insertRes.rows[0];
     } else {
-      profile = result.rows;
+      profile = result.rows[0];
     }
 
     res.json({ doctor: profile, ...profile });
@@ -164,7 +164,7 @@ router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
         [name || "Dr. Pressy", userEmail, specialization || "General Practitioner", resolvedAvatar]
       );
     } else {
-      const consultantId = checkRes.rows.id;
+      const consultantId = checkRes.rows[0].id;
       result = await pool.query(
         `UPDATE consultants 
          SET name = COALESCE($1, name), 
@@ -180,8 +180,8 @@ router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
     res.json({
       success: true,
       message: "Profile updated successfully",
-      profile: result.rows,
-      doctor: result.rows
+      profile: result.rows[0],
+      doctor: result.rows[0]
     });
   } catch (err) {
     console.error("Error updating doctor profile:", err);
@@ -233,7 +233,7 @@ router.get('/performance', authenticateToken, async (req, res) => {
 
     res.status(200).json({
       success: true,
-      performance: result.rows,
+      performance: result.rows[0],
     });
   } catch (error) {
     console.error('Error fetching doctor performance:', error);
@@ -259,7 +259,7 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ message: "Doctor not found" });
     }
 
-    res.json(result.rows);
+    res.json(result.rows[0]);
   } catch (err) {
     console.error("Error fetching doctor:", err);
     res.status(500).json({ message: "Server error" });
@@ -345,7 +345,7 @@ router.post("/:id/availability", authenticateToken, async (req, res) => {
       [id, day_of_week, start_time, end_time]
     );
 
-    res.status(201).json(result.rows);
+    res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("Error adding doctor availability:", err);
     res.status(500).json({ message: "Server error" });
