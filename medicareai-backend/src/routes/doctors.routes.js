@@ -213,6 +213,35 @@ router.get("/:id/availability", async (req, res) => {
   }
 });
 
+// GET /api/doctors/performance - Fetch real clinical performance metrics
+router.get('/performance', verifyToken, async (req, res) => {
+  try {
+    const doctorId = req.user.id; // From authenticated token
+
+    // Check if performance record exists
+    let result = await pool.query(
+      'SELECT * FROM doctor_performance WHERE doctor_id = $1',
+      [doctorId]
+    );
+
+    // If no record exists yet, initialize a default row for this doctor
+    if (result.rows.length === 0) {
+      result = await pool.query(
+        `INSERT INTO doctor_performance (doctor_id) VALUES ($1) RETURNING *`,
+        [doctorId]
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      performance: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Error fetching doctor performance:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Add a doctor's availability slot (Protected)
 router.post("/:id/availability", authenticateToken, async (req, res) => {
   try {
