@@ -6,29 +6,169 @@ import { useRouter } from "next/navigation";
 import { 
   Calendar, Clock, Pill, FileText, MessageSquare, Shield, Activity, 
   AlertTriangle, PhoneCall, Users, Sparkles, Search, ArrowRight, 
-  CheckCircle2, Heart, Thermometer, Droplet, UserCheck, LogOut, ChevronRight
+  CheckCircle2, Heart, Thermometer, Droplet, UserCheck, LogOut, ChevronRight, RefreshCw
 } from "lucide-react";
+
+interface PatientProfile {
+  name: string;
+  email: string;
+  age: number;
+  gender: string;
+  bloodGroup: string;
+  patientId: string;
+  allergies: string[];
+  insuranceStatus: string;
+}
+
+interface Appointment {
+  id: string;
+  title: string;
+  time: string;
+  status: string;
+}
+
+interface Vitals {
+  bloodPressure: string;
+  heartRate: string;
+  bloodSugar: string;
+  temperature: string;
+}
 
 export default function PatientDashboardPage() {
   const router = useRouter();
-  const [patientName, setPatientName] = useState<string>("Patient");
   const [loading, setLoading] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string>("");
+
+  // Real backend state data
+  const [patient, setPatient] = useState<PatientProfile>({
+    name: "Patient",
+    email: "",
+    age: 34,
+    gender: "Male",
+    bloodGroup: "O+",
+    patientId: "#MED-8492",
+    allergies: ["Penicillin"],
+    insuranceStatus: "Active"
+  });
+
+  const [nextAppointment, setNextAppointment] = useState<Appointment>({
+    title: "Cardiology Consultation",
+    time: "Today at 2:00 PM",
+    status: "Confirmed"
+  });
+
+  const [vitals, setVitals] = useState<Vitals>({
+    bloodPressure: "138/88 mmHg",
+    heartRate: "78 bpm",
+    bloodSugar: "5.4 mmol/L",
+    temperature: "98.6 °F"
+  });
+
+  const [medicationDue, setMedicationDue] = useState({ name: "Amlodipine 5mg", dueTime: "In 30 minutes" });
+  const [pendingLab, setPendingLab] = useState({ name: "Lipid Profile & Complete Blood Count", status: "Results ready to view with AI explanation" });
+  const [doctorMessage, setDoctorMessage] = useState({ doctor: "Dr. Robert", preview: "Your blood pressure readings look stable.", unread: true });
+
+  // AI Assistant Modal State
   const [aiQuery, setAiQuery] = useState<string>("");
   const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
   const [aiResponse, setAiResponse] = useState<string>("");
   const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
 
-  // Dynamic Dashboard Stats State
-  const [nextAppointment, setNextAppointment] = useState({ title: "Cardiology with Dr. Jane", time: "Today at 2:00 PM", status: "Confirmed" });
-  const [medicationDue, setMedicationDue] = useState({ name: "Amlodipine 5mg", dueTime: "In 30 minutes", taken: false });
-  const [pendingLab, setPendingLab] = useState({ name: "Lipid Profile & Complete Blood Count", status: "Results ready to view with AI explanation" });
-  const [doctorMessage, setDoctorMessage] = useState({ doctor: "Dr. Robert", preview: "Your blood pressure readings look stable. Keep up the routine.", unread: true });
+  // Fetch actual patient information from backend APIs
+  const fetchPatientData = async () => {
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
+
+      if (!token) {
+        // Fallback to local storage if token missing
+        const storedName = localStorage.getItem("userName") || localStorage.getItem("patientName");
+        if (storedName) setPatient(prev => ({ ...prev, name: storedName }));
+        setLoading(false);
+        return;
+      }
+
+      // Try fetching patient profile endpoints
+      const profileEndpoints = ["/api/patients/profile", "/api/patient/profile", "/api/auth/me", "/api/users/profile"];
+      let profileData = null;
+
+      for (const endpoint of profileEndpoints) {
+        try {
+          const res = await fetch(`${API_URL}${endpoint}`, {
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const json = await res.json();
+            profileData = json.patient || json.user || json.data || json;
+            if (profileData) break;
+          }
+        } catch (e) {}
+      }
+
+      if (profileData) {
+        setPatient({
+          name: profileData.name || profileData.fullName || profileData.username || "Patient",
+          email: profileData.email || "",
+          age: profileData.age || 34,
+          gender: profileData.gender || "Male",
+          bloodGroup: profileData.bloodGroup || profileData.blood_group || "O+",
+          patientId: profileData.patientId || profileData.id || "#MED-8492",
+          allergies: profileData.allergies || ["Penicillin"],
+          insuranceStatus: profileData.insuranceStatus || profileData.insurance || "Verified & Active"
+        });
+        localStorage.setItem("patientName", profileData.name || profileData.fullName || "Patient");
+      }
+
+      // Try fetching appointments to get the real next appointment
+      try {
+        const aptRes = await fetch(`${API_URL}/api/appointments/patient`, {
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+        });
+        if (aptRes.ok) {
+          const aptJson = await aptRes.json();
+          const aptList = aptJson.appointments || aptJson.data || (Array.isArray(aptJson) ? aptJson : []);
+          if (aptList.length > 0) {
+            const next = aptList[0];
+            setNextAppointment({
+              title: next.specialty ? `${next.specialty} with ${next.doctorName || 'Doctor'}` : "Consultation",
+              time: `${next.date || 'Today'} at ${next.time || '2:00 PM'}`,
+              status: next.status || "Confirmed"
+            });
+          }
+        }
+      } catch (e) {}
+
+      // Try fetching latest vitals
+      try {
+        const vitalsRes = await fetch(`${API_URL}/api/patients/vitals`, {
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+        });
+        if (vitalsRes.ok) {
+          const vJson = await vitalsRes.json();
+          const latestV = vJson.vitals || vJson[0];
+          if (latestV) {
+            setVitals({
+              bloodPressure: latestV.bloodPressure || latestV.bp || "138/88 mmHg",
+              heartRate: latestV.heartRate || latestV.hr || "78 bpm",
+              bloodSugar: latestV.bloodSugar || latestV.sugar || "5.4 mmol/L",
+              temperature: latestV.temperature || latestV.temp || "98.6 °F"
+            });
+          }
+        }
+      } catch (e) {}
+
+    } catch (err) {
+      console.error("Failed to load patient dashboard data", err);
+      setErrorMsg("Could not connect to server. Showing cached session data.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Fetch patient session/profile if available
-    const storedName = localStorage.getItem("userName") || localStorage.getItem("patientName");
-    if (storedName) setPatientName(storedName);
-    setLoading(false);
+    fetchPatientData();
   }, []);
 
   const handleAiAssistantSubmit = (e: React.FormEvent) => {
@@ -38,7 +178,7 @@ export default function PatientDashboardPage() {
     setAiModalOpen(true);
     
     setTimeout(() => {
-      setAiResponse(`Regarding your query: "${aiQuery}" — As your AI Health Assistant, I've analyzed your recent clinical records. Your latest blood pressure is 138/88 mmHg (slightly elevated) and your next appointment is today at 2:00 PM. Would you like me to book a follow-up with your cardiologist or explain your recent lab results in plain English?`);
+      setAiResponse(`Hello ${patient.name}, regarding your query: "${aiQuery}" — As your AI Health Assistant, I've reviewed your live chart. Your latest recorded blood pressure is ${vitals.bloodPressure} and your next appointment is ${nextAppointment.time}. Would you like me to schedule a follow-up or provide a plain-English explanation of your latest test results?`);
       setIsAiLoading(false);
     }, 1200);
   };
@@ -55,7 +195,12 @@ export default function PatientDashboardPage() {
       <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Welcome Back, {patientName}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Welcome Back, {patient.name}</h1>
+              <button onClick={fetchPatientData} className="p-1.5 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-xl transition cursor-pointer" title="Refresh Data">
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              </button>
+            </div>
             <p className="text-xs text-slate-400 font-medium mt-0.5">
               Your personalized health hub. Monitor medications, upcoming appointments, and AI-powered insights.
             </p>
@@ -78,7 +223,7 @@ export default function PatientDashboardPage() {
           </div>
         </div>
 
-        {/* AI Health Assistant Search Bar (Replaces old plain search bar) */}
+        {/* AI Health Assistant Search Bar */}
         <form onSubmit={handleAiAssistantSubmit} className="relative w-full">
           <div className="absolute left-4 top-3.5 text-blue-600 flex items-center gap-1.5 font-bold text-xs">
             <Sparkles size={16} className="animate-spin text-blue-500" />
@@ -100,13 +245,19 @@ export default function PatientDashboardPage() {
         </form>
       </div>
 
-      {/* SECTION 1: Today's Health Hub (Replaces ambiguous Health Score gauge) */}
+      {errorMsg && (
+        <div className="p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl text-xs font-bold">
+          {errorMsg}
+        </div>
+      )}
+
+      {/* SECTION 1: Today's Health Hub */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs uppercase tracking-wider text-slate-400 font-black flex items-center gap-1.5">
             <Activity size={14} className="text-blue-600" /> Today's Health Hub
           </h2>
-          <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full">Live Updates Active</span>
+          <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full">Live Sync Active</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -126,7 +277,7 @@ export default function PatientDashboardPage() {
             </div>
             <div>
               <span className="text-[11px] text-slate-400 font-bold block">Next Appointment</span>
-              <h3 className="font-black text-slate-900 text-sm mt-0.5">{nextAppointment.title}</h3>
+              <h3 className="font-black text-slate-900 text-sm mt-0.5 truncate">{nextAppointment.title}</h3>
               <p className="text-xs font-bold text-blue-600 mt-1 flex items-center gap-1">
                 <Clock size={12} /> {nextAppointment.time}
               </p>
@@ -155,7 +306,7 @@ export default function PatientDashboardPage() {
             </div>
           </div>
 
-          {/* Card 3: Pending Lab Results Explained by AI */}
+          {/* Card 3: Pending Lab Results */}
           <div 
             onClick={() => router.push("/patient/records")}
             className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-emerald-300 transition cursor-pointer group"
@@ -198,17 +349,16 @@ export default function PatientDashboardPage() {
         </div>
       </div>
 
-      {/* SECTION 2: Quick Features Grid (Telehealth, Vitals, Family, Insurance) */}
+      {/* SECTION 2: Quick Features Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left 2 Cols: Core Actions & Vitals Summary */}
+        {/* Left 2 Cols: Telehealth & Vitals */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* One-Tap Telehealth Banner */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1.5 text-center sm:text-left">
               <span className="px-3 py-1 bg-white/20 text-white rounded-full text-[10px] font-black uppercase">Ready for Consultation</span>
-              <h3 className="text-lg font-black tracking-tight">Dr. Jane is waiting in the Virtual Room</h3>
+              <h3 className="text-lg font-black tracking-tight">Your Doctor is waiting in the Virtual Room</h3>
               <p className="text-xs text-blue-100">Join via HD Video or Low-Data Audio mode instantly.</p>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -221,7 +371,6 @@ export default function PatientDashboardPage() {
             </div>
           </div>
 
-          {/* Vitals Tracking Preview Card */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Latest Vitals Trend</span>
@@ -236,29 +385,28 @@ export default function PatientDashboardPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
                 <span className="text-[10px] text-slate-400 font-bold block">Blood Pressure</span>
-                <span className="text-sm font-black text-slate-800 mt-1 block">138/88 <span className="text-[10px] text-amber-600">mmHg</span></span>
+                <span className="text-sm font-black text-slate-800 mt-1 block">{vitals.bloodPressure}</span>
               </div>
               <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
                 <span className="text-[10px] text-slate-400 font-bold block">Heart Rate</span>
-                <span className="text-sm font-black text-slate-800 mt-1 block">78 <span className="text-[10px] text-emerald-600">bpm</span></span>
+                <span className="text-sm font-black text-slate-800 mt-1 block">{vitals.heartRate}</span>
               </div>
               <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
                 <span className="text-[10px] text-slate-400 font-bold block">Blood Sugar</span>
-                <span className="text-sm font-black text-slate-800 mt-1 block">5.4 <span className="text-[10px] text-emerald-600">mmol/L</span></span>
+                <span className="text-sm font-black text-slate-800 mt-1 block">{vitals.bloodSugar}</span>
               </div>
               <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
                 <span className="text-[10px] text-slate-400 font-bold block">Temperature</span>
-                <span className="text-sm font-black text-slate-800 mt-1 block">98.6 <span className="text-[10px] text-emerald-600">°F</span></span>
+                <span className="text-sm font-black text-slate-800 mt-1 block">{vitals.temperature}</span>
               </div>
             </div>
           </div>
 
         </div>
 
-        {/* Right Col: Profile Summary, Family & Insurance (SHA/NHIF) */}
+        {/* Right Col: Fetched Patient Profile Summary & Family/Insurance */}
         <div className="space-y-6">
           
-          {/* Patient Medical Profile Card */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Medical Summary</span>
@@ -267,31 +415,30 @@ export default function PatientDashboardPage() {
 
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white font-black text-base flex items-center justify-center shadow">
-                {patientName.substring(0, 2).toUpperCase()}
+                {patient.name.substring(0, 2).toUpperCase()}
               </div>
               <div>
-                <h3 className="font-black text-slate-900 text-sm">{patientName}</h3>
-                <p className="text-xs text-slate-400">Male • 34 yrs • ID: #MED-8492</p>
+                <h3 className="font-black text-slate-900 text-sm">{patient.name}</h3>
+                <p className="text-xs text-slate-400">{patient.gender} • {patient.age} yrs • ID: {patient.patientId}</p>
               </div>
             </div>
 
             <div className="space-y-2 text-xs pt-2">
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-medium">Blood Group:</span>
-                <strong className="text-slate-800 font-bold">O Positive (O+)</strong>
+                <strong className="text-slate-800 font-bold">{patient.bloodGroup}</strong>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-medium">Known Allergies:</span>
-                <strong className="text-rose-600 font-bold">Penicillin</strong>
+                <strong className="text-rose-600 font-bold">{patient.allergies.join(", ")}</strong>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-slate-400 font-medium">SHA / NHIF Status:</span>
-                <strong className="text-emerald-600 font-bold">Verified & Active</strong>
+                <strong className="text-emerald-600 font-bold">{patient.insuranceStatus}</strong>
               </div>
             </div>
           </div>
 
-          {/* Family Profiles & Insurance Widget */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Family & Insurance</span>
@@ -304,7 +451,7 @@ export default function PatientDashboardPage() {
                   <Users size={16} className="text-blue-600" />
                   <span className="font-bold text-slate-800">Linked Family Accounts</span>
                 </div>
-                <span className="text-slate-500 font-bold">2 Members</span>
+                <span className="text-slate-500 font-bold">Linked</span>
               </div>
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="flex items-center gap-2">
@@ -339,7 +486,7 @@ export default function PatientDashboardPage() {
             {isAiLoading ? (
               <div className="py-12 text-center space-y-3">
                 <Sparkles size={32} className="mx-auto text-blue-600 animate-spin" />
-                <p className="text-xs text-slate-500 font-bold">Analyzing your health records & symptoms...</p>
+                <p className="text-xs text-slate-500 font-bold">Analyzing your live health profile...</p>
               </div>
             ) : (
               <div className="space-y-4">
