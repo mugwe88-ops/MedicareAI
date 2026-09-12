@@ -52,6 +52,7 @@ export default function PatientDashboardPage() {
   });
 
   const [nextAppointment, setNextAppointment] = useState<Appointment>({
+    id: "default-1",
     title: "Cardiology Consultation",
     time: "Today at 2:00 PM",
     status: "Confirmed"
@@ -83,14 +84,12 @@ export default function PatientDashboardPage() {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
 
       if (!token) {
-        // Fallback to local storage if token missing
         const storedName = localStorage.getItem("userName") || localStorage.getItem("patientName");
         if (storedName) setPatient(prev => ({ ...prev, name: storedName }));
         setLoading(false);
         return;
       }
 
-      // Try fetching patient profile endpoints
       const profileEndpoints = ["/api/patients/profile", "/api/patient/profile", "/api/auth/me", "/api/users/profile"];
       let profileData = null;
 
@@ -121,7 +120,6 @@ export default function PatientDashboardPage() {
         localStorage.setItem("patientName", profileData.name || profileData.fullName || "Patient");
       }
 
-      // Try fetching appointments to get the real next appointment
       try {
         const aptRes = await fetch(`${API_URL}/api/appointments/patient`, {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
@@ -132,6 +130,7 @@ export default function PatientDashboardPage() {
           if (aptList.length > 0) {
             const next = aptList[0];
             setNextAppointment({
+              id: next.id || "apt-live",
               title: next.specialty ? `${next.specialty} with ${next.doctorName || 'Doctor'}` : "Consultation",
               time: `${next.date || 'Today'} at ${next.time || '2:00 PM'}`,
               status: next.status || "Confirmed"
@@ -140,7 +139,6 @@ export default function PatientDashboardPage() {
         }
       } catch (e) {}
 
-      // Try fetching latest vitals
       try {
         const vitalsRes = await fetch(`${API_URL}/api/patients/vitals`, {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
@@ -352,7 +350,6 @@ export default function PatientDashboardPage() {
       {/* SECTION 2: Quick Features Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left 2 Cols: Telehealth & Vitals */}
         <div className="lg:col-span-2 space-y-6">
           
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -404,7 +401,6 @@ export default function PatientDashboardPage() {
 
         </div>
 
-        {/* Right Col: Fetched Patient Profile Summary & Family/Insurance */}
         <div className="space-y-6">
           
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
@@ -467,7 +463,6 @@ export default function PatientDashboardPage() {
 
       </div>
 
-      {/* AI Assistant Modal Result Popup */}
       {aiModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-in fade-in zoom-in duration-200">
