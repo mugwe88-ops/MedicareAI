@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { 
   Search, Video, Calendar as CalendarIcon, User, AlertCircle, RefreshCw, 
   CheckCircle2, Clock, FileText, Pill, Stethoscope, Share2, AlertTriangle, 
-  XCircle, ArrowRight, Shield, Activity, PhoneCall
+  XCircle, ArrowRight, Shield, Activity, PhoneCall, FolderOpen, MessageSquare
 } from "lucide-react";
 
 interface PatientVitals {
@@ -18,11 +18,15 @@ interface PatientVitals {
 
 interface AppointmentItem {
   id: string;
+  patientId: string;
   patientName: string;
   patientEmail?: string;
   age: number;
   gender: string;
   bloodGroup: string;
+  lastVisitDate: string;
+  primaryDiagnosis: string;
+  clinicalStatus: "Stable" | "Observation" | "Critical";
   allergies: string[];
   currentMedications: string[];
   previousDiagnosis: string[];
@@ -56,7 +60,7 @@ export default function DoctorAppointmentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all"); // all, Confirmed, Waiting, Completed, Canceled
   const [patientTypeFilter, setPatientTypeFilter] = useState<string>("all"); // all, new, returning
 
-  // Active In-Consultation Drawer Tabs (SOAP, AI notes, E-Prescription, Labs)
+  // Active In-Consultation Drawer Tabs (SOAP, AI notes, E-Prescription, Labs, Details)
   const [activeTab, setActiveTab] = useState<"details" | "soap" | "prescription" | "labs" | "ai">("details");
   const [soapNotes, setSoapNotes] = useState({ subject: "", objective: "", assessment: "", plan: "" });
   const [prescription, setPrescription] = useState({ medication: "", dosage: "", frequency: "", duration: "" });
@@ -99,11 +103,15 @@ export default function DoctorAppointmentsPage() {
       if (success && Array.isArray(fetchedData)) {
         const formatted: AppointmentItem[] = fetchedData.map((item: any, idx: number) => ({
           id: item.id || item._id || String(idx),
+          patientId: item.patientId || item.patient_id || `MED-ID-${1000 + idx}`,
           patientName: item.patientName || item.patient_name || item.patient?.name || item.name || "Patient",
           patientEmail: item.patientEmail || item.patient_email || item.patient?.email || "patient@medicare.ai",
           age: item.age || 34,
           gender: item.gender || "Female",
           bloodGroup: item.bloodGroup || "O+",
+          lastVisitDate: item.lastVisitDate || item.last_visit_date || "2026-08-12",
+          primaryDiagnosis: item.primaryDiagnosis || item.primary_diagnosis || "Essential Hypertension",
+          clinicalStatus: item.clinicalStatus || (idx === 0 ? "Critical" : idx === 1 ? "Observation" : "Stable"),
           allergies: item.allergies || ["Penicillin"],
           currentMedications: item.currentMedications || ["Amlodipine 5mg"],
           previousDiagnosis: item.previousDiagnosis || ["Essential Hypertension"],
@@ -167,6 +175,14 @@ export default function DoctorAppointmentsPage() {
     router.push(`/doctors/telehealth/${id}${query}`);
   };
 
+  const handleOpenRecord = (patientId: string) => {
+    router.push(`/doctors/patients/${patientId}`);
+  };
+
+  const handleMessage = (patientId: string) => {
+    router.push(`/doctors/messages?patient=${patientId}`);
+  };
+
   // Filter Logic
   const filteredAppointments = appointments.filter((apt) => {
     const matchesSearch = apt.patientName.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -176,11 +192,10 @@ export default function DoctorAppointmentsPage() {
     const matchesStatus = statusFilter === "all" || apt.status.toLowerCase() === statusFilter.toLowerCase();
     const matchesPatientType = patientTypeFilter === "all" || (patientTypeFilter === "new" ? apt.isNewPatient : !apt.isNewPatient);
 
-    // Simple date mockup matching
     let matchesDate = true;
-    const todayStr = "2026-09-17"; // simulated current date context
+    const todayStr = "2026-09-17"; 
     if (dateFilter === "today") matchesDate = apt.date === todayStr;
-    if (dateFilter === "tomorrow") matchesDate = apt.date !== todayStr; // mock rule for display
+    if (dateFilter === "tomorrow") matchesDate = apt.date !== todayStr;
 
     return matchesSearch && matchesSpecialty && matchesMode && matchesStatus && matchesPatientType && matchesDate;
   });
@@ -364,13 +379,16 @@ export default function DoctorAppointmentsPage() {
 
           {selectedPatient ? (
             <div className="space-y-4">
+              {/* Profile Photo / Initials Avatar, Age, Gender & Patient ID */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white font-black text-base flex items-center justify-center shadow-md">
                   {selectedPatient.patientName.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <h3 className="font-black text-slate-900 text-sm">{selectedPatient.patientName}</h3>
-                  <p className="text-xs text-slate-400">{selectedPatient.age} yrs • {selectedPatient.gender} • Blood: <strong className="text-slate-700">{selectedPatient.bloodGroup}</strong></p>
+                  <p className="text-xs text-slate-400">
+                    {selectedPatient.age} yrs • {selectedPatient.gender} • <strong className="text-blue-600">{selectedPatient.patientId}</strong>
+                  </p>
                 </div>
               </div>
 
@@ -383,20 +401,57 @@ export default function DoctorAppointmentsPage() {
                 <button onClick={() => setActiveTab("ai")} className={`flex-1 py-1.5 rounded-lg transition ${activeTab === "ai" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}>AI</button>
               </div>
 
-              {/* Tab 1: Patient Details & History */}
+              {/* Tab 1: Patient Details & Medical History */}
               {activeTab === "details" && (
                 <div className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  {/* Current Status Badge (Stable, Observation, Critical) */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Current Status:</span>
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase ${
+                      selectedPatient.clinicalStatus === "Critical" ? "bg-rose-100 text-rose-700 animate-pulse" :
+                      selectedPatient.clinicalStatus === "Observation" ? "bg-amber-100 text-amber-700" :
+                      "bg-emerald-100 text-emerald-700"
+                    }`}>
+                      {selectedPatient.clinicalStatus}
+                    </span>
+                  </div>
+
+                  {/* Primary Diagnosis */}
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Primary Diagnosis:</span>
+                    <strong className="text-slate-800 text-right">{selectedPatient.primaryDiagnosis}</strong>
+                  </div>
+
+                  {/* Last Visit Date */}
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Last Visit Date:</span>
+                    <strong className="text-slate-800">{selectedPatient.lastVisitDate}</strong>
+                  </div>
+
                   <div className="flex justify-between"><span className="text-slate-400">Insurance:</span><strong className="text-slate-800">{selectedPatient.insuranceType}</strong></div>
                   <div className="flex justify-between"><span className="text-slate-400">Emergency Contact:</span><strong className="text-slate-800">{selectedPatient.emergencyContact}</strong></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Last Consultation:</span><strong className="text-slate-800">{selectedPatient.lastConsultationDate}</strong></div>
+
+                  {/* Latest Blood Pressure and Heart Rate Vitals */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+                    <div className="bg-white p-2 rounded-xl border border-slate-200/60">
+                      <span className="text-[10px] text-slate-400 block font-bold">Blood Pressure</span>
+                      <strong className="text-slate-800 text-xs">{selectedPatient.vitals?.bloodPressure}</strong>
+                    </div>
+                    <div className="bg-white p-2 rounded-xl border border-slate-200/60">
+                      <span className="text-[10px] text-slate-400 block font-bold">Heart Rate</span>
+                      <strong className="text-slate-800 text-xs">{selectedPatient.vitals?.heartRate}</strong>
+                    </div>
+                  </div>
                   
+                  {/* Allergies */}
                   <div className="pt-2 border-t border-slate-200">
                     <span className="text-slate-400 block font-bold mb-1">Allergies:</span>
                     <div className="flex gap-1 flex-wrap">{selectedPatient.allergies.map((a, i) => <span key={i} className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded-md font-bold">{a}</span>)}</div>
                   </div>
 
+                  {/* Current Medication */}
                   <div className="pt-2 border-t border-slate-200">
-                    <span className="text-slate-400 block font-bold mb-1">Current Medications:</span>
+                    <span className="text-slate-400 block font-bold mb-1">Current Medication:</span>
                     <div className="flex gap-1 flex-wrap">{selectedPatient.currentMedications.map((m, i) => <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md font-bold">{m}</span>)}</div>
                   </div>
 
@@ -449,12 +504,37 @@ export default function DoctorAppointmentsPage() {
                 </div>
               )}
 
-              <button
-                onClick={() => handleUpdateStatus(selectedPatient.id, "Completed")}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-2xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <CheckCircle2 size={16} /> Mark Appointment as Complete
-              </button>
+              {/* Requested Action Buttons: Open Record, Start Telehealth, Message */}
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={() => handleStartConsultation(selectedPatient.id, false)}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase rounded-2xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Video size={16} /> Start Telehealth
+                </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleOpenRecord(selectedPatient.patientId)}
+                    className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <FolderOpen size={15} /> Open Record
+                  </button>
+                  <button
+                    onClick={() => handleMessage(selectedPatient.patientId)}
+                    className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <MessageSquare size={15} /> Message
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => handleUpdateStatus(selectedPatient.id, "Completed")}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <CheckCircle2 size={15} /> Mark Appointment as Complete
+                </button>
+              </div>
             </div>
           ) : (
             <div className="text-center py-12 text-slate-400 text-xs font-medium">
