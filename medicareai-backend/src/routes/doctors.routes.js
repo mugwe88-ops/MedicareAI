@@ -109,23 +109,30 @@ router.get("/earnings", authenticateToken, async (req, res) => {
   }
 });
 
-// Query the 'consultants' table to fetch profile data
-// SAFE PROFILE FETCH: Only queries columns guaranteed to exist
+// SMART PROFILE FETCH: Auto-creates record if missing to prevent 404/500 errors
 router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    const userEmail = req.user.email || "doctor@example.com";
+    const userName = req.user.name || "Dr. User";
+
     let result = await pool.query(
       "SELECT id, name, email, specialization, avatar_url FROM consultants WHERE id = $1",
       [userId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Doctor profile record not found in database." });
+      result = await pool.query(
+        `INSERT INTO consultants (id, name, email, specialization, role) 
+         VALUES ($1, $2, $3, $4, 'doctor') 
+         RETURNING id, name, email, specialization, avatar_url`,
+        [userId, userName, userEmail, "General Practitioner"]
+      );
     }
 
     res.json({ doctor: result.rows[0], ...result.rows[0] });
   } catch (err) {
-    console.error("Error fetching doctor profile:", err);
+    console.error("Error fetching/creating doctor profile:", err);
     res.status(500).json({ message: "Server error fetching profile." });
   }
 });
@@ -169,46 +176,6 @@ router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
        WHERE id = $5 
        RETURNING id, name, email, specialization, avatar_url`,
       [name, email, specialization, resolvedAvatar, userId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Doctor profile not found for update." });
-    }
-
-    res.json({
-      success: true,
-      message: "Profile updated successfully",
-      profile: result.rows[0],
-      doctor: result.rows[0]
-    });
-  } catch (err) {
-    console.error("Error updating doctor profile:", err);
-    res.status(500).json({ message: "Server error updating profile changes." });
-  }
-});
-
-// Safe Profile Update route using COALESCE across standard columns
-router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
-  if (req.method !== "PUT" && req.method !== "PATCH") return next();
-  try {
-    const userId = req.user.id;
-    const { name, email, specialization, bio, availability, status, avatar_url, avatar, phone, consultation_fee } = req.body;
-    const resolvedAvatar = avatar_url || avatar;
-
-    const result = await pool.query(
-      `UPDATE consultants 
-       SET name = COALESCE($1, name), 
-           email = COALESCE($2, email), 
-           specialization = COALESCE($3, specialization), 
-           bio = COALESCE($4, bio), 
-           availability = COALESCE($5, availability),
-           status = COALESCE($6, status),
-           avatar_url = COALESCE($7, avatar_url),
-           phone = COALESCE($8, phone),
-           consultation_fee = COALESCE($9, consultation_fee)
-       WHERE id = $10 
-       RETURNING id, name, email, specialization, bio, availability, status, avatar_url, phone, consultation_fee`,
-      [name, email, specialization, bio, availability, status, resolvedAvatar, phone, consultation_fee, userId]
     );
 
     if (result.rows.length === 0) {
