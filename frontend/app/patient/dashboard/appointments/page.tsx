@@ -1,4 +1,3 @@
-// frontend/app/patient/dashboard/appointments/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -21,7 +20,7 @@ export default function PatientAppointmentsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
     if (!token) {
       router.push("/login");
       return;
@@ -35,7 +34,7 @@ export default function PatientAppointmentsPage() {
         process.env.NEXT_PUBLIC_BACKEND_URL ||
         "https://medicareai-1.onrender.com";
 
-      const aptRes = await fetch(`${backendUrl}/api/appointments`, {
+      const aptRes = await fetch(`${backendUrl}/api/appointments/patient`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -54,8 +53,7 @@ export default function PatientAppointmentsPage() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.clear();
     router.push("/login");
   };
 
@@ -74,14 +72,14 @@ export default function PatientAppointmentsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex-1 flex flex-col p-6 lg:p-8 space-y-6 overflow-y-auto bg-slate-50 w-full">
       {/* Top Actions Row */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push("/patient/dashboard")}
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
         >
-          <ArrowLeft size={16} /> Back
+          <ArrowLeft size={16} /> Back to Dashboard
         </button>
         <button
           onClick={handleLogout}
@@ -92,14 +90,14 @@ export default function PatientAppointmentsPage() {
       </div>
 
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">My Appointments</h2>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">My Appointments</h2>
           <p className="text-slate-400 font-bold text-xs mt-1">Manage and track your upcoming doctor consultations and telehealth sessions.</p>
         </div>
         <button
           onClick={() => router.push("/patient/dashboard/appointments/book")}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-2xl text-xs font-bold shadow-lg shadow-blue-500/30 transition flex items-center gap-2 cursor-pointer self-start"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-2xl text-xs font-bold shadow-sm transition flex items-center gap-2 cursor-pointer self-start"
         >
           <Plus size={16} /> Book New Appointment
         </button>
@@ -112,9 +110,9 @@ export default function PatientAppointmentsPage() {
         </div>
 
         {loading ? (
-          <div className="p-12 text-center text-slate-400 font-bold">Loading appointments...</div>
+          <div className="p-12 text-center text-slate-400 font-bold text-xs">Loading appointments...</div>
         ) : appointments.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 font-medium">No appointments scheduled yet.</div>
+          <div className="p-12 text-center text-slate-400 font-medium text-xs">No appointments scheduled yet.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -127,12 +125,12 @@ export default function PatientAppointmentsPage() {
                   <th className="py-4 px-8 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-50 text-xs">
                 {appointments.map((apt) => (
                   <tr key={apt.id} className="hover:bg-slate-50/50 transition">
                     <td className="py-5 px-8">
                       <p className="font-bold text-slate-900">{apt.doctor_name || "General Practitioner"}</p>
-                      <p className="text-xs text-slate-400 font-semibold">{apt.department || "General Health"}</p>
+                      <p className="text-[11px] text-slate-400 font-semibold">{apt.department || "General Health"}</p>
                     </td>
                     <td className="py-5 px-6">
                       <p className="font-bold text-slate-900">
@@ -142,7 +140,7 @@ export default function PatientAppointmentsPage() {
                           year: "numeric",
                         }) : "N/A"}
                       </p>
-                      <p className="text-xs text-blue-600 font-bold">{apt.appointment_time}</p>
+                      <p className="text-[11px] text-blue-600 font-bold">{apt.appointment_time}</p>
                     </td>
                     <td className="py-5 px-6">
                       <span className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg italic">
@@ -152,7 +150,7 @@ export default function PatientAppointmentsPage() {
                     <td className="py-5 px-6">{getStatusBadge(apt.status)}</td>
                     <td className="py-5 px-8 text-right">
                       <button
-                        onClick={() => router.push(`/patient/dashboard/telehealth/${apt.id}`)}
+                        onClick={() => router.push(`/patient/dashboard/telehealth/room-1`)}
                         className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition inline-flex items-center justify-center cursor-pointer"
                         title="Join Telehealth Room"
                       >
