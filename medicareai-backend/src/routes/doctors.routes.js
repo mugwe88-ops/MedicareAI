@@ -111,42 +111,113 @@ router.get("/earnings", authenticateToken, async (req, res) => {
 
 // BULLETPROOF PROFILE FETCH: Auto-provisions record with dual fallback
 // FAIL-SAFE PROFILE FETCH: Guaranteed never to throw a 500 error
+// SMART PROFILE GET: Always returns a profile, auto-creating if missing
 router.get(["/profile", "/me"], authenticateToken, async (req, res) => {
   try {
-    const userId = req.user?.id || 1;
+    const userId = req.user?.id;
     const userEmail = req.user?.email || "doctor@example.com";
-    const userName = req.user?.name || "Dr. User";
+    const userName = req.user?.name || "Dr. Pressy";
 
-    let row = null;
-    try {
-      let result = await pool.query(
-        "SELECT id, name, email, specialization, avatar_url FROM consultants WHERE id = $1 OR email = $2 LIMIT 1",
-        [userId, userEmail]
+    let result = await pool.query(
+      "SELECT id, name, email, specialization, avatar_url FROM consultants WHERE id = $1 OR email = $2 LIMIT 1",
+      [userId, userEmail]
+    );
+
+    let profile;
+    if (result.rows.length === 0) {
+      const insertRes = await pool.query(
+        `INSERT INTO consultants (name, email, specialization, role) 
+         VALUES ($1, $2, $3, 'doctor') 
+         RETURNING id, name, email, specialization, avatar_url`,
+        [userName, userEmail, "General Practitioner"]
       );
-      if (result.rows.length > 0) {
-        row = result.rows[0];
-      } else {
-        try {
-          const insertRes = await pool.query(
-            `INSERT INTO consultants (name, email, specialization, role) VALUES ($1, $2, $3, 'doctor') RETURNING id, name, email, specialization, avatar_url`,
-            [userName, userEmail, "General Practitioner"]
-          );
-          row = insertRes.rows[0];
-        } catch (insErr) {
-          row = { id: userId, name: userName, email: userEmail, specialization: "General Practitioner", avatar_url: null };
-        }
-      }
-    } catch (dbErr) {
-      row = { id: userId, name: userName, email: userEmail, specialization: "General Practitioner", avatar_url: null };
+      profile = insertRes.rows[0];
+    } else {
+      profile = result.rows[0];
     }
 
-    res.json({ doctor: row, ...row });
+    res.json({ doctor: profile, ...profile });
   } catch (err) {
-    console.error("Profile route complete fallback triggered:", err);
-    res.json({ 
-      doctor: { id: 1, name: "Dr. User", email: "doctor@example.com", specialization: "General Practitioner" },
-      id: 1, name: "Dr. User", email: "doctor@example.com", specialization: "General Practitioner"
+    console.error("Error fetching/auto-creating profile:", err);
+    res.status(500).json({ message: "Server error fetching profile." });
+  }
+});
+
+// SMART PROFILE UPDATE/PUT/PATCH: Auto-upserts so it never fails with 404
+router.all(["/profile", "/me"], authenticateToken, async (req, res, next) => {
+  if (req.method !== "PUT" && req.method !== "PATCH" && req.method !== "POST") return next();
+  try {
+    const userId = req.user?.id;
+    const userEmail = req.user?.email || "doctor@example.com";
+    const { name, email, specialization, avatar_url, avatar } = req.body;
+    const resolvedAvatar = avatar_url || avatar;
+
+    // Check if profile exists
+    let checkRes = await pool.query(
+      "SELECT id FROM consultants WHERE id = $1 OR email = $2 LIMIT 1",
+      [userId, userEmail]
+    );
+
+    let result;
+    if (checkRes.rows.length === 0) {
+      // Insert if it didn't exist yet
+      result = await pool.query(
+        `INSERT INTO consultants (name, email, specialization, avatar_url, role) 
+         VALUES ($1, $2, $3, $4, 'doctor') 
+         RETURNING id, name, email, specialization, avatar_url`,
+        [name || "Dr. Pressy", userEmail, specialization || "General Practitioner", resolvedAvatar]
+      );
+    } else {
+      // Update existing profile
+      const consultantId = checkRes.rows.id;
+      result = await pool.query(
+        `UPDATE consultants 
+         SET name = COALESCE($1, name), 
+             email = COALESCE($2, email), 
+             specialization = COALESCE($3, specialization), 
+             avatar_url = COALESCE($4, avatar_url)
+         WHERE id = $5 
+         RETURNING id, name, email, specialization, avatar_url`,
+        [name, email, specialization, resolvedAvatar, consultantId]
+      );
+    }
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      profile: result.rows,
+      doctor: result.rows
     });
+  } catch (err) {
+    console.error("Error updating doctor profile:", err);
+    res.status(500).json({ message: "Server error updating profile changes.", error: err.message });
+  }
+});
+
+// SEPARATE AVATAR ROUTE FOR DIRECT UPLOADS
+router.post("/avatar", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const userEmail = req.user?.email || "doctor@example.com";
+    const { avatar } = req.body; 
+
+    let result = await pool.query(
+      `UPDATE consultants SET avatar_url = COALESCE($1, avatar_url) WHERE id = $2 OR email = $3 RETURNING avatar_url`,
+      [avatar, userId, userEmail]
+    );
+
+    if (result.rows.length === 0) {
+      // Auto-insert if missing
+      await pool.query(
+        `INSERT INTO consultants (name, email, specialization, avatar_url, role) VALUES ('Dr. Pressy', $1, 'General Practitioner', $2, 'doctor')`,
+        [userEmail, avatar]
+      );
+    }
+
+    res.json({ success: true, avatar });
+  } catch (err) {
+    console.error("Error updating avatar:", err);
+    res.status(500).json({ message: "Server error updating avatar." });
   }
 });
 
