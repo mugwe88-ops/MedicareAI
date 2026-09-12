@@ -54,14 +54,14 @@ export default function DoctorDashboardPage() {
 
   const [doctorInfo, setDoctorInfo] = useState<DoctorInfo | null>(null);
   const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPerformanceLoading, setIsPerformanceLoading] = useState<boolean>(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isAppointmentsLoading, setIsAppointmentsLoading] = useState<boolean>(false);
 
   // Fetch doctor profile
   const fetchDoctorProfile = async () => {
     setIsLoading(true);
-    setFetchError(null);
     try {
       const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
@@ -140,7 +140,7 @@ export default function DoctorDashboardPage() {
     }
   };
 
-  // Fetch real performance data from Neon DB backend
+  // Fetch real performance data from backend
   const fetchPerformanceData = async () => {
     setIsPerformanceLoading(true);
     try {
@@ -148,7 +148,6 @@ export default function DoctorDashboardPage() {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
 
       if (!token) {
-        // Fallback default if token is missing
         setPerformanceData({
           efficiency_rating: 95.0,
           practice_score: 492,
@@ -176,7 +175,6 @@ export default function DoctorDashboardPage() {
           setPerformanceData(data.performance);
         }
       } else {
-        // Fallback if endpoint fails
         setPerformanceData({
           efficiency_rating: 95.0,
           practice_score: 492,
@@ -203,13 +201,102 @@ export default function DoctorDashboardPage() {
     }
   };
 
+  // Fetch real appointments from backend
+  const fetchAppointments = async () => {
+    setIsAppointmentsLoading(true);
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
+
+      if (!token) {
+        loadMockAppointments(selectedDate);
+        setIsAppointmentsLoading(false);
+        return;
+      }
+
+      const endpoints = [
+        `/api/appointments?date=${selectedDate}`,
+        `/api/doctors/appointments?date=${selectedDate}`,
+        `/api/appointments/me`
+      ];
+
+      let fetchedData = null;
+      let success = false;
+
+      for (const endpoint of endpoints) {
+        try {
+          const res = await fetch(`${API_URL}${endpoint}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            fetchedData = data.appointments || data.data || data;
+            success = true;
+            break;
+          }
+        } catch (e) {
+          // Try next endpoint
+        }
+      }
+
+      if (success && Array.isArray(fetchedData)) {
+        // Map backend appointment fields to component structure
+        const formatted: Appointment[] = fetchedData.map((item: any, idx: number) => {
+          let dateStr = item.date || item.appointmentDate || "2026-08-21";
+          let dayKey = dateStr.includes("-") ? dateStr.split("-").pop() || selectedDate : selectedDate;
+
+          return {
+            id: item.id || item._id || String(idx),
+            patientName: item.patientName || item.patient?.name || item.name || "Patient",
+            specialty: item.specialty || item.type || item.department || "General Consultation",
+            time: item.time || item.slot || "10:00",
+            dateKey: dayKey,
+          };
+        });
+
+        // Filter for selected date if API returns all appointments
+        const filtered = formatted.filter((a) => a.dateKey.endsWith(selectedDate) || a.dateKey === selectedDate);
+        setAppointments(filtered.length > 0 ? filtered : formatted);
+      } else {
+        loadMockAppointments(selectedDate);
+      }
+    } catch (error) {
+      console.error("Failed to fetch appointments:", error);
+      loadMockAppointments(selectedDate);
+    } finally {
+      setIsAppointmentsLoading(false);
+    }
+  };
+
+  const loadMockAppointments = (day: string) => {
+    const mockMap: Record<string, Appointment[]> = {
+      "19": [{ id: "a1", patientName: "Sarah Jenkins", specialty: "General Consultation", time: "09:30", dateKey: "19" }],
+      "20": [{ id: "a3", patientName: "Emily Watson", specialty: "Cardiology Review", time: "11:15", dateKey: "20" }],
+      "21": [
+        { id: "a4", patientName: "Friedric Ziccardi", specialty: "Cardiologist", time: "17:00", dateKey: "21" },
+        { id: "a5", patientName: "Abagael Bitsul", specialty: "Medicine", time: "20:00", dateKey: "21" },
+      ],
+      "22": [{ id: "a6", patientName: "Michael Brown", specialty: "Diabetic Screening", time: "10:00", dateKey: "22" }],
+      "23": [{ id: "a8", patientName: "David Miller", specialty: "Lab Review", time: "12:00", dateKey: "23" }],
+    };
+    setAppointments(mockMap[day] || []);
+  };
+
   useEffect(() => {
     fetchDoctorProfile();
   }, []);
 
+  useEffect(() => {
+    fetchAppointments();
+  }, [selectedDate]);
+
   const handleOpenReportModal = () => {
     setIsReportModalOpen(true);
-    fetchPerformanceData(); // Fetch fresh data from backend on open
+    fetchPerformanceData(); 
   };
 
   const handleStatusChange = async (newStatus: string) => {
@@ -219,7 +306,6 @@ export default function DoctorDashboardPage() {
     try {
       const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
-      
       if (!token) return;
 
       await fetch(`${API_URL}/api/doctors/me`, {
@@ -306,19 +392,7 @@ export default function DoctorDashboardPage() {
     ],
   };
 
-  const appointmentsMap: Record<string, Appointment[]> = {
-    "19": [{ id: "a1", patientName: "Sarah Jenkins", specialty: "General Consultation", time: "09:30", dateKey: "19" }],
-    "20": [{ id: "a3", patientName: "Emily Watson", specialty: "Cardiology Review", time: "11:15", dateKey: "20" }],
-    "21": [
-      { id: "a4", patientName: "Friedric Ziccardi", specialty: "Cardiologist", time: "17:00", dateKey: "21" },
-      { id: "a5", patientName: "Abagael Bitsul", specialty: "Medicine", time: "20:00", dateKey: "21" },
-    ],
-    "22": [{ id: "a6", patientName: "Michael Brown", specialty: "Diabetic Screening", time: "10:00", dateKey: "22" }],
-    "23": [{ id: "a8", patientName: "David Miller", specialty: "Lab Review", time: "12:00", dateKey: "23" }],
-  };
-
   const currentTableData = tabDataMap[activeSubTab] || [];
-  const currentAppointments = appointmentsMap[selectedDate] || [];
 
   return (
     <div className="flex-1 flex flex-col p-6 lg:p-8 space-y-6 overflow-y-auto bg-slate-50 w-full relative">
@@ -567,7 +641,7 @@ export default function DoctorDashboardPage() {
             ) : null}
           </div>
 
-          {/* Appointments Widget */}
+          {/* Live Appointments Widget */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Appointments ({selectedDate})</h3>
@@ -598,8 +672,13 @@ export default function DoctorDashboardPage() {
             </div>
 
             <div className="space-y-3 pt-2">
-              {currentAppointments.length > 0 ? (
-                currentAppointments.map((apt) => (
+              {isAppointmentsLoading ? (
+                <div className="flex flex-col items-center justify-center py-8 space-y-2">
+                  <RefreshCw size={20} className="animate-spin text-blue-600" />
+                  <p className="text-[11px] text-slate-400 font-bold">Loading schedule...</p>
+                </div>
+              ) : appointments.length > 0 ? (
+                appointments.map((apt) => (
                   <div key={apt.id} className="p-3.5 bg-slate-50 border border-slate-200/60 rounded-2xl flex items-center justify-between">
                     <div>
                       <h4 className="font-black text-slate-900 text-xs">{apt.patientName}</h4>
@@ -618,7 +697,7 @@ export default function DoctorDashboardPage() {
         </div>
       </div>
 
-      {/* FULL REPORT MODAL (LIVE BACKEND DATA) */}
+      {/* FULL REPORT MODAL */}
       {isReportModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">

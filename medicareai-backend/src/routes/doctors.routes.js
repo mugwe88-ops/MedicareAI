@@ -239,6 +239,40 @@ router.get("/:id/availability", async (req, res) => {
   }
 });
 
+// GET /api/doctors/records?type=Lab Reports
+router.get("/records", authenticateToken, async (req, res) => {
+  try {
+    const doctorId = req.user.id;
+    const { type } = req.query;
+
+    let query = `SELECT id, record_type, primary_text, secondary_text, record_date, comments, status 
+                 FROM medical_records 
+                 WHERE doctor_id = $1`;
+    const queryParams = [doctorId];
+
+    if (type) {
+      queryParams.push(type);
+      query += ` AND record_type = $${queryParams.length}`;
+    }
+
+    query += ` ORDER BY id DESC`;
+
+    const result = await pool.query(query, queryParams);
+    
+    // Fallback default row if none exist yet for this doctor
+    if (result.rows.length === 0 && !type) {
+      return res.json([
+        { id: 1, record_type: 'Lab Reports', primary_text: 'Electrocardiography', secondary_text: 'Attending Physician', record_date: '28 Jan, 2026', comments: 'Normal vitals', status: 'Normal' }
+      ]);
+    }
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching medical records:", err);
+    res.status(500).json({ message: "Server error fetching records" });
+  }
+});
+
 router.post("/:id/availability", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
