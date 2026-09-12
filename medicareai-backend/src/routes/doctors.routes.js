@@ -115,12 +115,11 @@ router.get("/profile", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     let result = await pool.query(
-      "SELECT id, name, email, specialization, bio, availability FROM users WHERE id = $1",
+      "SELECT id, name, email, specialization, bio, availability, status FROM users WHERE id = $1",
       [userId]
     );
 
     if (result.rows.length === 0) {
-      // Fallback: If user ID from token isn't found, try to find by email or return a base template
       return res.status(404).json({ message: "Doctor profile record not found in database. Try logging out and back in." });
     }
 
@@ -135,7 +134,7 @@ router.get("/profile", authenticateToken, async (req, res) => {
 router.put("/profile", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, email, specialization, bio, availability } = req.body;
+    const { name, email, specialization, bio, availability, status } = req.body;
 
     const result = await pool.query(
       `UPDATE users 
@@ -143,10 +142,11 @@ router.put("/profile", authenticateToken, async (req, res) => {
            email = COALESCE($2, email), 
            specialization = $3, 
            bio = $4, 
-           availability = $5 
-       WHERE id = $6 
-       RETURNING id, name, email, specialization, bio, availability`,
-      [name, email, specialization, bio, availability, userId]
+           availability = $5,
+           status = COALESCE($6, status)
+       WHERE id = $7 
+       RETURNING id, name, email, specialization, bio, availability, status`,
+      [name, email, specialization, bio, availability, status, userId]
     );
 
     if (result.rows.length === 0) {

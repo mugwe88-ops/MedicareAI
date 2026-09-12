@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Award, Clock, Save, CheckCircle2, RefreshCw, AlertCircle, Calendar, Check } from "lucide-react";
+import { User, Mail, Award, Clock, Save, CheckCircle2, RefreshCw, AlertCircle, ShieldCheck } from "lucide-react";
 
 interface DoctorProfile {
   name: string;
@@ -10,6 +10,7 @@ interface DoctorProfile {
   specialization: string;
   bio: string;
   availability: string;
+  status: string;
 }
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -22,9 +23,9 @@ export default function DoctorProfilePage() {
     specialization: "",
     bio: "",
     availability: "",
+    status: "Available",
   });
 
-  // Structured shift state parsed from availability string or defaults
   const [scheduleMap, setScheduleMap] = useState<Record<string, { active: boolean; hours: string }>>({
     Monday: { active: true, hours: "09:00 AM - 05:00 PM" },
     Tuesday: { active: true, hours: "09:00 AM - 05:00 PM" },
@@ -42,7 +43,6 @@ export default function DoctorProfilePage() {
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
-  // Fetch real profile data from database on mount
   const fetchProfile = async () => {
     setInitialLoading(true);
     setErrorMsg("");
@@ -69,12 +69,8 @@ export default function DoctorProfilePage() {
           specialization: data.specialization || "",
           bio: data.bio || "",
           availability: data.availability || "",
+          status: data.status || "Available",
         });
-
-        // Try parsing existing availability string if it's formatted or store defaults
-        if (data.availability && data.availability.includes(":")) {
-          // Keep it simple or let them customize via the interactive grid
-        }
       } else {
         const errData = await res.json().catch(() => ({}));
         setErrorMsg(errData.message || "Failed to load doctor profile records.");
@@ -91,7 +87,7 @@ export default function DoctorProfilePage() {
     fetchProfile();
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
 
@@ -116,7 +112,6 @@ export default function DoctorProfilePage() {
     }));
   };
 
-  // Submit profile changes to backend
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -124,7 +119,6 @@ export default function DoctorProfilePage() {
     setErrorMsg("");
 
     try {
-      // Compile schedule map into a readable availability string representation for database storage
       const compiledAvailability = Object.entries(scheduleMap)
         .map(([day, val]) => `${day}: ${val.active ? val.hours : "Off Duty"}`)
         .join(" | ");
@@ -233,22 +227,41 @@ export default function DoctorProfilePage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Specialization</label>
-              <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
-                <Award size={16} className="text-gray-400 mr-2" />
-                <input
-                  type="text"
-                  name="specialization"
-                  value={profile.specialization}
-                  onChange={handleChange}
-                  placeholder="e.g. Cardiology"
-                  className="w-full bg-transparent text-xs text-gray-900 outline-none"
-                />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Specialization</label>
+                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
+                  <Award size={16} className="text-gray-400 mr-2" />
+                  <input
+                    type="text"
+                    name="specialization"
+                    value={profile.specialization}
+                    onChange={handleChange}
+                    placeholder="e.g. Cardiology"
+                    className="w-full bg-transparent text-xs text-gray-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Practitioner Status</label>
+                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
+                  <ShieldCheck size={16} className="text-gray-400 mr-2" />
+                  <select
+                    name="status"
+                    value={profile.status}
+                    onChange={handleChange}
+                    className="w-full bg-transparent text-xs text-gray-900 outline-none cursor-pointer"
+                  >
+                    <option value="Available">Available (Active for Bookings)</option>
+                    <option value="On Leave">On Leave (Off Duty)</option>
+                    <option value="In Surgery">In Surgery / Busy</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            {/* Interactive Weekly Shift Matrix (Like Schedule Manager) */}
+            {/* Interactive Weekly Shift Matrix */}
             <div className="space-y-3 pt-2 border-t border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
