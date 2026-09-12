@@ -60,6 +60,16 @@ export default function DoctorDashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [totalAppointmentsCount, setTotalAppointmentsCount] = useState<number>(0);
+  
+  // Dynamic Medical Records state
+  const [medicalRecordsData, setMedicalRecordsData] = useState<Record<string, RecordItem[]>>({
+    "Lab Reports": [],
+    "Prescription": [],
+    "Medication": [],
+    "Diagnosis": []
+  });
+  const [isRecordsLoading, setIsRecordsLoading] = useState<boolean>(false);
+
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPerformanceLoading, setIsPerformanceLoading] = useState<boolean>(false);
   const [isAppointmentsLoading, setIsAppointmentsLoading] = useState<boolean>(false);
@@ -285,9 +295,94 @@ export default function DoctorDashboardPage() {
     }
   };
 
+  // Fetch dynamic medical records (Lab Reports, Prescriptions, Medications, Diagnoses) from backend
+  const fetchMedicalRecords = async () => {
+    setIsRecordsLoading(true);
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
+
+      if (!token) {
+        setIsRecordsLoading(false);
+        return;
+      }
+
+      const endpoints = [
+        `/api/medical-records`,
+        `/api/doctors/medical-records`,
+        `/api/records`
+      ];
+
+      let fetchedData = null;
+      let success = false;
+
+      for (const endpoint of endpoints) {
+        try {
+          const res = await fetch(`${API_URL}${endpoint}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            fetchedData = data.records || data.data || data;
+            success = true;
+            break;
+          }
+        } catch (e) {
+          // Try next endpoint
+        }
+      }
+
+      if (success && Array.isArray(fetchedData)) {
+        const labReports: RecordItem[] = [];
+        const prescriptions: RecordItem[] = [];
+        const medications: RecordItem[] = [];
+        const diagnoses: RecordItem[] = [];
+
+        fetchedData.forEach((item: any, idx: number) => {
+          const record: RecordItem = {
+            id: item.id || item._id || String(idx),
+            primaryText: item.testName || item.medicineName || item.condition || item.title || item.primaryText || "Record",
+            secondaryText: item.referredBy || item.prescribedBy || item.doctorName || "Attending Physician",
+            date: item.date || item.createdAt ? new Date(item.date || item.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "28 Jan, 2026",
+            comments: item.comments || item.notes || item.description || "N/A",
+            status: item.status || "Normal"
+          };
+
+          const type = (item.type || item.category || "").toLowerCase();
+          if (type.includes("prescript")) {
+            prescriptions.push(record);
+          } else if (type.includes("medicat")) {
+            medications.push(record);
+          } else if (type.includes("diagnos")) {
+            diagnoses.push(record);
+          } else {
+            // Default category or lab report
+            labReports.push(record);
+          }
+        });
+
+        setMedicalRecordsData({
+          "Lab Reports": labReports,
+          "Prescription": prescriptions,
+          "Medication": medications,
+          "Diagnosis": diagnoses,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch medical records:", error);
+    } finally {
+      setIsRecordsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchDoctorProfile();
     fetchAppointments();
+    fetchMedicalRecords();
   }, []);
 
   useEffect(() => {
@@ -380,24 +475,7 @@ export default function DoctorDashboardPage() {
   };
 
   const currentWorkload = workloadDatasets[activeWorkloadTab];
-
-  const tabDataMap: Record<string, RecordItem[]> = {
-    "Lab Reports": [
-      { id: "1", primaryText: "Electrocardiography", secondaryText: "Dr. Rafiqul Islam", date: "28 Jan, 2026", comments: "Good! Take rest", status: "Normal" },
-      { id: "2", primaryText: "Liver biopsy", secondaryText: "Dr. Fahim Ahmed", date: "12 Jan, 2026", comments: "Waiting for diagram", status: "Pending" },
-    ],
-    Prescription: [
-      { id: "p1", primaryText: "Amoxicillin 500mg", secondaryText: doctorInfo?.name || "Attending Physician", date: "28 Jan, 2026", comments: "Take 3 times daily", status: "Active" },
-    ],
-    Medication: [
-      { id: "m1", primaryText: "Metformin 850mg", secondaryText: "Dr. Asad Khan", date: "20 Jan, 2026", comments: "With meals", status: "Ongoing" },
-    ],
-    Diagnosis: [
-      { id: "d1", primaryText: "Type 2 Diabetes Mellitus", secondaryText: doctorInfo?.name || "Attending Physician", date: "28 Jan, 2026", comments: "Monitor glucose levels", status: "Confirmed" },
-    ],
-  };
-
-  const currentTableData = tabDataMap[activeSubTab] || [];
+  const currentTableData = medicalRecordsData[activeSubTab] || [];
   const filteredAllAppointments = allAppointments.filter(
     (apt) =>
       apt.patientName.toLowerCase().includes(allAppointmentsSearch.toLowerCase()) ||
@@ -515,7 +593,7 @@ export default function DoctorDashboardPage() {
             </div>
           </div>
 
-          {/* Sub-tab Table Data */}
+          {/* Dynamic Medical Records Table Widget */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3 overflow-x-auto">
@@ -556,7 +634,16 @@ export default function DoctorDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {currentTableData.length > 0 ? (
+                  {isRecordsLoading ? (
+                    <tr>
+                      <td colSpan={5} className="py-10 text-center">
+                        <div className="flex items-center justify-center gap-2 text-slate-400 font-bold">
+                          <RefreshCw size={16} className="animate-spin text-blue-600" />
+                          <span>Loading records from database...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : currentTableData.length > 0 ? (
                     currentTableData.map((rec) => (
                       <tr key={rec.id} className="hover:bg-slate-50 transition">
                         <td className="py-3.5 px-2 font-black text-slate-900">{rec.primaryText}</td>
@@ -580,8 +667,8 @@ export default function DoctorDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-400 font-medium">
-                        No records found for {activeSubTab}.
+                      <td colSpan={5} className="py-10 text-center text-slate-400 font-medium">
+                        No {activeSubTab.toLowerCase()} found in the database.
                       </td>
                     </tr>
                   )}
@@ -693,7 +780,7 @@ export default function DoctorDashboardPage() {
               {isAppointmentsLoading ? (
                 <div className="flex flex-col items-center justify-center py-8 space-y-2">
                   <RefreshCw size={20} className="animate-spin text-blue-600" />
-                  <p className="text-[11px] text-slate-400 font-bold">Loading live schedule from DB...</p>
+                  <p className="text-[11px] text-slate-400 font-bold">Loading schedule from DB...</p>
                 </div>
               ) : appointments.length > 0 ? (
                 appointments.map((apt) => (
