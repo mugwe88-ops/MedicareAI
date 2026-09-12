@@ -4,8 +4,8 @@ import { createClient } from '@sanity/client';
 const router = express.Router();
 
 const client = createClient({
-  projectId: process.env.SANITY_PROJECT_ID,
-  dataset: process.env.SANITY_DATASET || 'production',
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
+  dataset: process.env.NEXT_PUBLIC_SANITY_DATABASE || 'production',
   apiVersion: '2024-01-01',
   useCdn: false,
   token: process.env.SANITY_API_READ_TOKEN,
