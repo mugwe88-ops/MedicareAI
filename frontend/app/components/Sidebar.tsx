@@ -30,7 +30,6 @@ export default function Sidebar() {
     }
   }, [pathname]);
 
-  // All doctor links correctly mapped to the dashboard subdirectory structure
   const doctorMenuItems = [
     { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
     { name: "Telehealth Room", href: "/doctors/dashboard/telehealth", icon: Video },
@@ -41,19 +40,19 @@ export default function Sidebar() {
   ];
 
   const patientMenuItems = [
-    { name: "My Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Book Appointment", href: "/dashboard/appointments/book", icon: Calendar },
-    { name: "Booked Consultations", href: "/dashboard/appointments", icon: CalendarCheck },
-    { name: "Telehealth Room", href: "/telehealth", icon: Video },
-    { name: "Pharmacy Store", href: "/medicines", icon: Pill },
-    { name: "Medical Records", href: "/data", icon: FileText },
+    { name: "Dashboard", href: "/patient/dashboard", icon: LayoutDashboard },
+    { name: "Book Appointment", href: "/patient/dashboard/appointments/book", icon: Calendar },
+    { name: "Booked Consultations", href: "/patient/dashboard/appointments", icon: CalendarCheck },
+    { name: "Telehealth Room", href: "/patient/dashboard/telehealth", icon: Video },
+    { name: "Pharmacy Store", href: "/patient/dashboard/medicines", icon: Pill },
+    { name: "Medical Records", href: "/patient/dashboard/data", icon: FileText },
   ];
 
   const menuItems = role === "doctor" ? doctorMenuItems : patientMenuItems;
 
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = "/";
+    window.location.href = "/login";
   };
 
   return (
@@ -76,12 +75,12 @@ export default function Sidebar() {
                 href={item.href}
                 className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 group ${
                   isActive 
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
-                    : "hover:bg-slate-800 hover:text-white"
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25 font-black" 
+                    : "hover:bg-slate-800/80 hover:text-white font-bold"
                 }`}
               >
-                <Icon size={20} className={isActive ? "text-white" : "text-slate-500 group-hover:text-blue-400"} />
-                <span className="font-bold text-sm tracking-wide uppercase">{item.name}</span>
+                <Icon size={20} className={isActive ? "text-white" : "text-slate-400 group-hover:text-blue-400"} />
+                <span className="text-xs uppercase tracking-wider">{item.name}</span>
               </Link>
             );
           })}
@@ -91,7 +90,7 @@ export default function Sidebar() {
       <div className="mt-auto p-8 border-t border-slate-800">
         <button 
           onClick={handleLogout}
-          className="flex items-center gap-4 text-slate-500 hover:text-red-400 transition-colors font-bold text-sm uppercase w-full text-left cursor-pointer"
+          className="flex items-center gap-4 text-slate-400 hover:text-rose-400 transition-colors font-black text-xs uppercase w-full text-left cursor-pointer"
         >
           <LogOut size={20} />
           <span>Logout</span>
