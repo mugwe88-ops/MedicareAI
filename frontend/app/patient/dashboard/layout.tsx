@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { 
-  LayoutDashboard, Calendar, CalendarCheck, FileText, Activity, 
-  HeartPulse, Search, Bell, Mail 
+  LayoutDashboard, Calendar, CalendarCheck, FileText, 
+  Search, Bell, Mail 
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -32,7 +32,12 @@ export default function DashboardLayout({
       .slice(0, 2);
   };
 
-  const isActive = (path: string) => pathname === path;
+  const isActive = (path: string) => {
+    if (path === "/patient/dashboard") {
+      return pathname === path;
+    }
+    return pathname.startsWith(path);
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex justify-center items-center p-0 md:p-6">
@@ -63,9 +68,9 @@ export default function DashboardLayout({
               </button>
 
               <button 
-                onClick={() => router.push("/patient/dashboard/appointments/book")}
+                onClick={() => router.push("/patient/dashboard/appointments")}
                 className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
-                  isActive("/patient/dashboard/appointments/book") 
+                  isActive("/patient/dashboard/appointments") 
                     ? "bg-blue-50 text-blue-600" 
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                 }`}
