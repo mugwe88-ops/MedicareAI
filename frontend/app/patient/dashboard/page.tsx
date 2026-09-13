@@ -5,8 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Calendar, Clock, Pill, FileText, MessageSquare, Shield, Activity, 
-  AlertTriangle, PhoneCall, Users, Sparkles, Search, ArrowRight, 
-  CheckCircle2, Heart, Thermometer, Droplet, UserCheck, LogOut, ChevronRight, RefreshCw
+  PhoneCall, Users, Sparkles, ArrowRight, ChevronRight, RefreshCw, LogOut
 } from "lucide-react";
 
 interface PatientProfile {
@@ -54,7 +53,6 @@ export default function PatientDashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
-  // Dynamic state data structure matching the unified backend response
   const [patient, setPatient] = useState<PatientProfile>({
     name: "Patient",
     email: "",
@@ -95,8 +93,8 @@ export default function PatientDashboardPage() {
     temperature: "98.6 °F"
   });
 
-  const [sanityLabReports, setSanityLabReports] = useState<any[]>([]);
-  const [sanityInsights, setSanityInsights] = useState<any[]>([]);
+  const [, setSanityLabReports] = useState<any[]>([]);
+  const [, setSanityInsights] = useState<any[]>([]);
 
   // AI Assistant Modal State
   const [aiQuery, setAiQuery] = useState<string>("");
@@ -104,7 +102,6 @@ export default function PatientDashboardPage() {
   const [aiResponse, setAiResponse] = useState<string>("");
   const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
 
-  // Fetch unified dashboard payload from the single backend endpoint
   const fetchDashboardData = async () => {
     setLoading(true);
     setErrorMsg("");
@@ -194,7 +191,7 @@ export default function PatientDashboardPage() {
           
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => router.push("/patient/emergency")}
+              onClick={() => router.push("/patient/dashboard/medical-records")}
               className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer animate-pulse"
             >
               <PhoneCall size={15} /> Emergency Help
@@ -237,7 +234,7 @@ export default function PatientDashboardPage() {
         </div>
       )}
 
-      {/* SECTION 1: Today's Health Hub */}
+      {/* Today's Health Hub */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs uppercase tracking-wider text-slate-400 font-black flex items-center gap-1.5">
@@ -248,9 +245,8 @@ export default function PatientDashboardPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           
-          {/* Card 1: Next Appointment Countdown */}
           <div 
-            onClick={() => router.push("/patient/consultations")}
+            onClick={() => router.push("/patient/dashboard/consultations")}
             className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-blue-300 transition cursor-pointer group"
           >
             <div className="flex items-center justify-between">
@@ -270,9 +266,8 @@ export default function PatientDashboardPage() {
             </div>
           </div>
 
-          {/* Card 2: Medication Due Soon */}
           <div 
-            onClick={() => router.push("/patient/medications")}
+            onClick={() => router.push("/patient/dashboard/medical-records")}
             className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-purple-300 transition cursor-pointer group"
           >
             <div className="flex items-center justify-between">
@@ -292,9 +287,8 @@ export default function PatientDashboardPage() {
             </div>
           </div>
 
-          {/* Card 3: Pending Lab Results */}
           <div 
-            onClick={() => router.push("/patient/records")}
+            onClick={() => router.push("/patient/dashboard/medical-records")}
             className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-emerald-300 transition cursor-pointer group"
           >
             <div className="flex items-center justify-between">
@@ -312,9 +306,8 @@ export default function PatientDashboardPage() {
             </div>
           </div>
 
-          {/* Card 4: Doctor Message Waiting */}
           <div 
-            onClick={() => router.push("/patient/messages")}
+            onClick={() => router.push("/patient/dashboard/consultations")}
             className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-indigo-300 transition cursor-pointer group"
           >
             <div className="flex items-center justify-between">
@@ -335,7 +328,7 @@ export default function PatientDashboardPage() {
         </div>
       </div>
 
-      {/* SECTION 2: Quick Features Grid */}
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         <div className="lg:col-span-2 space-y-6">
@@ -348,7 +341,7 @@ export default function PatientDashboardPage() {
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button 
-                onClick={() => router.push("/patient/telehealth/room-1")}
+                onClick={() => router.push("/patient/dashboard/consultations")}
                 className="flex-1 sm:flex-none px-5 py-3 bg-white text-blue-700 hover:bg-blue-50 font-black text-xs uppercase rounded-2xl shadow transition cursor-pointer flex items-center justify-center gap-2"
               >
                 Join Video Call
@@ -360,7 +353,7 @@ export default function PatientDashboardPage() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Latest Vitals Trend</span>
               <button 
-                onClick={() => router.push("/patient/vitals")}
+                onClick={() => router.push("/patient/dashboard/medical-records")}
                 className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"
               >
                 View Full History <ChevronRight size={14} />
@@ -417,7 +410,7 @@ export default function PatientDashboardPage() {
                 <strong className="text-rose-600 font-bold">{patient.allergies.join(", ")}</strong>
               </div>
               <div className="flex justify-between py-1">
-                <span className="text-slate-400 font-medium">SHA / NHIF Status:</span>
+                <span className="text-slate-400 font-medium">Insurance Status:</span>
                 <strong className="text-emerald-600 font-bold">{patient.insuranceStatus}</strong>
               </div>
             </div>
@@ -426,7 +419,7 @@ export default function PatientDashboardPage() {
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <span className="text-xs uppercase tracking-wider text-slate-400 font-black">Family & Insurance</span>
-              <button onClick={() => router.push("/patient/family")} className="text-xs text-blue-600 font-bold hover:underline">Manage</button>
+              <button onClick={() => router.push("/patient/dashboard/medical-records")} className="text-xs text-blue-600 font-bold hover:underline">Manage</button>
             </div>
 
             <div className="space-y-2.5 text-xs">
@@ -440,7 +433,7 @@ export default function PatientDashboardPage() {
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="flex items-center gap-2">
                   <Shield size={16} className="text-emerald-600" />
-                  <span className="font-bold text-slate-800">Private Insurance / SHA</span>
+                  <span className="font-bold text-slate-800">Private Insurance</span>
                 </div>
                 <span className="text-emerald-600 font-bold">Covered</span>
               </div>
@@ -456,7 +449,7 @@ export default function PatientDashboardPage() {
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <span className="text-xs uppercase tracking-wider text-blue-600 font-black flex items-center gap-1.5">
-                <Sparkles size={16} /> SwiftMD AI Health Assistant
+                <Sparkles size={16} /> AI Health Assistant
               </span>
               <button 
                 onClick={() => setAiModalOpen(false)}
@@ -478,7 +471,7 @@ export default function PatientDashboardPage() {
                 </div>
                 <div className="flex gap-2">
                   <button 
-                    onClick={() => { setAiModalOpen(false); router.push("/patient/consultations"); }}
+                    onClick={() => { setAiModalOpen(false); router.push("/patient/dashboard/consultations"); }}
                     className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition cursor-pointer"
                   >
                     Book Consultation
