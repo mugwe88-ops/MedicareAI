@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Calendar as CalendarIcon, 
@@ -17,7 +17,6 @@ import {
   Mic, 
   UserCheck, 
   CheckCircle2, 
-  AlertCircle,
   PhoneCall,
   X
 } from "lucide-react";
@@ -44,16 +43,7 @@ export default function PatientAppointmentsPage() {
   const [aiModalContent, setAiModalContent] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-    fetchAppointments(token);
-  }, [router]);
-
-  const fetchAppointments = async (token: string) => {
+  const fetchAppointments = useCallback(async (token: string) => {
     try {
       const backendUrl =
         process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -69,7 +59,6 @@ export default function PatientAppointmentsPage() {
           ? aptData
           : aptData.appointments || aptData.data || [];
         
-        // Enrich backend items with default fallback location fields if omitted
         const enrichedList = list.map((apt: any) => ({
           ...apt,
           location_type: apt.location_type || (apt.reason?.toLowerCase().includes("virtual") ? "Telehealth" : "In-Person"),
@@ -82,14 +71,31 @@ export default function PatientAppointmentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+    fetchAppointments(token);
+  }, [router, fetchAppointments]);
 
   const handleLogout = () => {
     localStorage.clear();
     router.push("/login");
   };
 
-  // Stat computations
+  const parseLocalDate = (dateStr: string) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split("T")[0].split("-");
+    if (parts.length === 3) {
+      return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    }
+    return new Date(dateStr);
+  };
+
   const stats = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -100,14 +106,13 @@ export default function PatientAppointmentsPage() {
     const telehealth = appointments.filter(a => a.location_type === "Telehealth").length;
     const month = appointments.filter(a => {
       if (!a.appointment_date) return false;
-      const d = new Date(a.appointment_date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      const d = parseLocalDate(a.appointment_date);
+      return d ? d.getMonth() === currentMonth && d.getFullYear() === currentYear : false;
     }).length;
 
     return { upcoming, completed, telehealth, month };
   }, [appointments]);
 
-  // Filtered appointments computation
   const filteredAppointments = useMemo(() => {
     return appointments.filter((apt) => {
       const matchesSearch = 
@@ -169,7 +174,7 @@ export default function PatientAppointmentsPage() {
         </button>
       </div>
 
-      {/* Section 2: Quick Metrics Dashboard */}
+      {/* Quick Metrics Dashboard */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
@@ -209,7 +214,7 @@ export default function PatientAppointmentsPage() {
         </div>
       </div>
 
-      {/* Section 6 & 7: Appointment Preparation & AI Assistance Banner */}
+      {/* Preparation & AI Assistant Banner */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border border-blue-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
           <div>
@@ -281,9 +286,8 @@ export default function PatientAppointmentsPage() {
         </div>
       </div>
 
-      {/* Section 4 & 5: Search, Filter, and View Controls */}
+      {/* Search & Filter Controls */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        {/* Search Input */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -295,7 +299,6 @@ export default function PatientAppointmentsPage() {
           />
         </div>
 
-        {/* Filter Pills */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl overflow-x-auto max-w-full">
           {["All", "Upcoming", "Completed", "Cancelled", "Telehealth", "In-Person"].map((filter) => (
             <button
@@ -312,7 +315,6 @@ export default function PatientAppointmentsPage() {
           ))}
         </div>
 
-        {/* View Switcher */}
         <div className="flex items-center bg-slate-100 p-1 rounded-2xl self-end md:self-auto">
           {(["list", "week", "month"] as const).map((view) => (
             <button
@@ -330,13 +332,12 @@ export default function PatientAppointmentsPage() {
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Grid View */}
       {loading ? (
         <div className="p-16 text-center text-slate-400 font-bold text-xs bg-white rounded-3xl border border-slate-100 shadow-sm">
           Loading appointments...
         </div>
       ) : activeView !== "list" ? (
-        /* Section 4: Calendar View */
         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-center">
           <div className="max-w-md mx-auto space-y-3">
             <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto">
@@ -359,7 +360,6 @@ export default function PatientAppointmentsPage() {
           </div>
         </div>
       ) : filteredAppointments.length === 0 ? (
-        /* Section 1: Empty State Component */
         <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-3xl border border-slate-100 shadow-sm my-2">
           <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 shadow-xs">
             <CalendarIcon className="w-10 h-10" />
@@ -384,11 +384,11 @@ export default function PatientAppointmentsPage() {
           </div>
         </div>
       ) : (
-        /* Section 3: Rich Cards Grid Layout */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredAppointments.map((apt) => {
             const isVideo = apt.location_type === "Telehealth";
             const statusLower = (apt.status || "pending").toLowerCase();
+            const parsedDate = parseLocalDate(apt.appointment_date);
 
             return (
               <div key={apt.id} className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-4">
@@ -413,7 +413,7 @@ export default function PatientAppointmentsPage() {
                     <div className="flex items-center justify-end gap-1 font-bold text-slate-800">
                       <CalendarIcon className="w-3.5 h-3.5 text-blue-600" />
                       <span>
-                        {apt.appointment_date ? new Date(apt.appointment_date).toLocaleDateString("en-GB", {
+                        {parsedDate ? parsedDate.toLocaleDateString("en-GB", {
                           day: "2-digit",
                           month: "short",
                         }) : "N/A"}
@@ -435,7 +435,6 @@ export default function PatientAppointmentsPage() {
                   <p className="text-xs font-semibold text-slate-700 italic">"{apt.reason || "General Checkup"}"</p>
                 </div>
 
-                {/* Card Actions */}
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button
                     onClick={() => alert(`Cancelling appointment ID ${apt.id}`)}
@@ -464,7 +463,7 @@ export default function PatientAppointmentsPage() {
         </div>
       )}
 
-      {/* Section 9: Floating Action Controls Button */}
+      {/* Floating Action Menu */}
       <div className="fixed bottom-8 right-8 flex flex-col items-end gap-2 group z-40">
         <div className="hidden group-hover:flex flex-col gap-2 transition-all duration-200 transform translate-y-1">
           <button 

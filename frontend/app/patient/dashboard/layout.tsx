@@ -40,12 +40,12 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex justify-center items-center p-0 md:p-6">
-      <div className="w-full max-w-7xl bg-slate-50 md:rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col md:flex-row min-h-[92vh]">
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex justify-center items-stretch p-0 md:p-4">
+      <div className="w-full max-w-7xl bg-slate-50 md:rounded-3xl shadow-xl overflow-hidden border border-slate-200/80 flex flex-col md:flex-row min-h-screen md:min-h-[95vh]">
         
         {/* SIDEBAR NAVIGATION */}
-        <aside className="w-full md:w-64 bg-white border-r border-slate-100 p-6 flex flex-col justify-between hidden md:flex">
-          <div className="space-y-8">
+        <aside className="w-full md:w-64 bg-white border-r border-slate-100 p-5 flex flex-col justify-between hidden md:flex shrink-0">
+          <div className="space-y-6">
             {/* Logo */}
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => router.push("/")}>
               <div className="w-9 h-9 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
@@ -55,56 +55,56 @@ export default function DashboardLayout({
             </div>
 
             {/* Nav Menu Items */}
-            <nav className="space-y-2">
+            <nav className="space-y-1.5">
               <button 
                 onClick={() => router.push("/patient/dashboard")}
-                className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 font-bold rounded-2xl text-xs transition cursor-pointer ${
                   isActive("/patient/dashboard") 
                     ? "bg-blue-50 text-blue-600" 
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
-                <LayoutDashboard size={18} /> Dashboard
+                <LayoutDashboard size={16} /> Dashboard
               </button>
 
               <button 
                 onClick={() => router.push("/patient/dashboard/appointments")}
-                className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 font-bold rounded-2xl text-xs transition cursor-pointer ${
                   isActive("/patient/dashboard/appointments") 
                     ? "bg-blue-50 text-blue-600" 
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
-                <Calendar size={18} /> Book Appointment
+                <Calendar size={16} /> Book Appointment
               </button>
 
               <button 
                 onClick={() => router.push("/patient/dashboard/consultations")}
-                className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 font-bold rounded-2xl text-xs transition cursor-pointer ${
                   isActive("/patient/dashboard/consultations") 
                     ? "bg-blue-50 text-blue-600" 
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
-                <CalendarCheck size={18} /> Booked Consultations
+                <CalendarCheck size={16} /> Booked Consultations
               </button>
 
               <button 
                 onClick={() => router.push("/patient/dashboard/medical-records")}
-                className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 font-bold rounded-2xl text-xs transition cursor-pointer ${
                   isActive("/patient/dashboard/medical-records") 
                     ? "bg-blue-50 text-blue-600" 
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
-                <FileText size={18} /> Medical Records
+                <FileText size={16} /> Medical Records
               </button>
             </nav>
           </div>
 
           {/* Sidebar Footer / User Info */}
-          <div className="pt-6 border-t border-slate-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-sm">
+          <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-xs shrink-0">
               {getInitials(userName)}
             </div>
             <div className="overflow-hidden">
@@ -115,31 +115,40 @@ export default function DashboardLayout({
         </aside>
 
         {/* MAIN CONTENT AREA */}
-        <main className="flex-1 p-6 md:p-10 overflow-y-auto max-h-[92vh]">
-          {/* Top Search & Profile Header Bar */}
-          <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+          {/* STICKY TOP HEADER (Compact Single-Row Search Bar) */}
+          <header className="sticky top-0 z-30 bg-slate-50/90 backdrop-blur-md border-b border-slate-200/60 px-4 md:px-6 py-3 flex items-center justify-between gap-4">
             <div className="relative flex-1 max-w-md">
               <input
                 type="text"
                 placeholder="Search appointments, health metrics, reports..."
-                className="w-full bg-white border border-slate-200/85 shadow-sm rounded-2xl py-3 pl-11 pr-4 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition"
+                className="w-full bg-white border border-slate-200/90 rounded-full py-2 pl-10 pr-4 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-2xs transition"
               />
-              <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             </div>
 
-            <div className="flex items-center gap-3 self-end md:self-auto">
-              <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200/85 flex items-center justify-center text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50 transition">
-                <Bell size={18} />
-              </div>
-              <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200/85 flex items-center justify-center text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50 transition">
-                <Mail size={18} />
-              </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button 
+                aria-label="Notifications"
+                className="w-9 h-9 rounded-full bg-white border border-slate-200/90 flex items-center justify-center text-slate-600 hover:bg-slate-100 shadow-2xs transition cursor-pointer"
+              >
+                <Bell size={16} />
+              </button>
+              <button 
+                aria-label="Messages"
+                className="w-9 h-9 rounded-full bg-white border border-slate-200/90 flex items-center justify-center text-slate-600 hover:bg-slate-100 shadow-2xs transition cursor-pointer"
+              >
+                <Mail size={16} />
+              </button>
             </div>
           </header>
 
-          {/* Child Page Content Renders Here */}
-          {children}
-        </main>
+          {/* Child Page Content Container (Tight padding: pt-4 px-4 md:px-6) */}
+          <main className="flex-1 p-4 md:p-6 space-y-4">
+            {children}
+          </main>
+        </div>
+
       </div>
     </div>
   );
