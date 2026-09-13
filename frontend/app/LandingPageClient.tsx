@@ -107,22 +107,26 @@ export default function LandingPageClient() {
     fetchPosts();
   }, []);
 
-  // Fetch dynamic Specialties and Doctors from your Backend API with fallbacks
+  // Fetch dynamic Specialties and Doctors from Backend API with fallbacks
   useEffect(() => {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-backend.onrender.com/api";
 
     async function fetchData() {
       try {
         const specRes = await fetch(`${backendUrl}/specialties`);
-        const specData = await specRes.json();
-        if (specData.success && specData.data?.length > 0) {
-          setSpecialties(specData.data);
+        if (specRes.ok) {
+          const specData = await specRes.json();
+          if (specData.success && specData.data?.length > 0) {
+            setSpecialties(specData.data);
+          }
         }
 
         const docRes = await fetch(`${backendUrl}/doctors`);
-        const docData = await docRes.json();
-        if (docData.success && docData.data?.length > 0) {
-          setDoctors(docData.data.slice(0, 2));
+        if (docRes.ok) {
+          const docData = await docRes.json();
+          if (docData.success && docData.data?.length > 0) {
+            setDoctors(docData.data.slice(0, 2));
+          }
         }
       } catch (error) {
         console.error("Backend fetch error (using fallback data):", error);
@@ -133,9 +137,9 @@ export default function LandingPageClient() {
 
   const getSpecialtyIcon = (name: string) => {
     const lower = name?.toLowerCase() || "";
-    if (lower.includes('cardio')) return Activity;
-    if (lower.includes('neuro')) return BrainCircuit;
-    if (lower.includes('pediatric')) return ShieldCheck;
+    if (lower.includes("cardio")) return Activity;
+    if (lower.includes("neuro")) return BrainCircuit;
+    if (lower.includes("pediatric")) return ShieldCheck;
     return Stethoscope;
   };
 
@@ -252,6 +256,7 @@ export default function LandingPageClient() {
             </div>
           </section>
 
+          {/* QUICK ACTIONS */}
           <section id="consult" className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
             <Link href="/patient/dashboard?tab=book" className="bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm hover:shadow-md hover:border-blue-300 transition group flex flex-col justify-between space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition">
@@ -294,11 +299,12 @@ export default function LandingPageClient() {
             </Link>
           </section>
 
+          {/* HEALTH CALCULATORS */}
           <section id="tools">
             <HealthCalculators />
           </section>
 
-          {/* DYNAMIC SPECIALTIES SECTION (Clickable to Filter/Book) */}
+          {/* DYNAMIC SPECIALTIES SECTION */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -312,8 +318,8 @@ export default function LandingPageClient() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {specialties.map((spec, i) => {
-                const Icon = getSpecialtyIcon(spec.specialty);
-                const specialtyName = spec.specialty || spec.name;
+                const specialtyName = spec.specialty || spec.name || "General Medicine";
+                const Icon = getSpecialtyIcon(specialtyName);
                 return (
                   <Link
                     key={i}
@@ -333,7 +339,7 @@ export default function LandingPageClient() {
             </div>
           </section>
 
-          {/* DYNAMIC TOP RATED DOCTORS SECTION (Dynamic Booking Links) */}
+          {/* DYNAMIC TOP RATED DOCTORS SECTION */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -345,8 +351,8 @@ export default function LandingPageClient() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {doctors.map((doc, i) => {
                 const docId = doc.id || doc._id || `doc-${i}`;
-                const docName = doc.name || doc.full_name;
-                const docSpecialty = doc.specialty;
+                const docName = doc.name || doc.full_name || "Doctor";
+                const docSpecialty = doc.specialty || "General Physician";
 
                 return (
                   <div key={docId} className="bg-white p-6 rounded-2xl border border-slate-200/85 shadow-sm flex flex-col sm:flex-row justify-between gap-4">

@@ -8,17 +8,32 @@
 }
 
 body {
-  background: #f8fafc; /* Lighter background for better contrast in clinical settings */
-  color: #0f172a;
+  background: #F8FAFC;
+  color: #0F172A;
   min-height: 100vh;
-  overflow-x: hidden; /* Prevents horizontal shaking seen in the video */
+  overflow-x: hidden;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-/* Custom scrollbar for the Clinical Console */
+/* Smooth micro-animations for floating trust badges */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float-slow {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 7s ease-in-out 2s infinite;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #CBD5E1;
   border-radius: 10px;
 }

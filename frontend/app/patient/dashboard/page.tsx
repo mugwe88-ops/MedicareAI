@@ -1,13 +1,12 @@
-// frontend/app/patient/dashboard/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Calendar, Clock, Pill, FileText, MessageSquare, Shield, Activity, 
-  PhoneCall, Users, Sparkles, ArrowRight, ChevronRight, RefreshCw, LogOut,
-  Video, Upload, UserPlus, Heart, Thermometer, Droplet, CheckCircle2,
-  AlertTriangle, Navigation, Hospital, ShieldAlert, X, Search, Check
+  PhoneCall, Sparkles, ArrowRight, ChevronRight, RefreshCw, LogOut,
+  Video, Upload, UserPlus, Heart, Droplet, CheckCircle2,
+  AlertTriangle, ShieldAlert, X, Check
 } from "lucide-react";
 
 interface PatientProfile {
@@ -112,19 +111,19 @@ export default function PatientDashboardPage() {
     doctor: "Dr. Robert Vance"
   });
 
-  const [medicationDue, setMedicationDue] = useState<Medication>({
+  const [medicationDue] = useState<Medication>({
     name: "Amlodipine",
     dosage: "5mg - 1 Tablet",
     dueTime: "In 30 mins"
   });
 
-  const [pendingLab, setPendingLab] = useState<LabRecord>({
+  const [pendingLab] = useState<LabRecord>({
     name: "Lipid Profile & Complete Blood Count",
     status: "Results ready",
     date: "Sep 12, 2026"
   });
 
-  const [doctorMessage, setDoctorMessage] = useState<DoctorMessage>({
+  const [doctorMessage] = useState<DoctorMessage>({
     doctor: "Dr. Robert Vance",
     preview: "Your blood pressure readings look stable this week. Keep up the low sodium diet.",
     unread: true,
@@ -184,6 +183,7 @@ export default function PatientDashboardPage() {
       }
     } catch (err) {
       console.error("Dashboard sync offline:", err);
+      setErrorMsg("Offline mode active. Displaying cached medical records.");
     } finally {
       setLoading(false);
     }
@@ -201,7 +201,9 @@ export default function PatientDashboardPage() {
     setAiQuery(textToSearch);
 
     setTimeout(() => {
-      setAiResponse(`Hello ${patient.name}, regarding: "${textToSearch}"\n\nI have evaluated your profile chart. Your current vitals show Blood Pressure at ${vitals.bloodPressure} (Normal range) and Medication Adherence is strong at ${vitals.adherence}. Your next appointment is scheduled for ${nextAppointment.time} with ${nextAppointment.doctor}. Let me know if you would like me to summarize your full lab report or contact your doctor.`);
+      setAiResponse(
+        `Hello ${patient.name}, regarding: "${textToSearch}"\n\nI have evaluated your profile chart. Your current vitals show Blood Pressure at ${vitals.bloodPressure} (Normal range) and Medication Adherence is strong at ${vitals.adherence}. Your next appointment is scheduled for ${nextAppointment.time} with ${nextAppointment.doctor}. Let me know if you would like me to summarize your full lab report or contact your doctor.`
+      );
       setIsAiLoading(false);
     }, 1100);
   };
@@ -224,7 +226,6 @@ export default function PatientDashboardPage() {
         <div className="absolute right-1/3 -bottom-16 w-48 h-48 bg-blue-400/20 rounded-full blur-xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          
           <div className="flex items-center gap-4 sm:gap-5">
             <div className="relative">
               {patient.avatarUrl ? (
@@ -272,7 +273,6 @@ export default function PatientDashboardPage() {
               <LogOut size={16} />
             </button>
           </div>
-
         </div>
       </div>
 
@@ -285,7 +285,6 @@ export default function PatientDashboardPage() {
 
       {/* 2. QUICK ACTIONS HUB */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
-        
         <button 
           onClick={() => router.push("/patient/dashboard/appointments")}
           className="p-4 bg-white hover:bg-blue-50/50 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition text-left group flex items-center gap-3.5 cursor-pointer"
@@ -337,10 +336,9 @@ export default function PatientDashboardPage() {
             <p className="text-[11px] text-slate-400 font-medium">Browse verified physicians</p>
           </div>
         </button>
-
       </div>
 
-      {/* 3. TODAY'S HEALTH HUB (PRIORITIZED GRID) */}
+      {/* 3. TODAY'S HEALTH HUB */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs uppercase tracking-wider text-slate-400 font-black flex items-center gap-1.5">
@@ -350,8 +348,6 @@ export default function PatientDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          
-          {/* Next Appointment Card (Largest - Col 6) */}
           <div 
             onClick={() => router.push("/patient/dashboard/consultations")}
             className="md:col-span-6 bg-gradient-to-br from-white to-blue-50/30 p-6 rounded-3xl border border-blue-200/80 shadow-sm hover:shadow-md transition cursor-pointer flex flex-col justify-between group"
@@ -383,7 +379,6 @@ export default function PatientDashboardPage() {
             </div>
           </div>
 
-          {/* Medication Due Card (Col 3 - Red/Orange Priority Highlight) */}
           <div 
             onClick={() => router.push("/patient/dashboard/medical-records")}
             className="md:col-span-3 bg-gradient-to-br from-white to-amber-50/40 p-5 rounded-3xl border border-amber-200 shadow-sm hover:shadow-md transition cursor-pointer flex flex-col justify-between group"
@@ -412,10 +407,7 @@ export default function PatientDashboardPage() {
             </div>
           </div>
 
-          {/* Doctor Message & Lab Results (Col 3 - Stacked layout) */}
           <div className="md:col-span-3 space-y-4 flex flex-col justify-between">
-            
-            {/* Doctor Message */}
             <div 
               onClick={() => router.push("/patient/dashboard/consultations")}
               className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-sm hover:border-indigo-300 transition cursor-pointer group flex-1"
@@ -433,7 +425,6 @@ export default function PatientDashboardPage() {
               <p className="text-[11px] text-slate-500 line-clamp-1 font-medium mt-0.5">{doctorMessage.preview}</p>
             </div>
 
-            {/* Lab Results */}
             <div 
               onClick={() => router.push("/patient/dashboard/medical-records")}
               className="bg-emerald-50/50 p-4 rounded-3xl border border-emerald-200/80 shadow-sm hover:border-emerald-400 transition cursor-pointer group flex-1"
@@ -449,18 +440,13 @@ export default function PatientDashboardPage() {
               <h4 className="font-black text-slate-900 text-xs mt-2 truncate">{pendingLab.name}</h4>
               <p className="text-[11px] font-bold text-emerald-700 mt-0.5">View AI Summary →</p>
             </div>
-
           </div>
-
         </div>
       </div>
 
       {/* 4. HEALTH SNAPSHOT & TIMELINE GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left Column: Health Snapshot Matrix (Col 7) */}
         <div className="lg:col-span-7 space-y-6">
-          
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
@@ -475,7 +461,6 @@ export default function PatientDashboardPage() {
               </button>
             </div>
 
-            {/* Metrics Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
@@ -527,7 +512,6 @@ export default function PatientDashboardPage() {
             </div>
           </div>
 
-          {/* Recent Activity Feed */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-black text-slate-900 tracking-tight">Recent Activity Feed</h3>
@@ -554,12 +538,9 @@ export default function PatientDashboardPage() {
               ))}
             </div>
           </div>
-
         </div>
 
-        {/* Right Column: Today's Timeline Schedule (Col 5) */}
         <div className="lg:col-span-5 space-y-6">
-          
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
@@ -599,7 +580,6 @@ export default function PatientDashboardPage() {
             </div>
           </div>
 
-          {/* Linked Insurance & Profile summary */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
             <h4 className="text-xs uppercase tracking-wider text-slate-400 font-black">Insurance & Coverage</h4>
             <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-200/80 flex items-center justify-between text-xs">
@@ -613,12 +593,10 @@ export default function PatientDashboardPage() {
               <span className="text-[10px] bg-emerald-600 text-white font-extrabold px-2.5 py-1 rounded-lg">Verified</span>
             </div>
           </div>
-
         </div>
-
       </div>
 
-      {/* 5. IMPOSSIBLE TO MISS EMERGENCY SOS FLOATING ACTION BUTTON */}
+      {/* 5. EMERGENCY & AI FLOATING ACTION BUTTONS */}
       <button 
         onClick={() => setEmergencyModalOpen(true)}
         className="fixed bottom-6 right-6 z-40 px-5 py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider rounded-full shadow-2xl shadow-rose-600/50 flex items-center gap-2.5 cursor-pointer animate-bounce hover:animate-none transition"
@@ -627,7 +605,6 @@ export default function PatientDashboardPage() {
         <span>Emergency SOS</span>
       </button>
 
-      {/* FLOATING AI ASSISTANT TRIGGER BUTTON */}
       <button 
         onClick={() => setAiModalOpen(true)}
         className="fixed bottom-6 right-48 z-40 p-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-full shadow-xl shadow-blue-600/30 flex items-center gap-2 cursor-pointer transition hidden sm:flex"
@@ -663,84 +640,58 @@ export default function PatientDashboardPage() {
               </a>
               <button 
                 onClick={() => { alert("Location dispatched to nearest hospital."); setEmergencyModalOpen(false); }}
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center justify-center gap-2"
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition"
               >
-                <Hospital size={16} /> Alert Nearest Hospital (Juja/Nairobi)
+                Dispatch Emergency GPS Location
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* AI ASSISTANT MODAL WITH SUGGESTION CHIPS */}
+      {/* AI ASSISTANT MODAL */}
       {aiModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-blue-100">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <span className="text-xs uppercase tracking-wider text-blue-600 font-black flex items-center gap-1.5">
-                <Sparkles size={16} className="text-blue-500" /> SwiftMD AI Health Assistant
-              </span>
-              <button onClick={() => setAiModalOpen(false)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">
+              <div className="flex items-center gap-2 text-blue-600 font-black text-sm">
+                <Sparkles size={18} className="text-amber-500" /> AI Health Assistant
+              </div>
+              <button onClick={() => setAiModalOpen(false)} className="text-slate-400 hover:text-slate-700">
                 <X size={18} />
               </button>
             </div>
 
-            {/* Smart Suggestion Chips */}
-            <div className="space-y-1.5">
-              <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Suggested Questions</span>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  "Explain my lab results",
-                  "Check medication interactions",
-                  "Prepare for my appointment",
-                  "Find nearby hospitals"
-                ].map((chip, i) => (
-                  <button 
-                    key={i}
-                    onClick={() => handleAiAsk(chip)}
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-xl text-[11px] font-bold transition cursor-pointer"
-                  >
-                    {chip}
-                  </button>
-                ))}
+            <div className="space-y-3">
+              <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 text-xs text-slate-700 space-y-2 max-h-60 overflow-y-auto">
+                {isAiLoading ? (
+                  <div className="flex items-center gap-2 text-blue-600 font-bold">
+                    <RefreshCw size={14} className="animate-spin" /> Analyzing medical profile & vitals...
+                  </div>
+                ) : aiResponse ? (
+                  <p className="whitespace-pre-line leading-relaxed font-medium">{aiResponse}</p>
+                ) : (
+                  <p className="text-slate-500">Ask any question about your medication schedule, symptoms, or lab results.</p>
+                )}
               </div>
-            </div>
 
-            {/* AI Query Form */}
-            <form onSubmit={(e) => { e.preventDefault(); handleAiAsk(); }} className="relative">
-              <input
-                type="text"
-                placeholder="Ask your health query..."
-                value={aiQuery}
-                onChange={(e) => setAiQuery(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-4 pr-20 py-3 text-xs font-medium text-slate-800 outline-none focus:border-blue-600 transition"
-              />
-              <button 
-                type="submit"
-                className="absolute right-2 top-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                Ask
-              </button>
-            </form>
-
-            {isAiLoading ? (
-              <div className="py-8 text-center space-y-2">
-                <Sparkles size={28} className="mx-auto text-blue-600 animate-spin" />
-                <p className="text-xs text-slate-500 font-bold">Analyzing your live health profile...</p>
-              </div>
-            ) : aiResponse ? (
-              <div className="space-y-3">
-                <div className="bg-blue-50/70 p-4 rounded-2xl border border-blue-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed font-medium">
-                  {aiResponse}
-                </div>
+              <div className="flex gap-2">
+                <input 
+                  type="text"
+                  placeholder="e.g. Is my blood pressure reading healthy?"
+                  value={aiQuery}
+                  onChange={(e) => setAiQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAiAsk()}
+                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-blue-500"
+                />
                 <button 
-                  onClick={() => { setAiModalOpen(false); router.push("/patient/dashboard/consultations"); }}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition cursor-pointer"
+                  onClick={() => handleAiAsk()}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition"
                 >
-                  Book Consultation with Doctor
+                  Ask
                 </button>
               </div>
-            ) : null}
+            </div>
           </div>
         </div>
       )}
