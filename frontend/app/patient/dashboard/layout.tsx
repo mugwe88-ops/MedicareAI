@@ -44,9 +44,9 @@ export default function DashboardLayout({
             {/* Logo */}
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => router.push("/")}>
               <div className="w-9 h-9 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <span className="text-white font-black text-lg">M</span>
+                <span className="text-white font-black text-lg">S</span>
               </div>
-              <span className="text-slate-900 font-black text-lg tracking-tight">MedicareAI</span>
+              <span className="text-slate-900 font-black text-lg tracking-tight">Swift MD</span>
             </div>
 
             {/* Nav Menu Items */}
@@ -74,9 +74,9 @@ export default function DashboardLayout({
               </button>
 
               <button 
-                onClick={() => router.push("/patient/dashboard/appointments")}
+                onClick={() => router.push("/patient/dashboard/consultations")}
                 className={`w-full flex items-center gap-3 px-4 py-3 font-bold rounded-2xl text-sm transition ${
-                  isActive("/patient/dashboard/appointments") 
+                  isActive("/patient/dashboard/consultations") 
                     ? "bg-blue-50 text-blue-600" 
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                 }`}
