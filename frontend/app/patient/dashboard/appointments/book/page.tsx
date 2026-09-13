@@ -3,12 +3,24 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck, Calendar, Video, Eye, AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ShieldCheck,
+  Calendar,
+  Video,
+  Eye,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  UserCheck,
+} from "lucide-react";
 
 interface Doctor {
   id: number;
   name: string;
-  specialization: string;
+  specialization?: string;
+  specialty?: string;
+  department?: string;
 }
 
 interface AvailabilitySlot {
@@ -43,7 +55,7 @@ export default function BookAppointmentPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
-  
+
   const [selectedSlot, setSelectedSlot] = useState<{ day: string; time: string } | null>(null);
   const [reason, setReason] = useState<string>("");
 
@@ -62,7 +74,7 @@ export default function BookAppointmentPage() {
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [successMsg, setSuccessMsg] = useState<string>("");
 
-  const API_BASE = "https://medicareai-1.onrender.com";
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://medicareai-1.onrender.com";
 
   const getNextDateForDay = (dayName: string): string => {
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -89,10 +101,12 @@ export default function BookAppointmentPage() {
     const cleanDate = date.replace(/-/g, "");
     const cleanTime = time.replace(/:/g, "") + "00";
     const startDateTime = `${cleanDate}T${cleanTime}`;
-    
+
     const title = encodeURIComponent(`Consultation with Dr. ${doctorName}`);
-    const details = encodeURIComponent(`Reason for visit: ${visitReason}. Body System: ${bodySystem}. Pain Level: ${painScale}/10. Join via MedicareAI.`);
-    const location = encodeURIComponent("MedicareAI Telehealth Room");
+    const details = encodeURIComponent(
+      `Reason for visit: ${visitReason}. Body System: ${bodySystem}. Pain Level: ${painScale}/10. Join via SwiftMD.`
+    );
+    const location = encodeURIComponent("SwiftMD Telehealth Room");
 
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDateTime}/${startDateTime}&details=${details}&location=${location}`;
   };
@@ -111,12 +125,11 @@ export default function BookAppointmentPage() {
       });
       if (!res.ok) throw new Error("Failed to load consultations");
       const data = await res.json();
-      
-      // Robust extraction supporting multiple backend JSON structures
-      const apptList = Array.isArray(data) 
-        ? data 
+
+      const apptList = Array.isArray(data)
+        ? data
         : data.appointments || data.data || data.consultations || [];
-      
+
       setConsultations(apptList);
     } catch (err) {
       console.error("Consultations Fetch Error:", err);
@@ -153,7 +166,7 @@ export default function BookAppointmentPage() {
       });
 
     fetchConsultations(token);
-  }, [router]);
+  }, [router, API_BASE]);
 
   const handleDoctorSelect = async (doctorId: string) => {
     setSelectedDoctorId(doctorId);
@@ -181,6 +194,12 @@ export default function BookAppointmentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+    setSuccessMsg("");
+
+    if (!selectedDoctorId) {
+      setErrorMsg("Please select a doctor.");
+      return;
+    }
 
     if (!selectedSlot) {
       setErrorMsg("Please select a time slot from the schedule.");
@@ -199,12 +218,12 @@ export default function BookAppointmentPage() {
 
     const formattedSymptoms = associatedSymptoms.length > 0 ? associatedSymptoms.join(", ") : "None";
     const comprehensiveReason = [
-      reason.trim() ? `Chief Complaint: ${reason}` : "Chief Complaint: General Consultation",
+      reason.trim() ? `Chief Complaint: ${reason.trim()}` : "Chief Complaint: General Consultation",
       `Body System: ${bodySystem}`,
       `Severity: ${symptomSeverity}`,
       `Duration: ${symptomDuration}`,
       `Associated Symptoms: ${formattedSymptoms}`,
-      `Pain Scale: ${painScale}/10`
+      `Pain Scale: ${painScale}/10`,
     ].join(" | ");
 
     setIsSubmitting(true);
@@ -217,7 +236,7 @@ export default function BookAppointmentPage() {
         },
         body: JSON.stringify({
           doctor_id: parseInt(selectedDoctorId, 10),
-          department: doc?.specialization || "General Medicine",
+          department: doc?.specialization || doc?.specialty || doc?.department || "General Medicine",
           appointment_date: calculatedDate,
           appointment_time: selectedSlot.time,
           reason: comprehensiveReason,
@@ -233,11 +252,12 @@ export default function BookAppointmentPage() {
       if (!res.ok) throw new Error(data.error || data.message || "Booking failed");
 
       setSuccessMsg(`Appointment booked for ${selectedSlot.day} (${calculatedDate}) at ${selectedSlot.time}!`);
-      
+
       await fetchConsultations(token);
-      
+
       setSelectedSlot(null);
       setReason("");
+      setAssociatedSymptoms([]);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to issue appointment.");
     } finally {
@@ -254,11 +274,9 @@ export default function BookAppointmentPage() {
             onClick={() => router.back()}
             className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 mb-2 cursor-pointer transition-colors"
           >
-            <ArrowLeft size={14} /> Back to Appointments
+            <ArrowLeft size={14} /> Back to Dashboard
           </button>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-            Book Appointment
-          </h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Book Appointment</h1>
           <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">
             Secure Clinical Entry
           </p>
@@ -329,7 +347,7 @@ export default function BookAppointmentPage() {
               </option>
               {doctors.map((doc) => (
                 <option key={doc.id} value={doc.id}>
-                  Dr. {doc.name} ({doc.specialization || "General Medicine"})
+                  Dr. {doc.name} ({doc.specialization || doc.specialty || doc.department || "General Medicine"})
                 </option>
               ))}
             </select>
@@ -369,14 +387,20 @@ export default function BookAppointmentPage() {
                         }`}
                       >
                         <span className="text-xs font-black flex items-center justify-between">
-                          <span>🕒 {s.day_of_week}</span>
+                          <span className="flex items-center gap-1">
+                            <Clock size={12} /> {s.day_of_week}
+                          </span>
                           {isSelected && (
                             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
                               Selected
                             </span>
                           )}
                         </span>
-                        <span className={`text-xs mt-1 font-mono font-medium ${isSelected ? "text-blue-100" : "text-slate-500"}`}>
+                        <span
+                          className={`text-xs mt-1 font-mono font-medium ${
+                            isSelected ? "text-blue-100" : "text-slate-500"
+                          }`}
+                        >
                           {startTimeClean} - {s.end_time.slice(0, 5)}
                         </span>
                       </button>
@@ -477,13 +501,15 @@ export default function BookAppointmentPage() {
               <label className="text-xs font-black text-slate-500 uppercase tracking-wider">
                 Pain Scale (0 = None, 10 = Unbearable)
               </label>
-              <span className={`text-xs font-black px-3 py-1 rounded-full border ${
-                painScale <= 3
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                  : painScale <= 6
-                  ? "bg-amber-50 text-amber-700 border-amber-100"
-                  : "bg-rose-50 text-rose-700 border-rose-100"
-              }`}>
+              <span
+                className={`text-xs font-black px-3 py-1 rounded-full border ${
+                  painScale <= 3
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                    : painScale <= 6
+                    ? "bg-amber-50 text-amber-700 border-amber-100"
+                    : "bg-rose-50 text-rose-700 border-rose-100"
+                }`}
+              >
                 Level: {painScale} / 10
               </span>
             </div>
@@ -555,16 +581,20 @@ export default function BookAppointmentPage() {
                 {consultations.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-4 font-bold text-slate-900">
-                      <Link 
+                      <Link
                         href={`/patient/dashboard/appointments/${item.id}`}
                         className="hover:text-blue-600 transition"
                       >
                         {item.doctor_name || "Doctor"}
                       </Link>
-                      <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">{item.department || "General Medicine"}</span>
+                      <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        {item.department || "General Medicine"}
+                      </span>
                     </td>
                     <td className="py-4 text-slate-600">
-                      {item.appointment_date ? `${item.appointment_date.split('T')[0]} at ${item.appointment_time || ''}` : 'Not Scheduled'}
+                      {item.appointment_date
+                        ? `${item.appointment_date.split("T")[0]} at ${item.appointment_time || ""}`
+                        : "Not Scheduled"}
                     </td>
                     <td className="py-4">
                       <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[11px] font-medium italic">
@@ -573,7 +603,7 @@ export default function BookAppointmentPage() {
                     </td>
                     <td className="py-4">
                       <span className="bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
-                        {item.status || 'CONFIRMED'}
+                        {item.status || "CONFIRMED"}
                       </span>
                     </td>
                     <td className="py-4 text-right space-x-2">
