@@ -1,220 +1,880 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  Copy,
+  Calendar as CalendarIcon,
+  Clock,
+  User,
+  Check,
+  Video,
+  UserCheck,
+  Zap,
+  Lock,
+  Plus,
+  Trash2,
+  Sliders,
+  Sparkles,
+  Building2,
+  Globe,
+  Settings,
+  X,
+} from "lucide-react";
 
-interface DaySchedule {
-  day: number;
-  status: "OPEN" | "BOOKED" | "OFF";
-  shifts: string;
+// --- TYPES ---
+export type DayStatus =
+  | "available"
+  | "few_slots"
+  | "nearly_full"
+  | "fully_booked"
+  | "off"
+  | "leave"
+  | "holiday";
+
+export interface Shift {
+  id: string;
+  name: string; // Morning, Afternoon, Evening
+  startTime: string; // e.g., "08:00"
+  endTime: string; // e.g., "12:00"
+  isTelehealth: boolean;
+  isInPerson: boolean;
+  maxPatients: number;
 }
 
-const initialMonthData: Record<number, DaySchedule> = {
-  1: { day: 1, status: "OFF", shifts: "Off Duty" },
-  2: { day: 2, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  3: { day: 3, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  4: { day: 4, status: "BOOKED", shifts: "10:00 AM - 02:00 PM (Patient Confirmed)" },
-  5: { day: 5, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  6: { day: 6, status: "OPEN", shifts: "09:00 AM - 01:00 PM" },
-  7: { day: 7, status: "BOOKED", shifts: "11:00 AM - 03:00 PM (Patient Confirmed)" },
-  8: { day: 8, status: "OFF", shifts: "Off Duty" },
-  9: { day: 9, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  10: { day: 10, status: "BOOKED", shifts: "09:00 AM - 12:00 PM (Patient Confirmed)" },
-  11: { day: 11, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  12: { day: 12, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  13: { day: 13, status: "BOOKED", shifts: "01:00 PM - 05:00 PM (Patient Confirmed)" },
-  14: { day: 14, status: "OPEN", shifts: "09:00 AM - 03:00 PM" },
-  15: { day: 15, status: "OFF", shifts: "Off Duty" },
-  16: { day: 16, status: "BOOKED", shifts: "10:00 AM - 02:00 PM (Patient Confirmed)" },
-  17: { day: 17, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  18: { day: 18, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  19: { day: 19, status: "BOOKED", shifts: "09:00 AM - 01:00 PM (Patient Confirmed)" },
-  20: { day: 20, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  21: { day: 21, status: "OPEN", shifts: "09:00 AM - 02:00 PM" },
-  22: { day: 22, status: "OFF", shifts: "Off Duty" },
-  23: { day: 23, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  24: { day: 24, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  25: { day: 25, status: "BOOKED", shifts: "11:00 AM - 04:00 PM (Patient Confirmed)" },
-  26: { day: 26, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
-  27: { day: 27, status: "OPEN", shifts: "09:00 AM - 01:00 PM" },
-  28: { day: 28, status: "BOOKED", shifts: "10:00 AM - 02:00 PM (Patient Confirmed)" },
-  29: { day: 29, status: "OFF", shifts: "Off Duty" },
-  30: { day: 30, status: "OPEN", shifts: "09:00 AM - 05:00 PM" },
+export interface Appointment {
+  id: string;
+  time: string;
+  patientName: string;
+  type: "telehealth" | "in_person";
+  status: "confirmed" | "completed" | "cancelled";
+}
+
+export interface DaySchedule {
+  dateStr: string; // YYYY-MM-DD
+  status: DayStatus;
+  shifts: Shift[];
+  appointments: Appointment[];
+  maxDailyPatients: number;
+  bufferMinutes: number;
+  autoBreakCount: number;
+  clinicLocation: string;
+  isEmergencyAvailable: boolean;
+}
+
+// --- COLOR MAPS ---
+const STATUS_COLORS: Record<
+  DayStatus,
+  { bg: string; border: string; text: string; dot: string; label: string }
+> = {
+  available: {
+    bg: "bg-emerald-50 hover:bg-emerald-100",
+    border: "border-emerald-200",
+    text: "text-emerald-700",
+    dot: "bg-emerald-500",
+    label: "Available",
+  },
+  few_slots: {
+    bg: "bg-amber-50 hover:bg-amber-100",
+    border: "border-amber-200",
+    text: "text-amber-700",
+    dot: "bg-amber-400",
+    label: "Few slots left",
+  },
+  nearly_full: {
+    bg: "bg-orange-50 hover:bg-orange-100",
+    border: "border-orange-200",
+    text: "text-orange-700",
+    dot: "bg-orange-500",
+    label: "Nearly full",
+  },
+  fully_booked: {
+    bg: "bg-rose-50 hover:bg-rose-100",
+    border: "border-rose-200",
+    text: "text-rose-700",
+    dot: "bg-rose-500",
+    label: "Fully Booked",
+  },
+  off: {
+    bg: "bg-slate-50 hover:bg-slate-100",
+    border: "border-slate-200",
+    text: "text-slate-500",
+    dot: "bg-slate-400",
+    label: "Off Duty",
+  },
+  leave: {
+    bg: "bg-purple-50 hover:bg-purple-100",
+    border: "border-purple-200",
+    text: "text-purple-700",
+    dot: "bg-purple-500",
+    label: "On Leave",
+  },
+  holiday: {
+    bg: "bg-sky-50 hover:bg-sky-100",
+    border: "border-sky-200",
+    text: "text-sky-700",
+    dot: "bg-sky-500",
+    label: "Public Holiday",
+  },
 };
 
-export default function DoctorSchedulePage() {
-  const [scheduleData, setScheduleData] = useState<Record<number, DaySchedule>>(initialMonthData);
-  const [selectedDay, setSelectedDay] = useState<number>(1);
-  const [successMsg, setSuccessMsg] = useState("");
+export default function SwiftMDScheduleManager() {
+  // Current Active Date Navigation (Dynamic state)
+  const [currentDate, setCurrentDate] = useState<Date>(new Date(2026, 8, 15)); // Sep 2026
+  const [selectedDateStr, setSelectedDateStr] = useState<string>("2026-09-16");
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
 
-  const weekDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-  const daysArray = Array.from({ length: 30 }, (_, i) => i + 1);
+  // Bulk Apply & Modal States
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [selectedBulkDays, setSelectedBulkDays] = useState<number[]>([
+    1, 2, 3, 4, 5,
+  ]); // Mon-Fri default
 
-  const handleStatusChange = (newStatus: "OPEN" | "BOOKED" | "OFF") => {
-    const defaultShift = newStatus === "OPEN" ? "09:00 AM - 05:00 PM" : newStatus === "BOOKED" ? "Scheduled Patient Session" : "Off Duty";
-    setScheduleData({
-      ...scheduleData,
-      [selectedDay]: { day: selectedDay, status: newStatus, shifts: defaultShift }
-    });
-    setSuccessMsg(`Successfully updated September ${selectedDay}, 2026 to ${newStatus}`);
-    setTimeout(() => setSuccessMsg(""), 3500);
+  // Telehealth & Practice Preferences
+  const [clinicLocation, setClinicLocation] = useState("Nairobi Main Clinic");
+  const [timezone, setTimezone] = useState("Africa/Nairobi (EAT +03:00)");
+
+  // Schedule Storage State
+  const [schedules, setSchedules] = useState<Record<string, DaySchedule>>({
+    "2026-09-16": {
+      dateStr: "2026-09-16",
+      status: "available",
+      shifts: [
+        {
+          id: "s1",
+          name: "Morning",
+          startTime: "08:00",
+          endTime: "12:00",
+          isTelehealth: true,
+          isInPerson: true,
+          maxPatients: 5,
+        },
+        {
+          id: "s2",
+          name: "Afternoon",
+          startTime: "13:00",
+          endTime: "17:00",
+          isTelehealth: true,
+          isInPerson: false,
+          maxPatients: 5,
+        },
+      ],
+      appointments: [
+        {
+          id: "a1",
+          time: "09:00 AM",
+          patientName: "James Mwangi",
+          type: "in_person",
+          status: "confirmed",
+        },
+        {
+          id: "a2",
+          time: "10:30 AM",
+          patientName: "Sarah Korir",
+          type: "telehealth",
+          status: "confirmed",
+        },
+        {
+          id: "a3",
+          time: "02:00 PM",
+          patientName: "David Omondi",
+          type: "telehealth",
+          status: "confirmed",
+        },
+        {
+          id: "a4",
+          time: "03:15 PM",
+          patientName: "Mercy Chebet",
+          type: "telehealth",
+          status: "confirmed",
+        },
+        {
+          id: "a5",
+          time: "04:30 PM",
+          patientName: "Brian Otieno",
+          type: "telehealth",
+          status: "confirmed",
+        },
+      ],
+      maxDailyPatients: 10,
+      bufferMinutes: 15,
+      autoBreakCount: 5,
+      clinicLocation: "Nairobi Main Clinic",
+      isEmergencyAvailable: true,
+    },
+  });
+
+  // Calendar Helpers
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const handlePrevMonth = () =>
+    setCurrentDate(new Date(year, month - 1, 1));
+  const handleNextMonth = () =>
+    setCurrentDate(new Date(year, month + 1, 1));
+  const handleToday = () => {
+    const today = new Date();
+    setCurrentDate(today);
+    setSelectedDateStr(today.toISOString().split("T")[0]);
   };
 
-  const currentSelection = scheduleData[selectedDay] || { status: "OFF", shifts: "Off Duty" };
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayIndex = new Date(year, month, 1).getDay();
+
+  // Selected Day Schedule Getter
+  const selectedDayData: DaySchedule = useMemo(() => {
+    return (
+      schedules[selectedDateStr] || {
+        dateStr: selectedDateStr,
+        status: "off",
+        shifts: [],
+        appointments: [],
+        maxDailyPatients: 10,
+        bufferMinutes: 15,
+        autoBreakCount: 5,
+        clinicLocation: clinicLocation,
+        isEmergencyAvailable: false,
+      }
+    );
+  }, [schedules, selectedDateStr, clinicLocation]);
+
+  // Live Summary Aggregator
+  const monthSummary = useMemo(() => {
+    let available = 0;
+    let booked = 0;
+    let off = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+        day
+      ).padStart(2, "0")}`;
+      const sched = schedules[dStr];
+      if (!sched || sched.status === "off") {
+        off++;
+      } else if (sched.status === "fully_booked") {
+        booked++;
+      } else {
+        available++;
+      }
+    }
+    return { available, booked, off };
+  }, [schedules, year, month, daysInMonth]);
+
+  // --- ACTIONS ---
+  const updateSelectedDayStatus = (newStatus: DayStatus) => {
+    setSchedules((prev) => ({
+      ...prev,
+      [selectedDateStr]: {
+        ...selectedDayData,
+        status: newStatus,
+        shifts:
+          newStatus === "available" && selectedDayData.shifts.length === 0
+            ? [
+                {
+                  id: "s1",
+                  name: "Morning",
+                  startTime: "08:00",
+                  endTime: "12:00",
+                  isTelehealth: true,
+                  isInPerson: true,
+                  maxPatients: 5,
+                },
+                {
+                  id: "s2",
+                  name: "Afternoon",
+                  startTime: "13:00",
+                  endTime: "17:00",
+                  isTelehealth: true,
+                  isInPerson: false,
+                  maxPatients: 5,
+                },
+              ]
+            : selectedDayData.shifts,
+      },
+    }));
+  };
+
+  const toggleEmergencyAvailability = () => {
+    setSchedules((prev) => ({
+      ...prev,
+      [selectedDateStr]: {
+        ...selectedDayData,
+        isEmergencyAvailable: !selectedDayData.isEmergencyAvailable,
+      },
+    }));
+  };
+
+  const applyBulkSchedule = () => {
+    const updated = { ...schedules };
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateObj = new Date(year, month, day);
+      const dayOfWeek = dateObj.getDay(); // 0 = Sun, 1 = Mon ...
+      if (selectedBulkDays.includes(dayOfWeek)) {
+        const dStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+          day
+        ).padStart(2, "0")}`;
+        updated[dStr] = {
+          ...selectedDayData,
+          dateStr: dStr,
+          status: "available",
+        };
+      }
+    }
+    setSchedules(updated);
+    setIsBulkModalOpen(false);
+  };
+
+  const clearEntireMonth = () => {
+    if (confirm("Are you sure you want to clear all schedules for this month?")) {
+      const updated = { ...schedules };
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+          day
+        ).padStart(2, "0")}`;
+        delete updated[dStr];
+      }
+      setSchedules(updated);
+    }
+  };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-        <div>
-          <span className="text-xs uppercase tracking-wider text-blue-600 font-bold block mb-1">Practice Availability</span>
-          <h1 className="text-xl font-extrabold text-gray-900">Schedule Manager</h1>
-          <p className="text-xs text-gray-500 mt-1">Configure your active practice hours and manage monthly shift allocations instantly.</p>
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-6 space-y-6">
+      {/* TOP HEADER & ACTION BAR */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-teal-600 bg-teal-50 px-2.5 py-1 rounded-md">
+                Practice Management
+              </span>
+              <span className="text-xs text-slate-400">•</span>
+              <span className="text-xs text-slate-500 flex items-center gap-1">
+                <Globe className="w-3.5 h-3.5" /> {timezone}
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 mt-1">
+              Schedule & Availability Manager
+            </h1>
+          </div>
+
+          {/* Quick Actions & Live Summary */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-3 bg-slate-100 px-3.5 py-1.5 rounded-xl text-xs font-medium mr-2">
+              <span className="flex items-center gap-1.5 text-emerald-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                {monthSummary.available} Available
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="flex items-center gap-1.5 text-rose-700">
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                {monthSummary.booked} Booked
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="flex items-center gap-1.5 text-slate-500">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                {monthSummary.off} Off
+              </span>
+            </div>
+
+            <button
+              onClick={() => setIsBulkModalOpen(true)}
+              className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors shadow-sm"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              Bulk Recurring Apply
+            </button>
+            <button
+              onClick={clearEntireMonth}
+              className="flex items-center gap-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Clear Month
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700">
-            <CalendarIcon size={16} className="text-blue-600" /> September 2026
+
+        {/* MONTH / NAVIGATION CONTROLS */}
+        <div className="flex flex-wrap items-center justify-between border-t border-slate-100 pt-4 gap-3">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200/60">
+              <button
+                onClick={handlePrevMonth}
+                className="p-1.5 hover:bg-white rounded-lg text-slate-600 transition-all shadow-xs"
+                title="Previous Month"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-4 text-sm font-bold text-slate-800 min-w-[140px] text-center">
+                {monthNames[month]} {year}
+              </span>
+              <button
+                onClick={handleNextMonth}
+                className="p-1.5 hover:bg-white rounded-lg text-slate-600 transition-all shadow-xs"
+                title="Next Month"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <button
+              onClick={handleToday}
+              className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 transition-colors flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Today
+            </button>
+          </div>
+
+          {/* Location & AI Assistant Prompt */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs text-slate-600">
+              <Building2 className="w-3.5 h-3.5 text-teal-600" />
+              <select
+                value={clinicLocation}
+                onChange={(e) => setClinicLocation(e.target.value)}
+                className="bg-transparent font-medium focus:outline-none cursor-pointer"
+              >
+                <option value="Nairobi Main Clinic">Nairobi Main Clinic</option>
+                <option value="Juja Medical Center">Juja Medical Center</option>
+                <option value="Telehealth Only (Remote)">Telehealth Only (Remote)</option>
+              </select>
+            </div>
+
+            <button className="flex items-center gap-1.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white text-xs font-medium px-3 py-2 rounded-xl hover:opacity-95 transition-opacity shadow-xs">
+              <Sparkles className="w-3.5 h-3.5" />
+              AI Auto-Optimize
+            </button>
           </div>
         </div>
       </div>
 
-      {successMsg && (
-        <div className="p-4 bg-green-50 border border-green-200 text-green-700 text-xs rounded-xl flex items-center gap-2 shadow-sm">
-          <CheckCircle2 size={16} /> {successMsg}
-        </div>
-      )}
-
-      {/* Main Grid Layout: Calendar Matrix (Left) + Sidebar Control Panel (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Monthly Availability Matrix */}
-        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 pb-4 border-b border-gray-100">
-            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-              <Clock size={16} className="text-blue-600" /> Monthly Availability Matrix
-            </h3>
-            
+      {/* MAIN GRID LAYOUT: CALENDAR + RIGHT EDIT PANEL */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* CALENDAR MATRIX (8 COLS) */}
+        <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-teal-600" />
+              Monthly Availability Matrix
+            </h2>
             {/* Status Legend */}
-            <div className="flex items-center gap-4 text-[11px] font-semibold text-gray-600 mt-2 sm:mt-0">
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500"></span> Available</span>
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span> Booked</span>
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-gray-300"></span> Off</span>
+            <div className="hidden sm:flex items-center gap-3 text-[11px] font-medium text-slate-500">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" /> Available
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-orange-500" /> Booked
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-slate-400" /> Off
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-purple-500" /> Leave
+              </span>
             </div>
           </div>
 
-          {/* Weekday Headers */}
-          <div className="grid grid-cols-7 gap-2 mb-2 text-center">
-            {weekDays.map(wd => (
-              <span key={wd} className="text-[11px] font-extrabold text-gray-400">{wd}</span>
-            ))}
+          {/* Weekday Labels */}
+          <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 tracking-wider">
+            <span>SUN</span>
+            <span>MON</span>
+            <span>TUE</span>
+            <span>WED</span>
+            <span>THU</span>
+            <span>FRI</span>
+            <span>SAT</span>
           </div>
 
-          {/* Calendar Days Grid */}
+          {/* Day Cards Grid */}
           <div className="grid grid-cols-7 gap-2">
-            {/* Empty slots for Sunday start offset if needed, daysArray starts at 1 */}
-            {daysArray.map((dayNum) => {
-              const data = scheduleData[dayNum] || { status: "OFF" };
-              const isSelected = selectedDay === dayNum;
+            {/* Blank leading slots */}
+            {Array.from({ length: firstDayIndex }).map((_, i) => (
+              <div
+                key={`empty-${i}`}
+                className="h-24 bg-slate-50/50 rounded-xl border border-slate-100"
+              />
+            ))}
 
-              let bgStyle = "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100";
-              if (data.status === "OPEN") {
-                bgStyle = "bg-emerald-50/70 border-emerald-200 text-emerald-900 hover:bg-emerald-100/80";
-              } else if (data.status === "BOOKED") {
-                bgStyle = "bg-amber-50/70 border-amber-200 text-amber-900 hover:bg-amber-100/80";
-              }
+            {/* Actual Days */}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const dayNum = i + 1;
+              const dStr = `${year}-${String(month + 1).padStart(
+                2,
+                "0"
+              )}-${String(dayNum).padStart(2, "0")}`;
+              const dayData = schedules[dStr] || {
+                dateStr: dStr,
+                status: "off",
+                shifts: [],
+                appointments: [],
+              };
+
+              const isSelected = selectedDateStr === dStr;
+              const style = STATUS_COLORS[dayData.status];
+              const bookedCount = dayData.appointments.length;
+              const isLocked = dayData.status === "fully_booked";
 
               return (
                 <button
-                  key={dayNum}
-                  onClick={() => setSelectedDay(dayNum)}
-                  className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between h-20 sm:h-24 relative ${bgStyle} ${
-                    isSelected ? "ring-2 ring-blue-600 shadow-md" : ""
+                  key={dStr}
+                  onClick={() => setSelectedDateStr(dStr)}
+                  className={`h-24 rounded-xl p-2 border text-left transition-all relative flex flex-col justify-between group ${
+                    style.bg
+                  } ${
+                    isSelected
+                      ? "ring-2 ring-teal-600 border-teal-600 shadow-md scale-[1.02] z-10"
+                      : style.border
                   }`}
                 >
-                  <span className="text-xs font-bold">{dayNum}</span>
-                  <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md w-fit ${
-                    data.status === "OPEN" ? "bg-emerald-200/60 text-emerald-800" :
-                    data.status === "BOOKED" ? "bg-amber-200/60 text-amber-800" : "bg-gray-200 text-gray-600"
-                  }`}>
-                    {data.status}
-                  </span>
+                  <div className="flex items-center justify-between w-full">
+                    <span
+                      className={`text-xs font-bold ${
+                        isSelected ? "text-teal-900" : "text-slate-700"
+                      }`}
+                    >
+                      {dayNum}
+                    </span>
+                    <span className={`w-2 h-2 rounded-full ${style.dot}`} />
+                  </div>
+
+                  {/* Shifts & Patient Details */}
+                  <div className="space-y-1">
+                    {dayData.status !== "off" ? (
+                      <>
+                        <div className="text-[10px] font-medium text-slate-600 truncate flex items-center gap-1">
+                          <Clock className="w-2.5 h-2.5 text-slate-400" />
+                          08:00–17:00
+                        </div>
+                        <div className="text-[10px] font-semibold text-slate-700 flex items-center justify-between">
+                          <span>{bookedCount} patients</span>
+                          {isLocked && <Lock className="w-2.5 h-2.5 text-rose-500" />}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-[10px] font-medium text-slate-400 italic">
+                        Off Duty
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Telehealth Badge Indicator */}
+                  {dayData.shifts.some((s) => s.isTelehealth) && (
+                    <div className="absolute top-1.5 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Video className="w-2.5 h-2.5 text-teal-600" />
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Selected Day Control Panel */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="border-b border-gray-100 pb-4 mb-4">
-              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Selected Date</span>
-              <h3 className="text-lg font-extrabold text-gray-900 mt-0.5">
-                September {selectedDay}, 2026
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">Configure active hours or toggle shift status for patient bookings.</p>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-500 font-medium">Current Status:</span>
-                  <span className="font-extrabold text-gray-900">{currentSelection.status}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500 font-medium">Allocated Shifts:</span>
-                  <span className="font-bold text-blue-600 text-right">{currentSelection.shifts}</span>
-                </div>
-              </div>
-
+        {/* RIGHT EDIT PANEL & APPOINTMENT LIST (4 COLS) */}
+        <div className="lg:col-span-5 xl:col-span-4 space-y-5">
+          {/* DAY CONFIGURATION CARD */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <label className="block font-bold text-gray-700 mb-2">Update Day Status</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => handleStatusChange("OPEN")}
-                    className={`py-2.5 px-2 rounded-xl font-bold text-xs transition cursor-pointer border ${
-                      currentSelection.status === "OPEN"
-                        ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                        : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-                    }`}
-                  >
-                    Available
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange("BOOKED")}
-                    className={`py-2.5 px-2 rounded-xl font-bold text-xs transition cursor-pointer border ${
-                      currentSelection.status === "BOOKED"
-                        ? "bg-amber-600 text-white border-amber-600 shadow-sm"
-                        : "bg-white text-amber-700 border-amber-200 hover:bg-amber-50"
-                    }`}
-                  >
-                    Booked
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange("OFF")}
-                    className={`py-2.5 px-2 rounded-xl font-bold text-xs transition cursor-pointer border ${
-                      currentSelection.status === "OFF"
-                        ? "bg-gray-800 text-white border-gray-800 shadow-sm"
-                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
-                    }`}
-                  >
-                    Off Duty
-                  </button>
-                </div>
+                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                  Selected Date
+                </span>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {new Date(selectedDateStr).toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </h3>
+              </div>
+              <span
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                  STATUS_COLORS[selectedDayData.status].bg
+                } ${STATUS_COLORS[selectedDayData.status].text}`}
+              >
+                {STATUS_COLORS[selectedDayData.status].label}
+              </span>
+            </div>
+
+            {/* Quick Status Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-600">
+                Set Day Status
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => updateSelectedDayStatus("available")}
+                  className={`py-2 text-xs font-semibold rounded-xl border transition-all ${
+                    selectedDayData.status === "available"
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                      : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                  }`}
+                >
+                  Available
+                </button>
+                <button
+                  onClick={() => updateSelectedDayStatus("fully_booked")}
+                  className={`py-2 text-xs font-semibold rounded-xl border transition-all ${
+                    selectedDayData.status === "fully_booked"
+                      ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                      : "bg-white text-rose-700 border-rose-200 hover:bg-rose-50"
+                  }`}
+                >
+                  Booked
+                </button>
+                <button
+                  onClick={() => updateSelectedDayStatus("off")}
+                  className={`py-2 text-xs font-semibold rounded-xl border transition-all ${
+                    selectedDayData.status === "off"
+                      ? "bg-slate-800 text-white border-slate-800 shadow-xs"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  Off Duty
+                </button>
               </div>
             </div>
-          </div>
 
-          <div className="pt-6 border-t border-gray-100 mt-6">
-            <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
-              <Sparkles size={14} className="text-blue-600 shrink-0" /> Changes sync instantly with MedicareAI scheduling queues.
-            </p>
+            {/* Emergency & Telehealth Controls */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-500" /> Emergency On-Call
+                </span>
+                <input
+                  type="checkbox"
+                  checked={selectedDayData.isEmergencyAvailable}
+                  onChange={toggleEmergencyAvailability}
+                  className="w-4 h-4 text-teal-600 rounded-sm focus:ring-teal-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200/50">
+                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Video className="w-3.5 h-3.5 text-teal-600" /> Accept Telehealth Calls
+                </span>
+                <input
+                  type="checkbox"
+                  defaultChecked
+                  className="w-4 h-4 text-teal-600 rounded-sm focus:ring-teal-500 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Shift Details & Editor */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Working Shifts
+                </h4>
+                <button className="text-xs font-semibold text-teal-600 hover:underline flex items-center gap-1">
+                  <Plus className="w-3 h-3" /> Add Shift
+                </button>
+              </div>
+
+              {selectedDayData.shifts.length > 0 ? (
+                <div className="space-y-2">
+                  {selectedDayData.shifts.map((shift) => (
+                    <div
+                      key={shift.id}
+                      className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <span className="font-bold text-slate-800 block">
+                          {shift.name} Shift
+                        </span>
+                        <span className="text-slate-500">
+                          {shift.startTime} – {shift.endTime}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {shift.isTelehealth && (
+                          <span className="px-2 py-0.5 bg-teal-100 text-teal-700 font-medium text-[10px] rounded-md">
+                            Telehealth
+                          </span>
+                        )}
+                        {shift.isInPerson && (
+                          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 font-medium text-[10px] rounded-md">
+                            Clinic
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">
+                  No active shifts configured for this day.
+                </p>
+              )}
+            </div>
+
+            {/* APPOINTMENT LIST FOR SELECTED DAY */}
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Booked Patients ({selectedDayData.appointments.length})
+                </h4>
+                <span className="text-xs text-slate-400 font-medium">
+                  Capacity: {selectedDayData.appointments.length}/10
+                </span>
+              </div>
+
+              {selectedDayData.appointments.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {selectedDayData.appointments.map((app) => (
+                    <div
+                      key={app.id}
+                      className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between hover:border-teal-300 transition-colors cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
+                          <User className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-slate-800 block">
+                            {app.patientName}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {app.time}
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                          app.type === "telehealth"
+                            ? "bg-teal-50 text-teal-700"
+                            : "bg-indigo-50 text-indigo-700"
+                        }`}
+                      >
+                        {app.type === "telehealth" ? "Virtual" : "In-Person"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">
+                  No appointments booked for this date yet.
+                </p>
+              )}
+            </div>
+
+            <button className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 shadow-sm">
+              <Check className="w-4 h-4 text-emerald-400" /> Save Schedule Changes
+            </button>
           </div>
         </div>
-
       </div>
 
+      {/* BULK RECURRING SCHEDULE MODAL */}
+      {isBulkModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Copy className="w-4 h-4 text-teal-600" />
+                Bulk Apply Weekly Schedule
+              </h3>
+              <button
+                onClick={() => setIsBulkModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Select days of the week to automatically copy the shift template
+              across the entire month of <strong>{monthNames[month]} {year}</strong>.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-700 block">
+                Repeat On Days:
+              </label>
+              <div className="grid grid-cols-7 gap-1.5">
+                {[
+                  { label: "S", day: 0 },
+                  { label: "M", day: 1 },
+                  { label: "T", day: 2 },
+                  { label: "W", day: 3 },
+                  { label: "T", day: 4 },
+                  { label: "F", day: 5 },
+                  { label: "S", day: 6 },
+                ].map((item) => {
+                  const isChecked = selectedBulkDays.includes(item.day);
+                  return (
+                    <button
+                      key={item.day}
+                      onClick={() => {
+                        setSelectedBulkDays((prev) =>
+                          isChecked
+                            ? prev.filter((d) => d !== item.day)
+                            : [...prev, item.day]
+                        );
+                      }}
+                      className={`h-10 text-xs font-bold rounded-xl border transition-all ${
+                        isChecked
+                          ? "bg-teal-600 text-white border-teal-600 shadow-xs"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={() => setSelectedBulkDays([1, 2, 3, 4, 5])}
+                className="text-[11px] font-semibold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg hover:bg-teal-100"
+              >
+                Select Mon–Fri
+              </button>
+              <button
+                onClick={() => setSelectedBulkDays([0, 6])}
+                className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg hover:bg-slate-200"
+              >
+                Select Weekends
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+              <button
+                onClick={() => setIsBulkModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={applyBulkSchedule}
+                className="px-4 py-2 text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700 rounded-xl transition-colors shadow-sm"
+              >
+                Apply Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
