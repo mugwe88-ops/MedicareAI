@@ -13,26 +13,26 @@ import {
   ShieldAlert, 
   PhoneOff, 
   Sparkles, 
+  ChevronRight, 
   Lock, 
   Wifi, 
   Circle, 
   Globe, 
+  Send, 
+  Plus, 
   Download, 
   AlertTriangle, 
-  Pill, 
-  Activity, 
+  CheckCircle, 
+  Search, 
+  Sliders, 
+  HelpCircle,
+  FilePlus,
+  Pill,
+  Activity,
   Layers
 } from 'lucide-react';
 
-interface PageProps {
-  params: {
-    id: string;
-  };
-}
-
-export default function TelehealthConsultationPage({ params }: PageProps) {
-  const consultationId = params.id;
-
+export default function TelehealthConsultationPage() {
   // Call State
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
@@ -56,11 +56,15 @@ export default function TelehealthConsultationPage({ params }: PageProps) {
   ]);
 
   const [translationActive, setTranslationActive] = useState(false);
+  const [transcript, setTranscript] = useState([
+    { speaker: 'Doctor', text: 'Hello James, how long have you experienced this lower back discomfort?', time: '10:02 AM' },
+    { speaker: 'Patient (James M.)', text: 'It started about three weeks ago after lifting a heavy box.', time: '10:03 AM' }
+  ]);
 
   // Timer simulation
   useEffect(() => {
     const timer = setInterval(() => {
-      // timer background tick
+      // simple increment placeholder demo
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -90,9 +94,9 @@ export default function TelehealthConsultationPage({ params }: PageProps) {
           )}
         </div>
 
-        {/* Call Duration & Dynamic Session ID */}
+        {/* Call Duration & Session Title */}
         <div className="flex items-center gap-3 text-xs">
-          <span className="font-semibold text-slate-300">Consultation ID: #SWIFT-{consultationId}</span>
+          <span className="font-semibold text-slate-300">Consultation ID: #SWIFT-8894</span>
           <span className="text-slate-600">|</span>
           <span className="font-mono bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg text-blue-400 font-bold">{callDuration}</span>
         </div>
@@ -130,6 +134,7 @@ export default function TelehealthConsultationPage({ params }: PageProps) {
           
           {/* Patient Video (Big View ~70% screen) */}
           <div className="relative flex-1 w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800/80 shadow-2xl flex items-center justify-center">
+            {/* Simulated Patient Video Stream Feed */}
             <div className="absolute inset-0 bg-gradient-to-tr from-slate-900 via-slate-950 to-slate-900 flex items-center justify-center">
               <div className="text-center space-y-2">
                 <div className="w-24 h-24 rounded-full bg-blue-600/20 border-2 border-blue-500/40 mx-auto flex items-center justify-center text-3xl font-bold text-blue-400 shadow-inner">
@@ -213,7 +218,7 @@ export default function TelehealthConsultationPage({ params }: PageProps) {
               </button>
 
               <button 
-                onClick={() => alert(`Ending consultation #${consultationId} and saving SOAP notes...`)}
+                onClick={() => alert('Ending consultation session and saving SOAP notes...')}
                 className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-lg shadow-rose-600/30 flex items-center gap-2"
               >
                 <PhoneOff className="w-4 h-4" /> End Session
