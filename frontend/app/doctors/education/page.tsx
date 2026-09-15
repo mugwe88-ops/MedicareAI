@@ -2,11 +2,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import {
   BookOpen,
   Search,
-  Filter,
   Award,
   Flame,
   Clock,
@@ -21,13 +19,10 @@ import {
   ArrowRight,
   Sparkles,
   Check,
-  ChevronRight,
   AlertCircle,
   FileText,
   Video,
-  RefreshCw,
   X,
-  Lock
 } from "lucide-react";
 
 // --- TYPES ---
@@ -95,8 +90,6 @@ const SPECIALTIES = [
 ];
 
 export default function ContinueEducationPage() {
-  const router = useRouter();
-
   // --- STATE ---
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -327,23 +320,23 @@ export default function ContinueEducationPage() {
             { id: "webinars", label: "Live Webinars", icon: Video },
             { id: "certificates", label: "Verified Certificates", icon: Award },
             { id: "achievements", label: "Learning Achievements", icon: Sparkles }
-          ].map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
-                    > "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-                }`}
-              >
-                <Icon size={14} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+].map((tab) => {
+  const Icon = tab.icon;
+  return (
+    <button
+      key={tab.id}
+      onClick={() => setActiveTab(tab.id as any)}
+      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+        activeTab === tab.id
+          ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
+          : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+      }`}
+    >
+      <Icon size={14} />
+      <span>{tab.label}</span>
+    </button>
+  );
+})}
         </div>
       </div>
 
