@@ -1,10 +1,10 @@
-export const dynamic = 'force-dynamic';
-
 "use client";
+
+export const dynamic = 'force-dynamic';
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client"; // Adjust path to your Supabase client
+import { createClient } from "@/utils/supabase/client";
 import { Calendar, Clock, User, Building, CheckCircle2, ArrowLeft } from "lucide-react";
 
 export default function BookAppointmentPage() {
@@ -13,7 +13,7 @@ export default function BookAppointmentPage() {
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    doctorId: "doc-uuid-dr-pressy-123", // Replace with dynamic doctor ID from search params/props
+    doctorId: "doc-uuid-dr-pressy-123",
     doctorName: "Dr. Pressy",
     specialty: "General Practice & Family Medicine",
     appointmentType: "Telehealth Consultation",
@@ -34,7 +34,6 @@ export default function BookAppointmentPage() {
         return;
       }
 
-      // Debug Logging (Step 8)
       console.log("Logged-in patient ID:", user.id);
       console.log("Selected doctor ID:", formData.doctorId);
       
