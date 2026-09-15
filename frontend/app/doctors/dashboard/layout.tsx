@@ -1,4 +1,4 @@
-// frontend/app/doctors/dashboard/layout.tsx
+// frontend/app/doctors/layout.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -81,32 +81,32 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     fetchDoctorProfile();
   }, []);
 
-  // Categorized Navigation Sections (Updated with correct /dashboard paths)
+  // Categorized Navigation Sections
   const menuSections: NavSection[] = [
     {
       title: "Workspace",
       items: [
         { name: "Dashboard", href: "/doctors/dashboard", icon: LayoutDashboard },
-        { name: "Appointments", href: "/doctors/dashboard/appointments", icon: Calendar, badge: 3, badgeVariant: "blue" },
-        { name: "Schedule", href: "/doctors/dashboard/schedule", icon: Clock },
-        { name: "Telehealth", href: "/doctors/dashboard/telehealth/1", icon: Video, badge: 1, badgeVariant: "red" },
+        { name: "Appointments", href: "/doctors/appointments", icon: Calendar, badge: 3, badgeVariant: "blue" },
+        { name: "Schedule", href: "/doctors/schedule", icon: Clock },
+        { name: "Telehealth", href: "/doctors/telehealth", icon: Video, badge: 1, badgeVariant: "red" },
       ],
     },
     {
       title: "Patient Care",
       items: [
-        { name: "Patient Records", href: "/doctors/dashboard/patients", icon: Folder },
-        { name: "Messages", href: "/doctors/dashboard/messages", icon: MessageCircle, badge: 12, badgeVariant: "blue" },
-        { name: "Prescriptions", href: "/doctors/dashboard/prescriptions", icon: FileText },
-        { name: "Lab Results", href: "/doctors/dashboard/labs", icon: Activity, badge: 2, badgeVariant: "blue" },
+        { name: "Patient Records", href: "/doctors/patients", icon: Folder },
+        { name: "Messages", href: "/doctors/messages", icon: MessageCircle, badge: 12, badgeVariant: "blue" },
+        { name: "Prescriptions", href: "/doctors/prescriptions", icon: FileText },
+        { name: "Lab Results", href: "/doctors/labs", icon: Activity, badge: 2, badgeVariant: "blue" },
       ],
     },
     {
       title: "Account",
       items: [
-        { name: "Earnings", href: "/doctors/dashboard/earnings", icon: Wallet },
-        { name: "Continuing Education", href: "/doctors/dashboard/education", icon: BookOpen },
-        { name: "Settings", href: "/doctors/dashboard/settings", icon: Settings },
+        { name: "Earnings", href: "/doctors/earnings", icon: Wallet },
+        { name: "Continuing Education", href: "/doctors/education", icon: BookOpen },
+        { name: "Settings", href: "/doctors/settings", icon: Settings },
       ],
     },
   ];
@@ -205,7 +205,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
         {!isCollapsed ? (
           <div className="px-3.5 pt-3">
             <button
-              onClick={() => router.push("/doctors/dashboard/telehealth/1")}
+              onClick={() => router.push("/doctors/telehealth")}
               className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/30 flex items-center justify-center gap-2 transition cursor-pointer active:scale-98"
             >
               <Plus size={16} />
@@ -215,7 +215,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
         ) : (
           <div className="px-2 pt-3 flex justify-center">
             <button
-              onClick={() => router.push("/doctors/dashboard/telehealth/1")}
+              onClick={() => router.push("/doctors/telehealth")}
               className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-md shadow-blue-600/30 transition cursor-pointer"
               title="New Consultation"
             >
@@ -331,7 +331,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
             </div>
 
             <button
-              onClick={() => router.push("/doctors/dashboard/telehealth/1")}
+              onClick={() => router.push("/doctors/telehealth")}
               className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 font-bold text-[11px] rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
             >
               <span>Go to Queue</span>
