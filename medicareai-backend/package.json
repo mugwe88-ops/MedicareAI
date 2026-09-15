@@ -16,6 +16,8 @@
     "morgan": "^1.10.0",
     "cookie-parser": "^1.4.6",
     "multer": "^1.4.5-lts.1",
+    "@sanity/client": "^6.20.0",
+    "@sanity/image-url": "^1.0.2",
     "axios": "^1.15.2",
     "resend": "^6.12.2"
   }
