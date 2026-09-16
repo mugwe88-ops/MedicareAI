@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect } from "react";
 import { supabase, DoctorAvailability } from "@/lib/supabase";
 import { Calendar as CalendarIcon, Clock, ShieldCheck, CheckCircle2 } from "lucide-react";
@@ -62,8 +64,10 @@ export default function PatientBookingPage() {
       target_date: selectedSlot.date,
     });
 
-    if (error || !data.success) {
-      setBookingStatus(data?.message || error?.message || "Booking failed.");
+    const result = data as { success?: boolean; message?: string } | null;
+
+    if (error || !result?.success) {
+      setBookingStatus(result?.message || error?.message || "Booking failed.");
     } else {
       setBookingStatus("Appointment successfully reserved!");
     }
