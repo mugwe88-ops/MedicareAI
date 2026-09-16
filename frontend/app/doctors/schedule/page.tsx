@@ -178,10 +178,17 @@ export default function DoctorSchedulePage() {
     }));
   };
 
+  // Helper to toggle bulk day selection
+  const toggleBulkDay = (day: number) => {
+    setSelectedBulkDays(prev => 
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0d14] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       
-      {/* Top Navigation & Header - Reduced spacing by ~30% */}
+      {/* Top Navigation & Header */}
       <header className="px-6 pt-4 pb-3 border-b border-slate-800/80 bg-[#0d111a]/80 backdrop-blur sticky top-0 z-30">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           
@@ -281,7 +288,7 @@ export default function DoctorSchedulePage() {
               </div>
               <div className="flex items-center gap-2">
                 <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition shadow">
-                  Apply to Selected (5)
+                  Apply to Selected ({selectedBulkDays.length})
                 </button>
                 <button onClick={() => setBulkMode(false)} className="p-1.5 hover:bg-slate-800 text-slate-400 rounded-lg">
                   <X className="w-4 h-4" />
@@ -301,7 +308,7 @@ export default function DoctorSchedulePage() {
             <span>Sun</span>
           </div>
 
-          {/* Calendar Month Grid (35 or 42 Day View) */}
+          {/* Calendar Month Grid */}
           <div className="grid grid-cols-7 gap-2">
             {Array.from({ length: 35 }).map((_, index) => {
               const dayNum = index - 1; // alignment simulation
@@ -372,7 +379,8 @@ export default function DoctorSchedulePage() {
                       <input 
                         type="checkbox" 
                         checked={selectedBulkDays.includes(actualDate)} 
-                        onChange={() => {}}
+                        onChange={() => toggleBulkDay(actualDate)}
+                        onClick={(e) => e.stopPropagation()}
                         className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0 w-3.5 h-3.5"
                       />
                     </div>
