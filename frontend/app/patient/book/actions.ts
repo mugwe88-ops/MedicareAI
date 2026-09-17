@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 export interface BookingPayload {
@@ -21,23 +21,42 @@ export interface BookingPayload {
 
 export async function createPatientBookingAction(formData: BookingPayload) {
   try {
-    // 1. Initialize Server Supabase Client with cookies for Auth
-    const supabase = createServerActionClient({ cookies });
+    const cookieStore = await cookies();
 
-    // 2. Validate current session user
+    // Initialize Supabase Server Client
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            } catch {
+              // Handled when called from a Server Component
+            }
+          },
+        },
+      }
+    );
+
+    // Validate current authenticated user
     const {
       data: { user },
-      error: userError,
     } = await supabase.auth.getUser();
 
-    // Fallback to provided patientId if auth session isn't strict, but prefer user.id
     const activePatientId = user?.id || formData.patientId;
 
     if (!activePatientId) {
       return { success: false, error: 'User session not found. Please log in again.' };
     }
 
-    // 3. Attempt Atomic RPC Booking First
+    // Call Atomic RPC Booking
     const { data: rpcData, error: rpcError } = await supabase.rpc('book_appointment_atomic', {
       p_doctor_id: formData.doctorId,
       p_patient_id: activePatientId,
@@ -53,7 +72,6 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       p_ref_code: formData.refCode || '',
     });
 
-    // If RPC succeeded, handle response
     if (!rpcError && rpcData) {
       if (rpcData.success === false) {
         return { success: false, error: rpcData.error || 'Failed to reserve appointment slot.' };
@@ -64,9 +82,7 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       return { success: true, appointmentId: rpcData.appointment_id || rpcData.id };
     }
 
-    // 4. Fallback Direct Table Insert (If RPC function is missing or disabled in DB)
-    console.warn('RPC failed or not found, falling back to direct table insert:', rpcError?.message);
-
+    // Fallback Table Insert
     const { data: insertData, error: insertError } = await supabase
       .from('appointments')
       .insert([
@@ -90,17 +106,14 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       .single();
 
     if (insertError) {
-      console.error('Direct insert error:', insertError);
       return { success: false, error: insertError.message };
     }
 
-    // Revalidate relevant pages
     revalidatePath('/patient/dashboard/appointments/book');
     revalidatePath('/patient/dashboard');
 
     return { success: true, appointmentId: insertData.id };
   } catch (err: any) {
-    console.error('Unhandled booking error:', err);
     return { success: false, error: err.message || 'An unexpected server error occurred.' };
   }
 }
