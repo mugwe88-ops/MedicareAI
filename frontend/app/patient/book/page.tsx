@@ -13,6 +13,12 @@ import {
   Activity, Heart, Brain, Baby, Sparkles, User, FileText, Download, MessageSquare
 } from 'lucide-react';
 
+// Web Speech API Types declaration
+interface IWindow extends Window {
+  webkitSpeechRecognition: any;
+  SpeechRecognition: any;
+}
+
 // Body System Cards Data
 const BODY_SYSTEMS = [
   { id: 'General', label: 'General / Routine', icon: Activity, chips: ['Fever', 'Fatigue', 'Weight loss', 'Body aches'] },
@@ -57,7 +63,7 @@ export default function SwiftMDBookingExperience() {
       const { data } = await supabase.from('doctors').select('*').order('rating', { ascending: false });
       if (data && data.length > 0) {
         setDoctors(data);
-        setSelectedDoctor(data[0]); // Default first doctor
+        setSelectedDoctor(data[0]);
       }
       setIsLoading(false);
     }
@@ -139,15 +145,19 @@ export default function SwiftMDBookingExperience() {
     setSelectedSymptoms(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
   };
 
-  // Voice to Text Mock Integration
+  // Voice to Text Integration
   const handleVoiceInput = () => {
-    if (!('webkitSpeechRecognition' in window)) {
+    if (typeof window === 'undefined') return;
+    const win = window as unknown as IWindow;
+    const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
       alert('Voice dictation is supported in Chrome/Edge.');
       return;
     }
+
     setIsListening(true);
-    // @ts-ignore
-    const recognition = new window.webkitSpeechRecognition();
+    const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.onresult = (e: any) => {
       const transcript = e.results[0][0].transcript;
@@ -168,7 +178,7 @@ export default function SwiftMDBookingExperience() {
 
     const res = await submitBookingAction({
       doctorId: selectedDoctor.id,
-      patientId: '22222222-2222-2222-2222-222222222222', // Patient Profile UUID
+      patientId: '22222222-2222-2222-2222-222222222222',
       patientName: 'Sarah Jenkins',
       appointmentDate: selectedDate,
       startTime: selectedSlot.startTime,
@@ -611,14 +621,21 @@ export default function SwiftMDBookingExperience() {
             <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-left space-y-2">
               <div className="flex justify-between"><span className="text-slate-400">Doctor:</span> <span className="font-bold text-white">{selectedDoctor.full_name}</span></div>
               <div className="flex justify-between"><span className="text-slate-400">Schedule:</span> <span className="font-bold text-white">{confirmedBooking.date} at {confirmedBooking.time}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Type:</span> <span className="font-bold text-white">{consultationType}</span></div>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <button onClick={() => window.print()} className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-bold text-xs flex items-center gap-2">
-                <Download className="w-4 h-4" /> Download PDF
+              <button 
+                onClick={() => window.print()} 
+                className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition"
+              >
+                <Download className="w-4 h-4" /> Download Slip
               </button>
-              <button onClick={() => setStep(1)} className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-lg">
-                Done
+              <button 
+                onClick={() => setStep(1)} 
+                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg transition"
+              >
+                Book Another Appointment
               </button>
             </div>
           </div>
