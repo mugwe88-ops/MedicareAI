@@ -1,21 +1,51 @@
-import { createClient } from '@supabase/supabase-js';
+// lib/supabase.ts
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  "https://placeholder.supabase.co";
+
 const supabaseKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  'placeholder-key';
+  "placeholder-key";
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+/* ==========================================
+   Shared Types
+========================================== */
+
 export type AvailabilityStatus =
-  | 'Available'
-  | 'Few slots left'
-  | 'Nearly Full'
-  | 'Fully Booked'
-  | 'Off Duty'
-  | 'Leave'
-  | 'Holiday';
+  | "Available"
+  | "Few slots left"
+  | "Nearly Full"
+  | "Fully Booked"
+  | "Off Duty"
+  | "Leave"
+  | "Holiday";
+
+/* ==========================================
+   Doctor
+========================================== */
+
+export interface Doctor {
+  id: string;
+  full_name: string;
+  specialty: string;
+  hospital_affiliation: string;
+  consultation_fee: number;
+  rating: number;
+  is_online: boolean;
+  sha_covered: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/* ==========================================
+   Doctor Availability
+========================================== */
 
 export interface DoctorAvailability {
   id?: string;
@@ -37,6 +67,10 @@ export interface DoctorAvailability {
   updated_at?: string;
 }
 
+/* ==========================================
+   Appointment
+========================================== */
+
 export interface Appointment {
   id: string;
   doctor_id: string;
@@ -45,16 +79,21 @@ export interface Appointment {
   appointment_date: string;
   start_time: string;
   end_time: string;
-  consultation_type: 'Telehealth' | 'Physical';
-  status: 'Scheduled' | 'Completed' | 'Cancelled';
+  consultation_type: "Telehealth" | "Physical";
+  status: "Scheduled" | "Completed" | "Cancelled";
+  ref_code?: string;
   created_at?: string;
 }
+
+/* ==========================================
+   Doctor Location
+========================================== */
 
 export interface DoctorLocation {
   id: string;
   doctor_id: string;
   name: string;
   address: string;
-  type: 'physical' | 'telehealth' | 'hybrid';
+  type: "physical" | "telehealth" | "hybrid";
   is_default: boolean;
 }
