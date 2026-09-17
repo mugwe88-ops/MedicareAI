@@ -71,120 +71,119 @@ export default function SwiftMDBookingExperience() {
   }, []);
 
   // 2. Load Schedule & Realtime Subscription for Selected Doctor
-// 2. Load Schedule & Realtime Subscription for Selected Doctor
-useEffect(() => {
-  if (!selectedDoctor) return;
+  useEffect(() => {
+    if (!selectedDoctor) return;
 
-  const doctorId = selectedDoctor.id;
+    const doctorId = selectedDoctor.id;
 
-  async function loadDoctorSchedule() {
-    const [availRes, apptRes] = await Promise.all([
-      supabase
-        .from("doctor_availability")
-        .select("*")
-        .eq("doctor_id", doctorId)
-        .gte("date", todayStr),
+    async function loadDoctorSchedule() {
+      const [availRes, apptRes] = await Promise.all([
+        supabase
+          .from("doctor_availability")
+          .select("*")
+          .eq("doctor_id", doctorId)
+          .gte("date", todayStr),
 
-      supabase
-        .from("appointments")
-        .select("*")
-        .eq("doctor_id", doctorId)
-        .gte("appointment_date", todayStr),
-    ]);
+        supabase
+          .from("appointments")
+          .select("*")
+          .eq("doctor_id", doctorId)
+          .gte("appointment_date", todayStr),
+      ]);
 
-    if (availRes.data) {
-      const map: Record<string, DoctorAvailability> = {};
-      availRes.data.forEach((item: DoctorAvailability) => {
-        map[item.date] = item;
-      });
-      setAvailabilities(map);
-    }
-
-    if (apptRes.data) {
-      setAppointments(apptRes.data as Appointment[]);
-    }
-  }
-
-  loadDoctorSchedule();
-
-  // Realtime Availability Sync
-  const availChan = supabase
-    .channel(`avail-${doctorId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "doctor_availability",
-        filter: `doctor_id=eq.${doctorId}`,
-      },
-      (payload) => {
-        if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
-          const row = payload.new as DoctorAvailability;
-          if (row?.date) {
-            setAvailabilities((prev) => ({
-              ...prev,
-              [row.date]: row,
-            }));
-          }
-        } else if (payload.eventType === "DELETE") {
-          const old = payload.old as { date?: string };
-          if (old?.date) {
-            setAvailabilities((prev) => {
-              const copy = { ...prev };
-              delete copy[old.date];
-              return copy;
-            });
-          }
-        }
+      if (availRes.data) {
+        const map: Record<string, DoctorAvailability> = {};
+        availRes.data.forEach((item: DoctorAvailability) => {
+          map[item.date] = item;
+        });
+        setAvailabilities(map);
       }
-    )
-    .subscribe();
 
-  // Realtime Appointment Sync
-  const apptChan = supabase
-    .channel(`appts-${doctorId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "appointments",
-        filter: `doctor_id=eq.${doctorId}`,
-      },
-      (payload) => {
-        if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
-          const appt = payload.new as Appointment;
+      if (apptRes.data) {
+        setAppointments(apptRes.data as Appointment[]);
+      }
+    }
 
-          setAppointments((prev) => {
-            const index = prev.findIndex((a) => a.id === appt.id);
+    loadDoctorSchedule();
 
-            if (index !== -1) {
-              const copy = [...prev];
-              copy[index] = appt;
-              return copy;
+    // Realtime Availability Sync
+    const availChan = supabase
+      .channel(`avail-${doctorId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "doctor_availability",
+          filter: `doctor_id=eq.${doctorId}`,
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            const row = payload.new as DoctorAvailability;
+            if (row?.date) {
+              setAvailabilities((prev) => ({
+                ...prev,
+                [row.date]: row,
+              }));
             }
-
-            return [...prev, appt];
-          });
-        } else if (payload.eventType === "DELETE") {
-          const old = payload.old as { id?: string };
-
-          if (old?.id) {
-            setAppointments((prev) =>
-              prev.filter((a) => a.id !== old.id)
-            );
+          } else if (payload.eventType === "DELETE") {
+            const old = payload.old as { date?: string };
+            if (old?.date) {
+              setAvailabilities((prev) => {
+                const copy = { ...prev };
+                delete copy[old.date];
+                return copy;
+              });
+            }
           }
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe();
 
-  return () => {
-    supabase.removeChannel(availChan);
-    supabase.removeChannel(apptChan);
-  };
-}, [selectedDoctor, todayStr]);
+    // Realtime Appointment Sync
+    const apptChan = supabase
+      .channel(`appts-${doctorId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "appointments",
+          filter: `doctor_id=eq.${doctorId}`,
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            const appt = payload.new as Appointment;
+
+            setAppointments((prev) => {
+              const index = prev.findIndex((a) => a.id === appt.id);
+
+              if (index !== -1) {
+                const copy = [...prev];
+                copy[index] = appt;
+                return copy;
+              }
+
+              return [...prev, appt];
+            });
+          } else if (payload.eventType === "DELETE") {
+            const old = payload.old as { id?: string };
+
+            if (old?.id) {
+              setAppointments((prev) =>
+                prev.filter((a) => a.id !== old.id)
+              );
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(availChan);
+      supabase.removeChannel(apptChan);
+    };
+  }, [selectedDoctor, todayStr]);
 
   // Dynamic Computations
   const filteredDoctors = doctors.filter(doc => {
@@ -671,25 +670,34 @@ useEffect(() => {
 
             <div>
               <h2 className="text-xl font-black text-white">Consultation Reserved!</h2>
-              <p className="text-xs text-slate-400 mt-1">Reference Code: <strong className="font-mono text-blue-400">{confirmedBooking.refCode}</strong></p>
+              <p className="text-xs text-slate-400 mt-1">
+                Reference Code: <strong className="font-mono text-blue-400">{confirmedBooking.refCode}</strong>
+              </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-left space-y-2">
-              <div className="flex justify-between"><span className="text-slate-400">Doctor:</span> <span className="font-bold text-white">{selectedDoctor.full_name}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Schedule:</span> <span className="font-bold text-white">{confirmedBooking.date} at {confirmedBooking.time}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Type:</span> <span className="font-bold text-white">{consultationType}</span></div>
+            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-left space-y-2 text-xs">
+              <div className="flex justify-between text-slate-400">
+                <span>Doctor:</span>
+                <strong className="text-white">{selectedDoctor.full_name} ({selectedDoctor.specialty})</strong>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Scheduled Date:</span>
+                <strong className="text-white">{confirmedBooking.date}</strong>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Time Slot:</span>
+                <strong className="text-white">{confirmedBooking.time}</strong>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Type:</span>
+                <strong className="text-white">{consultationType}</strong>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <button 
-                onClick={() => window.print()} 
-                className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition"
-              >
-                <Download className="w-4 h-4" /> Download Slip
-              </button>
-              <button 
-                onClick={() => setStep(1)} 
-                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg transition"
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => { setStep(1); setConfirmedBooking(null); }}
+                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition"
               >
                 Book Another Appointment
               </button>
