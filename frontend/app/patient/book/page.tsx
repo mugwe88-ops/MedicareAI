@@ -5,8 +5,8 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect } from 'react';
 import { supabase, Doctor, DoctorAvailability, Appointment } from '@/lib/supabase';
 import { generateAvailableSlots, GeneratedTimeSlot } from '@/lib/slot-calculator';
-import { submitBookingAction } from './actions';
-import { PatientSidebar } from '@/components/PatientSidebar';
+import { createPatientBookingAction } from './actions';
+import { PatientSidebar } from '@/app/components/PatientSidebar';
 import { 
   ShieldCheck, Clock, CheckCircle2, Search, Star, Building, Video, Mic, 
   AlertTriangle, Calendar as CalendarIcon, MapPin, ChevronRight, Check,
@@ -128,7 +128,7 @@ export default function SwiftMDBookingExperience() {
       supabase.removeChannel(availChan);
       supabase.removeChannel(apptChan);
     };
-  }, [selectedDoctor, todayStr]);
+  }, [selectedDoctor]);
 
   // Dynamic Computations
   const filteredDoctors = doctors.filter(doc => {
@@ -176,7 +176,7 @@ export default function SwiftMDBookingExperience() {
 
     const refCode = `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    const res = await submitBookingAction({
+    const res = await createPatientBookingAction({
       doctorId: selectedDoctor.id,
       patientId: '22222222-2222-2222-2222-222222222222',
       patientName: 'Sarah Jenkins',

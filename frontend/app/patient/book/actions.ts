@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { supabase } from '@/lib/supabase';
 
-export async function createPatientBookingAction(formData: {
+// Define the interface to match all parameters sent by page.tsx
+export interface BookingPayload {
   doctorId: string;
   patientId: string;
   patientName: string;
@@ -11,7 +12,14 @@ export async function createPatientBookingAction(formData: {
   startTime: string;
   endTime: string;
   consultationType: 'Telehealth' | 'Physical';
-}) {
+  bodySystem?: string;
+  symptoms?: string[];
+  painLevel?: number;
+  reason?: string;
+  refCode?: string;
+}
+
+export async function createPatientBookingAction(formData: BookingPayload) {
   const { data, error } = await supabase.rpc('book_appointment_atomic', {
     p_doctor_id: formData.doctorId,
     p_patient_id: formData.patientId,
@@ -20,6 +28,7 @@ export async function createPatientBookingAction(formData: {
     p_start_time: formData.startTime,
     p_end_time: formData.endTime,
     p_consultation_type: formData.consultationType,
+    // Add additional parameters here if your Supabase RPC function accepts them
   });
 
   if (error) {
