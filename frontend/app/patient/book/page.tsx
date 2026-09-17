@@ -10,7 +10,8 @@ import { PatientSidebar } from '@/app/components/PatientSidebar';
 import { 
   ShieldCheck, Clock, CheckCircle2, Search, Star, Building, Video, Mic, 
   AlertTriangle, Calendar as CalendarIcon, MapPin, ChevronRight, Check,
-  Activity, Heart, Brain, Baby, Sparkles, User, FileText, Download, MessageSquare
+  Activity, Heart, Brain, Baby, Sparkles, User, FileText, Download, MessageSquare,
+  X, Calendar, CreditCard
 } from 'lucide-react';
 
 // Web Speech API Types declaration
@@ -36,8 +37,8 @@ export default function SwiftMDBookingExperience() {
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('All');
 
   // Schedule & Realtime State
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const [todayStr, setTodayStr] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [availabilities, setAvailabilities] = useState<Record<string, DoctorAvailability>>({});
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<GeneratedTimeSlot | null>(null);
@@ -56,6 +57,13 @@ export default function SwiftMDBookingExperience() {
   const [confirmedBooking, setConfirmedBooking] = useState<{ refCode: string; date: string; time: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Hydration safety for initial date string
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    setTodayStr(today);
+    setSelectedDate(today);
+  }, []);
+
   // 1. Initial Doctor Load
   useEffect(() => {
     async function fetchDoctors() {
@@ -72,7 +80,7 @@ export default function SwiftMDBookingExperience() {
 
   // 2. Load Schedule & Realtime Subscription for Selected Doctor
   useEffect(() => {
-    if (!selectedDoctor) return;
+    if (!selectedDoctor || !todayStr) return;
 
     const doctorId = selectedDoctor.id;
 
@@ -254,6 +262,15 @@ export default function SwiftMDBookingExperience() {
     } else {
       setErrorMessage(res.error || 'Failed to complete reservation.');
     }
+  };
+
+  const handleResetBooking = () => {
+    setStep(1);
+    setSelectedSlot(null);
+    setConfirmedBooking(null);
+    setReason('');
+    setSelectedSymptoms([]);
+    setErrorMessage(null);
   };
 
   return (
@@ -670,41 +687,46 @@ export default function SwiftMDBookingExperience() {
 
             <div>
               <h2 className="text-xl font-black text-white">Consultation Reserved!</h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Reference Code: <strong className="font-mono text-blue-400">{confirmedBooking.refCode}</strong>
-              </p>
+              <p className="text-xs text-slate-400 mt-1">Your appointment request has been successfully processed and synced in real time.</p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-left space-y-2 text-xs">
-              <div className="flex justify-between text-slate-400">
-                <span>Doctor:</span>
-                <strong className="text-white">{selectedDoctor.full_name} ({selectedDoctor.specialty})</strong>
+            {/* Reference Card */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 text-left space-y-3">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Reference Code</span>
+                <span className="font-mono font-bold text-blue-400 text-sm">{confirmedBooking.refCode}</span>
               </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Scheduled Date:</span>
-                <strong className="text-white">{confirmedBooking.date}</strong>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Time Slot:</span>
-                <strong className="text-white">{confirmedBooking.time}</strong>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Type:</span>
-                <strong className="text-white">{consultationType}</strong>
+
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Doctor</span>
+                  <span className="font-bold text-white">{selectedDoctor.full_name}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Type</span>
+                  <span className="font-bold text-white">{consultationType}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Date</span>
+                  <span className="font-bold text-white">{confirmedBooking.date}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Time Slot</span>
+                  <span className="font-bold text-white">{confirmedBooking.time}</span>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => { setStep(1); setConfirmedBooking(null); }}
-                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition"
+                onClick={handleResetBooking}
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg transition"
               >
                 Book Another Appointment
               </button>
             </div>
           </div>
         )}
-
       </main>
     </div>
   );
