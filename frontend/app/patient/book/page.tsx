@@ -71,64 +71,120 @@ export default function SwiftMDBookingExperience() {
   }, []);
 
   // 2. Load Schedule & Realtime Subscription for Selected Doctor
-  useEffect(() => {
-    if (!selectedDoctor) return;
+// 2. Load Schedule & Realtime Subscription for Selected Doctor
+useEffect(() => {
+  if (!selectedDoctor) return;
 
-    async function loadDoctorSchedule() {
-      const [availRes, apptRes] = await Promise.all([
-        supabase.from('doctor_availability').select('*').eq('doctor_id', selectedDoctor.id).gte('date', todayStr),
-        supabase.from('appointments').select('*').eq('doctor_id', selectedDoctor.id).gte('appointment_date', todayStr)
-      ]);
+  const doctorId = selectedDoctor.id;
 
-      if (availRes.data) {
-        const map: Record<string, DoctorAvailability> = {};
-        availRes.data.forEach((item: DoctorAvailability) => { map[item.date] = item; });
-        setAvailabilities(map);
-      }
+  async function loadDoctorSchedule() {
+    const [availRes, apptRes] = await Promise.all([
+      supabase
+        .from("doctor_availability")
+        .select("*")
+        .eq("doctor_id", doctorId)
+        .gte("date", todayStr),
 
-      if (apptRes.data) {
-        setAppointments(apptRes.data as Appointment[]);
-      }
+      supabase
+        .from("appointments")
+        .select("*")
+        .eq("doctor_id", doctorId)
+        .gte("appointment_date", todayStr),
+    ]);
+
+    if (availRes.data) {
+      const map: Record<string, DoctorAvailability> = {};
+      availRes.data.forEach((item: DoctorAvailability) => {
+        map[item.date] = item;
+      });
+      setAvailabilities(map);
     }
 
-    loadDoctorSchedule();
+    if (apptRes.data) {
+      setAppointments(apptRes.data as Appointment[]);
+    }
+  }
 
-    // Realtime Availability Sync
-    const availChan = supabase
-      .channel(`avail-${selectedDoctor.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctor_availability', filter: `doctor_id=eq.${selectedDoctor.id}` }, (payload) => {
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+  loadDoctorSchedule();
+
+  // Realtime Availability Sync
+  const availChan = supabase
+    .channel(`avail-${doctorId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "doctor_availability",
+        filter: `doctor_id=eq.${doctorId}`,
+      },
+      (payload) => {
+        if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
           const row = payload.new as DoctorAvailability;
-          if (row && row.date) setAvailabilities(prev => ({ ...prev, [row.date]: row }));
-        } else if (payload.eventType === 'DELETE') {
+          if (row?.date) {
+            setAvailabilities((prev) => ({
+              ...prev,
+              [row.date]: row,
+            }));
+          }
+        } else if (payload.eventType === "DELETE") {
           const old = payload.old as { date?: string };
-          if (old?.date) setAvailabilities(prev => { const copy = { ...prev }; delete copy[old.date!]; return copy; });
-        }
-      })
-      .subscribe();
-
-    // Realtime Appointments Sync
-    const apptChan = supabase
-      .channel(`appts-${selectedDoctor.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `doctor_id=eq.${selectedDoctor.id}` }, (payload) => {
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-          const appt = payload.new as Appointment;
-          if (appt) {
-            setAppointments(prev => {
-              const idx = prev.findIndex(a => a.id === appt.id);
-              if (idx > -1) { const copy = [...prev]; copy[idx] = appt; return copy; }
-              return [...prev, appt];
+          if (old?.date) {
+            setAvailabilities((prev) => {
+              const copy = { ...prev };
+              delete copy[old.date];
+              return copy;
             });
           }
         }
-      })
-      .subscribe();
+      }
+    )
+    .subscribe();
 
-    return () => {
-      supabase.removeChannel(availChan);
-      supabase.removeChannel(apptChan);
-    };
-  }, [selectedDoctor]);
+  // Realtime Appointment Sync
+  const apptChan = supabase
+    .channel(`appts-${doctorId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "appointments",
+        filter: `doctor_id=eq.${doctorId}`,
+      },
+      (payload) => {
+        if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+          const appt = payload.new as Appointment;
+
+          setAppointments((prev) => {
+            const index = prev.findIndex((a) => a.id === appt.id);
+
+            if (index !== -1) {
+              const copy = [...prev];
+              copy[index] = appt;
+              return copy;
+            }
+
+            return [...prev, appt];
+          });
+        } else if (payload.eventType === "DELETE") {
+          const old = payload.old as { id?: string };
+
+          if (old?.id) {
+            setAppointments((prev) =>
+              prev.filter((a) => a.id !== old.id)
+            );
+          }
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(availChan);
+    supabase.removeChannel(apptChan);
+  };
+}, [selectedDoctor, todayStr]);
 
   // Dynamic Computations
   const filteredDoctors = doctors.filter(doc => {
