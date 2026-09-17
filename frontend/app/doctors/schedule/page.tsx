@@ -1,631 +1,510 @@
 'use client';
 
-import React, { useState } from 'react';
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, useOptimistic, useTransition } from 'react';
+import { supabase, DoctorAvailability, Appointment, AvailabilityStatus } from '@/lib/supabase';
 import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Users, 
-  Lock, 
-  Video, 
-  MapPin, 
-  AlertCircle, 
-  Check, 
-  RotateCcw, 
-  Copy, 
-  Trash2, 
-  Sliders, 
-  Sparkles, 
-  Plus, 
-  X,
-  ShieldAlert,
-  Briefcase
+  ChevronLeft, ChevronRight, Clock, Users, MapPin, Check, Copy, 
+  Sparkles, Loader2, Calendar as CalendarIcon, AlertTriangle, UserCheck, X
 } from 'lucide-react';
 
-// Types
-type StatusType = 'available' | 'few_left' | 'nearly_full' | 'fully_booked' | 'off_duty' | 'leave' | 'holiday';
+const DEMO_DOCTOR_ID = "11111111-1111-1111-1111-111111111111";
 
-interface ShiftConfig {
-  enabled: boolean;
-  time: string;
-  telehealth: boolean;
-  inPerson: boolean;
-}
-
-interface DayData {
-  date: number;
-  monthOffset: number; // -1 for prev, 0 for current, 1 for next
-  status: StatusType;
-  workingHours: string;
-  patientCount: number;
-  maxPatients: number;
-  shifts: {
-    morning: ShiftConfig;
-    afternoon: ShiftConfig;
-    evening: ShiftConfig;
-  };
-  appointments: { time: string; patient: string; type: string }[];
-  bufferTime: number; // in mins
-  emergencySwitch: boolean;
-  location: string;
-}
-
-const statusColors: Record<StatusType, { bg: string; border: string; text: string; dot: string; label: string }> = {
-  available: { bg: 'bg-emerald-950/40', border: 'border-emerald-800/60', text: 'text-emerald-400', dot: 'bg-emerald-500', label: 'Available' },
-  few_left: { bg: 'bg-teal-950/40', border: 'border-teal-800/60', text: 'text-teal-400', dot: 'bg-teal-500', label: 'Few slots left' },
-  nearly_full: { bg: 'bg-amber-950/40', border: 'border-amber-800/60', text: 'text-amber-450', dot: 'bg-amber-500', label: 'Nearly full' },
-  fully_booked: { bg: 'bg-rose-950/40', border: 'border-rose-800/60', text: 'text-rose-400', dot: 'bg-rose-500', label: 'Fully booked' },
-  off_duty: { bg: 'bg-neutral-900/40', border: 'border-neutral-800/60', text: 'text-neutral-500', dot: 'bg-neutral-600', label: 'Off Duty' },
-  leave: { bg: 'bg-purple-950/40', border: 'border-purple-800/60', text: 'text-purple-400', dot: 'bg-purple-500', label: 'Leave' },
-  holiday: { bg: 'bg-sky-950/40', border: 'border-sky-800/60', text: 'text-sky-400', dot: 'bg-sky-500', label: 'Holiday' },
+const statusColorMap: Record<AvailabilityStatus, { bg: string; border: string; text: string; dot: string }> = {
+  'Available': { bg: 'bg-emerald-950/40 hover:bg-emerald-900/50', border: 'border-emerald-800/60', text: 'text-emerald-400', dot: 'bg-emerald-500' },
+  'Few slots left': { bg: 'bg-teal-950/40 hover:bg-teal-900/50', border: 'border-teal-800/60', text: 'text-teal-400', dot: 'bg-teal-500' },
+  'Nearly Full': { bg: 'bg-amber-950/40 hover:bg-amber-900/50', border: 'border-amber-800/60', text: 'text-amber-400', dot: 'bg-amber-500' },
+  'Fully Booked': { bg: 'bg-rose-950/40 hover:bg-rose-900/50', border: 'border-rose-800/60', text: 'text-rose-400', dot: 'bg-rose-500' },
+  'Off Duty': { bg: 'bg-neutral-900/40 hover:bg-neutral-800/50', border: 'border-neutral-800/60', text: 'text-neutral-500', dot: 'bg-neutral-600' },
+  'Leave': { bg: 'bg-purple-950/40 hover:bg-purple-900/50', border: 'border-purple-800/60', text: 'text-purple-400', dot: 'bg-purple-500' },
+  'Holiday': { bg: 'bg-sky-950/40 hover:bg-sky-900/50', border: 'border-sky-800/60', text: 'text-sky-400', dot: 'bg-sky-500' },
 };
 
 export default function DoctorSchedulePage() {
-  const [currentMonth, setCurrentMonth] = useState('September 2026');
-  const [selectedDay, setSelectedDay] = useState<number>(16);
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
-  const [bulkMode, setBulkMode] = useState(false);
-  const [selectedBulkDays, setSelectedBulkDays] = useState<number[]>([14, 15, 16, 17, 18]);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [selectedDay, setSelectedDay] = useState<string>(todayStr);
+  const [dbSchedule, setDbSchedule] = useState<Record<string, DoctorAvailability>>({});
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const [isPending, startTransition] = useTransition();
 
-  // Mock Days Data for September 2026
-  const [scheduleData, setScheduleData] = useState<Record<number, DayData>>({
-    16: {
-      date: 16,
-      monthOffset: 0,
-      status: 'available',
-      workingHours: '8:00 AM – 5:00 PM',
-      patientCount: 5,
-      maxPatients: 10,
-      shifts: {
-        morning: { enabled: true, time: '8:00–12:00', telehealth: true, inPerson: true },
-        afternoon: { enabled: true, time: '1:00–5:00', telehealth: true, inPerson: false },
-        evening: { enabled: false, time: 'Optional', telehealth: false, inPerson: false }
-      },
-      appointments: [
-        { time: '9:00 AM', patient: 'James M.', type: 'Telehealth' },
-        { time: '10:30 AM', patient: 'Sarah K.', type: 'In-Person' },
-        { time: '2:00 PM', patient: 'David O.', type: 'Telehealth' },
-        { time: '3:15 PM', patient: 'Amina W.', type: 'Telehealth' },
-        { time: '4:00 PM', patient: 'Robert N.', type: 'In-Person' },
-      ],
-      bufferTime: 15,
-      emergencySwitch: true,
-      location: 'Main City Clinic - Room 302'
-    },
-    17: {
-      date: 17,
-      monthOffset: 0,
-      status: 'nearly_full',
-      workingHours: '8:00 AM – 5:00 PM',
-      patientCount: 9,
-      maxPatients: 10,
-      shifts: {
-        morning: { enabled: true, time: '8:00–12:00', telehealth: true, inPerson: true },
-        afternoon: { enabled: true, time: '1:00–5:00', telehealth: true, inPerson: true },
-        evening: { enabled: false, time: 'Optional', telehealth: false, inPerson: false }
-      },
-      appointments: [
-        { time: '8:30 AM', patient: 'Grace M.', type: 'In-Person' },
-        { time: '9:30 AM', patient: 'Brian L.', type: 'Telehealth' },
-      ],
-      bufferTime: 10,
-      emergencySwitch: false,
-      location: 'Main City Clinic - Room 302'
-    },
-    18: {
-      date: 18,
-      monthOffset: 0,
-      status: 'fully_booked',
-      workingHours: '8:00 AM – 4:00 PM',
-      patientCount: 12,
-      maxPatients: 12,
-      shifts: {
-        morning: { enabled: true, time: '8:00–12:00', telehealth: true, inPerson: true },
-        afternoon: { enabled: true, time: '1:00–4:00', telehealth: true, inPerson: true },
-        evening: { enabled: false, time: 'Optional', telehealth: false, inPerson: false }
-      },
-      appointments: [],
-      bufferTime: 10,
-      emergencySwitch: true,
-      location: 'Virtual Care Hub'
-    },
-    21: {
-      date: 21,
-      monthOffset: 0,
-      status: 'off_duty',
-      workingHours: 'Off Duty',
-      patientCount: 0,
-      maxPatients: 0,
-      shifts: {
-        morning: { enabled: false, time: 'Off', telehealth: false, inPerson: false },
-        afternoon: { enabled: false, time: 'Off', telehealth: false, inPerson: false },
-        evening: { enabled: false, time: 'Off', telehealth: false, inPerson: false }
-      },
-      appointments: [],
-      bufferTime: 15,
-      emergencySwitch: false,
-      location: 'Main City Clinic'
-    }
+  // Selected Day Form Settings
+  const [formState, setFormState] = useState<Partial<DoctorAvailability>>({
+    status: 'Available',
+    clinic_location: 'Main City Clinic - Room 302',
+    start_time: '08:00',
+    end_time: '17:00',
+    morning_enabled: true,
+    afternoon_enabled: true,
+    buffer_minutes: 15,
+    slot_duration: 30,
+    max_patients: 10,
+    booked_patients: 0,
+    emergency_enabled: true,
+    notes: ''
   });
 
-  const currentDayData = scheduleData[selectedDay] || {
-    date: selectedDay,
-    monthOffset: 0,
-    status: 'off_duty',
-    workingHours: 'Off Duty',
-    patientCount: 0,
-    maxPatients: 10,
-    shifts: {
-      morning: { enabled: false, time: '8:00–12:00', telehealth: true, inPerson: true },
-      afternoon: { enabled: false, time: '1:00–5:00', telehealth: true, inPerson: true },
-      evening: { enabled: false, time: 'Optional', telehealth: false, inPerson: false }
-    },
-    appointments: [],
-    bufferTime: 15,
-    emergencySwitch: false,
-    location: 'Main City Clinic'
-  };
+  // Optimistic Calendar Map Update
+  const [optimisticSchedule, setOptimisticSchedule] = useOptimistic(
+    dbSchedule,
+    (current, updatedItem: DoctorAvailability) => ({
+      ...current,
+      [updatedItem.date]: updatedItem,
+    })
+  );
 
-  // Helper to update active day configuration
-  const updateCurrentDay = (updates: Partial<DayData>) => {
-    setScheduleData(prev => ({
-      ...prev,
-      [selectedDay]: {
-        ...currentDayData,
-        ...updates
+  // Load Schedule & Appointments + Supabase Realtime Subscriptions
+  useEffect(() => {
+    async function loadInitialData() {
+      setIsLoading(true);
+
+      const [availRes, apptRes] = await Promise.all([
+        supabase.from('doctor_availability').select('*').eq('doctor_id', DEMO_DOCTOR_ID),
+        supabase.from('appointments').select('*').eq('doctor_id', DEMO_DOCTOR_ID)
+      ]);
+
+      if (availRes.data) {
+        const map: Record<string, DoctorAvailability> = {};
+        availRes.data.forEach((item: DoctorAvailability) => {
+          map[item.date] = item;
+        });
+        setDbSchedule(map);
       }
-    }));
+
+      if (apptRes.data) {
+        setAppointments(apptRes.data as Appointment[]);
+      }
+
+      setIsLoading(false);
+    }
+
+    loadInitialData();
+
+    // Realtime listener for availability changes
+    const availChannel = supabase
+      .channel('realtime-doctor-availability')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctor_availability' }, (payload) => {
+        const updated = payload.new as DoctorAvailability;
+        if (updated && updated.date) {
+          setDbSchedule(prev => ({ ...prev, [updated.date]: updated }));
+        }
+      })
+      .subscribe();
+
+    // Realtime listener for patient booking synchronization
+    const apptChannel = supabase
+      .channel('realtime-appointments')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, (payload) => {
+        const appt = payload.new as Appointment;
+        if (appt) {
+          setAppointments(prev => {
+            const index = prev.findIndex(a => a.id === appt.id);
+            if (index > -1) {
+              const updatedList = [...prev];
+              updatedList[index] = appt;
+              return updatedList;
+            }
+            return [...prev, appt];
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(availChannel);
+      supabase.removeChannel(apptChannel);
+    };
+  }, []);
+
+  // Update Form when selected date changes
+  useEffect(() => {
+    const existing = dbSchedule[selectedDay];
+    if (existing) {
+      setFormState(existing);
+    } else {
+      setFormState({
+        status: 'Available',
+        clinic_location: 'Main City Clinic - Room 302',
+        start_time: '08:00',
+        end_time: '17:00',
+        morning_enabled: true,
+        afternoon_enabled: true,
+        buffer_minutes: 15,
+        slot_duration: 30,
+        max_patients: 10,
+        booked_patients: 0,
+        emergency_enabled: true,
+        notes: ''
+      });
+    }
+    setHasUnsavedChanges(false);
+  }, [selectedDay, dbSchedule]);
+
+  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Helper to toggle bulk day selection
-  const toggleBulkDay = (day: number) => {
-    setSelectedBulkDays(prev => 
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
-    );
+  // Save changes to Supabase
+  const handleSave = async () => {
+    setIsSaving(true);
+
+    const payload: DoctorAvailability = {
+      doctor_id: DEMO_DOCTOR_ID,
+      date: selectedDay,
+      status: (formState.status as AvailabilityStatus) || 'Available',
+      clinic_location: formState.clinic_location || 'Main City Clinic - Room 302',
+      start_time: formState.start_time || '08:00',
+      end_time: formState.end_time || '17:00',
+      morning_enabled: formState.morning_enabled ?? true,
+      afternoon_enabled: formState.afternoon_enabled ?? true,
+      buffer_minutes: Number(formState.buffer_minutes) || 15,
+      slot_duration: Number(formState.slot_duration) || 30,
+      max_patients: Number(formState.max_patients) || 10,
+      booked_patients: Number(formState.booked_patients) || 0,
+      emergency_enabled: formState.emergency_enabled ?? true,
+      notes: formState.notes || ''
+    };
+
+    // Apply Optimistic Update UI
+    startTransition(() => {
+      setOptimisticSchedule(payload);
+    });
+
+    const { data, error } = await supabase
+      .from('doctor_availability')
+      .upsert(payload, { onConflict: 'doctor_id,date' })
+      .select();
+
+    setIsSaving(false);
+
+    if (error) {
+      showToast(`Save failed: ${error.message}`, 'error');
+    } else {
+      showToast(`Schedule saved for ${selectedDay}!`, 'success');
+      setHasUnsavedChanges(false);
+      if (data && data[0]) {
+        setDbSchedule(prev => ({ ...prev, [selectedDay]: data[0] as DoctorAvailability }));
+      }
+    }
   };
+
+  // Bulk Action: Copy Last Week
+  const handleCopyLastWeek = async () => {
+    showToast('Applying previous week schedule pattern...', 'success');
+    // Copies days 7 days prior forward
+    const current = new Date(selectedDay);
+    current.setDate(current.getDate() - 7);
+    const prevDateStr = current.toISOString().split('T')[0];
+    const prevSchedule = dbSchedule[prevDateStr];
+
+    if (prevSchedule) {
+      setFormState({ ...prevSchedule, date: selectedDay });
+      setHasUnsavedChanges(true);
+    } else {
+      showToast('No record found for previous week date.', 'error');
+    }
+  };
+
+  // Bulk Action: AI Optimize Hours
+  const handleAIOptimize = () => {
+    setFormState(prev => ({
+      ...prev,
+      start_time: '08:30',
+      end_time: '16:30',
+      buffer_minutes: 15,
+      max_patients: 12,
+      notes: 'AI Optimized: Shifted peak hours to match patient demand trends.'
+    }));
+    setHasUnsavedChanges(true);
+    showToast('AI Suggested optimal hours applied! Click save to commit.', 'success');
+  };
+
+  const dayAppointments = appointments.filter(a => a.appointment_date === selectedDay);
+  const remainingSlots = Math.max(0, (formState.max_patients || 10) - (formState.booked_patients || dayAppointments.length));
 
   return (
-    <div className="min-h-screen bg-[#0a0d14] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans p-4 md:p-6">
       
-      {/* Top Navigation & Header */}
-      <header className="px-6 pt-4 pb-3 border-b border-slate-800/80 bg-[#0d111a]/80 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          
-          {/* Left: Title & Live Summary */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                <span>Doctor Schedule & Availability</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50">Swift MD Pro</span>
-              </h1>
-              <p className="text-xs text-slate-400 mt-0.5">Manage operating hours, telehealth capacities, and patient booking pipelines.</p>
-            </div>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-2xl border text-xs font-bold flex items-center gap-2 animate-bounce ${
+          toastMessage.type === 'error' ? 'bg-rose-950 border-rose-800 text-rose-200' : 'bg-emerald-950 border-emerald-800 text-emerald-200'
+        }`}>
+          {toastMessage.type === 'error' ? <AlertTriangle className="w-4 h-4 text-rose-400" /> : <Check className="w-4 h-4 text-emerald-400" />}
+          {toastMessage.text}
+        </div>
+      )}
 
-            {/* Live Summary Counter Pill */}
-            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl text-xs shadow-inner">
-              <span className="flex items-center gap-1.5 font-medium text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 18 Available
-              </span>
-              <span className="text-slate-600">•</span>
-              <span className="font-medium text-amber-400">6 Booked</span>
-              <span className="text-slate-600">•</span>
-              <span className="font-medium text-slate-400">6 Off</span>
-            </div>
-          </div>
-
-          {/* Right: Month Selector & Quick Action Controls */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Month Selector */}
-            <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 shadow-sm">
-              <button 
-                onClick={() => setCurrentMonth('August 2026')}
-                className="p-1.5 hover:bg-slate-800 text-slate-300 rounded-lg transition"
-                title="Previous Month"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="px-3 text-xs font-semibold tracking-wide text-slate-200">{currentMonth}</span>
-              <button 
-                onClick={() => setCurrentMonth('October 2026')}
-                className="p-1.5 hover:bg-slate-800 text-slate-300 rounded-lg transition"
-                title="Next Month"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            <button 
-              onClick={() => setSelectedDay(16)}
-              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium rounded-xl text-slate-200 transition shadow-sm"
-            >
-              Today
-            </button>
-
-            <button 
-              onClick={() => setBulkMode(!bulkMode)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition flex items-center gap-1.5 ${bulkMode ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/30' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-200'}`}
-            >
-              <Sliders className="w-3.5 h-3.5" /> Bulk Editor
-            </button>
-          </div>
-
+      {/* Sticky Top Bar */}
+      <header className="sticky top-0 z-30 bg-[#090d16]/90 backdrop-blur-md pb-4 border-b border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-black text-white flex items-center gap-2">
+            Doctor Schedule & Availability 
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-950 text-blue-400 border border-blue-800/50">
+              Supabase Live Sync
+            </span>
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">Manage operating shifts, custom capacity, and view live bookings.</p>
         </div>
 
-        {/* Quick Action Toolbar */}
-        <div className="max-w-7xl mx-auto mt-2.5 pt-2 border-t border-slate-800/40 flex items-center justify-between text-xs text-slate-400">
-          <div className="flex items-center gap-2 overflow-x-auto py-1">
-            <span className="text-slate-500 font-medium uppercase tracking-wider text-[10px]">Quick Actions:</span>
-            <button className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800/80 rounded-lg text-slate-300 transition flex items-center gap-1 shrink-0">
-              <Copy className="w-3 h-3 text-blue-400" /> Copy Last Week
-            </button>
-            <button className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800/80 rounded-lg text-slate-300 transition flex items-center gap-1 shrink-0">
-              <RotateCcw className="w-3 h-3 text-teal-400" /> Apply to Whole Month
-            </button>
-            <button className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800/80 rounded-lg text-slate-300 transition flex items-center gap-1 shrink-0">
-              <Sparkles className="w-3 h-3 text-purple-400" /> AI Optimize Hours
-            </button>
-          </div>
-          <button className="px-2.5 py-1 bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/50 rounded-lg text-rose-400 transition flex items-center gap-1 shrink-0">
-            <Trash2 className="w-3 h-3" /> Clear Schedule
+        {/* Quick Bulk Actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={handleCopyLastWeek} className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 font-semibold flex items-center gap-1.5 transition">
+            <Copy className="w-3.5 h-3.5" /> Copy Last Week
+          </button>
+          <button onClick={handleAIOptimize} className="px-3 py-1.5 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/50 text-xs text-purple-300 font-semibold flex items-center gap-1.5 transition">
+            <Sparkles className="w-3.5 h-3.5 text-purple-400" /> AI Optimize
           </button>
         </div>
       </header>
 
-      {/* Main Workspace Layout */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Unsaved Changes Banner */}
+      {hasUnsavedChanges && (
+        <div className="mt-4 p-3 rounded-2xl bg-amber-950/50 border border-amber-800/60 text-amber-300 text-xs font-semibold flex items-center justify-between">
+          <span className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> You have unsaved changes for {selectedDay}.</span>
+          <button onClick={handleSave} className="px-3 py-1 bg-amber-500 text-slate-950 font-bold rounded-lg text-xs">Save Now</button>
+        </div>
+      )}
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
         
-        {/* Left/Center: Calendar Grid Area (7 cols) */}
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
-          
-          {bulkMode && (
-            <div className="bg-blue-950/30 border border-blue-800/60 rounded-2xl p-4 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <h4 className="font-semibold text-blue-300 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-blue-400" /> Bulk Schedule Mode Active
-                </h4>
-                <p className="text-slate-300 mt-0.5">Select days on the calendar grid to apply recurring rules (e.g., Weekdays 8 AM–5 PM).</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition shadow">
-                  Apply to Selected ({selectedBulkDays.length})
-                </button>
-                <button onClick={() => setBulkMode(false)} className="p-1.5 hover:bg-slate-800 text-slate-400 rounded-lg">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+        {/* Calendar View (8 Cols) */}
+        <div className="lg:col-span-8 space-y-4">
+          <div className="flex items-center justify-between bg-[#0e1422] p-4 rounded-2xl border border-slate-800">
+            <h2 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-blue-400" /> September 2026
+            </h2>
+            <div className="flex items-center gap-4 text-xs text-slate-400 font-medium">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Available</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Nearly Full</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Full</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-neutral-600"></span> Off</span>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-7 gap-2">
+              {Array.from({ length: 28 }).map((_, i) => (
+                <div key={i} className="h-24 rounded-2xl bg-slate-900/50 animate-pulse border border-slate-800/40"></div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 gap-2">
+              {Array.from({ length: 30 }).map((_, i) => {
+                const dayNum = i + 1;
+                const dateStr = `2026-09-${dayNum.toString().padStart(2, '0')}`;
+                const item = optimisticSchedule[dateStr];
+                const statusKey = item?.status || 'Available';
+                const style = statusColorMap[statusKey] || statusColorMap['Available'];
+                const isSelected = selectedDay === dateStr;
+                const isToday = dateStr === todayStr;
+
+                return (
+                  <div
+                    key={dateStr}
+                    onClick={() => setSelectedDay(dateStr)}
+                    className={`min-h-[92px] rounded-2xl p-3 flex flex-col justify-between cursor-pointer border transition-all ${style.bg} ${style.border} ${
+                      isSelected ? 'ring-2 ring-blue-500 border-blue-500 shadow-xl scale-[1.02] bg-blue-950/20' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-black ${isToday ? 'px-2 py-0.5 rounded-md bg-blue-600 text-white' : 'text-slate-200'}`}>
+                        {dayNum}
+                      </span>
+                      <span className={`w-2 h-2 rounded-full ${style.dot}`}></span>
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        {item ? `${item.start_time.slice(0,5)} - ${item.end_time.slice(0,5)}` : '08:00 - 17:00'}
+                      </p>
+                      <p className={`text-[10px] font-bold ${style.text}`}>{statusKey}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          {/* Weekday Header */}
-          <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
-            <span>Mon</span>
-            <span>Tue</span>
-            <span>Wed</span>
-            <span>Thu</span>
-            <span>Fri</span>
-            <span>Sat</span>
-            <span>Sun</span>
-          </div>
+          {/* Booked Appointments Realtime Section */}
+          <div className="bg-[#0e1422] border border-slate-800 rounded-3xl p-5 space-y-3 mt-6">
+            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+              <span>Booked Patients for {selectedDay}</span>
+              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px]">
+                {dayAppointments.length} Booked
+              </span>
+            </h3>
 
-          {/* Calendar Month Grid */}
-          <div className="grid grid-cols-7 gap-2">
-            {Array.from({ length: 35 }).map((_, index) => {
-              const dayNum = index - 1; // alignment simulation
-              const isLeadOrTrail = dayNum < 1 || dayNum > 30;
-              const actualDate = isLeadOrTrail ? (dayNum < 1 ? 30 + dayNum : dayNum - 30) : dayNum;
-              const isSelected = selectedDay === actualDate && !isLeadOrTrail;
-              
-              // Mock statuses for visual variance
-              let status: StatusType = 'available';
-              if (actualDate % 7 === 0 || actualDate % 7 === 6) status = 'off_duty';
-              else if (actualDate === 18) status = 'fully_booked';
-              else if (actualDate === 17) status = 'nearly_full';
-              else if (actualDate === 12) status = 'leave';
-              else if (actualDate === 10) status = 'holiday';
-
-              const config = statusColors[status];
-              const isFullyBooked = status === 'fully_booked';
-
-              return (
-                <div
-                  key={index}
-                  onClick={() => {
-                    if (!isLeadOrTrail) {
-                      setSelectedDay(actualDate);
-                      setIsMobileDrawerOpen(true);
-                    }
-                  }}
-                  className={`relative min-h-[96px] sm:min-h-[110px] rounded-2xl p-2.5 flex flex-col justify-between transition-all cursor-pointer border ${
-                    isLeadOrTrail ? 'opacity-30 bg-slate-950/20 border-slate-900' : `${config.bg} ${config.border} hover:border-slate-500`
-                  } ${isSelected ? 'ring-2 ring-blue-500 shadow-lg shadow-blue-500/20 border-blue-500' : ''}`}
-                >
-                  {/* Top row: Date Number & Status Dot */}
-                  <div className="flex items-center justify-between">
-                    <span className={`text-sm font-bold ${isSelected ? 'text-blue-400 font-extrabold' : 'text-slate-200'}`}>
-                      {actualDate}
+            {dayAppointments.length === 0 ? (
+              <p className="text-xs text-slate-500 py-4 text-center italic">No patient bookings registered for this date.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {dayAppointments.map(appt => (
+                  <div key={appt.id} className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-slate-200">{appt.patient_name}</p>
+                      <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3" /> {appt.start_time} - {appt.end_time} ({appt.consultation_type})
+                      </p>
+                    </div>
+                    <span className="px-2 py-1 rounded-lg bg-emerald-950 text-emerald-400 text-[10px] font-bold border border-emerald-800/60">
+                      {appt.status}
                     </span>
-                    
-                    <div className="flex items-center gap-1.5">
-                      {isFullyBooked && <Lock className="w-3.5 h-3.5 text-rose-400" />}
-                      <span className={`w-2 h-2 rounded-full ${config.dot}`} title={config.label}></span>
-                    </div>
                   </div>
-
-                  {/* Middle content: Working Hours & Patient load */}
-                  {!isLeadOrTrail && status !== 'off_duty' && status !== 'leave' && status !== 'holiday' ? (
-                    <div className="space-y-1 my-auto">
-                      <div className="text-[11px] font-medium text-slate-300 truncate">
-                        {actualDate === 18 ? '8:00 AM – 4:00 PM' : '8:00 AM – 5:00 PM'}
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
-                        <Users className="w-3 h-3 text-slate-500" />
-                        <span>{actualDate === 18 ? '12 patients' : actualDate === 17 ? '9 patients' : '5 patients'}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="my-auto text-[11px] font-medium italic text-slate-500 capitalize">
-                      {status.replace('_', ' ')}
-                    </div>
-                  )}
-
-                  {/* Bottom status badge indicator pill */}
-                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[10px]">
-                    <span className={`truncate ${config.text} font-medium`}>{config.label}</span>
-                  </div>
-
-                  {bulkMode && !isLeadOrTrail && (
-                    <div className="absolute top-2 right-2">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedBulkDays.includes(actualDate)} 
-                        onChange={() => toggleBulkDay(actualDate)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0 w-3.5 h-3.5"
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            )}
           </div>
-
-          {/* Bottom Status Legend */}
-          <div className="bg-[#0f1420] border border-slate-800/80 rounded-2xl p-3 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-300 mt-2">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Available</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-teal-500"></span> Few slots left</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Nearly full</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Fully booked</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-neutral-600"></span> Off Duty</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span> Leave</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span> Holiday</span>
-          </div>
-
         </div>
 
-        {/* Right Panel: Full Day Details & Shift Editor (Desktop & Mobile Drawer) */}
-        <div className={`
-          lg:col-span-5 xl:col-span-4 bg-[#0d121c] border border-slate-800 rounded-3xl p-5 flex flex-col gap-5 shadow-2xl
-          fixed lg:relative inset-x-0 bottom-0 z-40 max-h-[90vh] lg:max-h-none overflow-y-auto transition-transform duration-300
-          ${isMobileDrawerOpen ? 'translate-y-0' : 'translate-y-full lg:translate-y-0'}
-        `}>
-          
-          {/* Mobile Close Button */}
-          <div className="flex items-center justify-between lg:hidden pb-2 border-b border-slate-800">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Date Inspection Drawer</span>
-            <button onClick={() => setIsMobileDrawerOpen(false)} className="p-1 text-slate-400 hover:text-white">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Header Info */}
+        {/* Schedule & Availability Editor Panel (4 Cols) */}
+        <div className="lg:col-span-4 bg-[#0e1422] border border-slate-800 rounded-3xl p-5 space-y-4 shadow-2xl sticky top-20">
           <div>
-            <div className="text-xs font-semibold text-blue-400 tracking-wider uppercase">Selected Date</div>
-            <h2 className="text-lg font-bold text-white mt-0.5">September {selectedDay}, 2026</h2>
+            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Configure Availability</span>
+            <h2 className="text-base font-black text-white mt-0.5">{selectedDay}</h2>
           </div>
 
-          {/* Status & Clinic Location Selector */}
+          {/* Status Select */}
+          <div className="space-y-1">
+            <label className="text-[11px] text-slate-400 font-semibold">Shift Status</label>
+            <select
+              value={formState.status || 'Available'}
+              onChange={(e) => {
+                setFormState(prev => ({ ...prev, status: e.target.value as AvailabilityStatus }));
+                setHasUnsavedChanges(true);
+              }}
+              className="bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-slate-200 w-full focus:outline-none focus:border-blue-500"
+            >
+              <option value="Available">Available (Green)</option>
+              <option value="Few slots left">Few slots left (Teal)</option>
+              <option value="Nearly Full">Nearly Full (Orange)</option>
+              <option value="Fully Booked">Fully Booked (Red)</option>
+              <option value="Off Duty">Off Duty (Grey)</option>
+              <option value="Leave">Leave (Purple)</option>
+              <option value="Holiday">Holiday (Blue)</option>
+            </select>
+          </div>
+
+          {/* Clinic Location */}
+          <div className="space-y-1">
+            <label className="text-[11px] text-slate-400 font-semibold">Clinic Location</label>
+            <input
+              type="text"
+              value={formState.clinic_location || ''}
+              onChange={(e) => {
+                setFormState(prev => ({ ...prev, clinic_location: e.target.value }));
+                setHasUnsavedChanges(true);
+              }}
+              className="bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-slate-200 w-full focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          {/* Working Hours */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-slate-900/90 border border-slate-800 p-3 rounded-2xl">
-              <span className="text-[11px] text-slate-400 font-medium block">Status</span>
-              <select 
-                value={currentDayData.status}
-                onChange={(e) => updateCurrentDay({ status: e.target.value as StatusType })}
-                className="mt-1 bg-slate-950 border border-slate-800 text-xs rounded-xl px-2.5 py-1.5 text-slate-200 w-full focus:outline-none focus:border-blue-500"
-              >
-                <option value="available">Available (Green)</option>
-                <option value="few_left">Few slots left (Teal)</option>
-                <option value="nearly_full">Nearly full (Orange)</option>
-                <option value="fully_booked">Fully booked (Red)</option>
-                <option value="off_duty">Off Duty (Grey)</option>
-                <option value="leave">Leave (Purple)</option>
-                <option value="holiday">Holiday (Blue)</option>
-              </select>
+            <div className="space-y-1">
+              <label className="text-[11px] text-slate-400 font-semibold">Start Time</label>
+              <input
+                type="time"
+                value={formState.start_time || '08:00'}
+                onChange={(e) => {
+                  setFormState(prev => ({ ...prev, start_time: e.target.value }));
+                  setHasUnsavedChanges(true);
+                }}
+                className="bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-slate-200 w-full"
+              />
             </div>
-
-            <div className="bg-slate-900/90 border border-slate-800 p-3 rounded-2xl">
-              <span className="text-[11px] text-slate-400 font-medium block">Clinic Location</span>
-              <select 
-                value={currentDayData.location}
-                onChange={(e) => updateCurrentDay({ location: e.target.value })}
-                className="mt-1 bg-slate-950 border border-slate-800 text-xs rounded-xl px-2.5 py-1.5 text-slate-200 w-full focus:outline-none focus:border-blue-500 truncate"
-              >
-                <option value="Main City Clinic - Room 302">Main City Clinic - Room 302</option>
-                <option value="Westlands Medical Center">Westlands Medical Center</option>
-                <option value="Virtual Care Hub">Virtual Care Hub</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Working Hours & Shift Editor Table */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-blue-400" /> Shift & Hours Configuration
-              </h3>
-              <span className="text-[10px] bg-blue-950 text-blue-300 border border-blue-800/60 px-2 py-0.5 rounded-full">Swift MD Custom</span>
-            </div>
-
-            <div className="space-y-2 text-xs">
-              {/* Morning Shift */}
-              <div className="flex items-center justify-between bg-slate-950/80 border border-slate-800/80 p-2.5 rounded-xl">
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    checked={currentDayData.shifts.morning.enabled}
-                    onChange={(e) => updateCurrentDay({
-                      shifts: { ...currentDayData.shifts, morning: { ...currentDayData.shifts.morning, enabled: e.target.checked } }
-                    })}
-                    className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0 w-3.5 h-3.5"
-                  />
-                  <div>
-                    <span className="font-semibold text-slate-200">Morning</span>
-                    <div className="text-[10px] text-slate-400">8:00–12:00</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button 
-                    onClick={() => updateCurrentDay({
-                      shifts: { ...currentDayData.shifts, morning: { ...currentDayData.shifts.morning, telehealth: !currentDayData.shifts.morning.telehealth } }
-                    })}
-                    className={`p-1.5 rounded-lg border transition ${currentDayData.shifts.morning.telehealth ? 'bg-blue-950 border-blue-700 text-blue-400' : 'bg-slate-900 border-slate-800 text-slate-600'}`}
-                    title="Telehealth toggle"
-                  >
-                    <Video className="w-3.5 h-3.5" />
-                  </button>
-                  <button 
-                    onClick={() => updateCurrentDay({
-                      shifts: { ...currentDayData.shifts, morning: { ...currentDayData.shifts.morning, inPerson: !currentDayData.shifts.morning.inPerson } }
-                    })}
-                    className={`p-1.5 rounded-lg border transition ${currentDayData.shifts.morning.inPerson ? 'bg-teal-950 border-teal-700 text-teal-400' : 'bg-slate-900 border-slate-800 text-slate-600'}`}
-                    title="In-Person toggle"
-                  >
-                    <MapPin className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Afternoon Shift */}
-              <div className="flex items-center justify-between bg-slate-950/80 border border-slate-800/80 p-2.5 rounded-xl">
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    checked={currentDayData.shifts.afternoon.enabled}
-                    onChange={(e) => updateCurrentDay({
-                      shifts: { ...currentDayData.shifts, afternoon: { ...currentDayData.shifts.afternoon, enabled: e.target.checked } }
-                    })}
-                    className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0 w-3.5 h-3.5"
-                  />
-                  <div>
-                    <span className="font-semibold text-slate-200">Afternoon</span>
-                    <div className="text-[10px] text-slate-400">1:00–5:00</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button 
-                    onClick={() => updateCurrentDay({
-                      shifts: { ...currentDayData.shifts, afternoon: { ...currentDayData.shifts.afternoon, telehealth: !currentDayData.shifts.afternoon.telehealth } }
-                    })}
-                    className={`p-1.5 rounded-lg border transition ${currentDayData.shifts.afternoon.telehealth ? 'bg-blue-950 border-blue-700 text-blue-400' : 'bg-slate-900 border-slate-800 text-slate-600'}`}
-                    title="Telehealth toggle"
-                  >
-                    <Video className="w-3.5 h-3.5" />
-                  </button>
-                  <button 
-                    onClick={() => updateCurrentDay({
-                      shifts: { ...currentDayData.shifts, afternoon: { ...currentDayData.shifts.afternoon, inPerson: !currentDayData.shifts.afternoon.inPerson } }
-                    })}
-                    className={`p-1.5 rounded-lg border transition ${currentDayData.shifts.afternoon.inPerson ? 'bg-teal-950 border-teal-700 text-teal-400' : 'bg-slate-900 border-slate-800 text-slate-600'}`}
-                    title="In-Person toggle"
-                  >
-                    <MapPin className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Telehealth Advanced Parameters */}
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-2xl flex items-center justify-between">
-              <div>
-                <span className="font-semibold text-slate-200 block">Buffer Time</span>
-                <span className="text-[10px] text-slate-400">Between consults</span>
-              </div>
-              <select 
-                value={currentDayData.bufferTime}
-                onChange={(e) => updateCurrentDay({ bufferTime: Number(e.target.value) })}
-                className="bg-slate-950 border border-slate-800 text-xs rounded-lg px-2 py-1 text-slate-200"
-              >
-                <option value={5}>5m</option>
-                <option value={10}>10m</option>
-                <option value={15}>15m</option>
-                <option value={30}>30m</option>
-              </select>
-            </div>
-
-            <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-2xl flex items-center justify-between">
-              <div>
-                <span className="font-semibold text-slate-200 block">Emergency Switch</span>
-                <span className="text-[10px] text-rose-400">On-call urgent slots</span>
-              </div>
-              <input 
-                type="checkbox" 
-                checked={currentDayData.emergencySwitch}
-                onChange={(e) => updateCurrentDay({ emergencySwitch: e.target.checked })}
-                className="rounded border-slate-700 bg-slate-950 text-rose-600 focus:ring-0 w-4 h-4"
+            <div className="space-y-1">
+              <label className="text-[11px] text-slate-400 font-semibold">End Time</label>
+              <input
+                type="time"
+                value={formState.end_time || '17:00'}
+                onChange={(e) => {
+                  setFormState(prev => ({ ...prev, end_time: e.target.value }));
+                  setHasUnsavedChanges(true);
+                }}
+                className="bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-slate-200 w-full"
               />
             </div>
           </div>
 
-          {/* Appointment Visibility Table */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-teal-400" /> Booked Appointments ({currentDayData.appointments.length})
-              </h3>
-              <span className="text-[10px] text-slate-400">Click to open consultation</span>
+          {/* Capacity & Remaining Slots Calculation */}
+          <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs font-semibold">
+              <span className="text-slate-400">Max Capacity:</span>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={formState.max_patients || 10}
+                onChange={(e) => {
+                  setFormState(prev => ({ ...prev, max_patients: Number(e.target.value) }));
+                  setHasUnsavedChanges(true);
+                }}
+                className="w-16 bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 text-right text-xs text-white"
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs font-semibold pt-1 border-t border-slate-800/60">
+              <span className="text-slate-400">Remaining Slots:</span>
+              <span className={`font-bold ${remainingSlots > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {remainingSlots} slots left
+              </span>
+            </div>
+          </div>
+
+          {/* Buffer Time & Emergency Toggle */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-950 border border-slate-800 p-3 rounded-2xl flex flex-col gap-1">
+              <span className="text-[10px] text-slate-400 font-semibold">Buffer Time</span>
+              <select
+                value={formState.buffer_minutes || 15}
+                onChange={(e) => {
+                  setFormState(prev => ({ ...prev, buffer_minutes: Number(e.target.value) }));
+                  setHasUnsavedChanges(true);
+                }}
+                className="bg-slate-900 text-xs rounded-lg px-2 py-1 border border-slate-800 text-slate-200"
+              >
+                <option value={5}>5 mins</option>
+                <option value={10}>10 mins</option>
+                <option value={15}>15 mins</option>
+                <option value={30}>30 mins</option>
+              </select>
             </div>
 
-            {currentDayData.appointments.length > 0 ? (
-              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                {currentDayData.appointments.map((app, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-slate-950 border border-slate-800/60 p-2 rounded-xl text-xs hover:border-blue-700/50 cursor-pointer transition">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] text-blue-400 font-medium">{app.time}</span>
-                      <span className="font-semibold text-slate-200">{app.patient}</span>
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-slate-300">{app.type}</span>
-                  </div>
-                ))}
+            <div className="bg-slate-950 border border-slate-800 p-3 rounded-2xl flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold">Emergency</span>
+                <span className="text-[10px] text-slate-500">Override</span>
               </div>
-            ) : (
-              <div className="text-center py-4 text-xs text-slate-500 italic bg-slate-950/40 rounded-xl border border-dashed border-slate-800">
-                No patient bookings scheduled for this date.
-              </div>
-            )}
+              <input
+                type="checkbox"
+                checked={formState.emergency_enabled ?? true}
+                onChange={(e) => {
+                  setFormState(prev => ({ ...prev, emergency_enabled: e.target.checked }));
+                  setHasUnsavedChanges(true);
+                }}
+                className="rounded border-slate-700 bg-slate-900 text-blue-600 w-4 h-4"
+              />
+            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 pt-2">
-            <button 
-              onClick={() => alert(`Changes saved successfully for September ${selectedDay}, 2026!`)}
-              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-1.5"
-            >
-              <Check className="w-4 h-4" /> Save Changes
-            </button>
-            <button 
-              onClick={() => alert(`Copied schedule configuration from Sep ${selectedDay} to other active weekdays.`)}
-              className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-medium text-xs rounded-xl transition"
-            >
-              Copy to Others
-            </button>
-          </div>
-
+          {/* Save Button */}
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 mt-2"
+          >
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            {isSaving ? 'Persisting to Supabase...' : 'Save Schedule Changes'}
+          </button>
         </div>
 
       </div>
-
     </div>
   );
 }
