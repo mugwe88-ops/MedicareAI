@@ -10,7 +10,7 @@ import { createPatientBookingAction } from './actions';
 import {
   ShieldCheck, Clock, CheckCircle2, Search, Star, Building, Video, Mic,
   AlertTriangle, Calendar as CalendarIcon, ChevronRight, Check,
-  Activity, Heart, Brain, Baby, Stethoscope
+  Activity, Heart, Brain, Baby, Stethoscope, ArrowLeft, User
 } from 'lucide-react';
 
 interface IWindow extends Window {
@@ -26,6 +26,8 @@ const BODY_SYSTEMS = [
   { id: 'Children', label: 'Pediatrics', icon: Baby, chips: ['Growth check', 'Fever in child', 'Skin rash', 'Ear pain'] },
 ];
 
+const SPECIALTIES = ['All', 'General Practice', 'Cardiology', 'Pediatrics', 'Neurology', 'Dermatology'];
+
 export default function BookAppointmentPage() {
   const router = useRouter();
   const [step, setStep] = useState<number>(1);
@@ -39,7 +41,7 @@ export default function BookAppointmentPage() {
   const [availabilities, setAvailabilities] = useState<Record<string, DoctorAvailability>>({});
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<GeneratedTimeSlot | null>(null);
-  const [consultationType, setConsultationType] = useState<'Telehealth' | 'Physical'>('Physical');
+  const [consultationType, setConsultationType] = useState<'Telehealth' | 'Physical'>('Telehealth');
 
   const [selectedBodySystem, setSelectedBodySystem] = useState<string>('General');
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
@@ -51,16 +53,22 @@ export default function BookAppointmentPage() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Initialize date string
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     setTodayStr(today);
     setSelectedDate(today);
   }, []);
 
+  // Fetch Doctors from Supabase
   useEffect(() => {
     async function fetchDoctors() {
       setIsLoading(true);
-      const { data, error } = await supabase.from('doctors').select('*').order('rating', { ascending: false });
+      const { data, error } = await supabase
+        .from('doctors')
+        .select('*')
+        .order('rating', { ascending: false });
+
       if (!error && data && data.length > 0) {
         setDoctors(data as Doctor[]);
         setSelectedDoctor(data[0] as Doctor);
@@ -70,6 +78,7 @@ export default function BookAppointmentPage() {
     fetchDoctors();
   }, []);
 
+  // Fetch Doctor Schedule and subscribe to Supabase Realtime
   useEffect(() => {
     if (!selectedDoctor || !todayStr) return;
 
@@ -156,7 +165,9 @@ export default function BookAppointmentPage() {
   }, [selectedDoctor, todayStr]);
 
   const filteredDoctors = doctors.filter((doc) => {
-    const matchesSearch = doc.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || doc.specialty.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      doc.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.specialty.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSpec = specialtyFilter === 'All' || doc.specialty === specialtyFilter;
     return matchesSearch && matchesSpec;
   });
@@ -166,7 +177,9 @@ export default function BookAppointmentPage() {
   const timeSlots = generateAvailableSlots(currentAvailability, dayAppointments);
 
   const toggleSymptom = (chip: string) => {
-    setSelectedSymptoms((prev) => (prev.includes(chip) ? prev.filter((c) => c !== chip) : [...prev, chip]));
+    setSelectedSymptoms((prev) =>
+      prev.includes(chip) ? prev.filter((c) => c !== chip) : [...prev, chip]
+    );
   };
 
   const handleVoiceInput = () => {
@@ -175,7 +188,7 @@ export default function BookAppointmentPage() {
     const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert('Voice dictation is supported in Chrome or Edge.');
+      alert('Voice dictation is supported in Chrome or Edge browsers.');
       return;
     }
 
@@ -224,6 +237,8 @@ export default function BookAppointmentPage() {
 
   return (
     <div className="min-h-screen bg-[#050914] text-slate-100 font-sans p-4 md:p-8 space-y-6 pb-24 selection:bg-blue-600 selection:text-white rounded-3xl">
+      
+      {/* HEADER BAR */}
       <div className="bg-gradient-to-r from-blue-950/80 via-[#0a1228] to-[#080d1a] border border-blue-800/40 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div>
@@ -232,26 +247,35 @@ export default function BookAppointmentPage() {
                 <ShieldCheck className="w-3 h-3 text-blue-400" /> 256-Bit Encrypted
               </span>
               <span className="px-2 py-0.5 rounded-md bg-emerald-950/40 border border-emerald-800/40 text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
-                <Activity className="w-3 h-3" /> Realtime Sync
+                <Activity className="w-3 h-3 animate-pulse" /> Realtime Sync
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Book an Appointment</h1>
           </div>
 
+          {/* STEP INDICATOR */}
           <div className="flex items-center gap-2 bg-slate-950/80 p-2.5 rounded-2xl border border-slate-800/80">
             {[1, 2, 3].map((s) => (
               <div key={s} className="flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-xl font-bold text-xs flex items-center justify-center transition-all ${
-                  step === s ? 'bg-blue-600 text-white shadow-lg' : step > s ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-900 text-slate-600'
-                }`}>
+                <div
+                  className={`w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center transition-all ${
+                    step === s
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/50 ring-2 ring-blue-400/40'
+                      : step > s
+                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                      : 'bg-slate-900 text-slate-600'
+                  }`}
+                >
                   {step > s ? <Check className="w-4 h-4" /> : s}
                 </div>
+                {s < 3 && <div className="w-3 h-0.5 bg-slate-800" />}
               </div>
             ))}
           </div>
         </div>
       </div>
 
+      {/* ERROR NOTICE */}
       {errorMessage && (
         <div className="p-4 rounded-2xl bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-semibold flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
@@ -259,9 +283,11 @@ export default function BookAppointmentPage() {
         </div>
       )}
 
+      {/* STEP 1: SELECT DOCTOR */}
       {step === 1 && (
         <div className="space-y-5">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
+          {/* SEARCH & SPECIALTY FILTER BAR */}
+          <div className="flex flex-col md:flex-row items-center gap-3">
             <div className="relative flex-1 w-full">
               <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-500" />
               <input
@@ -269,126 +295,378 @@ export default function BookAppointmentPage() {
                 placeholder="Search doctor name or specialty..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-[#0d1424] border border-slate-800 rounded-2xl text-xs text-white focus:outline-none"
+                className="w-full pl-10 pr-4 py-2.5 bg-[#0d1424] border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition"
               />
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredDoctors.map((doc) => {
-              const isSelected = selectedDoctor?.id === doc.id;
-              return (
-                <div
-                  key={doc.id}
-                  onClick={() => setSelectedDoctor(doc)}
-                  className={`p-5 rounded-3xl border transition cursor-pointer ${
-                    isSelected ? 'bg-gradient-to-b from-[#0d1a38] to-[#0a1226] border-blue-500' : 'bg-[#0d1424] border-slate-800/80'
-                  }`}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-lg">
-                      {doc.full_name.split(' ').map((n) => n[0]).join('')}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-white text-sm">{doc.full_name}</h3>
-                      <p className="text-xs font-semibold text-blue-400">{doc.specialty}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                    <span className="font-black text-white">KES {doc.consultation_fee}</span>
-                    <button onClick={() => { setSelectedDoctor(doc); setStep(2); }} className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs">
-                      Select Doctor <ChevronRight className="w-3.5 h-3.5 inline" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {step === 2 && selectedDoctor && (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-4">
-            <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-blue-400" /> Availability
-            </h2>
-            <div className="space-y-2 max-h-[420px] overflow-y-auto">
-              {Array.from({ length: 14 }).map((_, i) => {
-                const dateObj = new Date();
-                dateObj.setDate(dateObj.getDate() + i);
-                const dStr = dateObj.toISOString().split('T')[0];
-                return (
-                  <button
-                    key={dStr}
-                    onClick={() => { setSelectedDate(dStr); setSelectedSlot(null); }}
-                    className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between text-xs font-bold ${
-                      selectedDate === dStr ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-900 border-slate-800 text-slate-200'
-                    }`}
-                  >
-                    <span>{dStr}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="md:col-span-7 bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-5">
-            <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-400" /> Available Time Slots
-            </h2>
-            <div className="grid grid-cols-3 gap-2">
-              {timeSlots.map((slot) => (
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
+              {SPECIALTIES.map((spec) => (
                 <button
-                  key={slot.startTime}
-                  disabled={slot.isBooked}
-                  onClick={() => setSelectedSlot(slot)}
-                  className={`p-2.5 rounded-xl border text-xs font-bold ${
-                    slot.isBooked ? 'bg-slate-950 text-slate-600 line-through' : selectedSlot?.startTime === slot.startTime ? 'bg-blue-600 text-white' : 'bg-slate-900 text-slate-300'
+                  key={spec}
+                  onClick={() => setSpecialtyFilter(spec)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                    specialtyFilter === spec
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-[#0d1424] text-slate-400 hover:text-slate-200 border border-slate-800'
                   }`}
                 >
-                  {slot.startTime}
+                  {spec}
                 </button>
               ))}
             </div>
+          </div>
 
-            <div className="flex justify-between pt-4 border-t border-slate-800">
-              <button onClick={() => setStep(1)} className="px-4 py-2.5 rounded-xl bg-slate-900 text-slate-300 text-xs font-bold">Back</button>
-              <button disabled={!selectedSlot} onClick={() => setStep(3)} className="px-6 py-2.5 rounded-xl bg-blue-600 disabled:bg-slate-800 text-white font-bold text-xs">
-                Next
+          {/* DOCTOR CARDS */}
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="p-5 rounded-3xl bg-[#0d1424] border border-slate-800 animate-pulse h-32" />
+              ))}
+            </div>
+          ) : filteredDoctors.length === 0 ? (
+            <div className="p-8 rounded-3xl bg-[#0d1424] border border-slate-800 text-center space-y-2">
+              <User className="w-8 h-8 text-slate-600 mx-auto" />
+              <p className="text-xs text-slate-400 font-bold">No doctors match your search query.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredDoctors.map((doc) => {
+                const isSelected = selectedDoctor?.id === doc.id;
+                return (
+                  <div
+                    key={doc.id}
+                    onClick={() => setSelectedDoctor(doc)}
+                    className={`p-5 rounded-3xl border transition cursor-pointer relative overflow-hidden ${
+                      isSelected
+                        ? 'bg-gradient-to-b from-[#0d1a38] to-[#0a1226] border-blue-500 shadow-xl ring-1 ring-blue-500/50'
+                        : 'bg-[#0d1424] border-slate-800/80 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-lg shrink-0 shadow-lg">
+                        {doc.full_name.split(' ').map((n) => n[0]).join('')}
+                      </div>
+
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-bold text-white text-sm">{doc.full_name}</h3>
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-800/40">
+                            <Star className="w-3 h-3 fill-amber-400" /> {doc.rating || '4.9'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold text-blue-400">{doc.specialty}</p>
+                        <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <Building className="w-3 h-3 text-slate-500" /> {doc.location || 'Swift MD Central Clinic'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Consultation Fee</span>
+                        <span className="font-black text-white text-sm">KES {doc.consultation_fee || 3500}</span>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedDoctor(doc);
+                          setStep(2);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg transition flex items-center gap-1"
+                      >
+                        Select Doctor <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* STEP 2: SELECT DATE & TIME SLOT */}
+      {step === 2 && selectedDoctor && (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-5">
+            <div>
+              <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2 mb-3">
+                <Video className="w-4 h-4 text-blue-400" /> Consultation Format
+              </h2>
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800">
+                <button
+                  onClick={() => setConsultationType('Telehealth')}
+                  className={`py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    consultationType === 'Telehealth' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Video className="w-3.5 h-3.5" /> Telehealth
+                </button>
+                <button
+                  onClick={() => setConsultationType('Physical')}
+                  className={`py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    consultationType === 'Physical' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Building className="w-3.5 h-3.5" /> In-Clinic
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-blue-400" /> Select Date
+              </h2>
+              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                {Array.from({ length: 14 }).map((_, i) => {
+                  const dateObj = new Date();
+                  dateObj.setDate(dateObj.getDate() + i);
+                  const dStr = dateObj.toISOString().split('T')[0];
+                  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                  const formattedStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                  return (
+                    <button
+                      key={dStr}
+                      onClick={() => {
+                        setSelectedDate(dStr);
+                        setSelectedSlot(null);
+                      }}
+                      className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between text-xs font-bold transition ${
+                        selectedDate === dStr
+                          ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                          : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <span>{dayName}, {formattedStr}</span>
+                      <span className="text-[10px] opacity-75">{dStr}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-7 bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-5 flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-400" /> Available Time Slots
+                </h2>
+                <span className="text-[10px] text-slate-400 font-semibold">{selectedDate}</span>
+              </div>
+
+              {timeSlots.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-500 bg-slate-950/40 rounded-2xl border border-slate-800/80">
+                  No available appointment slots on this date.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {timeSlots.map((slot) => (
+                    <button
+                      key={slot.startTime}
+                      disabled={slot.isBooked}
+                      onClick={() => setSelectedSlot(slot)}
+                      className={`p-3 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1 ${
+                        slot.isBooked
+                          ? 'bg-slate-950 text-slate-600 border-slate-900 line-through cursor-not-allowed'
+                          : selectedSlot?.startTime === slot.startTime
+                          ? 'bg-blue-600 text-white border-blue-400 shadow-lg ring-2 ring-blue-400/40'
+                          : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-blue-500/50'
+                      }`}
+                    >
+                      <span>{slot.startTime}</span>
+                      <span className="text-[9px] opacity-70">{slot.endTime}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-800/80">
+              <button
+                onClick={() => setStep(1)}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-800 transition flex items-center gap-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
+              </button>
+              <button
+                disabled={!selectedSlot}
+                onClick={() => setStep(3)}
+                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs shadow-lg transition flex items-center gap-1"
+              >
+                Next <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* STEP 3: CLINICAL INTAKE & CONFIRMATION */}
       {step === 3 && selectedDoctor && selectedSlot && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          <div className="md:col-span-7 space-y-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-6">
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Clinical Intake</h2>
-            <textarea
-              rows={3}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Reason for visit..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs text-white"
-            />
+          <div className="md:col-span-7 bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-5">
+            <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <Stethoscope className="w-4 h-4 text-blue-400" /> Clinical Intake & Symptoms
+            </h2>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Primary Body System
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {BODY_SYSTEMS.map((sys) => {
+                  const Icon = sys.icon;
+                  const isSelected = selectedBodySystem === sys.id;
+                  return (
+                    <button
+                      key={sys.id}
+                      onClick={() => setSelectedBodySystem(sys.id)}
+                      className={`p-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 ${
+                        isSelected
+                          ? 'bg-blue-900/60 border-blue-500 text-blue-300'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{sys.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Common Symptoms
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {BODY_SYSTEMS.find((s) => s.id === selectedBodySystem)?.chips.map((chip) => {
+                  const active = selectedSymptoms.includes(chip);
+                  return (
+                    <button
+                      key={chip}
+                      onClick={() => toggleSymptom(chip)}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition ${
+                        active
+                          ? 'bg-blue-600 text-white border-blue-400'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {chip}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Discomfort / Pain Level
+                </label>
+                <span className="text-xs font-black text-amber-400">{painLevel} / 10</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={painLevel}
+                onChange={(e) => setPainLevel(parseInt(e.target.value))}
+                className="w-full accent-blue-600 bg-slate-950 h-2 rounded-lg cursor-pointer"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Reason for Visit
+                </label>
+                <button
+                  type="button"
+                  onClick={handleVoiceInput}
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition flex items-center gap-1 ${
+                    isListening ? 'bg-rose-600 text-white border-rose-400 animate-pulse' : 'bg-slate-900 border-slate-800 text-blue-400'
+                  }`}
+                >
+                  <Mic className="w-3 h-3" /> {isListening ? 'Listening...' : 'Voice Dictation'}
+                </button>
+              </div>
+              <textarea
+                rows={3}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Describe your primary health concerns or questions for the physician..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
           </div>
 
-          <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Booking Summary</h3>
-            <p className="text-xs text-slate-300">{selectedDoctor.full_name} - {selectedDate} @ {selectedSlot.startTime}</p>
-            <button
-              onClick={handleFinalBooking}
-              disabled={isSubmitting}
-              className="w-full py-3.5 bg-emerald-600 text-slate-950 font-black text-xs rounded-2xl"
-            >
-              {isSubmitting ? 'Syncing...' : 'Confirm Booking'}
-            </button>
+          <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-5 flex flex-col justify-between">
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Booking Overview
+              </h3>
+
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-3">
+                <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-600/30 flex items-center justify-center font-bold text-blue-300 text-xs shrink-0">
+                    {selectedDoctor.full_name.split(' ').map((n) => n[0]).join('')}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">{selectedDoctor.full_name}</h4>
+                    <p className="text-[10px] text-blue-400">{selectedDoctor.specialty}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 text-xs text-slate-300">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Date:</span>
+                    <span className="font-bold text-white">{selectedDate}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Time:</span>
+                    <span className="font-bold text-white">{selectedSlot.startTime} - {selectedSlot.endTime}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Format:</span>
+                    <span className="font-bold text-emerald-400">{consultationType}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-800/80 pt-2 text-sm">
+                    <span className="font-bold text-slate-300">Total Fee:</span>
+                    <span className="font-black text-white">KES {selectedDoctor.consultation_fee || 3500}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-4">
+              <button
+                onClick={handleFinalBooking}
+                disabled={isSubmitting}
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-slate-950 font-black text-xs rounded-2xl shadow-xl transition flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <span className="animate-pulse">Syncing Reservation...</span>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" /> Confirm & Reserve Appointment
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setStep(2)}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 font-bold text-xs rounded-xl border border-slate-800 transition"
+              >
+                Modify Slot Selection
+              </button>
+            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }
