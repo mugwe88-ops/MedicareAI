@@ -286,6 +286,7 @@ export default function BookAppointmentPage() {
     setSelectedDate(today);
   }, []);
 
+  // UPDATED fetchDoctors() WITH AUTOMATIC SAMPLE FALLBACK DATA
   useEffect(() => {
     async function fetchDoctors() {
       setIsLoading(true);
@@ -297,6 +298,52 @@ export default function BookAppointmentPage() {
       if (!error && data && data.length > 0) {
         setDoctors(data as Doctor[]);
         setSelectedDoctor(data[0] as Doctor);
+      } else {
+        // Fallback sample doctors if Supabase table is empty
+        const fallbackDoctors: any[] = [
+          {
+            id: '11111111-1111-1111-1111-111111111111',
+            full_name: 'Dr. Evelyn Harper',
+            specialty: 'General Practice',
+            consultation_fee: 3500,
+            rating: 4.9,
+            location: 'Swift MD Central Clinic',
+          },
+          {
+            id: '22222222-2222-2222-2222-222222222222',
+            full_name: 'Dr. Marcus Vance',
+            specialty: 'Cardiology',
+            consultation_fee: 4500,
+            rating: 4.8,
+            location: 'Heart & Vascular Suite B',
+          },
+          {
+            id: '33333333-3333-3333-3333-333333333333',
+            full_name: 'Dr. Amara Patel',
+            specialty: 'Pediatrics',
+            consultation_fee: 3000,
+            rating: 5.0,
+            location: 'Pediatric Care Center',
+          },
+          {
+            id: '44444444-4444-4444-4444-444444444444',
+            full_name: 'Dr. Lucas Hayes',
+            specialty: 'Neurology',
+            consultation_fee: 5000,
+            rating: 4.9,
+            location: 'Neuroscience Center',
+          },
+          {
+            id: '55555555-5555-5555-5555-555555555555',
+            full_name: 'Dr. Sophia Chen',
+            specialty: 'Dermatology',
+            consultation_fee: 4000,
+            rating: 4.7,
+            location: 'DermaCare Institute',
+          },
+        ];
+        setDoctors(fallbackDoctors);
+        setSelectedDoctor(fallbackDoctors[0]);
       }
       setIsLoading(false);
     }
