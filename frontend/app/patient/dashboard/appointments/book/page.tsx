@@ -8,10 +8,14 @@ import { supabase, Doctor, DoctorAvailability, Appointment } from '@/lib/supabas
 import { generateAvailableSlots, GeneratedTimeSlot } from '@/lib/slot-calculator';
 import { createPatientBookingAction } from './actions';
 import {
-  ShieldCheck, Clock, CheckCircle2, Search, Star, Building, Video, Mic,
-  AlertTriangle, Calendar as CalendarIcon, ChevronRight, Check,
-  Activity, Heart, Brain, Baby, Stethoscope, ArrowLeft, User
+  Clock, CheckCircle2, Search, Video, Mic, AlertTriangle, Calendar as CalendarIcon,
+  ChevronRight, ArrowLeft, Stethoscope, Heart, Brain, Baby, Activity, X
 } from 'lucide-react';
+
+import BookingHero from '@/components/patient/BookingHero';
+import FeaturedDoctors from '@/components/patient/FeaturedDoctors';
+import DoctorCard from '@/components/patient/DoctorCard';
+import EmptyState from '@/components/patient/EmptyState';
 
 interface IWindow extends Window {
   webkitSpeechRecognition: any;
@@ -53,14 +57,14 @@ export default function BookAppointmentPage() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Initialize date string
+  // Date initialization
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     setTodayStr(today);
     setSelectedDate(today);
   }, []);
 
-  // Fetch Doctors from Supabase
+  // Fetch doctors from Supabase
   useEffect(() => {
     async function fetchDoctors() {
       setIsLoading(true);
@@ -78,7 +82,7 @@ export default function BookAppointmentPage() {
     fetchDoctors();
   }, []);
 
-  // Fetch Doctor Schedule and subscribe to Supabase Realtime
+  // Fetch schedule and subscribe to Supabase Realtime
   useEffect(() => {
     if (!selectedDoctor || !todayStr) return;
 
@@ -107,60 +111,16 @@ export default function BookAppointmentPage() {
 
     const availChan = supabase
       .channel(`avail-${doctorId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'doctor_availability', filter: `doctor_id=eq.${doctorId}` },
-        (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const row = payload.new as DoctorAvailability;
-            if (row?.date) {
-              setAvailabilities((prev) => ({ ...prev, [row.date]: row }));
-            }
-          } else if (payload.eventType === 'DELETE') {
-            const old = payload.old as { date?: string };
-            if (old?.date) {
-              const dateKey = old.date;
-              setAvailabilities((prev) => {
-                const copy = { ...prev };
-                delete copy[dateKey];
-                return copy;
-              });
-            }
-          }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctor_availability', filter: `doctor_id=eq.${doctorId}` }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const row = payload.new as DoctorAvailability;
+          if (row?.date) setAvailabilities((prev) => ({ ...prev, [row.date]: row }));
         }
-      )
-      .subscribe();
-
-    const apptChan = supabase
-      .channel(`appts-${doctorId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'appointments', filter: `doctor_id=eq.${doctorId}` },
-        (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const appt = payload.new as Appointment;
-            setAppointments((prev) => {
-              const index = prev.findIndex((a) => a.id === appt.id);
-              if (index !== -1) {
-                const copy = [...prev];
-                copy[index] = appt;
-                return copy;
-              }
-              return [...prev, appt];
-            });
-          } else if (payload.eventType === 'DELETE') {
-            const old = payload.old as { id?: string };
-            if (old?.id) {
-              setAppointments((prev) => prev.filter((a) => a.id !== old.id));
-            }
-          }
-        }
-      )
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(availChan);
-      supabase.removeChannel(apptChan);
     };
   }, [selectedDoctor, todayStr]);
 
@@ -177,9 +137,7 @@ export default function BookAppointmentPage() {
   const timeSlots = generateAvailableSlots(currentAvailability, dayAppointments);
 
   const toggleSymptom = (chip: string) => {
-    setSelectedSymptoms((prev) =>
-      prev.includes(chip) ? prev.filter((c) => c !== chip) : [...prev, chip]
-    );
+    setSelectedSymptoms((prev) => (prev.includes(chip) ? prev.filter((c) => c !== chip) : [...prev, chip]));
   };
 
   const handleVoiceInput = () => {
@@ -238,42 +196,8 @@ export default function BookAppointmentPage() {
   return (
     <div className="min-h-screen bg-[#050914] text-slate-100 font-sans p-4 md:p-8 space-y-6 pb-24 selection:bg-blue-600 selection:text-white rounded-3xl">
       
-      {/* HEADER BAR */}
-      <div className="bg-gradient-to-r from-blue-950/80 via-[#0a1228] to-[#080d1a] border border-blue-800/40 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="px-2.5 py-1 rounded-full bg-blue-900/50 border border-blue-600/40 text-[10px] font-bold text-blue-300 uppercase tracking-widest flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-blue-400" /> 256-Bit Encrypted
-              </span>
-              <span className="px-2 py-0.5 rounded-md bg-emerald-950/40 border border-emerald-800/40 text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
-                <Activity className="w-3 h-3 animate-pulse" /> Realtime Sync
-              </span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Book an Appointment</h1>
-          </div>
-
-          {/* STEP INDICATOR */}
-          <div className="flex items-center gap-2 bg-slate-950/80 p-2.5 rounded-2xl border border-slate-800/80">
-            {[1, 2, 3].map((s) => (
-              <div key={s} className="flex items-center gap-2">
-                <div
-                  className={`w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center transition-all ${
-                    step === s
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/50 ring-2 ring-blue-400/40'
-                      : step > s
-                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                      : 'bg-slate-900 text-slate-600'
-                  }`}
-                >
-                  {step > s ? <Check className="w-4 h-4" /> : s}
-                </div>
-                {s < 3 && <div className="w-3 h-0.5 bg-slate-800" />}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* 1. HERO SECTION */}
+      <BookingHero patientName="Sarah" step={step} />
 
       {/* ERROR NOTICE */}
       {errorMessage && (
@@ -283,9 +207,9 @@ export default function BookAppointmentPage() {
         </div>
       )}
 
-      {/* STEP 1: SELECT DOCTOR */}
+      {/* STEP 1: DOCTOR SEARCH & GRID */}
       {step === 1 && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {/* SEARCH & SPECIALTY FILTER BAR */}
           <div className="flex flex-col md:flex-row items-center gap-3">
             <div className="relative flex-1 w-full">
@@ -295,8 +219,16 @@ export default function BookAppointmentPage() {
                 placeholder="Search doctor name or specialty..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-[#0d1424] border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition"
+                className="w-full pl-10 pr-10 py-2.5 bg-[#0d1424] border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3.5 top-3.5 text-slate-500 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
@@ -306,7 +238,7 @@ export default function BookAppointmentPage() {
                   onClick={() => setSpecialtyFilter(spec)}
                   className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition ${
                     specialtyFilter === spec
-                      ? 'bg-blue-600 text-white shadow-md'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                       : 'bg-[#0d1424] text-slate-400 hover:text-slate-200 border border-slate-800'
                   }`}
                 >
@@ -316,77 +248,52 @@ export default function BookAppointmentPage() {
             </div>
           </div>
 
-          {/* DOCTOR CARDS */}
+          {/* FEATURED CAROUSEL */}
+          <FeaturedDoctors
+            doctors={doctors}
+            selectedDoctorId={selectedDoctor?.id}
+            onSelectDoctor={(doc) => {
+              setSelectedDoctor(doc);
+              setStep(2);
+            }}
+          />
+
+          {/* MAIN DOCTORS GRID OR EMPTY STATE */}
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="p-5 rounded-3xl bg-[#0d1424] border border-slate-800 animate-pulse h-32" />
+                <div key={i} className="p-5 rounded-3xl bg-[#0d1424] border border-slate-800 animate-pulse h-36" />
               ))}
             </div>
           ) : filteredDoctors.length === 0 ? (
-            <div className="p-8 rounded-3xl bg-[#0d1424] border border-slate-800 text-center space-y-2">
-              <User className="w-8 h-8 text-slate-600 mx-auto" />
-              <p className="text-xs text-slate-400 font-bold">No doctors match your search query.</p>
-            </div>
+            <EmptyState
+              title="We couldn't find an exact doctor match."
+              description="Try adjusting your query or resetting specialty filters to see all available clinical specialists."
+              onClearFilters={() => {
+                setSearchQuery('');
+                setSpecialtyFilter('All');
+              }}
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredDoctors.map((doc) => {
-                const isSelected = selectedDoctor?.id === doc.id;
-                return (
-                  <div
-                    key={doc.id}
-                    onClick={() => setSelectedDoctor(doc)}
-                    className={`p-5 rounded-3xl border transition cursor-pointer relative overflow-hidden ${
-                      isSelected
-                        ? 'bg-gradient-to-b from-[#0d1a38] to-[#0a1226] border-blue-500 shadow-xl ring-1 ring-blue-500/50'
-                        : 'bg-[#0d1424] border-slate-800/80 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="w-14 h-14 rounded-2xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-lg shrink-0 shadow-lg">
-                        {doc.full_name.split(' ').map((n) => n[0]).join('')}
-                      </div>
-
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-bold text-white text-sm">{doc.full_name}</h3>
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-800/40">
-                            <Star className="w-3 h-3 fill-amber-400" /> {doc.rating || '4.9'}
-                          </span>
-                        </div>
-                        <p className="text-xs font-semibold text-blue-400">{doc.specialty}</p>
-                        <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                          <Building className="w-3 h-3 text-slate-500" /> {(doc as any).location || 'Swift MD Central Clinic'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Consultation Fee</span>
-                        <span className="font-black text-white text-sm">KES {doc.consultation_fee || 3500}</span>
-                      </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedDoctor(doc);
-                          setStep(2);
-                        }}
-                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg transition flex items-center gap-1"
-                      >
-                        Select Doctor <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              {filteredDoctors.map((doc) => (
+                <DoctorCard
+                  key={doc.id}
+                  doctor={doc}
+                  isSelected={selectedDoctor?.id === doc.id}
+                  onSelect={(d) => setSelectedDoctor(d)}
+                  onProceed={(d) => {
+                    setSelectedDoctor(d);
+                    setStep(2);
+                  }}
+                />
+              ))}
             </div>
           )}
         </div>
       )}
 
-      {/* STEP 2: SELECT DATE & TIME SLOT */}
+      {/* STEP 2: SCHEDULE & TIME SLOTS */}
       {step === 2 && selectedDoctor && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-5">
@@ -409,7 +316,7 @@ export default function BookAppointmentPage() {
                     consultationType === 'Physical' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Building className="w-3.5 h-3.5" /> In-Clinic
+                  In-Clinic
                 </button>
               </div>
             </div>
@@ -459,7 +366,7 @@ export default function BookAppointmentPage() {
 
               {timeSlots.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-500 bg-slate-950/40 rounded-2xl border border-slate-800/80">
-                  No available appointment slots on this date.
+                  No available appointment slots on this date. Select another date above.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
