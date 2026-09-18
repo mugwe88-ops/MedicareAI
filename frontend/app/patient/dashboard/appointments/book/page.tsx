@@ -10,9 +10,8 @@ import { generateAvailableSlots, GeneratedTimeSlot } from '@/lib/slot-calculator
 import { createPatientBookingAction } from './actions';
 import {
   ShieldCheck, Clock, CheckCircle2, Search, Star, Building, Video, Mic,
-  AlertTriangle, Calendar as CalendarIcon, MapPin, ChevronRight, Check,
-  Activity, Heart, Brain, Baby, Sparkles, User, FileText, Download,
-  MessageSquare, Stethoscope, ArrowLeft, RefreshCw, Volume2, Flame
+  AlertTriangle, Calendar as CalendarIcon, ChevronRight, Check,
+  Activity, Heart, Brain, Baby, Stethoscope
 } from 'lucide-react';
 
 interface IWindow extends Window {
@@ -117,9 +116,10 @@ export default function BookAppointmentPage() {
           } else if (payload.eventType === 'DELETE') {
             const old = payload.old as { date?: string };
             if (old?.date) {
+              const dateKey = old.date; // Type narrows safely to string
               setAvailabilities((prev) => {
                 const copy = { ...prev };
-                delete copy[old.date];
+                delete copy[dateKey];
                 return copy;
               });
             }
