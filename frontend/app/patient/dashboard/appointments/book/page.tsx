@@ -8,14 +8,11 @@ import { supabase, Doctor, DoctorAvailability, Appointment } from '@/lib/supabas
 import { generateAvailableSlots, GeneratedTimeSlot } from '@/lib/slot-calculator';
 import { createPatientBookingAction } from './actions';
 import {
-  Clock, CheckCircle2, Search, Video, Mic, AlertTriangle, Calendar as CalendarIcon,
-  ChevronRight, ArrowLeft, Stethoscope, Heart, Brain, Baby, Activity, X
+  ShieldCheck, Clock, CheckCircle2, Search, Star, Building, Video, Mic,
+  AlertTriangle, Calendar as CalendarIcon, ChevronRight, Check,
+  Activity, Heart, Brain, Baby, Stethoscope, ArrowLeft, User, RefreshCw,
+  Zap, X
 } from 'lucide-react';
-
-import BookingHero from '@/components/patient/BookingHero';
-import FeaturedDoctors from '@/components/patient/FeaturedDoctors';
-import DoctorCard from '@/components/patient/DoctorCard';
-import EmptyState from '@/components/patient/EmptyState';
 
 interface IWindow extends Window {
   webkitSpeechRecognition: any;
@@ -32,6 +29,232 @@ const BODY_SYSTEMS = [
 
 const SPECIALTIES = ['All', 'General Practice', 'Cardiology', 'Pediatrics', 'Neurology', 'Dermatology'];
 
+/* INLINE COMPONENT 1: BOOKING HERO */
+function BookingHero({ patientName = 'Patient', step }: { patientName?: string; step: number }) {
+  return (
+    <div className="bg-gradient-to-r from-blue-950/90 via-[#0a1228] to-[#080d1a] border border-blue-800/40 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+        <div>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className="px-2.5 py-1 rounded-full bg-blue-900/60 border border-blue-500/40 text-[10px] font-bold text-blue-300 uppercase tracking-widest flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> 256-Bit Encrypted
+            </span>
+            <span className="px-2.5 py-1 rounded-full bg-emerald-950/50 border border-emerald-800/50 text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
+              <Activity className="w-3.5 h-3.5 animate-pulse" /> Live Sync Active
+            </span>
+            <span className="px-2.5 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-[10px] text-slate-400 flex items-center gap-1 font-medium">
+              <Clock className="w-3.5 h-3.5 text-amber-400" /> Est. Booking: &lt; 2 mins
+            </span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
+            Welcome back, {patientName}
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Book your medical consultation with top-tier physicians in under 2 minutes.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80 shrink-0">
+          {[
+            { num: 1, label: 'Doctor' },
+            { num: 2, label: 'Schedule' },
+            { num: 3, label: 'Intake' },
+          ].map((s, i) => (
+            <React.Fragment key={s.num}>
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-9 h-9 rounded-xl font-bold text-xs flex items-center justify-center transition-all ${
+                    step === s.num
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/50 ring-2 ring-blue-400/40'
+                      : step > s.num
+                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                      : 'bg-slate-900 text-slate-600'
+                  }`}
+                >
+                  {step > s.num ? <Check className="w-4 h-4" /> : s.num}
+                </div>
+                <span className={`text-[10px] font-bold hidden sm:inline ${step === s.num ? 'text-white' : 'text-slate-500'}`}>
+                  {s.label}
+                </span>
+              </div>
+              {i < 2 && <div className={`w-4 h-0.5 ${step > i + 1 ? 'bg-emerald-500' : 'bg-slate-800'}`} />}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* INLINE COMPONENT 2: FEATURED DOCTORS CAROUSEL */
+function FeaturedDoctors({
+  doctors,
+  selectedDoctorId,
+  onSelectDoctor,
+}: {
+  doctors: Doctor[];
+  selectedDoctorId?: string;
+  onSelectDoctor: (doc: Doctor) => void;
+}) {
+  if (!doctors || doctors.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <Zap className="w-4 h-4 text-amber-400" /> Featured Physicians Available Today
+        </h2>
+        <span className="text-[10px] text-blue-400 font-bold">Top Verified Ratings</span>
+      </div>
+
+      <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-blue-600/30">
+        {doctors.slice(0, 5).map((doc) => {
+          const isSelected = selectedDoctorId === doc.id;
+          return (
+            <div
+              key={`feat-${doc.id}`}
+              onClick={() => onSelectDoctor(doc)}
+              className={`min-w-[240px] sm:min-w-[260px] p-4 rounded-2xl border transition-all cursor-pointer group shrink-0 ${
+                isSelected
+                  ? 'bg-blue-950/80 border-blue-500 ring-1 ring-blue-500'
+                  : 'bg-[#0d1424] border-slate-800/80 hover:border-blue-500/50 hover:-translate-y-1'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-xs shrink-0 group-hover:scale-105 transition-transform">
+                  {doc.full_name.split(' ').map((n) => n[0]).join('')}
+                </div>
+                <div className="overflow-hidden">
+                  <h4 className="text-xs font-bold text-white truncate flex items-center gap-1">
+                    {doc.full_name} <CheckCircle2 className="w-3 h-3 text-blue-400 shrink-0" />
+                  </h4>
+                  <p className="text-[10px] text-blue-400 truncate">{doc.specialty}</p>
+                  <div className="flex items-center gap-1 text-[9px] text-amber-400 font-bold mt-0.5">
+                    <Star className="w-3 h-3 fill-amber-400" /> {doc.rating || '4.9'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <Video className="w-3 h-3" /> Telehealth Ready
+                </span>
+                <span className="font-bold text-slate-200">KES {doc.consultation_fee || 3500}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* INLINE COMPONENT 3: DOCTOR CARD */
+function DoctorCard({
+  doctor,
+  isSelected,
+  onSelect,
+  onProceed,
+}: {
+  doctor: Doctor;
+  isSelected: boolean;
+  onSelect: (doc: Doctor) => void;
+  onProceed: (doc: Doctor) => void;
+}) {
+  return (
+    <div
+      onClick={() => onSelect(doctor)}
+      className={`p-5 rounded-3xl border transition-all duration-300 cursor-pointer relative overflow-hidden group ${
+        isSelected
+          ? 'bg-gradient-to-b from-[#0d1a38] to-[#0a1226] border-blue-500 shadow-xl shadow-blue-950/50 ring-1 ring-blue-500/50'
+          : 'bg-[#0d1424] border-slate-800/80 hover:border-slate-700 hover:-translate-y-1'
+      }`}
+    >
+      <div className="flex items-start gap-4">
+        <div className="w-14 h-14 rounded-2xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-lg shrink-0 shadow-lg group-hover:scale-105 transition-transform">
+          {doctor.full_name.split(' ').map((n) => n[0]).join('')}
+        </div>
+
+        <div className="flex-1 space-y-1">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
+              {doctor.full_name}
+              <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            </h3>
+            <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-800/40">
+              <Star className="w-3 h-3 fill-amber-400" /> {doctor.rating || '4.9'}
+            </span>
+          </div>
+          <p className="text-xs font-semibold text-blue-400">{doctor.specialty}</p>
+          <p className="text-[10px] text-slate-400 flex items-center gap-1">
+            <Building className="w-3 h-3 text-slate-500" /> {(doctor as any).location || 'Swift MD Central Clinic'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <span className="px-2 py-0.5 rounded-md bg-emerald-950/50 border border-emerald-800/40 text-[9px] font-bold text-emerald-400 flex items-center gap-1">
+          <Video className="w-3 h-3" /> Telehealth
+        </span>
+        <span className="px-2 py-0.5 rounded-md bg-blue-950/50 border border-blue-800/40 text-[9px] font-bold text-blue-300 flex items-center gap-1">
+          <Building className="w-3 h-3" /> In-Clinic
+        </span>
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+        <div>
+          <span className="text-[10px] text-slate-500 block uppercase font-bold">Consultation Fee</span>
+          <span className="font-black text-white text-sm">KES {doctor.consultation_fee || 3500}</span>
+        </div>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onProceed(doctor);
+          }}
+          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg transition flex items-center gap-1"
+        >
+          Select Doctor <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* INLINE COMPONENT 4: EMPTY STATE */
+function EmptyState({
+  title,
+  description,
+  onClearFilters,
+}: {
+  title: string;
+  description: string;
+  onClearFilters: () => void;
+}) {
+  return (
+    <div className="p-10 rounded-3xl bg-[#0d1424] border border-slate-800/80 text-center space-y-4 shadow-xl">
+      <div className="w-16 h-16 rounded-full bg-blue-950/60 border border-blue-800/40 flex items-center justify-center mx-auto text-blue-400">
+        <User className="w-8 h-8" />
+      </div>
+      <div className="max-w-md mx-auto space-y-1">
+        <h3 className="text-base font-bold text-white">{title}</h3>
+        <p className="text-xs text-slate-400">{description}</p>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+        <button
+          onClick={onClearFilters}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Reset Filters
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* MAIN PAGE EXPORT */
 export default function BookAppointmentPage() {
   const router = useRouter();
   const [step, setStep] = useState<number>(1);
@@ -57,14 +280,12 @@ export default function BookAppointmentPage() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Date initialization
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     setTodayStr(today);
     setSelectedDate(today);
   }, []);
 
-  // Fetch doctors from Supabase
   useEffect(() => {
     async function fetchDoctors() {
       setIsLoading(true);
@@ -82,7 +303,6 @@ export default function BookAppointmentPage() {
     fetchDoctors();
   }, []);
 
-  // Fetch schedule and subscribe to Supabase Realtime
   useEffect(() => {
     if (!selectedDoctor || !todayStr) return;
 
@@ -210,7 +430,6 @@ export default function BookAppointmentPage() {
       {/* STEP 1: DOCTOR SEARCH & GRID */}
       {step === 1 && (
         <div className="space-y-6">
-          {/* SEARCH & SPECIALTY FILTER BAR */}
           <div className="flex flex-col md:flex-row items-center gap-3">
             <div className="relative flex-1 w-full">
               <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-500" />
@@ -248,7 +467,6 @@ export default function BookAppointmentPage() {
             </div>
           </div>
 
-          {/* FEATURED CAROUSEL */}
           <FeaturedDoctors
             doctors={doctors}
             selectedDoctorId={selectedDoctor?.id}
@@ -258,7 +476,6 @@ export default function BookAppointmentPage() {
             }}
           />
 
-          {/* MAIN DOCTORS GRID OR EMPTY STATE */}
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map((i) => (
