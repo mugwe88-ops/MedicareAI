@@ -27,7 +27,8 @@ const BODY_SYSTEMS = [
   { id: 'Children', label: 'Pediatrics', icon: Baby, chips: ['Growth check', 'Fever in child', 'Skin rash', 'Ear pain'] },
 ];
 
-const SPECIALTIES = ['All', 'General Practice', 'Cardiology', 'Pediatrics', 'Neurology', 'Dermatology'];
+const SPECIALTIES = ['All', 'General Practice', 'Cardiology', 'Pediatrics', 'Neurology', 'Dermatology', "Women's Health", 'Orthopedics', 'ENT', 'Ophthalmology', 'Psychiatry', 'Gastroenterology', 'Endocrinology', 'Urology', 'Rheumatology', 'Pulmonology', 'Nephrology', 'Oncology'
+];
 
 /* INLINE COMPONENT 1: BOOKING HERO */
 function BookingHero({ patientName = 'Patient', step }: { patientName?: string; step: number }) {
