@@ -259,6 +259,7 @@ function EmptyState({
 
 export default function BookAppointmentPage() {
   const router = useRouter();
+  const [patientName, setPatientName] = useState<string>('Patient');
   const [step, setStep] = useState<number>(1);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -289,8 +290,29 @@ export default function BookAppointmentPage() {
   }, []);
 
   useEffect(() => {
-    async function fetchDoctors() {
+    async function initData() {
       setIsLoading(true);
+
+      // Fetch logged-in patient name
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, name')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.full_name) {
+          setPatientName(profile.full_name);
+        } else if (profile?.name) {
+          setPatientName(profile.name);
+        } else if (user.email) {
+          const prefix = user.email.split('@')[0];
+          setPatientName(prefix.charAt(0).toUpperCase() + prefix.slice(1));
+        }
+      }
+
+      // Fetch doctors list
       const { data, error } = await supabase
         .from('doctors')
         .select('*');
@@ -303,7 +325,7 @@ export default function BookAppointmentPage() {
       }
       setIsLoading(false);
     }
-    fetchDoctors();
+    initData();
   }, []);
 
   useEffect(() => {
@@ -397,7 +419,7 @@ export default function BookAppointmentPage() {
     const res = await createPatientBookingAction({
       doctorId: selectedDoctor.id,
       patientId: '22222222-2222-2222-2222-222222222222',
-      patientName: 'Sarah Jenkins',
+      patientName: patientName,
       appointmentDate: selectedDate,
       startTime: selectedSlot.startTime,
       endTime: selectedSlot.endTime,
@@ -422,7 +444,7 @@ export default function BookAppointmentPage() {
     <div className="min-h-screen bg-[#050914] text-slate-100 font-sans p-4 md:p-8 space-y-6 pb-24 selection:bg-blue-600 selection:text-white rounded-3xl">
       
       {/* 1. HERO SECTION */}
-      <BookingHero patientName="Sarah" step={step} />
+      <BookingHero patientName={patientName} step={step} />
 
       {/* ERROR NOTICE */}
       {errorMessage && (

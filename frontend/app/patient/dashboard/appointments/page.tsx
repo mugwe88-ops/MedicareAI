@@ -32,6 +32,7 @@ interface Appointment {
 }
 
 export default function PatientAppointmentsDashboard() {
+  const [patientName, setPatientName] = useState<string>('Patient');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedTab, setSelectedTab] = useState<'Upcoming' | 'Past' | 'All'>('Upcoming');
@@ -55,10 +56,31 @@ export default function PatientAppointmentsDashboard() {
   // Live countdown state
   const [countdownText, setCountdownText] = useState<string>('');
 
-  // 1. Fetch appointments & subscribe to Supabase Realtime
+  // 1. Fetch user profile & appointments
   useEffect(() => {
-    async function fetchAppointments() {
+    async function loadDashboard() {
       setIsLoading(true);
+
+      // Fetch Logged-in Patient Name
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, name')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.full_name) {
+          setPatientName(profile.full_name);
+        } else if (profile?.name) {
+          setPatientName(profile.name);
+        } else if (user.email) {
+          const emailPrefix = user.email.split('@')[0];
+          setPatientName(emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1));
+        }
+      }
+
+      // Fetch Appointments
       const { data, error } = await supabase
         .from('appointments')
         .select(`*, doctor:doctors(*)`)
@@ -70,12 +92,12 @@ export default function PatientAppointmentsDashboard() {
       setIsLoading(false);
     }
 
-    fetchAppointments();
+    loadDashboard();
 
     const channel = supabase
       .channel('realtime_appointments_dashboard_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
-        fetchAppointments();
+        loadDashboard();
         triggerToast('Realtime update received from server.');
       })
       .subscribe();
@@ -196,7 +218,7 @@ export default function PatientAppointmentsDashboard() {
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-              Welcome back, Patient
+              Welcome back, {patientName}
             </h1>
             <p className="text-xs text-slate-400 mt-1">
               Manage scheduled consultations, digital prescriptions, and clinical interactions.
@@ -653,54 +675,77 @@ export default function PatientAppointmentsDashboard() {
                   <span>Microphone Audio Output</span>
                 </div>
                 <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                  <Check className="w-3 h-3" /> Active
+                  <Check className="w-3 h-3" /> Ready
                 </span>
               </div>
 
               <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-2.5 text-xs text-slate-200">
                   <Wifi className="w-4 h-4 text-amber-400" />
-                  <span>Network Latency</span>
+                  <span>Network Latency ({pingSpeed}ms)</span>
                 </div>
-                <span className="text-[10px] font-bold text-emerald-400">
-                  {pingSpeed}ms (Optimal)
+                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Optimal
                 </span>
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                setShowPreCheck(false);
-                triggerToast('Redirecting to secure encrypted virtual room...');
-              }}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs rounded-2xl shadow-xl transition flex items-center justify-center gap-2"
-            >
-              <Video className="w-4 h-4" /> Enter Virtual Waiting Room
-            </button>
+            <div className="pt-2">
+              <button
+                onClick={() => {
+                  setShowPreCheck(false);
+                  triggerToast('Connecting securely to secure telehealth room...');
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs rounded-2xl shadow-xl transition flex items-center justify-center gap-2"
+              >
+                <Video className="w-4 h-4" /> Enter Secure Video Room
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* EMERGENCY MODAL */}
       {showEmergencyModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0d1424] border border-rose-600/60 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl relative text-center">
-            <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto animate-bounce" />
-            <div>
-              <h3 className="text-base font-bold text-white">Medical Emergency Notice</h3>
-              <p className="text-xs text-slate-300 mt-1">
-                If you are experiencing a life-threatening medical emergency or severe symptoms, please dial 911 or go to the nearest emergency room immediately.
-              </p>
-            </div>
-            <div className="p-3 rounded-2xl bg-rose-950/60 border border-rose-800/60 text-xs text-rose-200 font-bold">
-              Swift MD Emergency Line: 1-800-555-SWIFT
-            </div>
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0d1424] border border-rose-600/80 rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl relative">
             <button
               onClick={() => setShowEmergencyModal(false)}
-              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl border border-slate-800 transition"
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
             >
-              Close Notice
+              <X className="w-5 h-5" />
             </button>
+
+            <div>
+              <span className="text-[10px] font-bold text-rose-400 uppercase tracking-widest bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800/60">
+                Urgent Assistance
+              </span>
+              <h3 className="text-base font-bold text-white mt-1">Swift MD Emergency Response</h3>
+              <p className="text-xs text-slate-400">If you are experiencing a life-threatening medical emergency, please call your local emergency services immediately.</p>
+            </div>
+
+            <div className="p-4 bg-rose-950/30 border border-rose-800/50 rounded-2xl space-y-2 text-xs">
+              <p className="text-rose-200 font-bold">Emergency Hotline (24/7):</p>
+              <p className="text-lg font-black text-white">+254 800 722 911 / 999</p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setShowEmergencyModal(false);
+                  triggerToast('Emergency dispatch alert triggered.');
+                }}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs rounded-2xl shadow-xl transition"
+              >
+                Trigger SOS Alert
+              </button>
+              <button
+                onClick={() => setShowEmergencyModal(false)}
+                className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold text-xs rounded-2xl border border-slate-800 transition"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
