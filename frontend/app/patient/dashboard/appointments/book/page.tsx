@@ -356,7 +356,7 @@ export default function BookAppointmentPage() {
                         </div>
                         <p className="text-xs font-semibold text-blue-400">{doc.specialty}</p>
                         <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                          <Building className="w-3 h-3 text-slate-500" /> {doc.location || 'Swift MD Central Clinic'}
+                          <Building className="w-3 h-3 text-slate-500" /> {(doc as any).location || 'Swift MD Central Clinic'}
                         </p>
                       </div>
                     </div>
