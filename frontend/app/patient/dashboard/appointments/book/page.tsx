@@ -126,7 +126,7 @@ function FeaturedDoctors({
             >
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-xs shrink-0 group-hover:scale-105 transition-transform">
-                  {docName.split(' ').map((n) => n[0]).join('')}
+                  {docName.split(' ').map((n: string) => n[0]).join('')}
                 </div>
                 <div className="overflow-hidden">
                   <h4 className="text-xs font-bold text-white truncate flex items-center gap-1">
@@ -177,7 +177,7 @@ function DoctorCard({
     >
       <div className="flex items-start gap-4">
         <div className="w-14 h-14 rounded-2xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-lg shrink-0 shadow-lg group-hover:scale-105 transition-transform">
-          {docName.split(' ').map((n) => n[0]).join('')}
+          {docName.split(' ').map((n: string) => n[0]).join('')}
         </div>
 
         <div className="flex-1 space-y-1">
@@ -288,7 +288,6 @@ export default function BookAppointmentPage() {
     setSelectedDate(today);
   }, []);
 
-  // FETCH DIRECTLY FROM SUPABASE ONLY
   useEffect(() => {
     async function fetchDoctors() {
       setIsLoading(true);
@@ -742,7 +741,7 @@ export default function BookAppointmentPage() {
               <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-3">
                 <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-600/30 flex items-center justify-center font-bold text-blue-300 text-xs shrink-0">
-                    {getDoctorName(selectedDoctor).split(' ').map((n) => n[0]).join('')}
+                    {getDoctorName(selectedDoctor).split(' ').map((n: string) => n[0]).join('')}
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-white">{getDoctorName(selectedDoctor)}</h4>
