@@ -27,10 +27,11 @@ const BODY_SYSTEMS = [
   { id: 'Children', label: 'Pediatrics', icon: Baby, chips: ['Growth check', 'Fever in child', 'Skin rash', 'Ear pain'] },
 ];
 
-const SPECIALTIES = ['All', 'General Practice', 'Cardiology', 'Pediatrics', 'Neurology', 'Dermatology', "Women's Health", 'Orthopedics', 'ENT', 'Ophthalmology', 'Psychiatry', 'Gastroenterology', 'Endocrinology', 'Urology', 'Rheumatology', 'Pulmonology', 'Nephrology', 'Oncology'
-];
+const SPECIALTIES = ['All', 'General Practice', 'Cardiology', 'Pediatrics', 'Neurology', 'Dermatology', "Women's Health"];
 
-/* INLINE COMPONENT 1: BOOKING HERO */
+const getDoctorName = (doc: any) => doc?.display_name || doc?.full_name || doc?.name || 'Dr. Medical Specialist';
+const getDoctorSpecialty = (doc: any) => doc?.specialization || doc?.specialty || 'General Practice';
+
 function BookingHero({ patientName = 'Patient', step }: { patientName?: string; step: number }) {
   return (
     <div className="bg-gradient-to-r from-blue-950/90 via-[#0a1228] to-[#080d1a] border border-blue-800/40 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
@@ -88,7 +89,6 @@ function BookingHero({ patientName = 'Patient', step }: { patientName?: string; 
   );
 }
 
-/* INLINE COMPONENT 2: FEATURED DOCTORS CAROUSEL */
 function FeaturedDoctors({
   doctors,
   selectedDoctorId,
@@ -112,6 +112,8 @@ function FeaturedDoctors({
       <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-blue-600/30">
         {doctors.slice(0, 5).map((doc) => {
           const isSelected = selectedDoctorId === doc.id;
+          const docName = getDoctorName(doc);
+          const docSpec = getDoctorSpecialty(doc);
           return (
             <div
               key={`feat-${doc.id}`}
@@ -124,15 +126,15 @@ function FeaturedDoctors({
             >
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-xs shrink-0 group-hover:scale-105 transition-transform">
-                  {doc.full_name.split(' ').map((n) => n[0]).join('')}
+                  {docName.split(' ').map((n) => n[0]).join('')}
                 </div>
                 <div className="overflow-hidden">
                   <h4 className="text-xs font-bold text-white truncate flex items-center gap-1">
-                    {doc.full_name} <CheckCircle2 className="w-3 h-3 text-blue-400 shrink-0" />
+                    {docName} <CheckCircle2 className="w-3 h-3 text-blue-400 shrink-0" />
                   </h4>
-                  <p className="text-[10px] text-blue-400 truncate">{doc.specialty}</p>
+                  <p className="text-[10px] text-blue-400 truncate">{docSpec}</p>
                   <div className="flex items-center gap-1 text-[9px] text-amber-400 font-bold mt-0.5">
-                    <Star className="w-3 h-3 fill-amber-400" /> {doc.rating || '4.9'}
+                    <Star className="w-3 h-3 fill-amber-400" /> {(doc as any).rating || '4.9'}
                   </div>
                 </div>
               </div>
@@ -141,7 +143,7 @@ function FeaturedDoctors({
                 <span className="text-emerald-400 font-bold flex items-center gap-1">
                   <Video className="w-3 h-3" /> Telehealth Ready
                 </span>
-                <span className="font-bold text-slate-200">KES {doc.consultation_fee || 3500}</span>
+                <span className="font-bold text-slate-200">KES {(doc as any).consultation_fee || 3500}</span>
               </div>
             </div>
           );
@@ -151,7 +153,6 @@ function FeaturedDoctors({
   );
 }
 
-/* INLINE COMPONENT 3: DOCTOR CARD */
 function DoctorCard({
   doctor,
   isSelected,
@@ -163,6 +164,8 @@ function DoctorCard({
   onSelect: (doc: Doctor) => void;
   onProceed: (doc: Doctor) => void;
 }) {
+  const docName = getDoctorName(doctor);
+  const docSpec = getDoctorSpecialty(doctor);
   return (
     <div
       onClick={() => onSelect(doctor)}
@@ -174,20 +177,20 @@ function DoctorCard({
     >
       <div className="flex items-start gap-4">
         <div className="w-14 h-14 rounded-2xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-lg shrink-0 shadow-lg group-hover:scale-105 transition-transform">
-          {doctor.full_name.split(' ').map((n) => n[0]).join('')}
+          {docName.split(' ').map((n) => n[0]).join('')}
         </div>
 
         <div className="flex-1 space-y-1">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
-              {doctor.full_name}
+              {docName}
               <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
             </h3>
             <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-800/40">
-              <Star className="w-3 h-3 fill-amber-400" /> {doctor.rating || '4.9'}
+              <Star className="w-3 h-3 fill-amber-400" /> {(doctor as any).rating || '4.9'}
             </span>
           </div>
-          <p className="text-xs font-semibold text-blue-400">{doctor.specialty}</p>
+          <p className="text-xs font-semibold text-blue-400">{docSpec}</p>
           <p className="text-[10px] text-slate-400 flex items-center gap-1">
             <Building className="w-3 h-3 text-slate-500" /> {(doctor as any).location || 'Swift MD Central Clinic'}
           </p>
@@ -206,7 +209,7 @@ function DoctorCard({
       <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
         <div>
           <span className="text-[10px] text-slate-500 block uppercase font-bold">Consultation Fee</span>
-          <span className="font-black text-white text-sm">KES {doctor.consultation_fee || 3500}</span>
+          <span className="font-black text-white text-sm">KES {(doctor as any).consultation_fee || 3500}</span>
         </div>
 
         <button
@@ -223,7 +226,6 @@ function DoctorCard({
   );
 }
 
-/* INLINE COMPONENT 4: EMPTY STATE */
 function EmptyState({
   title,
   description,
@@ -255,7 +257,6 @@ function EmptyState({
   );
 }
 
-/* MAIN PAGE EXPORT */
 export default function BookAppointmentPage() {
   const router = useRouter();
   const [step, setStep] = useState<number>(1);
@@ -287,64 +288,19 @@ export default function BookAppointmentPage() {
     setSelectedDate(today);
   }, []);
 
-  // UPDATED fetchDoctors() WITH AUTOMATIC SAMPLE FALLBACK DATA
+  // FETCH DIRECTLY FROM SUPABASE ONLY
   useEffect(() => {
     async function fetchDoctors() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('doctors')
-        .select('*')
-        .order('rating', { ascending: false });
+        .select('*');
 
       if (!error && data && data.length > 0) {
         setDoctors(data as Doctor[]);
         setSelectedDoctor(data[0] as Doctor);
       } else {
-        // Fallback sample doctors if Supabase table is empty
-        const fallbackDoctors: any[] = [
-          {
-            id: '11111111-1111-1111-1111-111111111111',
-            full_name: 'Dr. Evelyn Harper',
-            specialty: 'General Practice',
-            consultation_fee: 3500,
-            rating: 4.9,
-            location: 'Swift MD Central Clinic',
-          },
-          {
-            id: '22222222-2222-2222-2222-222222222222',
-            full_name: 'Dr. Marcus Vance',
-            specialty: 'Cardiology',
-            consultation_fee: 4500,
-            rating: 4.8,
-            location: 'Heart & Vascular Suite B',
-          },
-          {
-            id: '33333333-3333-3333-3333-333333333333',
-            full_name: 'Dr. Amara Patel',
-            specialty: 'Pediatrics',
-            consultation_fee: 3000,
-            rating: 5.0,
-            location: 'Pediatric Care Center',
-          },
-          {
-            id: '44444444-4444-4444-4444-444444444444',
-            full_name: 'Dr. Lucas Hayes',
-            specialty: 'Neurology',
-            consultation_fee: 5000,
-            rating: 4.9,
-            location: 'Neuroscience Center',
-          },
-          {
-            id: '55555555-5555-5555-5555-555555555555',
-            full_name: 'Dr. Sophia Chen',
-            specialty: 'Dermatology',
-            consultation_fee: 4000,
-            rating: 4.7,
-            location: 'DermaCare Institute',
-          },
-        ];
-        setDoctors(fallbackDoctors);
-        setSelectedDoctor(fallbackDoctors[0]);
+        setDoctors([]);
       }
       setIsLoading(false);
     }
@@ -393,10 +349,12 @@ export default function BookAppointmentPage() {
   }, [selectedDoctor, todayStr]);
 
   const filteredDoctors = doctors.filter((doc) => {
+    const docName = getDoctorName(doc);
+    const docSpec = getDoctorSpecialty(doc);
     const matchesSearch =
-      doc.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.specialty.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSpec = specialtyFilter === 'All' || doc.specialty === specialtyFilter;
+      docName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      docSpec.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSpec = specialtyFilter === 'All' || docSpec.toLowerCase() === specialtyFilter.toLowerCase();
     return matchesSearch && matchesSpec;
   });
 
@@ -533,7 +491,7 @@ export default function BookAppointmentPage() {
           ) : filteredDoctors.length === 0 ? (
             <EmptyState
               title="We couldn't find an exact doctor match."
-              description="Try adjusting your query or resetting specialty filters to see all available clinical specialists."
+              description="Make sure you have added doctors in your Supabase 'doctors' table, or try resetting your filters."
               onClearFilters={() => {
                 setSearchQuery('');
                 setSpecialtyFilter('All');
@@ -784,11 +742,11 @@ export default function BookAppointmentPage() {
               <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-3">
                 <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-600/30 flex items-center justify-center font-bold text-blue-300 text-xs shrink-0">
-                    {selectedDoctor.full_name.split(' ').map((n) => n[0]).join('')}
+                    {getDoctorName(selectedDoctor).split(' ').map((n) => n[0]).join('')}
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white">{selectedDoctor.full_name}</h4>
-                    <p className="text-[10px] text-blue-400">{selectedDoctor.specialty}</p>
+                    <h4 className="text-xs font-bold text-white">{getDoctorName(selectedDoctor)}</h4>
+                    <p className="text-[10px] text-blue-400">{getDoctorSpecialty(selectedDoctor)}</p>
                   </div>
                 </div>
 
@@ -807,7 +765,7 @@ export default function BookAppointmentPage() {
                   </div>
                   <div className="flex justify-between border-t border-slate-800/80 pt-2 text-sm">
                     <span className="font-bold text-slate-300">Total Fee:</span>
-                    <span className="font-black text-white">KES {selectedDoctor.consultation_fee || 3500}</span>
+                    <span className="font-black text-white">KES {(selectedDoctor as any).consultation_fee || 3500}</span>
                   </div>
                 </div>
               </div>
