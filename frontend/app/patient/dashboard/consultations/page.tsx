@@ -8,7 +8,7 @@ import {
   Home, Mail, UserCheck, ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase Client for client-side fetching
@@ -18,6 +18,9 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function ConsultationHubPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedDoctorId = searchParams.get('doctorId');
+
   const [activeTab, setActiveTab] = useState<'upcoming' | 'room' | 'history'>('upcoming');
   const [timeLeft, setTimeLeft] = useState(1680); // 28 minutes in seconds
   const [inCall, setInCall] = useState(false);
@@ -31,35 +34,40 @@ export default function ConsultationHubPage() {
   const [loadingAppointment, setLoadingAppointment] = useState(true);
 
   const [aiNotes, setAiNotes] = useState([
-    "Patient reports mild morning headaches over 3 days.",
+    "Patient reports mild symptoms over 3 days.",
     "Blood pressure logged at 135/85 mmHg.",
-    "Amlodipine 5mg dosage adherence confirmed."
+    "Medication adherence confirmed."
   ]);
 
-  // Fetch latest appointment and doctor details from Supabase on mount
+  // Fetch appointment filtered by selectedDoctorId or fall back to latest
   useEffect(() => {
-    async function fetchLatestAppointment() {
+    async function fetchAppointment() {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('appointments')
           .select(`
             *,
             doctors (
               id,
               display_name,
+              name,
               specialization,
+              department,
               rating,
               email,
               location
             )
           `)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+          .order('created_at', { ascending: false });
+
+        if (selectedDoctorId) {
+          query = query.eq('doctor_id', selectedDoctorId);
+        }
+
+        const { data, error } = await query.limit(1).single();
 
         if (data) {
           setLatestAppointment(data);
-          // Pre-populate if already saved in database
           if (data.reason || data.symptoms) {
             setSymptomsInput(data.reason || data.symptoms);
           }
@@ -71,22 +79,39 @@ export default function ConsultationHubPage() {
       }
     }
 
-    fetchLatestAppointment();
-  }, []);
+    fetchAppointment();
+  }, [selectedDoctorId]);
 
   // Handle saving pre-consultation questionnaire to Supabase
   const handleSaveSymptoms = async () => {
-    if (!latestAppointment?.id) {
-      alert("No active appointment found to update.");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
+      let appointmentId = latestAppointment?.id;
+
+      if (!appointmentId) {
+        let query = supabase
+          .from('appointments')
+          .select('id')
+          .order('created_at', { ascending: false });
+        
+        if (selectedDoctorId) {
+          query = query.eq('doctor_id', selectedDoctorId);
+        }
+
+        const { data: latestData } = await query.limit(1).single();
+        appointmentId = latestData?.id;
+      }
+
+      if (!appointmentId) {
+        alert("No active appointment found to update.");
+        setIsSubmitting(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('appointments')
         .update({ reason: symptomsInput })
-        .eq('id', latestAppointment.id);
+        .eq('id', appointmentId);
 
       if (error) {
         throw error;
@@ -141,8 +166,8 @@ export default function ConsultationHubPage() {
   ];
 
   // Resolve doctor display details dynamically from fetched appointment or fallback
-  const doctorName = latestAppointment?.doctors?.display_name || latestAppointment?.doctor_name || "Dr. Makena";
-  const doctorSpecialty = latestAppointment?.doctors?.specialization || "Women's Health & General Care";
+  const doctorName = latestAppointment?.doctors?.display_name || latestAppointment?.doctors?.name || latestAppointment?.doctor_name || searchParams.get('doctorName') || "Dr. Makena";
+  const doctorSpecialty = latestAppointment?.doctors?.specialization || latestAppointment?.doctors?.department || "General Practice";
   const doctorRating = latestAppointment?.doctors?.rating || "4.9";
   const consultationType = latestAppointment?.consultation_format || latestAppointment?.consultation_type || "General Video Telehealth";
   const appointmentDateFormatted = latestAppointment?.date || latestAppointment?.appointment_date || "Today, 6:30 PM EAT";

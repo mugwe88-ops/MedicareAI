@@ -183,9 +183,15 @@ export default function DoctorDirectoryPage() {
                       </button>
                     </div>
 
-                    {/* Direct Launch Video Consultation Button */}
+                    {/* Direct Launch Video Consultation Button with Doctor ID Query Param */}
                     <button
-                      onClick={() => router.push("/patient/dashboard/consultations")}
+                      onClick={() =>
+                        router.push(
+                          `/patient/dashboard/consultations?doctorId=${doc.id}&doctorName=${encodeURIComponent(
+                            docName
+                          )}`
+                        )
+                      }
                       className="w-full py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-xs uppercase tracking-wider rounded-xl transition flex items-center justify-center gap-1.5"
                     >
                       <Video size={14} /> Join Video Consultation
