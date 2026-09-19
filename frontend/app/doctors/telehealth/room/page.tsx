@@ -1,4 +1,3 @@
-// frontend/app/doctors/telehealth/room/page.tsx
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
@@ -47,18 +46,18 @@ const mockPatientsDatabase: Record<string, {
 }> = {
   "P-101": {
     id: "P-101",
-    name: "Sarah Wanjiku",
-    age: 32,
-    gender: "Female",
+    name: "Willy",
+    age: 30,
+    gender: "Male",
     bloodGroup: "O+",
-    allergies: ["Penicillin", "Sulfa drugs"],
-    chronicConditions: ["Mild Asthma"],
-    currentMedications: ["Salbutamol Inhaler"],
+    allergies: ["None known"],
+    chronicConditions: ["None"],
+    currentMedications: ["Amlodipine 5mg"],
     vitals: { hr: "78 bpm", bp: "120/80", temp: "37.2°C", o2: "98%" },
-    lastConsultation: "2 weeks ago",
+    lastConsultation: "First visit",
     shaStatus: "Verified",
-    waitingTime: "04:12 mins",
-    isEmergency: true
+    waitingTime: "02:15 mins",
+    isEmergency: false
   },
   "P-102": {
     id: "P-102",
@@ -80,8 +79,29 @@ const mockPatientsDatabase: Record<string, {
 function TelehealthRoomContent() {
   const searchParams = useSearchParams();
   const patientId = searchParams.get("patientId") || "P-101";
+  const patientNameParam = searchParams.get("name");
 
-  const patient = mockPatientsDatabase[patientId];
+  // Retrieve patient from mock database, or dynamically construct a fallback profile for Willy / any ID
+  let patient = mockPatientsDatabase[patientId];
+  if (!patient) {
+    patient = {
+      id: patientId,
+      name: patientNameParam || "Willy",
+      age: 30,
+      gender: "Male",
+      bloodGroup: "O+",
+      allergies: ["None known"],
+      chronicConditions: ["Routine Review"],
+      currentMedications: ["Amlodipine 5mg"],
+      vitals: { hr: "76 bpm", bp: "120/80", temp: "37.0°C", o2: "99%" },
+      lastConsultation: "Recent",
+      shaStatus: "Verified",
+      waitingTime: "01:00 min",
+      isEmergency: false
+    };
+  } else if (patientNameParam) {
+    patient.name = patientNameParam;
+  }
 
   const [loading, setLoading] = useState(true);
   const [callStatus, setCallStatus] = useState<"Connecting" | "Live" | "Ended">("Live");
@@ -94,12 +114,12 @@ function TelehealthRoomContent() {
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Clinical workspace SOAP notes state
-  const [chiefComplaint, setChiefComplaint] = useState("Persistent dry cough, mild shortness of breath, and low-grade fever for 3 days.");
-  const [hpi, setHpi] = useState("Patient reports onset after cold weather exposure. No known contact with respiratory infection cases.");
-  const [examFindings, setExamFindings] = useState("Clear vesicular breath sounds bilaterally, mild wheezing on forced expiration.");
-  const [assessment, setAssessment] = useState("Acute bronchitis / Upper Respiratory Tract Infection (URTI).");
-  const [diagnosis, setDiagnosis] = useState("Acute Bronchitis (J20.9)");
-  const [treatmentPlan, setTreatmentPlan] = useState("Prescribed bronchodilator inhaler, expectorant, and recommended 48-hour follow-up.");
+  const [chiefComplaint, setChiefComplaint] = useState("Routine consultation and medication review.");
+  const [hpi, setHpi] = useState("Patient reports stable condition. Adherent to prescribed dosage.");
+  const [examFindings, setExamFindings] = useState("Clear vital signs, normal rhythm, no acute distress.");
+  const [assessment, setAssessment] = useState("Stable clinical parameters.");
+  const [diagnosis, setDiagnosis] = useState("Routine Health Check (Z00.0)");
+  const [treatmentPlan, setTreatmentPlan] = useState("Continue current regimen. Schedule follow-up in 30 days.");
   
   const [consultationCompleted, setConsultationCompleted] = useState(false);
 
@@ -140,29 +160,6 @@ function TelehealthRoomContent() {
     );
   }
 
-  // Friendly Patient Not Found State
-  if (!patient) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-4 shadow-2xl">
-          <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 text-red-400 rounded-2xl flex items-center justify-center mx-auto">
-            <AlertTriangle size={32} />
-          </div>
-          <h2 className="text-lg font-black text-white">Patient Not Found</h2>
-          <p className="text-xs text-slate-400">
-            No patient record matches ID <code className="text-blue-400 font-mono font-bold">{patientId}</code>. Please return to the telehealth dashboard to select an active appointment.
-          </p>
-          <Link
-            href="/doctors/telehealth"
-            className="inline-flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-lg shadow-blue-600/30 transition cursor-pointer"
-          >
-            <ArrowLeft size={16} /> Return to Telehealth
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col justify-between selection:bg-blue-600 selection:text-white">
       
@@ -170,14 +167,14 @@ function TelehealthRoomContent() {
       <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 md:px-8 py-3.5 flex items-center justify-between shrink-0 z-25">
         <div className="flex items-center gap-4">
           <Link
-            href="/doctors/telehealth"
+            href="/doctors/dashboard"
             className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-bold"
           >
-            <ArrowLeft size={16} /> Telehealth
+            <ArrowLeft size={16} /> Dashboard
           </Link>
           <div className="flex items-center gap-3">
             <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
+              src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"
               alt={patient.name}
               className="w-10 h-10 rounded-full object-cover border-2 border-blue-500 shadow-md"
             />
@@ -185,7 +182,7 @@ function TelehealthRoomContent() {
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-black text-white">{patient.name}</h1>
                 <span className="text-[11px] text-slate-400 font-medium">({patient.gender}, {patient.age})</span>
-                <span className="text-[10px] font-mono bg-slate-800 text-blue-400 px-2 py-0.5 rounded-md font-bold">{patient.id}</span>
+                <span className="text-[10px] font-mono bg-slate-800 text-blue-400 px-2 py-0.5 rounded-md font-bold">Ref: {patient.id.slice(0, 8)}</span>
               </div>
               <p className="text-[11px] text-slate-400 flex items-center gap-2">
                 <span>Waiting: {patient.waitingTime}</span> • <span>SHA: {patient.shaStatus}</span>
@@ -212,7 +209,7 @@ function TelehealthRoomContent() {
         <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between text-xs text-amber-300 shrink-0">
           <div className="flex items-center gap-2 mx-auto">
             <AlertTriangle size={15} className="text-amber-400 shrink-0" />
-            <span><strong>High-Priority Alert:</strong> Patient reported mild shortness of breath. Monitor oxygen saturation closely.</span>
+            <span><strong>High-Priority Alert:</strong> Patient reported symptoms requiring close attention.</span>
           </div>
         </div>
       )}
@@ -235,12 +232,12 @@ function TelehealthRoomContent() {
             ) : (
               <div className="absolute inset-0">
                 <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=1200"
+                  src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=1200"
                   alt="Patient Video Feed"
                   className="w-full h-full object-cover opacity-90"
                 />
                 <div className="absolute bottom-4 left-4 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-xs font-bold text-white flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> {patient.name} (Patient)
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> {patient.name} (Patient Feed)
                 </div>
               </div>
             )}
@@ -249,12 +246,12 @@ function TelehealthRoomContent() {
             <div className="absolute top-4 right-4 w-36 h-24 md:w-48 md:h-32 bg-slate-950 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-xl flex items-center justify-center">
               <div className="relative w-full h-full flex items-center justify-center bg-slate-900">
                 <img
-                  src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400"
-                  alt="Dr. William Mugwe"
+                  src="https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=400"
+                  alt="Dr. William"
                   className="w-full h-full object-cover"
                 />
                 <span className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-0.5 rounded text-[10px] font-bold text-slate-300">
-                  Dr. William Mugwe (You)
+                  Dr. William (You)
                 </span>
               </div>
             </div>
@@ -337,7 +334,7 @@ function TelehealthRoomContent() {
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div>
                 <h3 className="text-sm font-black text-white uppercase tracking-wider">Clinical Consultation Workspace</h3>
-                <p className="text-xs text-slate-400">Auto-saved locally for session {patient.id}.</p>
+                <p className="text-xs text-slate-400">Auto-saved locally for session {patient.name}.</p>
               </div>
               <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold rounded-full">
                 Auto-saved
@@ -481,18 +478,18 @@ function TelehealthRoomContent() {
 
             <div className="space-y-3 text-xs">
               <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-1">
-                <span className="text-[10px] font-black text-amber-400 uppercase">Suggested Differential Diagnoses</span>
-                <p className="text-slate-200 font-medium">1. Acute Bronchitis (88%)<br />2. Upper Respiratory Tract Infection (72%)</p>
+                <span className="text-[10px] font-black text-amber-400 uppercase">Suggested Assessment</span>
+                <p className="text-slate-200 font-medium">Routine Telehealth Follow-up. Vital signs within normal limits.</p>
               </div>
 
               <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-1">
                 <span className="text-[10px] font-black text-emerald-400 uppercase">Drug Interaction & Allergy Alerts</span>
-                <p className="text-slate-200 font-medium">No conflicts with recorded Penicillin or Sulfa allergies. Safe for bronchodilators.</p>
+                <p className="text-slate-200 font-medium">No active allergy conflicts recorded.</p>
               </div>
 
               <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-1">
-                <span className="text-[10px] font-black text-blue-400 uppercase">Recommended Investigation</span>
-                <p className="text-slate-200 font-medium">Complete Blood Count (CBC) and chest auscultation.</p>
+                <span className="text-[10px] font-black text-blue-400 uppercase">Recommended Action</span>
+                <p className="text-slate-200 font-medium">Issue e-prescription if needed or conclude consultation summary.</p>
               </div>
             </div>
           </div>
@@ -504,7 +501,7 @@ function TelehealthRoomContent() {
       {/* ================= FOOTER ACTIONS ================= */}
       <footer className="bg-slate-900/90 backdrop-blur-md border-t border-slate-800 px-4 md:px-8 py-4 shrink-0 z-20 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="text-xs text-slate-400">
-          Room Session ID: <code className="text-blue-400 font-mono">SWIFT-{patient.id}-LIVE</code>
+          Room Session ID: <code className="text-blue-400 font-mono">SWIFT-{patient.name.toUpperCase()}-LIVE</code>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
@@ -521,7 +518,7 @@ function TelehealthRoomContent() {
             Schedule Follow-up
           </button>
           <Link
-            href="/doctors/telehealth"
+            href="/doctors/dashboard"
             className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5"
           >
             Return to Dashboard
