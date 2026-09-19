@@ -116,12 +116,11 @@ function DoctorDashboardContent() {
   useEffect(() => {
     async function fetchDoctorData() {
       try {
-        // 1. Fetch Doctor Profile (Filter by Dr. William or doctorIdParam)
+        // 1. Fetch Doctor Profile (Filter by Dr. William)
         let docQuery = supabase.from('doctors').select('*');
         if (doctorIdParam) {
           docQuery = docQuery.eq('id', doctorIdParam);
         } else {
-          // Look for Dr. William specifically first, fallback to limit(1)
           docQuery = docQuery.or('name.ilike.%William%,display_name.ilike.%William%').limit(1);
         }
 
@@ -152,8 +151,12 @@ function DoctorDashboardContent() {
         const { data: apptData, error: apptError } = await apptQuery;
         if (apptData && apptData.length > 0) {
           const formattedAppointments = apptData.map((item: any, idx: number) => {
-            // Use Willy if patient name is missing or generic
-            const resolvedPatientName = item.patient_name || item.name || item.full_name || "Willy";
+            let rawName = item.patient_name || item.name || item.full_name;
+            // Force "Willy" if name is missing, empty, or literally "Patient"
+            if (!rawName || rawName === "Patient" || rawName.trim() === "") {
+              rawName = "Willy";
+            }
+
             const avatars = [
               "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
               "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150"
@@ -162,7 +165,7 @@ function DoctorDashboardContent() {
             return {
               id: item.id,
               time: item.start_time || item.time || "10:00 AM",
-              patientName: resolvedPatientName,
+              patientName: rawName,
               avatar: avatars[idx % avatars.length],
               type: (item.consultation_type || item.consultation_format || "Video") as any,
               status: "Upcoming" as any,
