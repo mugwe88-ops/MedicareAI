@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Users, Search, Calendar, Star, ShieldCheck } from "lucide-react";
+import { Users, Search, Calendar, Star, ShieldCheck, Video } from "lucide-react";
 
 interface Doctor {
-  id: number;
+  id: number | string;
   name: string;
   department: string;
   email: string;
@@ -35,6 +35,7 @@ export default function DoctorDirectoryPage() {
             { id: 2, name: "Dr. Michael Mugwe", department: "General Medicine", email: "michael.mugwe@swiftmd.com", availability: "Daily (08:00 - 18:00)" },
             { id: 3, name: "Dr. Elena Rostova", department: "Pediatrics", email: "elena.rostova@swiftmd.com", availability: "Tue, Thu, Sat (10:00 - 15:00)" },
             { id: 4, name: "Dr. James Ochieng", department: "Neurology", email: "james.ochieng@swiftmd.com", availability: "Mon, Wed, Fri (13:00 - 17:00)" },
+            { id: 5, name: "Dr. Makena", department: "Women's Health & General Care", email: "makena@swiftmd.com", availability: "Daily (08:00 - 18:00)" },
           ]);
         }
       } catch (err) {
@@ -43,6 +44,7 @@ export default function DoctorDirectoryPage() {
           { id: 2, name: "Dr. Michael Mugwe", department: "General Medicine", email: "michael.mugwe@swiftmd.com", availability: "Daily (08:00 - 18:00)" },
           { id: 3, name: "Dr. Elena Rostova", department: "Pediatrics", email: "elena.rostova@swiftmd.com", availability: "Tue, Thu, Sat (10:00 - 15:00)" },
           { id: 4, name: "Dr. James Ochieng", department: "Neurology", email: "james.ochieng@swiftmd.com", availability: "Mon, Wed, Fri (13:00 - 17:00)" },
+          { id: 5, name: "Dr. Makena", department: "Women's Health & General Care", email: "makena@swiftmd.com", availability: "Daily (08:00 - 18:00)" },
         ]);
       } finally {
         setLoading(false);
@@ -52,10 +54,14 @@ export default function DoctorDirectoryPage() {
     fetchDoctors();
   }, []);
 
-  // Filter strictly by Department/Specialization
+  // Filter strictly by Department/Specialization or Doctor Name
   const filteredDoctors = doctors.filter((doc) => {
     const dept = doc.department || "General Practice";
-    return dept.toLowerCase().includes(searchQuery.toLowerCase());
+    const docName = doc.name || "";
+    return (
+      dept.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      docName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
   });
 
   const getInitials = (name: string) => {
@@ -78,18 +84,18 @@ export default function DoctorDirectoryPage() {
               Doctor Directory
             </h1>
             <p className="text-slate-400 text-sm font-semibold mt-1">
-              Browse qualified medical specialists and book consultations
+              Browse qualified medical specialists, book visits, or launch live video consultations
             </p>
           </div>
 
-          {/* Search Bar (Department Only) */}
+          {/* Search Bar */}
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3.5 top-3.5 text-slate-500" size={18} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by department..."
+              placeholder="Search by department or doctor..."
               className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-100 font-medium text-sm"
             />
           </div>
@@ -101,7 +107,7 @@ export default function DoctorDirectoryPage() {
           </div>
         ) : filteredDoctors.length === 0 ? (
           <div className="p-12 text-center text-slate-400 font-medium bg-slate-900 rounded-3xl border border-slate-800">
-            No doctors found matching department "{searchQuery}".
+            No doctors found matching "{searchQuery}".
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -141,29 +147,39 @@ export default function DoctorDirectoryPage() {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-slate-800 flex items-center gap-3">
+                <div className="space-y-2 pt-4 border-t border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        router.push(
+                          `/patient/dashboard/appointments?doctorId=${doc.id}&doctorName=${encodeURIComponent(
+                            doc.name
+                          )}&department=${encodeURIComponent(
+                            doc.department || "General Practice"
+                          )}`
+                        )
+                      }
+                      className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-blue-600/20 flex items-center justify-center gap-1.5"
+                    >
+                      <Calendar size={13} /> Book Visit
+                    </button>
+                    <button
+                      onClick={() => {
+                        alert(`Leave a review for ${doc.name}`);
+                      }}
+                      className="p-2.5 bg-slate-950 hover:bg-slate-800 text-amber-400 border border-slate-800 rounded-xl transition"
+                      title="Leave a Review"
+                    >
+                      <Star size={15} fill="currentColor" />
+                    </button>
+                  </div>
+
+                  {/* Direct Launch Video Consultation Button */}
                   <button
-                    onClick={() =>
-                      router.push(
-                        `/patient/dashboard/appointments?doctorId=${doc.id}&doctorName=${encodeURIComponent(
-                          doc.name
-                        )}&department=${encodeURIComponent(
-                          doc.department || "General Practice"
-                        )}`
-                      )
-                    }
-                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-blue-600/20 flex items-center justify-center gap-2"
+                    onClick={() => router.push("/patient/dashboard/consultations")}
+                    className="w-full py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-xs uppercase tracking-wider rounded-xl transition flex items-center justify-center gap-1.5"
                   >
-                    <Calendar size={14} /> Book Visit
-                  </button>
-                  <button
-                    onClick={() => {
-                      alert(`Leave a review for ${doc.name}`);
-                    }}
-                    className="p-3 bg-slate-950 hover:bg-slate-800 text-amber-400 border border-slate-800 rounded-xl transition"
-                    title="Leave a Review"
-                  >
-                    <Star size={16} fill="currentColor" />
+                    <Video size={14} /> Join Video Consultation
                   </button>
                 </div>
               </div>
