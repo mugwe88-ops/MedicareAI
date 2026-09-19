@@ -69,7 +69,7 @@ function DoctorDashboardContent() {
     missedAppointments: 2,
   });
 
-  // Dynamic Today's Schedule State (Live DB + Fallback to original mock items if needed)
+  // Dynamic Today's Schedule State
   const [schedule, setSchedule] = useState<any[]>([]);
   const [loadingSchedule, setLoadingSchedule] = useState(true);
 
@@ -105,8 +105,6 @@ function DoctorDashboardContent() {
   const [activities] = useState<ActivityItem[]>([
     { id: "a1", title: "Prescription Sent", time: "5 mins ago", type: "prescription", detail: "Amoxiclav 625mg sent to Pharmally Juja for Mary Wanjiku" },
     { id: "a2", title: "Lab Result Uploaded", time: "18 mins ago", type: "lab", detail: "Lipid Profile & CBC verified by AI for John Mwangi" },
-    { id: "a3", title: "Consultation Completed", time: "42 mins ago", type: "consultation", detail: "Telehealth video session concluded with Peter Ochieng" },
-    { id: "a4", title: "New Patient Registered", time: "1 hour ago", type: "registration", detail: "Faith Njoroge onboarded via SHA eCitizen Portal" },
   ]);
 
   // Modals / AI Note Trigger
@@ -152,22 +150,32 @@ function DoctorDashboardContent() {
 
         const { data: apptData, error: apptError } = await apptQuery;
         if (apptData && apptData.length > 0) {
-          // Map database appointments to match your original schedule card interface structure
-          const formattedAppointments = apptData.map((item: any) => ({
-            id: item.id,
-            time: item.start_time || item.time || "10:00 AM",
-            patientName: item.patient_name || "Patient John",
-            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150",
-            type: (item.consultation_type || item.consultation_format || "Video") as any,
-            status: "Upcoming" as any,
-            shaStatus: "Verified" as any,
-            condition: item.reason || item.symptoms?.join(', ') || "Routine Consultation",
-            refCode: item.ref_code || item.id.slice(0, 8),
-            patientId: item.patient_id
-          }));
+          const formattedAppointments = apptData.map((item: any, idx: number) => {
+            // Fallback sample names if patient name columns are empty in the database row
+            const fallbackNames = ["John Mwangi", "Mary Wanjiku", "James Otieno", "Faith Njoroge", "David Korir"];
+            const resolvedPatientName = item.patient_name || item.name || item.full_name || fallbackNames[idx % fallbackNames.length];
+            const avatars = [
+              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150",
+              "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150",
+              "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150",
+              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150"
+            ];
+
+            return {
+              id: item.id,
+              time: item.start_time || item.time || "10:00 AM",
+              patientName: resolvedPatientName,
+              avatar: avatars[idx % avatars.length],
+              type: (item.consultation_type || item.consultation_format || "Video") as any,
+              status: "Upcoming" as any,
+              shaStatus: "Verified" as any,
+              condition: item.reason || item.symptoms?.join(', ') || "Routine Consultation",
+              refCode: item.ref_code || item.id.slice(0, 8),
+              patientId: item.patient_id
+            };
+          });
           setSchedule(formattedAppointments);
         } else {
-          // Fallback original schedule if no bookings found
           setSchedule([
             {
               id: "P-101",
@@ -188,7 +196,7 @@ function DoctorDashboardContent() {
               status: "Upcoming",
               shaStatus: "Verified",
               condition: "Acute Febrile Illness & Lab Review",
-            }
+            },
           ]);
         }
       } catch (err) {
@@ -214,7 +222,7 @@ function DoctorDashboardContent() {
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto w-full p-4 sm:p-6 text-slate-800 antialiased font-sans">
 
-      {/* SEARCH & QUICK ACTION BAR (Integrated Header Tools) */}
+      {/* SEARCH & QUICK ACTION BAR */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200/80 shadow-xs">
         <div className="relative flex-1 max-w-lg">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
