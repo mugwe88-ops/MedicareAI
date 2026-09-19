@@ -409,16 +409,20 @@ export default function BookAppointmentPage() {
     recognition.start();
   };
 
-  const handleFinalBooking = async () => {
+const handleFinalBooking = async () => {
     if (!selectedDoctor || !selectedSlot || !selectedDate) return;
     setIsSubmitting(true);
     setErrorMessage(null);
+
+    // Get the actual logged-in user ID dynamically
+    const { data: { user } } = await supabase.auth.getUser();
+    const currentUserId = user?.id || '22222222-2222-2222-2222-222222222222';
 
     const refCode = `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const res = await createPatientBookingAction({
       doctorId: selectedDoctor.id,
-      patientId: '22222222-2222-2222-2222-222222222222',
+      patientId: currentUserId,
       patientName: patientName,
       appointmentDate: selectedDate,
       startTime: selectedSlot.startTime,
@@ -434,7 +438,7 @@ export default function BookAppointmentPage() {
     setIsSubmitting(false);
 
     if (res.success) {
-      router.push('/patient/dashboard/appointments');
+      router.push('/patient/dashboard/consultations');
     } else {
       setErrorMessage(res.error || 'Failed to reserve appointment slot.');
     }
