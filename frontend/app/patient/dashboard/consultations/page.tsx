@@ -339,7 +339,7 @@ export default function ConsultationHubPage() {
                 <div className="bg-slate-900 rounded-3xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl p-6">
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
                   <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-blue-600/30 border border-blue-400/40 flex items-center text-blue-300 font-bold text-2xl md:text-3xl mb-3 shadow-inner">
-                    {doctorName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    {String(doctorName).split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                   </div>
                   <span className="text-white font-bold text-sm relative z-10">{doctorName}</span>
                   <span className="text-xs text-emerald-400 font-semibold relative z-10 mt-0.5">Connected (HD 1080p)</span>
