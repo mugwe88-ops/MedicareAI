@@ -1,14 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Calendar, Clock, Video, UserPlus, FileText, Activity,
-  Search, Bell, ShieldCheck, TrendingUp, AlertTriangle, Stethoscope, Mic,
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { 
+  Calendar, Clock, Video, UserPlus, FileText, Activity, 
+  Search, Bell, ShieldCheck, TrendingUp, AlertTriangle, Stethoscope, Mic, 
   DollarSign, Sparkles, AlertCircle, Settings, RefreshCw, PlusCircle, ArrowUpRight, X, Filter
 } from "lucide-react";
+import { createClient } from '@supabase/supabase-js';
 
-// Types
+// Initialize Supabase Client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 interface PatientSchedule {
   id: string;
   time: string;
@@ -39,14 +44,16 @@ interface ActivityItem {
 
 export default function DoctorDashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const doctorIdParam = searchParams.get('doctorId');
 
   // Duty Toggle State
   const [isOnDuty, setIsOnDuty] = useState<boolean>(true);
 
-  // Doctor Info State
-  const [doctor] = useState({
-    name: "Dr. Pressy",
-    fullName: "Dr. Pressy Mutero, MD",
+  // Doctor Info State (Dynamic)
+  const [doctor, setDoctor] = useState({
+    name: "Dr. Specialist",
+    fullName: "Doctor Specialist, MD",
     specialty: "Consultant General Practitioner",
     licenseStatus: "Verified MD",
     avatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300",
@@ -86,26 +93,6 @@ export default function DoctorDashboardContent() {
       shaStatus: "Verified",
       condition: "Acute Febrile Illness & Lab Review",
     },
-    {
-      id: "P-103",
-      time: "10:00 AM",
-      patientName: "James Otieno",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150",
-      type: "Physical",
-      status: "Upcoming",
-      shaStatus: "Pending",
-      condition: "Post-op Wound Inspection",
-    },
-    {
-      id: "P-104",
-      time: "11:15 AM",
-      patientName: "Faith Njoroge",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150",
-      type: "Video",
-      status: "Upcoming",
-      shaStatus: "Verified",
-      condition: "Type 2 Diabetes Glycemia Consultation",
-    },
   ]);
 
   // Waiting Room Queue State
@@ -126,28 +113,52 @@ export default function DoctorDashboardContent() {
       urgency: "High",
       paymentType: "M-Pesa",
     },
-    {
-      id: "W-03",
-      name: "Lucy Nyambura",
-      waitTime: "3 min",
-      symptom: "Refill Prescriptions for Amlodipine",
-      urgency: "Normal",
-      paymentType: "M-Pesa",
-    },
   ]);
 
   // Recent Activity Feed State
   const [activities] = useState<ActivityItem[]>([
     { id: "a1", title: "Prescription Sent", time: "5 mins ago", type: "prescription", detail: "Amoxiclav 625mg sent to Pharmally Juja for Mary Wanjiku" },
     { id: "a2", title: "Lab Result Uploaded", time: "18 mins ago", type: "lab", detail: "Lipid Profile & CBC verified by AI for John Mwangi" },
-    { id: "a3", title: "Consultation Completed", time: "42 mins ago", type: "consultation", detail: "Telehealth video session concluded with Peter Ochieng" },
-    { id: "a4", title: "New Patient Registered", time: "1 hour ago", type: "registration", detail: "Faith Njoroge onboarded via SHA eCitizen Portal" },
   ]);
 
   // Modals / AI Note Trigger
   const [aiNoteActive, setAiNoteActive] = useState<boolean>(false);
   const [isRecordingVoice, setIsRecordingVoice] = useState<boolean>(false);
   const [aiNotesText, setAiNotesText] = useState<string>("");
+
+  // Fetch logged-in doctor profile dynamically from Supabase
+  useEffect(() => {
+    async function fetchDoctorProfile() {
+      try {
+        let query = supabase.from('doctors').select('*');
+        
+        if (doctorIdParam) {
+          query = query.eq('id', doctorIdParam);
+        } else {
+          // Default to first active doctor if no param specified
+          query = query.limit(1);
+        }
+
+        const { data, error } = await query.single();
+        if (data && !error) {
+          const docName = data.display_name || data.name || "Dr. Specialist";
+          const shortName = docName.split(' ')[0] + (docName.split(' ')[1] ? ' ' + docName.split(' ')[1] : '');
+          setDoctor({
+            name: shortName,
+            fullName: docName,
+            specialty: data.specialization || data.department || "Consultant General Practitioner",
+            licenseStatus: "Verified MD",
+            avatar: data.avatar_url || data.image || "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300",
+            lastSync: "Just now",
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching doctor profile:", err);
+      }
+    }
+
+    fetchDoctorProfile();
+  }, [doctorIdParam]);
 
   const handleVoiceToRx = () => {
     setIsRecordingVoice(!isRecordingVoice);
@@ -162,7 +173,7 @@ export default function DoctorDashboardContent() {
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto w-full p-4 sm:p-6 text-slate-800 antialiased font-sans">
 
-      {/* SEARCH & QUICK ACTION BAR (Integrated Header Tools) */}
+      {/* SEARCH & QUICK ACTION BAR */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200/80 shadow-xs">
         <div className="relative flex-1 max-w-lg">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -310,7 +321,7 @@ export default function DoctorDashboardContent() {
               </div>
             </div>
 
-            {/* iPhone-Style Smooth Availability Toggle */}
+            {/* Smooth Availability Toggle */}
             <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between">
               <div>
                 <strong className="block text-xs font-black text-slate-800">Duty Status</strong>
@@ -401,129 +412,6 @@ export default function DoctorDashboardContent() {
         </button>
       </div>
 
-      {/* PATIENT WORKLOAD & WAITING ROOM */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        {/* WORKLOAD CARD (7 Cols) */}
-        <div className="lg:col-span-7 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div>
-              <h3 className="text-sm font-black text-slate-900 tracking-tight">Patient Workload & Analytics</h3>
-              <p className="text-[11px] font-semibold text-slate-400">Consultation flow and daily pace</p>
-            </div>
-            <span className="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
-              Today's Rate
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase block">Live Queue</span>
-              <strong className="text-base font-black text-amber-600">Waiting: 4</strong>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase block">Completed</span>
-              <strong className="text-base font-black text-emerald-600">{metrics.consultationsCompleted}</strong>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase block">Avg Visit Time</span>
-              <strong className="text-base font-black text-blue-600">{metrics.avgConsultTime}</strong>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase block">Missed</span>
-              <strong className="text-base font-black text-rose-600">{metrics.missedAppointments} Visits</strong>
-            </div>
-          </div>
-
-          <div className="pt-2 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-500">
-              <span>Hourly Patient Traffic Curve</span>
-              <span className="text-emerald-600 font-extrabold flex items-center gap-1">
-                <TrendingUp size={14} /> Peak at 11:00 AM
-              </span>
-            </div>
-
-            <div className="h-32 w-full bg-gradient-to-b from-blue-50/50 to-transparent rounded-2xl p-2 border border-slate-100 flex items-end">
-              <svg className="w-full h-full overflow-visible" viewBox="0 0 500 100" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-                <path d="M0,80 Q70,20 140,60 T280,10 T420,50 T500,30 L500,100 L0,100 Z" fill="url(#chartGrad)" />
-                <path d="M0,80 Q70,20 140,60 T280,10 T420,50 T500,30" fill="none" stroke="#2563eb" strokeWidth="3.5" strokeLinecap="round" />
-                <circle cx="140" cy="60" r="4" fill="#2563eb" />
-                <circle cx="280" cy="10" r="5" fill="#f59e0b" />
-                <circle cx="420" cy="50" r="4" fill="#2563eb" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* WAITING ROOM (5 Cols) */}
-        <div className="lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-                <Clock size={16} />
-              </span>
-              <div>
-                <h3 className="text-sm font-black text-slate-900 tracking-tight">Live Telehealth Waiting Room</h3>
-                <p className="text-[11px] font-semibold text-slate-400">Patients checked in and waiting</p>
-              </div>
-            </div>
-            <span className="text-[10px] font-black bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full border border-amber-200">
-              4 Queued
-            </span>
-          </div>
-
-          <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
-            {waitingQueue.map((patient) => (
-              <div
-                key={patient.id}
-                className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 ${
-                  patient.urgency === "Emergency"
-                    ? "bg-rose-50/60 border-rose-200"
-                    : "bg-slate-50/80 border-slate-100 hover:border-blue-200"
-                }`}
-              >
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-black text-slate-900 text-xs truncate">{patient.name}</h4>
-                    <span
-                      className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase ${
-                        patient.urgency === "Emergency"
-                          ? "bg-rose-600 text-white"
-                          : patient.urgency === "High"
-                          ? "bg-amber-500 text-white"
-                          : "bg-blue-100 text-blue-700"
-                      }`}
-                    >
-                      {patient.urgency}
-                    </span>
-                  </div>
-
-                  <p className="text-[11px] text-slate-600 font-medium line-clamp-1">{patient.symptom}</p>
-                </div>
-
-                <button
-                  onClick={() => router.push(`/doctors/telehealth/room?patientId=${patient.id}`)}
-                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl transition cursor-pointer flex items-center gap-1 whitespace-nowrap"
-                >
-                  <span>Join</span>
-                  <ArrowUpRight size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-      </div>
-
       {/* TODAY'S SCHEDULE TABLE */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
@@ -533,12 +421,9 @@ export default function DoctorDashboardContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5">
-              <Filter size={14} /> Filter
-            </button>
             <button
               onClick={() => router.push("/doctors/appointments/new")}
-              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5"
+              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 cursor-pointer"
             >
               <PlusCircle size={14} /> Book Appointment
             </button>
@@ -578,15 +463,7 @@ export default function DoctorDashboardContent() {
                   </td>
 
                   <td className="py-4 px-2 whitespace-nowrap">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                        item.type === "Video"
-                          ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                          : item.type === "Follow-up"
-                          ? "bg-purple-50 text-purple-700 border border-purple-100"
-                          : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                      }`}
-                    >
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-100">
                       {item.type}
                     </span>
                   </td>
@@ -596,13 +473,7 @@ export default function DoctorDashboardContent() {
                   </td>
 
                   <td className="py-4 px-2 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                        item.shaStatus === "Verified"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-amber-50 text-amber-700 border border-amber-200"
-                      }`}
-                    >
+                    <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <ShieldCheck size={12} /> {item.shaStatus}
                     </span>
                   </td>
@@ -614,12 +485,6 @@ export default function DoctorDashboardContent() {
                         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl transition cursor-pointer"
                       >
                         Join
-                      </button>
-                      <button
-                        onClick={() => router.push(`/doctors/patients/records?id=${item.id}`)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer"
-                      >
-                        View Record
                       </button>
                     </div>
                   </td>
@@ -668,33 +533,23 @@ export default function DoctorDashboardContent() {
               <textarea
                 value={aiNotesText}
                 onChange={(e) => setAiNotesText(e.target.value)}
-                placeholder="Dictation output will appear here..."
+                placeholder="Dictated notes will appear here..."
                 rows={4}
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
+                className="w-full p-3 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
               />
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setAiNoteActive(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    alert("Notes saved to patient file.");
-                    setAiNoteActive(false);
-                  }}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl transition shadow-md shadow-indigo-600/20"
-                >
-                  Save to Patient Record
+                  Done
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
