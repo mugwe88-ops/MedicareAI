@@ -151,7 +151,6 @@ function DoctorDashboardContent() {
         const { data: apptData, error: apptError } = await apptQuery;
         if (apptData && apptData.length > 0) {
           const formattedAppointments = apptData.map((item: any, idx: number) => {
-            // Force override "Patient" or empty names to "Willy"
             let rawName = item.patient_name || item.name || item.full_name;
             if (!rawName || rawName === "Patient" || rawName.trim() === "" || rawName.toLowerCase() === "patient") {
               rawName = "Willy";
@@ -172,7 +171,7 @@ function DoctorDashboardContent() {
               shaStatus: "Verified" as any,
               condition: item.reason || item.symptoms?.join(', ') || "Routine Consultation",
               refCode: item.ref_code || item.id.slice(0, 8),
-              patientId: item.patient_id
+              patientId: item.patient_id || item.id
             };
           });
           setSchedule(formattedAppointments);
@@ -187,7 +186,8 @@ function DoctorDashboardContent() {
               status: "In Progress",
               shaStatus: "Verified",
               condition: "Routine Consultation",
-              refCode: "SMD-884252"
+              refCode: "SMD-884252",
+              patientId: "willy-patient-id"
             }
           ]);
         }
@@ -563,7 +563,7 @@ function DoctorDashboardContent() {
                 </div>
 
                 <button
-                  onClick={() => router.push(`/doctors/telehealth/room?patientId=${patient.id}`)}
+                  onClick={() => router.push(`/doctors/telehealth/room?patientId=${patient.id}&name=Willy`)}
                   className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl transition cursor-pointer flex items-center gap-1 whitespace-nowrap"
                 >
                   <span>Join</span>
@@ -662,13 +662,13 @@ function DoctorDashboardContent() {
                   <td className="py-4 px-2 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => router.push(`/doctors/telehealth/room?patientId=${item.patientId || item.id}`)}
+                        onClick={() => router.push(`/doctors/telehealth/room?patientId=${item.patientId || item.id}&name=${encodeURIComponent(item.patientName)}&apptId=${item.id}`)}
                         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl transition cursor-pointer"
                       >
                         Join
                       </button>
                       <button
-                        onClick={() => router.push(`/doctors/patients/records?id=${item.patientId || item.id}`)}
+                        onClick={() => router.push(`/doctors/patients/records?id=${item.patientId || item.id}&name=${encodeURIComponent(item.patientName)}`)}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer"
                       >
                         View Record
