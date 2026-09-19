@@ -50,11 +50,11 @@ function DoctorDashboardContent() {
   // Doctor Info State (Dynamic)
   const [doctor, setDoctor] = useState({
     id: "",
-    name: "Dr. Specialist",
-    fullName: "Doctor Specialist, MD",
+    name: "Dr. William",
+    fullName: "Dr. William, MD",
     specialty: "Consultant General Practitioner",
     licenseStatus: "Verified MD",
-    avatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300",
+    avatar: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=300",
     lastSync: "Just now",
   });
 
@@ -116,27 +116,28 @@ function DoctorDashboardContent() {
   useEffect(() => {
     async function fetchDoctorData() {
       try {
-        // 1. Fetch Doctor Profile
+        // 1. Fetch Doctor Profile (Filter by Dr. William or doctorIdParam)
         let docQuery = supabase.from('doctors').select('*');
         if (doctorIdParam) {
           docQuery = docQuery.eq('id', doctorIdParam);
         } else {
-          docQuery = docQuery.limit(1);
+          // Look for Dr. William specifically first, fallback to limit(1)
+          docQuery = docQuery.or('name.ilike.%William%,display_name.ilike.%William%').limit(1);
         }
 
-        const { data: docData, error: docError } = await docQuery.single();
+        const { data: docData, error: docError } = await docQuery.maybeSingle();
         let activeDocId = doctorIdParam;
 
         if (docData && !docError) {
-          const docName = docData.display_name || docData.name || "Dr. Specialist";
-          const shortName = docName.split(' ')[0] + (docName.split(' ')[1] ? ' ' + docName.split(' ')[1] : '');
+          const docName = docData.display_name || docData.name || "Dr. William";
+          const shortName = docName.includes('William') ? "Dr. William" : (docName.split(' ')[0] + (docName.split(' ')[1] ? ' ' + docName.split(' ')[1] : ''));
           setDoctor({
             id: docData.id,
             name: shortName,
             fullName: docName,
             specialty: docData.specialization || docData.department || "Consultant General Practitioner",
             licenseStatus: "Verified MD",
-            avatar: docData.avatar_url || docData.image || "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300",
+            avatar: docData.avatar_url || docData.image || "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=300",
             lastSync: "Just now",
           });
           activeDocId = docData.id;
@@ -151,14 +152,11 @@ function DoctorDashboardContent() {
         const { data: apptData, error: apptError } = await apptQuery;
         if (apptData && apptData.length > 0) {
           const formattedAppointments = apptData.map((item: any, idx: number) => {
-            // Fallback sample names if patient name columns are empty in the database row
-            const fallbackNames = ["John Mwangi", "Mary Wanjiku", "James Otieno", "Faith Njoroge", "David Korir"];
-            const resolvedPatientName = item.patient_name || item.name || item.full_name || fallbackNames[idx % fallbackNames.length];
+            // Use Willy if patient name is missing or generic
+            const resolvedPatientName = item.patient_name || item.name || item.full_name || "Willy";
             const avatars = [
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150",
-              "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150",
-              "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150",
-              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150"
+              "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
+              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150"
             ];
 
             return {
@@ -179,24 +177,15 @@ function DoctorDashboardContent() {
           setSchedule([
             {
               id: "P-101",
-              time: "09:00 AM",
-              patientName: "John Mwangi",
-              avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150",
+              time: "10:15 AM",
+              patientName: "Willy",
+              avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
               type: "Video",
               status: "In Progress",
               shaStatus: "Verified",
-              condition: "Hypertension Routine Review",
-            },
-            {
-              id: "P-102",
-              time: "09:30 AM",
-              patientName: "Mary Wanjiku",
-              avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150",
-              type: "Follow-up",
-              status: "Upcoming",
-              shaStatus: "Verified",
-              condition: "Acute Febrile Illness & Lab Review",
-            },
+              condition: "Routine Consultation",
+              refCode: "SMD-884252"
+            }
           ]);
         }
       } catch (err) {
@@ -279,13 +268,13 @@ function DoctorDashboardContent() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <span className="text-[11px] font-extrabold text-blue-100 bg-white/15 px-3 py-1 rounded-full backdrop-blur-md uppercase tracking-wider">
-                  Sunday • 13 Sept • Online
+                  Sunday • 20 Sept • Online
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight mt-2 leading-tight">
                   Good morning, {doctor.name} 👋
                 </h2>
                 <p className="text-xs text-blue-100 font-medium mt-1">
-                  You have <span className="text-amber-300 font-black">4 patients waiting</span> in the live room queue.
+                  You have <span className="text-amber-300 font-black">{schedule.length} patients booked</span> in your schedule queue.
                 </p>
               </div>
 
