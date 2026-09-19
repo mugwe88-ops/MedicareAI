@@ -47,10 +47,12 @@ function ConsultationHubContent() {
     "Medication adherence confirmed."
   ]);
 
-  // Fetch appointment filtered by selectedDoctorId or fall back to latest
-useEffect(() => {
+  // Fetch appointment filtered by selectedDoctorId or the user's absolute latest booking
+  useEffect(() => {
     async function fetchAppointment() {
       try {
+        const { data: { user } } = await supabase.auth.getUser();
+
         let query = supabase
           .from('appointments')
           .select(`
@@ -68,12 +70,13 @@ useEffect(() => {
           `)
           .order('created_at', { ascending: false });
 
-        // If a specific doctor query param is provided, filter by it. Otherwise, get the absolute latest appointment.
         if (selectedDoctorId) {
           query = query.eq('doctor_id', selectedDoctorId);
+        } else if (user) {
+          query = query.eq('patient_id', user.id);
         }
 
-        const { data, error } = await query.limit(1).single();
+        const { data, error } = await query.limit(1).maybeSingle();
 
         if (data) {
           setLatestAppointment(data);
@@ -98,6 +101,7 @@ useEffect(() => {
       let appointmentId = latestAppointment?.id;
 
       if (!appointmentId) {
+        const { data: { user } } = await supabase.auth.getUser();
         let query = supabase
           .from('appointments')
           .select('id')
@@ -105,9 +109,11 @@ useEffect(() => {
         
         if (selectedDoctorId) {
           query = query.eq('doctor_id', selectedDoctorId);
+        } else if (user) {
+          query = query.eq('patient_id', user.id);
         }
 
-        const { data: latestData } = await query.limit(1).single();
+        const { data: latestData } = await query.limit(1).maybeSingle();
         appointmentId = latestData?.id;
       }
 
@@ -175,11 +181,11 @@ useEffect(() => {
   ];
 
   // Resolve doctor display details dynamically from fetched appointment or fallback
-  const doctorName = latestAppointment?.doctors?.display_name || latestAppointment?.doctors?.name || latestAppointment?.doctor_name || searchParams.get('doctorName') || "Dr. Makena";
+  const doctorName = latestAppointment?.doctors?.display_name || latestAppointment?.doctors?.name || latestAppointment?.doctor_name || searchParams.get('doctorName') || "Assigned Specialist";
   const doctorSpecialty = latestAppointment?.doctors?.specialization || latestAppointment?.doctors?.department || "General Practice";
   const doctorRating = latestAppointment?.doctors?.rating || "4.9";
   const consultationType = latestAppointment?.consultation_format || latestAppointment?.consultation_type || "General Video Telehealth";
-  const appointmentDateFormatted = latestAppointment?.date || latestAppointment?.appointment_date || "Today, 6:30 PM EAT";
+  const appointmentDateFormatted = latestAppointment?.date || latestAppointment?.appointment_date || latestAppointment?.start_time || "Today, 6:30 PM EAT";
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 md:pb-10 font-sans text-slate-800">
