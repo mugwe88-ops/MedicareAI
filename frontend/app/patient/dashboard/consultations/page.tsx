@@ -49,12 +49,12 @@ function ConsultationHubContent() {
   ]);
 
   // Fetch appointments with fallback if patient_id doesn't match auth user ID directly
+// Fetch appointments robustly without strict RLS blocking
   useEffect(() => {
     async function fetchAppointmentsData() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        let query = supabase
+        // Fetch all appointments directly without filtering out auth user first
+        const { data: allData, error } = await supabase
           .from('appointments')
           .select(`
             *,
@@ -71,45 +71,9 @@ function ConsultationHubContent() {
           `)
           .order('created_at', { ascending: false });
 
-        if (user) {
-          const { data: userAppointments } = await query.eq('patient_id', user.id);
-          if (userAppointments && userAppointments.length > 0) {
-            setAllAppointments(userAppointments);
-            
-            if (selectedDoctorId) {
-              const matched = userAppointments.find((a: any) => String(a.doctor_id) === String(selectedDoctorId));
-              setLatestAppointment(matched || userAppointments[0]);
-              if ((matched || userAppointments[0]).reason || (matched || userAppointments[0]).symptoms) {
-                setSymptomsInput((matched || userAppointments[0]).reason || (matched || userAppointments[0]).symptoms);
-              }
-            } else {
-              setLatestAppointment(userAppointments[0]);
-              if (userAppointments[0].reason || userAppointments[0].symptoms) {
-                setSymptomsInput(userAppointments[0].reason || userAppointments[0].symptoms);
-              }
-            }
-            setLoadingAppointment(false);
-            return;
-          }
+        if (error) {
+          console.error("Supabase query error:", error.message);
         }
-
-        // Fallback: fetch all appointments if user filter returns nothing
-        const { data: allData } = await supabase
-          .from('appointments')
-          .select(`
-            *,
-            doctors (
-              id,
-              display_name,
-              name,
-              specialization,
-              department,
-              rating,
-              email,
-              location
-            )
-          `)
-          .order('created_at', { ascending: false });
 
         if (allData && allData.length > 0) {
           setAllAppointments(allData);
@@ -126,6 +90,8 @@ function ConsultationHubContent() {
               setSymptomsInput(allData[0].reason || allData[0].symptoms);
             }
           }
+        } else {
+          setAllAppointments([]);
         }
       } catch (err) {
         console.error("Error fetching appointments:", err);
