@@ -48,8 +48,7 @@ function ConsultationHubContent() {
     "Medication adherence confirmed."
   ]);
 
-  // Fetch appointment filtered by selectedDoctorId or the user's absolute latest booking
-// Fetch appointments with fallback if patient_id doesn't match auth user ID directly
+  // Fetch appointments with fallback if patient_id doesn't match auth user ID directly
   useEffect(() => {
     async function fetchAppointmentsData() {
       try {
@@ -72,21 +71,29 @@ function ConsultationHubContent() {
           `)
           .order('created_at', { ascending: false });
 
-        // First try filtering by user.id if available
         if (user) {
           const { data: userAppointments } = await query.eq('patient_id', user.id);
           if (userAppointments && userAppointments.length > 0) {
             setAllAppointments(userAppointments);
-            setLatestAppointment(userAppointments[0]);
-            if (userAppointments[0].reason || userAppointments[0].symptoms) {
-              setSymptomsInput(userAppointments[0].reason || userAppointments[0].symptoms);
+            
+            if (selectedDoctorId) {
+              const matched = userAppointments.find((a: any) => String(a.doctor_id) === String(selectedDoctorId));
+              setLatestAppointment(matched || userAppointments[0]);
+              if ((matched || userAppointments[0]).reason || (matched || userAppointments[0]).symptoms) {
+                setSymptomsInput((matched || userAppointments[0]).reason || (matched || userAppointments[0]).symptoms);
+              }
+            } else {
+              setLatestAppointment(userAppointments[0]);
+              if (userAppointments[0].reason || userAppointments[0].symptoms) {
+                setSymptomsInput(userAppointments[0].reason || userAppointments[0].symptoms);
+              }
             }
             setLoadingAppointment(false);
             return;
           }
         }
 
-        // Fallback: If no user ID match or user is not logged in via Supabase client, fetch all recent appointments
+        // Fallback: fetch all appointments if user filter returns nothing
         const { data: allData } = await supabase
           .from('appointments')
           .select(`
@@ -109,16 +116,15 @@ function ConsultationHubContent() {
           
           if (selectedDoctorId) {
             const matched = allData.find((a: any) => String(a.doctor_id) === String(selectedDoctorId));
-            if (matched) {
-              setLatestAppointment(matched);
-              if (matched.reason || matched.symptoms) setSymptomsInput(matched.reason || matched.symptoms);
-            } else {
-              setLatestAppointment(allData[0]);
-              if (allData[0].reason || allData[0].symptoms) setSymptomsInput(allData[0].reason || allData[0].symptoms);
+            setLatestAppointment(matched || allData[0]);
+            if ((matched || allData[0]).reason || (matched || allData[0]).symptoms) {
+              setSymptomsInput((matched || allData[0]).reason || (matched || allData[0]).symptoms);
             }
           } else {
             setLatestAppointment(allData[0]);
-            if (allData[0].reason || allData[0].symptoms) setSymptomsInput(allData[0].reason || allData[0].symptoms);
+            if (allData[0].reason || allData[0].symptoms) {
+              setSymptomsInput(allData[0].reason || allData[0].symptoms);
+            }
           }
         }
       } catch (err) {
@@ -130,6 +136,40 @@ function ConsultationHubContent() {
 
     fetchAppointmentsData();
   }, [selectedDoctorId]);
+
+  // Handle saving pre-consultation questionnaire to Supabase
+  const handleSaveSymptoms = async () => {
+    setIsSubmitting(true);
+    try {
+      let appointmentId = latestAppointment?.id;
+
+      if (!appointmentId && allAppointments.length > 0) {
+        appointmentId = allAppointments[0].id;
+      }
+
+      if (!appointmentId) {
+        alert("No active appointment found to update.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('appointments')
+        .update({ reason: symptomsInput })
+        .eq('id', appointmentId);
+
+      if (error) {
+        throw error;
+      }
+
+      alert(`Pre-consultation notes successfully saved and submitted to ${doctorName}!`);
+    } catch (err: any) {
+      console.error("Error saving questionnaire:", err);
+      alert("Failed to save details: " + (err.message || "Unknown error"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Countdown timer effect
   useEffect(() => {
