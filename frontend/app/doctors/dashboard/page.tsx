@@ -14,18 +14,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Types
-interface PatientSchedule {
-  id: string;
-  time: string;
-  patientName: string;
-  avatar: string;
-  type: "Video" | "Follow-up" | "Physical";
-  status: "In Progress" | "Upcoming" | "Completed" | "Delayed";
-  shaStatus: "Verified" | "Pending";
-  condition: string;
-}
-
 interface WaitingPatient {
   id: string;
   name: string;
@@ -61,6 +49,7 @@ function DoctorDashboardContent() {
 
   // Doctor Info State (Dynamic)
   const [doctor, setDoctor] = useState({
+    id: "",
     name: "Dr. Specialist",
     fullName: "Doctor Specialist, MD",
     specialty: "Consultant General Practitioner",
@@ -80,49 +69,9 @@ function DoctorDashboardContent() {
     missedAppointments: 2,
   });
 
-  // Today's Schedule State
-  const [schedule] = useState<PatientSchedule[]>([
-    {
-      id: "P-101",
-      time: "09:00 AM",
-      patientName: "John Mwangi",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150",
-      type: "Video",
-      status: "In Progress",
-      shaStatus: "Verified",
-      condition: "Hypertension Routine Review",
-    },
-    {
-      id: "P-102",
-      time: "09:30 AM",
-      patientName: "Mary Wanjiku",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150",
-      type: "Follow-up",
-      status: "Upcoming",
-      shaStatus: "Verified",
-      condition: "Acute Febrile Illness & Lab Review",
-    },
-    {
-      id: "P-103",
-      time: "10:00 AM",
-      patientName: "James Otieno",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150",
-      type: "Physical",
-      status: "Upcoming",
-      shaStatus: "Pending",
-      condition: "Post-op Wound Inspection",
-    },
-    {
-      id: "P-104",
-      time: "11:15 AM",
-      patientName: "Faith Njoroge",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150",
-      type: "Video",
-      status: "Upcoming",
-      shaStatus: "Verified",
-      condition: "Type 2 Diabetes Glycemia Consultation",
-    },
-  ]);
+  // Dynamic Appointments Schedule State
+  const [schedule, setSchedule] = useState<any[]>([]);
+  const [loadingSchedule, setLoadingSchedule] = useState(true);
 
   // Waiting Room Queue State
   const [waitingQueue] = useState<WaitingPatient[]>([
@@ -165,37 +114,54 @@ function DoctorDashboardContent() {
   const [isRecordingVoice, setIsRecordingVoice] = useState<boolean>(false);
   const [aiNotesText, setAiNotesText] = useState<string>("");
 
-  // Fetch logged-in doctor profile dynamically from Supabase
+  // Fetch logged-in doctor profile and their booked appointments dynamically from Supabase
   useEffect(() => {
-    async function fetchDoctorProfile() {
+    async function fetchDoctorData() {
       try {
-        let query = supabase.from('doctors').select('*');
-        
+        // 1. Fetch Doctor Profile
+        let docQuery = supabase.from('doctors').select('*');
         if (doctorIdParam) {
-          query = query.eq('id', doctorIdParam);
+          docQuery = docQuery.eq('id', doctorIdParam);
         } else {
-          query = query.limit(1);
+          docQuery = docQuery.limit(1);
         }
 
-        const { data, error } = await query.single();
-        if (data && !error) {
-          const docName = data.display_name || data.name || "Dr. Specialist";
+        const { data: docData, error: docError } = await docQuery.single();
+        let activeDocId = doctorIdParam;
+
+        if (docData && !docError) {
+          const docName = docData.display_name || docData.name || "Dr. Specialist";
           const shortName = docName.split(' ')[0] + (docName.split(' ')[1] ? ' ' + docName.split(' ')[1] : '');
           setDoctor({
+            id: docData.id,
             name: shortName,
             fullName: docName,
-            specialty: data.specialization || data.department || "Consultant General Practitioner",
+            specialty: docData.specialization || docData.department || "Consultant General Practitioner",
             licenseStatus: "Verified MD",
-            avatar: data.avatar_url || data.image || "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300",
+            avatar: docData.avatar_url || docData.image || "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300",
             lastSync: "Just now",
           });
+          activeDocId = docData.id;
+        }
+
+        // 2. Fetch Appointments for this doctor from database
+        let apptQuery = supabase.from('appointments').select('*').order('date', { ascending: false });
+        if (activeDocId) {
+          apptQuery = apptQuery.eq('doctor_id', activeDocId);
+        }
+
+        const { data: apptData, error: apptError } = await apptQuery;
+        if (apptData && !apptError) {
+          setSchedule(apptData);
         }
       } catch (err) {
-        console.error("Error fetching doctor profile:", err);
+        console.error("Error fetching doctor dashboard data:", err);
+      } finally {
+        setLoadingSchedule(false);
       }
     }
 
-    fetchDoctorProfile();
+    fetchDoctorData();
   }, [doctorIdParam]);
 
   const handleVoiceToRx = () => {
@@ -271,10 +237,10 @@ function DoctorDashboardContent() {
                   Sunday • 13 Sept • Online
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight mt-2 leading-tight">
-                  Good morning, {doctor.name} 👋
+                  Good morning, {doctor.fullName} 👋
                 </h2>
                 <p className="text-xs text-blue-100 font-medium mt-1">
-                  You have <span className="text-amber-300 font-black">4 patients waiting</span> in the live room queue.
+                  You have <span className="text-amber-300 font-black">{schedule.length} active bookings</span> in your schedule queue.
                 </p>
               </div>
 
@@ -286,8 +252,8 @@ function DoctorDashboardContent() {
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-white/10 backdrop-blur-md border border-white/15 p-3.5 rounded-2xl text-center space-y-0.5">
-                <span className="text-[10px] font-bold text-blue-200 uppercase tracking-wider block">Patients Today</span>
-                <strong className="text-xl sm:text-2xl font-black text-white">{metrics.totalPatientsToday}</strong>
+                <span className="text-[10px] font-bold text-blue-200 uppercase tracking-wider block">Total Bookings</span>
+                <strong className="text-xl sm:text-2xl font-black text-white">{schedule.length}</strong>
               </div>
 
               <div className="bg-white/10 backdrop-blur-md border border-white/15 p-3.5 rounded-2xl text-center space-y-0.5 relative">
@@ -298,7 +264,7 @@ function DoctorDashboardContent() {
 
               <div className="bg-white/10 backdrop-blur-md border border-white/15 p-3.5 rounded-2xl text-center space-y-0.5">
                 <span className="text-[10px] font-bold text-blue-200 uppercase tracking-wider block">Next Visit</span>
-                <strong className="text-lg sm:text-xl font-black text-white">{metrics.nextVisitTime}</strong>
+                <strong className="text-lg sm:text-xl font-black text-white">{schedule[0]?.start_time || metrics.nextVisitTime}</strong>
               </div>
 
               <div className="bg-white/10 backdrop-blur-md border border-white/15 p-3.5 rounded-2xl text-center space-y-0.5">
@@ -328,7 +294,7 @@ function DoctorDashboardContent() {
           </div>
         </div>
 
-        {/* PROFILE CARD (4 Cols) */}
+        {/* PROFILE CARD (4 Cols - Sidebar Profile Sync) */}
         <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -340,7 +306,7 @@ function DoctorDashboardContent() {
               <div className="relative">
                 <img
                   src={doctor.avatar}
-                  alt={doctor.name}
+                  alt={doctor.fullName}
                   className="w-16 h-16 rounded-2xl object-cover ring-4 ring-blue-50 shadow-md"
                 />
                 <span
@@ -573,109 +539,89 @@ function DoctorDashboardContent() {
 
       </div>
 
-      {/* TODAY'S SCHEDULE TABLE */}
+      {/* DYNAMIC APPOINTMENT SCHEDULE TABLE */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
             <h3 className="text-base font-black text-slate-900 tracking-tight">Today's Appointment Schedule</h3>
-            <p className="text-xs font-semibold text-slate-400">Scheduled consultations and physical checkups for Sept 13, 2026</p>
+            <p className="text-xs font-semibold text-slate-400">Live database bookings for {doctor.fullName}</p>
           </div>
 
           <div className="flex items-center gap-2">
             <button className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer">
               <Filter size={14} /> Filter
             </button>
-            <button
-              onClick={() => router.push("/doctors/appointments/new")}
-              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <PlusCircle size={14} /> Book Appointment
-            </button>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-extrabold uppercase text-[10px] tracking-wider">
-                <th className="pb-3 px-2">Time Slot</th>
-                <th className="pb-3 px-2">Patient Details</th>
-                <th className="pb-3 px-2">Consult Type</th>
-                <th className="pb-3 px-2">Reason / Clinical Condition</th>
-                <th className="pb-3 px-2">SHA Status</th>
-                <th className="pb-3 px-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-              {schedule.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                  <td className="py-4 px-2 whitespace-nowrap">
-                    <div className="flex items-center gap-2 font-black text-slate-900">
-                      <Clock size={14} className="text-blue-600" />
-                      <span>{item.time}</span>
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-2 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
-                      <img src={item.avatar} alt={item.patientName} className="w-9 h-9 rounded-xl object-cover" />
-                      <div>
-                        <strong className="block text-slate-900 font-black">{item.patientName}</strong>
-                        <span className="text-[10px] text-slate-400 font-bold">{item.id}</span>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-2 whitespace-nowrap">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                        item.type === "Video"
-                          ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                          : item.type === "Follow-up"
-                          ? "bg-purple-50 text-purple-700 border border-purple-100"
-                          : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                      }`}
-                    >
-                      {item.type}
-                    </span>
-                  </td>
-
-                  <td className="py-4 px-2 max-w-xs truncate font-medium text-slate-800">
-                    {item.condition}
-                  </td>
-
-                  <td className="py-4 px-2 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                        item.shaStatus === "Verified"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-amber-50 text-amber-700 border border-amber-200"
-                      }`}
-                    >
-                      <ShieldCheck size={12} /> {item.shaStatus}
-                    </span>
-                  </td>
-
-                  <td className="py-4 px-2 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => router.push(`/doctors/telehealth/room?patientId=${item.id}`)}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl transition cursor-pointer"
-                      >
-                        Join
-                      </button>
-                      <button
-                        onClick={() => router.push(`/doctors/patients/records?id=${item.id}`)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer"
-                      >
-                        View Record
-                      </button>
-                    </div>
-                  </td>
+          {schedule.length === 0 ? (
+            <p className="text-xs text-slate-500 py-6 text-center">No appointments booked with this physician yet.</p>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 font-extrabold uppercase text-[10px] tracking-wider">
+                  <th className="pb-3 px-2">Time Slot</th>
+                  <th className="pb-3 px-2">Patient Details</th>
+                  <th className="pb-3 px-2">Consult Type</th>
+                  <th className="pb-3 px-2">Reason / Clinical Condition</th>
+                  <th className="pb-3 px-2">SHA Status</th>
+                  <th className="pb-3 px-2 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                {schedule.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                    <td className="py-4 px-2 whitespace-nowrap">
+                      <div className="flex items-center gap-2 font-black text-slate-900">
+                        <Clock size={14} className="text-blue-600" />
+                        <span>{item.start_time || item.time || "10:00 AM"}</span>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-2 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">
+                          {String(item.patient_name || "Patient").split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                        </div>
+                        <div>
+                          <strong className="block text-slate-900 font-black">{item.patient_name || "Patient John"}</strong>
+                          <span className="text-[10px] text-slate-400 font-bold">Ref: {item.ref_code || item.id.slice(0, 8)}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-2 whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {item.consultation_type || item.consultation_format || 'Telehealth'}
+                      </span>
+                    </td>
+
+                    <td className="py-4 px-2 max-w-xs truncate font-medium text-slate-800">
+                      {item.reason || item.symptoms?.join(', ') || 'Routine Consultation'}
+                    </td>
+
+                    <td className="py-4 px-2 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <ShieldCheck size={12} /> Verified
+                      </span>
+                    </td>
+
+                    <td className="py-4 px-2 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => router.push(`/doctors/telehealth/room?patientId=${item.patient_id}&apptId=${item.id}`)}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl transition cursor-pointer"
+                        >
+                          Join Call Room
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
