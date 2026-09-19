@@ -24,7 +24,8 @@ import {
   Download,
   CheckCircle2,
   RefreshCw,
-  Camera
+  Camera,
+  Stethoscope
 } from "lucide-react";
 
 // Mock database for patients
