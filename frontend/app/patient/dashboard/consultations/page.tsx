@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { 
   Video, Calendar, Clock, FileText, Shield, AlertTriangle, 
   CheckCircle2, Upload, MessageSquare, Mic, Camera, PhoneOff, 
@@ -42,19 +42,54 @@ function ConsultationHubContent() {
   const [allAppointments, setAllAppointments] = useState<any[]>([]);
   const [loadingAppointment, setLoadingAppointment] = useState(true);
 
+  // Webcam stream ref
+  const patientVideoRef = useRef<HTMLVideoElement>(null);
+
   const [aiNotes, setAiNotes] = useState([
     "Patient reports mild symptoms over 3 days.",
     "Blood pressure logged at 135/85 mmHg.",
     "Medication adherence confirmed."
   ]);
 
-  // Fetch appointments with fallback if patient_id doesn't match auth user ID directly
-// Fetch appointments robustly without strict RLS blocking
-// Fetch appointments and doctors separately using valid columns
+  // Request camera and microphone access when entering the call or toggling video
+  useEffect(() => {
+    let currentStream: MediaStream | null = null;
+
+    async function setupCamera() {
+      if (inCall && !isVideoOff) {
+        try {
+          currentStream = await navigator.mediaDevices.getUserMedia({ 
+            video: true, 
+            audio: true 
+          });
+          if (patientVideoRef.current) {
+            patientVideoRef.current.srcObject = currentStream;
+          }
+        } catch (err) {
+          console.error("Error accessing media devices:", err);
+        }
+      } else {
+        if (patientVideoRef.current && patientVideoRef.current.srcObject) {
+          const stream = patientVideoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          patientVideoRef.current.srcObject = null;
+        }
+      }
+    }
+
+    setupCamera();
+
+    return () => {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [inCall, isVideoOff]);
+
+  // Fetch appointments ordered by date
   useEffect(() => {
     async function fetchAppointmentsData() {
       try {
-        // 1. Fetch appointments ordered by date
         const { data: rawAppointments, error: apptError } = await supabase
           .from('appointments')
           .select('*')
@@ -71,7 +106,6 @@ function ConsultationHubContent() {
           return;
         }
 
-        // 2. Fetch doctors list to map manually
         const { data: doctorsData } = await supabase
           .from('doctors')
           .select('*');
@@ -81,7 +115,6 @@ function ConsultationHubContent() {
           doctorsData.forEach((doc: any) => doctorsMap.set(String(doc.id), doc));
         }
 
-        // 3. Attach doctor info safely to each appointment
         const enrichedAppointments = rawAppointments.map((appt: any) => ({
           ...appt,
           doctors: doctorsMap.get(String(appt.doctor_id)) || {
@@ -187,6 +220,16 @@ function ConsultationHubContent() {
       followUp: "As needed"
     }
   ];
+
+  // Helper to extract proper initials from doctor name
+  const getInitials = (name: string) => {
+    if (!name) return 'DR';
+    const parts = name.replace(/^(Dr\.|Prof\.|Mr\.|Ms\.)\s*/i, '').trim().split(' ');
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
 
   // Resolve doctor display details dynamically from fetched appointment or fallback
   const doctorName = latestAppointment?.doctors?.display_name || latestAppointment?.doctors?.name || latestAppointment?.doctor_name || searchParams.get('doctorName') || "Assigned Specialist";
@@ -340,7 +383,7 @@ function ConsultationHubContent() {
                             </p>
                             <p className="flex justify-between">
                               <span className="text-slate-400">Type:</span>
-                              <span className="font-bold">{appt.consultation_type || 'Telehealth'}</span>
+                              <span className="font-bold">{appt.consultation_type || appt.consultation_format || 'Telehealth'}</span>
                             </p>
                           </div>
                         </div>
@@ -385,7 +428,7 @@ function ConsultationHubContent() {
 
                   <div className="flex items-center gap-4 mb-6">
                     <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center text-blue-700 font-bold justify-center text-xl border border-blue-200 flex-shrink-0">
-                      {String(doctorName).split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                      {getInitials(doctorName)}
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-900 text-base">{doctorName}</h4>
@@ -479,7 +522,7 @@ function ConsultationHubContent() {
           </div>
         )}
 
-        {/* MODAL / SIMULATED LIVE VIDEO ROOM */}
+        {/* MODAL / LIVE WEBCAM VIDEO ROOM */}
         {inCall && (
           <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col p-4 md:p-8 animate-fadeIn">
             {/* Top Video Header bar */}
@@ -511,23 +554,30 @@ function ConsultationHubContent() {
                 <div className="bg-slate-900 rounded-3xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl p-6">
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
                   <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-blue-600/30 border border-blue-400/40 flex items-center text-blue-300 font-bold text-2xl md:text-3xl mb-3 shadow-inner">
-                    {String(doctorName).split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                    {getInitials(doctorName)}
                   </div>
                   <span className="text-white font-bold text-sm relative z-10">{doctorName}</span>
                   <span className="text-xs text-emerald-400 font-semibold relative z-10 mt-0.5">Connected (HD 1080p)</span>
                 </div>
 
-                {/* Patient Video Box */}
-                <div className="bg-slate-900 rounded-3xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl p-6">
+                {/* Patient Live Webcam Video Box */}
+                <div className="bg-slate-900 rounded-3xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl">
                   {isVideoOff ? (
                     <div className="text-slate-500 text-xs font-bold">Camera Paused</div>
                   ) : (
                     <>
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-                      <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-slate-800 border border-slate-700 flex items-center text-slate-300 font-bold text-2xl md:text-3xl mb-3">
-                        WW
+                      <video 
+                        ref={patientVideoRef}
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="absolute inset-0 w-full h-full object-cover -scale-x-100"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
+                      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span className="text-white font-bold text-xs">You (William Weru)</span>
                       </div>
-                      <span className="text-white font-bold text-sm relative z-10">You (William Weru)</span>
                     </>
                   )}
                 </div>
