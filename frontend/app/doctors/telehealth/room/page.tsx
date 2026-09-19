@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -22,14 +22,12 @@ import {
   Sparkles,
   ArrowLeft,
   Download,
-  Heart,
-  Thermometer,
-  Stethoscope,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Camera
 } from "lucide-react";
 
-// Mock database for patients keyed by patientId
+// Mock database for patients
 const mockPatientsDatabase: Record<string, {
   id: string;
   name: string;
@@ -40,7 +38,6 @@ const mockPatientsDatabase: Record<string, {
   chronicConditions: string[];
   currentMedications: string[];
   vitals: { hr: string; bp: string; temp: string; o2: string };
-  lastConsultation: string;
   shaStatus: string;
   waitingTime: string;
   isEmergency: boolean;
@@ -55,7 +52,6 @@ const mockPatientsDatabase: Record<string, {
     chronicConditions: ["None"],
     currentMedications: ["Amlodipine 5mg"],
     vitals: { hr: "78 bpm", bp: "120/80", temp: "37.2°C", o2: "98%" },
-    lastConsultation: "First visit",
     shaStatus: "Verified",
     waitingTime: "02:15 mins",
     isEmergency: false
@@ -79,7 +75,6 @@ function TelehealthRoomContent() {
       chronicConditions: ["Routine Review"],
       currentMedications: ["Amlodipine 5mg"],
       vitals: { hr: "76 bpm", bp: "120/80", temp: "37.0°C", o2: "99%" },
-      lastConsultation: "Recent",
       shaStatus: "Verified",
       waitingTime: "01:00 min",
       isEmergency: false
@@ -97,8 +92,13 @@ function TelehealthRoomContent() {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Clinical workspace SOAP notes state
+  // Video refs for real webcam stream
+  const doctorVideoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  // SOAP notes state
   const [chiefComplaint, setChiefComplaint] = useState("Routine consultation and medication review.");
   const [hpi, setHpi] = useState("Patient reports stable condition. Adherent to prescribed dosage.");
   const [examFindings, setExamFindings] = useState("Clear vital signs, normal rhythm, no acute distress.");
@@ -108,27 +108,58 @@ function TelehealthRoomContent() {
   
   const [consultationCompleted, setConsultationCompleted] = useState(false);
 
-  // Simulate connecting to patient WebRTC feed
+  // Initialize Doctor Camera WebRTC stream
   useEffect(() => {
-    const loadTimer = setTimeout(() => setLoading(false), 500);
-    
-    // Switch from Connecting to Live after 2 seconds to simulate peer handshake
-    const connectTimer = setTimeout(() => {
-      setCallStatus("Live");
-    }, 2000);
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        mediaStreamRef.current = stream;
+        if (doctorVideoRef.current) {
+          doctorVideoRef.current.srcObject = stream;
+        }
+        setCameraError(null);
+      } catch (err) {
+        console.error("Error accessing webcam:", err);
+        setCameraError("Camera access denied or unavailable.");
+      }
+    }
+
+    startCamera();
+
+    const loadTimer = setTimeout(() => setLoading(false), 400);
+    const connectTimer = setTimeout(() => setCallStatus("Live"), 1500);
 
     return () => {
       clearTimeout(loadTimer);
       clearTimeout(connectTimer);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
   }, []);
+
+  // Handle turning video on/off dynamically
+  useEffect(() => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getVideoTracks().forEach(track => {
+        track.enabled = !isVideoOff;
+      });
+    }
+  }, [isVideoOff]);
+
+  // Handle muting mic dynamically
+  useEffect(() => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !isMicMuted;
+      });
+    }
+  }, [isMicMuted]);
 
   // Call duration timer
   useEffect(() => {
     if (callStatus === "Live") {
-      const interval = setInterval(() => {
-        setTimerSeconds((prev) => prev + 1);
-      }, 1000);
+      const interval = setInterval(() => setTimerSeconds((prev) => prev + 1), 1000);
       return () => clearInterval(interval);
     }
   }, [callStatus]);
@@ -142,6 +173,9 @@ function TelehealthRoomContent() {
   const handleCompleteConsultation = () => {
     setConsultationCompleted(true);
     setCallStatus("Ended");
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+    }
   };
 
   if (loading) {
@@ -149,7 +183,7 @@ function TelehealthRoomContent() {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs font-bold text-slate-400">Establishing Secure P2P Connection with {patient.name}...</p>
+          <p className="text-xs font-bold text-slate-400">Initializing Secure Telehealth Room & Camera...</p>
         </div>
       </div>
     );
@@ -158,7 +192,7 @@ function TelehealthRoomContent() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col justify-between selection:bg-blue-600 selection:text-white">
       
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
       <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 md:px-8 py-3.5 flex items-center justify-between shrink-0 z-25">
         <div className="flex items-center gap-4">
           <Link
@@ -201,7 +235,7 @@ function TelehealthRoomContent() {
         </div>
       </header>
 
-      {/* ================= MAIN CONTENT GRID ================= */}
+      {/* MAIN CONTENT GRID */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 md:p-6 overflow-hidden">
         
         {/* LEFT & CENTER: VIDEO & CLINICAL WORKSPACE (8 cols) */}
@@ -213,13 +247,6 @@ function TelehealthRoomContent() {
               <div className="flex flex-col items-center gap-3 text-slate-400">
                 <RefreshCw size={36} className="animate-spin text-blue-500" />
                 <p className="text-xs font-bold tracking-wider uppercase text-blue-400">Connecting to {patient.name}'s feed...</p>
-              </div>
-            ) : isVideoOff ? (
-              <div className="flex flex-col items-center gap-2 text-slate-500">
-                <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center text-slate-400">
-                  <User size={36} />
-                </div>
-                <p className="text-xs font-bold">Patient Camera Off</p>
               </div>
             ) : (
               <div className="absolute inset-0">
@@ -234,18 +261,30 @@ function TelehealthRoomContent() {
               </div>
             )}
 
-            {/* Doctor Self-View Preview PiP */}
-            <div className="absolute top-4 right-4 w-36 h-24 md:w-48 md:h-32 bg-slate-950 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-xl flex items-center justify-center">
-              <div className="relative w-full h-full flex items-center justify-center bg-slate-900">
-                <img
-                  src="https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=400"
-                  alt="Dr. William"
-                  className="w-full h-full object-cover"
+            {/* Doctor Live WebCam PiP View (Top Right) */}
+            <div className="absolute top-4 right-4 w-40 h-28 md:w-52 md:h-36 bg-slate-950 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center">
+              {isVideoOff ? (
+                <div className="flex flex-col items-center justify-center text-slate-500 gap-1 h-full w-full bg-slate-900">
+                  <Camera size={22} />
+                  <span className="text-[10px] font-bold">Camera Off</span>
+                </div>
+              ) : cameraError ? (
+                <div className="flex flex-col items-center justify-center text-red-400 text-[10px] p-2 text-center bg-slate-900">
+                  <AlertTriangle size={16} />
+                  <span>{cameraError}</span>
+                </div>
+              ) : (
+                <video
+                  ref={doctorVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover transform -scale-x-100"
                 />
-                <span className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-0.5 rounded text-[10px] font-bold text-slate-300">
-                  Dr. William (You)
-                </span>
-              </div>
+              )}
+              <span className="absolute bottom-2 left-2 bg-slate-900/90 px-2 py-0.5 rounded text-[10px] font-bold text-slate-300">
+                Dr. William (You)
+              </span>
             </div>
 
             {/* Connection Quality Indicator */}
@@ -490,7 +529,7 @@ function TelehealthRoomContent() {
 
       </div>
 
-      {/* ================= FOOTER ACTIONS ================= */}
+      {/* FOOTER ACTIONS */}
       <footer className="bg-slate-900/90 backdrop-blur-md border-t border-slate-800 px-4 md:px-8 py-4 shrink-0 z-20 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="text-xs text-slate-400">
           Room Session ID: <code className="text-blue-400 font-mono">SWIFT-{patient.name.toUpperCase()}-LIVE</code>
