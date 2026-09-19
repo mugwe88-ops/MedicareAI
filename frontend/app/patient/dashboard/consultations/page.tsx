@@ -48,7 +48,7 @@ function ConsultationHubContent() {
   ]);
 
   // Fetch appointment filtered by selectedDoctorId or fall back to latest
-  useEffect(() => {
+useEffect(() => {
     async function fetchAppointment() {
       try {
         let query = supabase
@@ -68,6 +68,7 @@ function ConsultationHubContent() {
           `)
           .order('created_at', { ascending: false });
 
+        // If a specific doctor query param is provided, filter by it. Otherwise, get the absolute latest appointment.
         if (selectedDoctorId) {
           query = query.eq('doctor_id', selectedDoctorId);
         }
