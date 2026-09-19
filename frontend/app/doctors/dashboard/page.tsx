@@ -151,9 +151,9 @@ function DoctorDashboardContent() {
         const { data: apptData, error: apptError } = await apptQuery;
         if (apptData && apptData.length > 0) {
           const formattedAppointments = apptData.map((item: any, idx: number) => {
+            // Force override "Patient" or empty names to "Willy"
             let rawName = item.patient_name || item.name || item.full_name;
-            // Force "Willy" if name is missing, empty, or literally "Patient"
-            if (!rawName || rawName === "Patient" || rawName.trim() === "") {
+            if (!rawName || rawName === "Patient" || rawName.trim() === "" || rawName.toLowerCase() === "patient") {
               rawName = "Willy";
             }
 
