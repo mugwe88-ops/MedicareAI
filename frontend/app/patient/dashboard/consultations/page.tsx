@@ -9,6 +9,12 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase Client for client-side fetching
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function ConsultationHubPage() {
   const router = useRouter();
@@ -18,11 +24,50 @@ export default function ConsultationHubPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [symptomsInput, setSymptomsInput] = useState('');
+  
+  // Dynamic state for latest appointment and doctor
+  const [latestAppointment, setLatestAppointment] = useState<any>(null);
+  const [loadingAppointment, setLoadingAppointment] = useState(true);
+
   const [aiNotes, setAiNotes] = useState([
     "Patient reports mild morning headaches over 3 days.",
     "Blood pressure logged at 135/85 mmHg.",
     "Amlodipine 5mg dosage adherence confirmed."
   ]);
+
+  // Fetch latest appointment and doctor details from Supabase on mount
+  useEffect(() => {
+    async function fetchLatestAppointment() {
+      try {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select(`
+            *,
+            doctors (
+              id,
+              display_name,
+              specialization,
+              rating,
+              email,
+              location
+            )
+          `)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (data) {
+          setLatestAppointment(data);
+        }
+      } catch (err) {
+        console.error("Error fetching appointment:", err);
+      } finally {
+        setLoadingAppointment(false);
+      }
+    }
+
+    fetchLatestAppointment();
+  }, []);
 
   // Countdown timer effect
   useEffect(() => {
@@ -62,6 +107,13 @@ export default function ConsultationHubPage() {
       followUp: "As needed"
     }
   ];
+
+  // Resolve doctor display details dynamically from fetched appointment or fallback
+  const doctorName = latestAppointment?.doctors?.display_name || latestAppointment?.doctor_name || "Dr. Makena";
+  const doctorSpecialty = latestAppointment?.doctors?.specialization || "Women's Health & General Care";
+  const doctorRating = latestAppointment?.doctors?.rating || "4.9";
+  const consultationType = latestAppointment?.consultation_format || latestAppointment?.consultation_type || "General Video Telehealth";
+  const appointmentDateFormatted = latestAppointment?.date || latestAppointment?.appointment_date || "Today, 6:30 PM EAT";
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 md:pb-10 font-sans text-slate-800">
@@ -137,7 +189,7 @@ export default function ConsultationHubPage() {
                   <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-3 border border-blue-400/30">
                     <Clock className="w-3.5 h-3.5 animate-pulse" /> Starts in {formatTime(timeLeft)}
                   </div>
-                  <h2 className="text-xl md:text-3xl font-black tracking-tight">Next Appointment: General Consultation</h2>
+                  <h2 className="text-xl md:text-3xl font-black tracking-tight">Next Appointment: {consultationType} with {doctorName}</h2>
                   <p className="text-blue-200 text-xs md:text-sm mt-1 max-w-xl">
                     Your encrypted HD video link is prepared. Ensure your webcam and mic are ready before joining the virtual waiting room.
                   </p>
@@ -162,13 +214,13 @@ export default function ConsultationHubPage() {
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Assigned Physician</h3>
                   <div className="flex items-center gap-4 mb-6">
                     <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center text-blue-700 font-bold justify-center text-xl border border-blue-200 flex-shrink-0">
-                      DR
+                      {doctorName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-900 text-base">Dr. Robert Vance, MD</h4>
-                      <p className="text-xs text-blue-600 font-semibold">Cardiology & Internal Medicine</p>
+                      <h4 className="font-bold text-slate-900 text-base">{doctorName}</h4>
+                      <p className="text-xs text-blue-600 font-semibold">{doctorSpecialty}</p>
                       <div className="flex items-center gap-1 mt-1 text-amber-500 text-xs font-bold">
-                        <span>★ 4.9</span> <span className="text-slate-400 font-normal">(124 reviews)</span>
+                        <span>★ {doctorRating}</span> <span className="text-slate-400 font-normal">(Verified)</span>
                       </div>
                     </div>
                   </div>
@@ -176,11 +228,11 @@ export default function ConsultationHubPage() {
                   <div className="border-t border-slate-100 pt-4 space-y-3 text-xs">
                     <div className="flex justify-between">
                       <span className="text-slate-500">Date & Time:</span>
-                      <span className="font-bold text-slate-800">Today, 6:30 PM EAT</span>
+                      <span className="font-bold text-slate-800">{appointmentDateFormatted}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Consultation Type:</span>
-                      <span className="font-bold text-slate-800">General Video Telehealth</span>
+                      <span className="font-bold text-slate-800">{consultationType}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Encryption:</span>
@@ -217,7 +269,7 @@ export default function ConsultationHubPage() {
               <div className="lg:col-span-2 space-y-6">
                 <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm">
                   <h3 className="text-base font-bold text-slate-900 mb-1">Pre-Consultation Questionnaire</h3>
-                  <p className="text-xs text-slate-500 mb-6">Help Dr. Vance review your current symptoms and recent lab records prior to the call.</p>
+                  <p className="text-xs text-slate-500 mb-6">Help {doctorName} review your current symptoms and recent lab records prior to the call.</p>
 
                   <div className="space-y-4">
                     <div>
@@ -242,7 +294,7 @@ export default function ConsultationHubPage() {
 
                     <div className="pt-2 flex justify-end">
                       <button 
-                        onClick={() => alert("Pre-consultation notes submitted successfully to Dr. Vance.")}
+                        onClick={() => alert(`Pre-consultation notes submitted successfully to ${doctorName}.`)}
                         className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-md shadow-blue-200 transition-all"
                       >
                         Save & Submit Details
@@ -266,7 +318,7 @@ export default function ConsultationHubPage() {
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                 </span>
                 <div>
-                  <h4 className="font-bold text-xs md:text-sm">Secure HD Video Call with Dr. Robert Vance</h4>
+                  <h4 className="font-bold text-xs md:text-sm">Secure HD Video Call with {doctorName}</h4>
                   <p className="text-[10px] text-slate-400">Session ID: #MED-SEC-9921 • Encrypted AES-256</p>
                 </div>
               </div>
@@ -287,9 +339,9 @@ export default function ConsultationHubPage() {
                 <div className="bg-slate-900 rounded-3xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl p-6">
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
                   <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-blue-600/30 border border-blue-400/40 flex items-center text-blue-300 font-bold text-2xl md:text-3xl mb-3 shadow-inner">
-                    RV
+                    {doctorName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                   </div>
-                  <span className="text-white font-bold text-sm relative z-10">Dr. Robert Vance</span>
+                  <span className="text-white font-bold text-sm relative z-10">{doctorName}</span>
                   <span className="text-xs text-emerald-400 font-semibold relative z-10 mt-0.5">Connected (HD 1080p)</span>
                 </div>
 
