@@ -39,6 +39,7 @@ function ConsultationHubContent() {
   
   // Dynamic state for latest appointment and doctor
   const [latestAppointment, setLatestAppointment] = useState<any>(null);
+  const [allAppointments, setAllAppointments] = useState<any[]>([]);
   const [loadingAppointment, setLoadingAppointment] = useState(true);
 
   const [aiNotes, setAiNotes] = useState([
@@ -49,7 +50,7 @@ function ConsultationHubContent() {
 
   // Fetch appointment filtered by selectedDoctorId or the user's absolute latest booking
   useEffect(() => {
-    async function fetchAppointment() {
+    async function fetchAppointmentsData() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
 
@@ -70,28 +71,43 @@ function ConsultationHubContent() {
           `)
           .order('created_at', { ascending: false });
 
-        if (selectedDoctorId) {
-          query = query.eq('doctor_id', selectedDoctorId);
-        } else if (user) {
+        if (user) {
           query = query.eq('patient_id', user.id);
         }
 
-        const { data, error } = await query.limit(1).maybeSingle();
+        const { data: listData } = await query;
+        if (listData && listData.length > 0) {
+          setAllAppointments(listData);
 
-        if (data) {
-          setLatestAppointment(data);
-          if (data.reason || data.symptoms) {
-            setSymptomsInput(data.reason || data.symptoms);
+          // Determine which appointment to set as active focus
+          if (selectedDoctorId) {
+            const matched = listData.find((a: any) => String(a.doctor_id) === String(selectedDoctorId));
+            if (matched) {
+              setLatestAppointment(matched);
+              if (matched.reason || matched.symptoms) {
+                setSymptomsInput(matched.reason || matched.symptoms);
+              }
+            } else {
+              setLatestAppointment(listData[0]);
+              if (listData[0].reason || listData[0].symptoms) {
+                setSymptomsInput(listData[0].reason || listData[0].symptoms);
+              }
+            }
+          } else {
+            setLatestAppointment(listData[0]);
+            if (listData[0].reason || listData[0].symptoms) {
+              setSymptomsInput(listData[0].reason || listData[0].symptoms);
+            }
           }
         }
       } catch (err) {
-        console.error("Error fetching appointment:", err);
+        console.error("Error fetching appointments:", err);
       } finally {
         setLoadingAppointment(false);
       }
     }
 
-    fetchAppointment();
+    fetchAppointmentsData();
   }, [selectedDoctorId]);
 
   // Handle saving pre-consultation questionnaire to Supabase
@@ -101,20 +117,9 @@ function ConsultationHubContent() {
       let appointmentId = latestAppointment?.id;
 
       if (!appointmentId) {
-        const { data: { user } } = await supabase.auth.getUser();
-        let query = supabase
-          .from('appointments')
-          .select('id')
-          .order('created_at', { ascending: false });
-        
-        if (selectedDoctorId) {
-          query = query.eq('doctor_id', selectedDoctorId);
-        } else if (user) {
-          query = query.eq('patient_id', user.id);
+        if (allAppointments.length > 0) {
+          appointmentId = allAppointments[0].id;
         }
-
-        const { data: latestData } = await query.limit(1).maybeSingle();
-        appointmentId = latestData?.id;
       }
 
       if (!appointmentId) {
@@ -276,6 +281,88 @@ function ConsultationHubContent() {
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* Booked Appointments List Section */}
+            <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-slate-900">Your Booked Appointments List</h3>
+                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                  {allAppointments.length} Total Bookings
+                </span>
+              </div>
+
+              {allAppointments.length === 0 ? (
+                <p className="text-xs text-slate-500 py-4">No appointments booked yet. Visit the Doctor Directory to schedule a session.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {allAppointments.map((appt) => {
+                    const docInfo = appt.doctors;
+                    const docN = docInfo?.display_name || docInfo?.name || appt.doctor_name || "Doctor Specialist";
+                    const docS = docInfo?.specialization || docInfo?.department || "General Practice";
+                    const isCurrentActive = latestAppointment?.id === appt.id;
+
+                    return (
+                      <div 
+                        key={appt.id} 
+                        className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+                          isCurrentActive 
+                            ? 'bg-blue-50/80 border-blue-300 ring-2 ring-blue-500/20 shadow-md' 
+                            : 'bg-slate-50/60 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                              Ref: {appt.ref_code || appt.id.slice(0, 8)}
+                            </span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              isCurrentActive ? 'bg-blue-600 text-white' : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              {isCurrentActive ? 'Active Focus' : (appt.status || 'Confirmed')}
+                            </span>
+                          </div>
+
+                          <h4 className="font-black text-slate-900 text-sm">{docN}</h4>
+                          <p className="text-xs text-blue-600 font-semibold mb-3">{docS}</p>
+
+                          <div className="space-y-1 text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-100 mb-4">
+                            <p className="flex justify-between">
+                              <span className="text-slate-400">Date:</span>
+                              <span className="font-bold">{appt.appointment_date || appt.date}</span>
+                            </p>
+                            <p className="flex justify-between">
+                              <span className="text-slate-400">Time:</span>
+                              <span className="font-bold">{appt.start_time || appt.time}</span>
+                            </p>
+                            <p className="flex justify-between">
+                              <span className="text-slate-400">Type:</span>
+                              <span className="font-bold">{appt.consultation_type || 'Telehealth'}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setLatestAppointment(appt);
+                            if (appt.reason || appt.symptoms) {
+                              setSymptomsInput(appt.reason || appt.symptoms);
+                            }
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                            isCurrentActive 
+                              ? 'bg-blue-600 text-white shadow-md' 
+                              : 'bg-slate-900 hover:bg-slate-800 text-white'
+                          }`}
+                        >
+                          {isCurrentActive ? 'Currently Viewing' : 'Switch to Session'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Grid Layout: Doctor Profile & Pre-Consultation requirements */}
