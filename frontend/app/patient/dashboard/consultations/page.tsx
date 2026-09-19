@@ -5,7 +5,7 @@ import {
   Video, Calendar, Clock, FileText, Shield, AlertTriangle, 
   CheckCircle2, Upload, MessageSquare, Mic, Camera, PhoneOff, 
   Download, ChevronRight, Activity, Heart, Thermometer, User, Award, ArrowLeft,
-  Home, Mail, UserCheck
+  Home, Mail, UserCheck, ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -24,6 +24,7 @@ export default function ConsultationHubPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [symptomsInput, setSymptomsInput] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Dynamic state for latest appointment and doctor
   const [latestAppointment, setLatestAppointment] = useState<any>(null);
@@ -58,6 +59,10 @@ export default function ConsultationHubPage() {
 
         if (data) {
           setLatestAppointment(data);
+          // Pre-populate if already saved in database
+          if (data.reason || data.symptoms) {
+            setSymptomsInput(data.reason || data.symptoms);
+          }
         }
       } catch (err) {
         console.error("Error fetching appointment:", err);
@@ -68,6 +73,33 @@ export default function ConsultationHubPage() {
 
     fetchLatestAppointment();
   }, []);
+
+  // Handle saving pre-consultation questionnaire to Supabase
+  const handleSaveSymptoms = async () => {
+    if (!latestAppointment?.id) {
+      alert("No active appointment found to update.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ reason: symptomsInput })
+        .eq('id', latestAppointment.id);
+
+      if (error) {
+        throw error;
+      }
+
+      alert(`Pre-consultation notes successfully saved and submitted to ${doctorName}!`);
+    } catch (err: any) {
+      console.error("Error saving questionnaire:", err);
+      alert("Failed to save details: " + (err.message || "Unknown error"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Countdown timer effect
   useEffect(() => {
@@ -211,10 +243,19 @@ export default function ConsultationHubPage() {
               {/* Left Col: Doctor & Appointment Specs */}
               <div className="space-y-6">
                 <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Assigned Physician</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Assigned Physician</h3>
+                    <Link 
+                      href="/patient/dashboard/doctors" 
+                      className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      Doctor Profile <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </div>
+
                   <div className="flex items-center gap-4 mb-6">
                     <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center text-blue-700 font-bold justify-center text-xl border border-blue-200 flex-shrink-0">
-                      {doctorName ? doctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2) : 'DR'}
+                      {String(doctorName).split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-900 text-base">{doctorName}</h4>
@@ -294,10 +335,11 @@ export default function ConsultationHubPage() {
 
                     <div className="pt-2 flex justify-end">
                       <button 
-                        onClick={() => alert(`Pre-consultation notes submitted successfully to ${doctorName}.`)}
-                        className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-md shadow-blue-200 transition-all"
+                        onClick={handleSaveSymptoms}
+                        disabled={isSubmitting}
+                        className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-md shadow-blue-200 transition-all disabled:opacity-50"
                       >
-                        Save & Submit Details
+                        {isSubmitting ? 'Saving to Database...' : 'Save & Submit Details'}
                       </button>
                     </div>
                   </div>
@@ -521,7 +563,7 @@ function SparklesIcon(props: React.SVGProps<SVGSVGElement>) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+      <path d="M12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
       <path d="M5 3v4" />
       <path d="M19 17v4" />
       <path d="M3 5h4" />
