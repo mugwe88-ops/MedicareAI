@@ -25,7 +25,8 @@ import {
   Heart,
   Thermometer,
   Stethoscope,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw
 } from "lucide-react";
 
 // Mock database for patients keyed by patientId
@@ -58,21 +59,6 @@ const mockPatientsDatabase: Record<string, {
     shaStatus: "Verified",
     waitingTime: "02:15 mins",
     isEmergency: false
-  },
-  "P-102": {
-    id: "P-102",
-    name: "David Kipkorir",
-    age: 45,
-    gender: "Male",
-    bloodGroup: "A+",
-    allergies: ["None known"],
-    chronicConditions: ["Hypertension", "Type 2 Diabetes"],
-    currentMedications: ["Metformin 500mg", "Lisinopril 10mg"],
-    vitals: { hr: "82 bpm", bp: "138/88", temp: "36.8°C", o2: "97%" },
-    lastConsultation: "1 month ago",
-    shaStatus: "Verified",
-    waitingTime: "08:30 mins",
-    isEmergency: false
   }
 };
 
@@ -81,7 +67,6 @@ function TelehealthRoomContent() {
   const patientId = searchParams.get("patientId") || "P-101";
   const patientNameParam = searchParams.get("name");
 
-  // Retrieve patient from mock database, or dynamically construct a fallback profile for Willy / any ID
   let patient = mockPatientsDatabase[patientId];
   if (!patient) {
     patient = {
@@ -104,8 +89,8 @@ function TelehealthRoomContent() {
   }
 
   const [loading, setLoading] = useState(true);
-  const [callStatus, setCallStatus] = useState<"Connecting" | "Live" | "Ended">("Live");
-  const [timerSeconds, setTimerSeconds] = useState(215); // 03:35
+  const [callStatus, setCallStatus] = useState<"Connecting" | "Live" | "Ended">("Connecting");
+  const [timerSeconds, setTimerSeconds] = useState(0);
 
   // Media controls state
   const [isMicMuted, setIsMicMuted] = useState(false);
@@ -123,9 +108,19 @@ function TelehealthRoomContent() {
   
   const [consultationCompleted, setConsultationCompleted] = useState(false);
 
+  // Simulate connecting to patient WebRTC feed
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 400);
-    return () => clearTimeout(timer);
+    const loadTimer = setTimeout(() => setLoading(false), 500);
+    
+    // Switch from Connecting to Live after 2 seconds to simulate peer handshake
+    const connectTimer = setTimeout(() => {
+      setCallStatus("Live");
+    }, 2000);
+
+    return () => {
+      clearTimeout(loadTimer);
+      clearTimeout(connectTimer);
+    };
   }, []);
 
   // Call duration timer
@@ -154,7 +149,7 @@ function TelehealthRoomContent() {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs font-bold text-slate-400">Loading Secure Telehealth Room...</p>
+          <p className="text-xs font-bold text-slate-400">Establishing Secure P2P Connection with {patient.name}...</p>
         </div>
       </div>
     );
@@ -193,8 +188,10 @@ function TelehealthRoomContent() {
 
         <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-            <span className={`w-2.5 h-2.5 rounded-full ${callStatus === "Live" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-            <span className="text-xs font-black text-emerald-400">{callStatus.toUpperCase()}</span>
+            <span className={`w-2.5 h-2.5 rounded-full ${callStatus === "Live" ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-ping"}`} />
+            <span className={`text-xs font-black ${callStatus === "Live" ? "text-emerald-400" : "text-amber-400"}`}>
+              {callStatus.toUpperCase()}
+            </span>
             <span className="text-xs font-mono text-slate-300 ml-2 font-bold">{formatTime(timerSeconds)}</span>
           </div>
 
@@ -204,16 +201,6 @@ function TelehealthRoomContent() {
         </div>
       </header>
 
-      {/* ================= EMERGENCY PRIORITY BANNER ================= */}
-      {patient.isEmergency && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between text-xs text-amber-300 shrink-0">
-          <div className="flex items-center gap-2 mx-auto">
-            <AlertTriangle size={15} className="text-amber-400 shrink-0" />
-            <span><strong>High-Priority Alert:</strong> Patient reported symptoms requiring close attention.</span>
-          </div>
-        </div>
-      )}
-
       {/* ================= MAIN CONTENT GRID ================= */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 md:p-6 overflow-hidden">
         
@@ -222,7 +209,12 @@ function TelehealthRoomContent() {
           
           {/* VIDEO CONSULTATION AREA */}
           <div className={`relative w-full h-[380px] md:h-[440px] bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center ${isFullScreen ? "fixed inset-0 z-50 h-screen w-screen rounded-none" : ""}`}>
-            {isVideoOff ? (
+            {callStatus === "Connecting" ? (
+              <div className="flex flex-col items-center gap-3 text-slate-400">
+                <RefreshCw size={36} className="animate-spin text-blue-500" />
+                <p className="text-xs font-bold tracking-wider uppercase text-blue-400">Connecting to {patient.name}'s feed...</p>
+              </div>
+            ) : isVideoOff ? (
               <div className="flex flex-col items-center gap-2 text-slate-500">
                 <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center text-slate-400">
                   <User size={36} />
@@ -234,10 +226,10 @@ function TelehealthRoomContent() {
                 <img
                   src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=1200"
                   alt="Patient Video Feed"
-                  className="w-full h-full object-cover opacity-90"
+                  className="w-full h-full object-cover opacity-95"
                 />
-                <div className="absolute bottom-4 left-4 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-xs font-bold text-white flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> {patient.name} (Patient Feed)
+                <div className="absolute bottom-4 left-4 bg-slate-950/80 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-800 text-xs font-bold text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" /> {patient.name} (Active Feed Connected)
                 </div>
               </div>
             )}
@@ -258,7 +250,7 @@ function TelehealthRoomContent() {
 
             {/* Connection Quality Indicator */}
             <div className="absolute top-4 left-4 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
-              <Activity size={13} /> HD 1080p • 22ms (Excellent)
+              <Activity size={13} /> HD 1080p • 18ms (Secure P2P)
             </div>
 
             {/* Video Control Bar */}
