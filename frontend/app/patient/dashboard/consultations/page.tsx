@@ -214,7 +214,7 @@ export default function ConsultationHubPage() {
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Assigned Physician</h3>
                   <div className="flex items-center gap-4 mb-6">
                     <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center text-blue-700 font-bold justify-center text-xl border border-blue-200 flex-shrink-0">
-                      {doctorName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      {doctorName ? doctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2) : 'DR'}
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-900 text-base">{doctorName}</h4>
