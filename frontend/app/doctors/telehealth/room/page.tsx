@@ -63,6 +63,7 @@ function TelehealthRoomContent() {
   const searchParams = useSearchParams();
   const patientId = searchParams.get("patientId") || "P-101";
   const patientNameParam = searchParams.get("name");
+  const apptId = searchParams.get("apptId") || "active-session";
 
   let patient = mockPatientsDatabase[patientId];
   if (!patient) {
@@ -109,14 +110,18 @@ function TelehealthRoomContent() {
   
   const [consultationCompleted, setConsultationCompleted] = useState(false);
 
-  // Initialize Doctor Camera WebRTC stream
+  // Initialize Doctor Camera WebRTC stream & bind reliably
   useEffect(() => {
+    let currentStream: MediaStream | null = null;
+
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         mediaStreamRef.current = stream;
+        currentStream = stream;
         if (doctorVideoRef.current) {
           doctorVideoRef.current.srcObject = stream;
+          await doctorVideoRef.current.play().catch(() => {});
         }
         setCameraError(null);
       } catch (err) {
@@ -128,16 +133,25 @@ function TelehealthRoomContent() {
     startCamera();
 
     const loadTimer = setTimeout(() => setLoading(false), 400);
-    const connectTimer = setTimeout(() => setCallStatus("Live"), 1500);
+    const connectTimer = setTimeout(() => setCallStatus("Live"), 1200);
 
     return () => {
       clearTimeout(loadTimer);
       clearTimeout(connectTimer);
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
       }
     };
   }, []);
+
+  // Ensure video ref attaches when video is toggled back on
+  const handleVideoRefCallback = (node: HTMLVideoElement | null) => {
+    doctorVideoRef.current = node;
+    if (node && mediaStreamRef.current) {
+      node.srcObject = mediaStreamRef.current;
+      node.play().catch(() => {});
+    }
+  };
 
   // Handle turning video on/off dynamically
   useEffect(() => {
@@ -145,6 +159,10 @@ function TelehealthRoomContent() {
       mediaStreamRef.current.getVideoTracks().forEach(track => {
         track.enabled = !isVideoOff;
       });
+      if (!isVideoOff && doctorVideoRef.current && doctorVideoRef.current.srcObject !== mediaStreamRef.current) {
+        doctorVideoRef.current.srcObject = mediaStreamRef.current;
+        doctorVideoRef.current.play().catch(() => {});
+      }
     }
   }, [isVideoOff]);
 
@@ -212,7 +230,7 @@ function TelehealthRoomContent() {
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-black text-white">{patient.name}</h1>
                 <span className="text-[11px] text-slate-400 font-medium">({patient.gender}, {patient.age})</span>
-                <span className="text-[10px] font-mono bg-slate-800 text-blue-400 px-2 py-0.5 rounded-md font-bold">Ref: {patient.id.slice(0, 8)}</span>
+                <span className="text-[10px] font-mono bg-slate-800 text-blue-400 px-2 py-0.5 rounded-md font-bold">Session: {apptId.slice(0, 8)}</span>
               </div>
               <p className="text-[11px] text-slate-400 flex items-center gap-2">
                 <span>Waiting: {patient.waitingTime}</span> • <span>SHA: {patient.shaStatus}</span>
@@ -247,7 +265,7 @@ function TelehealthRoomContent() {
             {callStatus === "Connecting" ? (
               <div className="flex flex-col items-center gap-3 text-slate-400">
                 <RefreshCw size={36} className="animate-spin text-blue-500" />
-                <p className="text-xs font-bold tracking-wider uppercase text-blue-400">Connecting to {patient.name}'s feed...</p>
+                <p className="text-xs font-bold tracking-wider uppercase text-blue-400">Connecting to {patient.name}'s secure feed...</p>
               </div>
             ) : (
               <div className="absolute inset-0">
@@ -257,7 +275,7 @@ function TelehealthRoomContent() {
                   className="w-full h-full object-cover opacity-95"
                 />
                 <div className="absolute bottom-4 left-4 bg-slate-950/80 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-800 text-xs font-bold text-white flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" /> {patient.name} (Active Feed Connected)
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" /> {patient.name} (Live HD P2P Feed)
                 </div>
               </div>
             )}
@@ -276,11 +294,11 @@ function TelehealthRoomContent() {
                 </div>
               ) : (
                 <video
-                  ref={doctorVideoRef}
+                  ref={handleVideoRefCallback}
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover transform -scale-x-100"
+                  className="w-full h-full object-cover transform -scale-x-100 bg-slate-900"
                 />
               )}
               <span className="absolute bottom-2 left-2 bg-slate-900/90 px-2 py-0.5 rounded text-[10px] font-bold text-slate-300">
@@ -290,7 +308,7 @@ function TelehealthRoomContent() {
 
             {/* Connection Quality Indicator */}
             <div className="absolute top-4 left-4 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
-              <Activity size={13} /> HD 1080p • 18ms (Secure P2P)
+              <Activity size={13} /> HD 1080p • 18ms (Encrypted AES-256)
             </div>
 
             {/* Video Control Bar */}
@@ -533,7 +551,7 @@ function TelehealthRoomContent() {
       {/* FOOTER ACTIONS */}
       <footer className="bg-slate-900/90 backdrop-blur-md border-t border-slate-800 px-4 md:px-8 py-4 shrink-0 z-20 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="text-xs text-slate-400">
-          Room Session ID: <code className="text-blue-400 font-mono">SWIFT-{patient.name.toUpperCase()}-LIVE</code>
+          Room Session ID: <code className="text-blue-400 font-mono">SWIFT-{apptId.slice(0, 8)}-LIVE</code>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
