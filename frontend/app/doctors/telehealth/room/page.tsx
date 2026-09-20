@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { io, Socket } from "socket.io-client";
 import {
   Video,
   VideoOff,
@@ -28,6 +29,13 @@ import {
   Stethoscope,
   ArrowRightLeft
 } from "lucide-react";
+
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
+};
 
 // Mock database for patients
 const mockPatientsDatabase: Record<string, {
@@ -61,10 +69,11 @@ const mockPatientsDatabase: Record<string, {
 };
 
 function TelehealthRoomContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const patientId = searchParams.get("patientId") || "P-101";
   const patientNameParam = searchParams.get("name");
-  const apptId = searchParams.get("apptId") || "active-session";
+  const apptId = searchParams.get("apptId") || searchParams.get("id") || "active-session";
 
   let patient = mockPatientsDatabase[patientId];
   if (!patient) {
@@ -87,7 +96,7 @@ function TelehealthRoomContent() {
   }
 
   const [loading, setLoading] = useState(true);
-  const [callStatus, setCallStatus] = useState<"Connecting" | "Live" | "Ended">("Connecting");
+  const [callStatus, setCallStatus] = useState<string>("Initializing camera & secure P2P connection...");
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [swapView, setSwapView] = useState(false); // Swap doctor & patient main view
 
@@ -98,10 +107,15 @@ function TelehealthRoomContent() {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Video refs
+  // Video refs & WebRTC
   const doctorVideoRef = useRef<HTMLVideoElement | null>(null);
+  const patientVideoRef = useRef<HTMLVideoElement | null>(null);
   const mainVideoRef = useRef<HTMLVideoElement | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+
+  const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "https://medicareai-1.onrender.com";
 
   // SOAP notes state
   const [chiefComplaint, setChiefComplaint] = useState("Routine consultation and medication review.");
@@ -113,65 +127,141 @@ function TelehealthRoomContent() {
   
   const [consultationCompleted, setConsultationCompleted] = useState(false);
 
-  // Initialize Doctor Camera WebRTC stream
+  // Initialize Doctor Camera and Socket.io WebRTC connection
   useEffect(() => {
-    let currentStream: MediaStream | null = null;
+    socketRef.current = io(API_BASE);
+    const socket = socketRef.current;
 
-    async function startCamera() {
+    async function startCameraAndJoin() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        mediaStreamRef.current = stream;
-        currentStream = stream;
+        localStreamRef.current = stream;
         
         if (doctorVideoRef.current) {
           doctorVideoRef.current.srcObject = stream;
-          await doctorVideoRef.current.play().catch(() => {});
         }
         if (mainVideoRef.current && swapView) {
           mainVideoRef.current.srcObject = stream;
-          await mainVideoRef.current.play().catch(() => {});
         }
         setCameraError(null);
+        setLoading(false);
+
+        if (socket) {
+          socket.emit("join-room", apptId);
+          setCallStatus("Waiting for patient to join session...");
+        }
       } catch (err) {
         console.error("Error accessing webcam:", err);
         setCameraError("Camera access denied or unavailable.");
+        setLoading(false);
       }
     }
 
-    startCamera();
+    startCameraAndJoin();
 
-    const loadTimer = setTimeout(() => setLoading(false), 400);
-    const connectTimer = setTimeout(() => setCallStatus("Live"), 1000);
+    socket.on("peer-joined", async (peerId) => {
+      setCallStatus("Patient joined! Establishing secure P2P stream...");
+      const pc = createPeerConnection(peerId);
+      peerConnectionRef.current = pc;
+
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit("offer", { target: peerId, offer, roomId: apptId });
+      } catch (e) {
+        console.error("Error creating WebRTC offer:", e);
+      }
+    });
+
+    socket.on("offer", async ({ offer, sender }) => {
+      setCallStatus("Connecting with patient...");
+      const pc = createPeerConnection(sender);
+      peerConnectionRef.current = pc;
+
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit("answer", { target: sender, answer, roomId: apptId });
+      } catch (e) {
+        console.error("Error handling offer:", e);
+      }
+    });
+
+    socket.on("answer", async ({ answer }) => {
+      if (peerConnectionRef.current) {
+        try {
+          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+          setCallStatus("Live Secure Call Active");
+        } catch (e) {
+          console.error("Error handling answer:", e);
+        }
+      }
+    });
+
+    socket.on("ice-candidate", async ({ candidate }) => {
+      if (peerConnectionRef.current && candidate) {
+        try {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.error("Error adding received ICE candidate:", e);
+        }
+      }
+    });
 
     return () => {
-      clearTimeout(loadTimer);
-      clearTimeout(connectTimer);
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
+      localStreamRef.current?.getTracks().forEach(track => track.stop());
+      socket.disconnect();
+    };
+  }, [apptId, API_BASE, swapView]);
+
+  const createPeerConnection = (peerId: string) => {
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+
+    localStreamRef.current?.getTracks().forEach((track) => {
+      pc.addTrack(track, localStreamRef.current!);
+    });
+
+    pc.ontrack = (event) => {
+      if (patientVideoRef.current && event.streams[0]) {
+        patientVideoRef.current.srcObject = event.streams[0];
+      }
+      setCallStatus("Live Secure Call Active");
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && socketRef.current) {
+        socketRef.current.emit("ice-candidate", {
+          target: peerId,
+          candidate: event.candidate,
+          roomId: apptId,
+        });
       }
     };
-  }, [swapView]);
+
+    return pc;
+  };
 
   const handleDoctorVideoRef = (node: HTMLVideoElement | null) => {
     doctorVideoRef.current = node;
-    if (node && mediaStreamRef.current && !swapView) {
-      node.srcObject = mediaStreamRef.current;
+    if (node && localStreamRef.current && !swapView) {
+      node.srcObject = localStreamRef.current;
       node.play().catch(() => {});
     }
   };
 
   const handleMainVideoRef = (node: HTMLVideoElement | null) => {
     mainVideoRef.current = node;
-    if (node && mediaStreamRef.current && swapView) {
-      node.srcObject = mediaStreamRef.current;
+    if (node && localStreamRef.current && swapView) {
+      node.srcObject = localStreamRef.current;
       node.play().catch(() => {});
     }
   };
 
   // Handle video toggle
   useEffect(() => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getVideoTracks().forEach(track => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getVideoTracks().forEach(track => {
         track.enabled = !isVideoOff;
       });
     }
@@ -179,8 +269,8 @@ function TelehealthRoomContent() {
 
   // Handle audio toggle
   useEffect(() => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getAudioTracks().forEach(track => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach(track => {
         track.enabled = !isMicMuted;
       });
     }
@@ -188,7 +278,7 @@ function TelehealthRoomContent() {
 
   // Call timer
   useEffect(() => {
-    if (callStatus === "Live") {
+    if (callStatus.includes("Live")) {
       const interval = setInterval(() => setTimerSeconds((prev) => prev + 1), 1000);
       return () => clearInterval(interval);
     }
@@ -203,9 +293,10 @@ function TelehealthRoomContent() {
   const handleCompleteConsultation = () => {
     setConsultationCompleted(true);
     setCallStatus("Ended");
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => track.stop());
     }
+    router.push("/doctors/dashboard");
   };
 
   if (loading) {
@@ -232,11 +323,9 @@ function TelehealthRoomContent() {
             <ArrowLeft size={16} /> Dashboard
           </Link>
           <div className="flex items-center gap-3">
-            <img
-              src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"
-              alt={patient.name}
-              className="w-10 h-10 rounded-full object-cover border-2 border-blue-500 shadow-md"
-            />
+            <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold">
+              {patient.name[0]}
+            </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-black text-white">{patient.name}</h1>
@@ -252,8 +341,8 @@ function TelehealthRoomContent() {
 
         <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-            <span className={`w-2.5 h-2.5 rounded-full ${callStatus === "Live" ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-ping"}`} />
-            <span className={`text-xs font-black ${callStatus === "Live" ? "text-emerald-400" : "text-amber-400"}`}>
+            <span className={`w-2.5 h-2.5 rounded-full ${callStatus.includes("Live") ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-ping"}`} />
+            <span className={`text-xs font-black ${callStatus.includes("Live") ? "text-emerald-400" : "text-amber-400"}`}>
               {callStatus.toUpperCase()}
             </span>
             <span className="text-xs font-mono text-slate-300 ml-2 font-bold">{formatTime(timerSeconds)}</span>
@@ -274,7 +363,7 @@ function TelehealthRoomContent() {
           {/* VIDEO CONSULTATION AREA */}
           <div className={`relative w-full h-[380px] md:h-[440px] bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center ${isFullScreen ? "fixed inset-0 z-50 h-screen w-screen rounded-none" : ""}`}>
             
-            {/* MAIN FEED */}
+            {/* MAIN FEED (Patient Stream or Swapped Doctor Stream) */}
             {swapView ? (
               <video
                 ref={handleMainVideoRef}
@@ -284,25 +373,27 @@ function TelehealthRoomContent() {
                 className="absolute inset-0 w-full h-full object-cover transform -scale-x-100 bg-slate-950"
               />
             ) : (
-              <div className="absolute inset-0">
-                <img
-                  src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=1200"
-                  alt="Patient Video Feed"
-                  className="w-full h-full object-cover opacity-95"
+              <div className="absolute inset-0 w-full h-full bg-slate-950">
+                <video
+                  ref={patientVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-4 left-4 bg-slate-950/80 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-800 text-xs font-bold text-white flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" /> {patient.name} (Live P2P Connected)
+                <div className="absolute bottom-4 left-4 bg-slate-950/80 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-800 text-xs font-bold text-white flex items-center gap-2 z-10">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" /> {patient.name} (Live P2P Stream Connected)
                 </div>
               </div>
             )}
 
             {/* PiP FEED (Top Right) */}
-            <div className="absolute top-4 right-4 w-40 h-28 md:w-52 md:h-36 bg-slate-950 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center group">
+            <div className="absolute top-4 right-4 w-40 h-28 md:w-52 md:h-36 bg-slate-950 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center group z-20">
               {swapView ? (
                 <div className="relative w-full h-full">
-                  <img
-                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=600"
-                    alt="Patient Thumbnail"
+                  <video
+                    ref={patientVideoRef}
+                    autoPlay
+                    playsInline
                     className="w-full h-full object-cover"
                   />
                   <span className="absolute bottom-2 left-2 bg-slate-900/90 px-2 py-0.5 rounded text-[10px] font-bold text-slate-300">
@@ -339,12 +430,12 @@ function TelehealthRoomContent() {
             </div>
 
             {/* Connection Quality Indicator */}
-            <div className="absolute top-4 left-4 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
+            <div className="absolute top-4 left-4 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 z-20">
               <Activity size={13} /> HD 1080p • 18ms (Secure P2P)
             </div>
 
             {/* Video Control Bar */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-800 shadow-2xl flex items-center gap-3">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-800 shadow-2xl flex items-center gap-3 z-30">
               <button
                 onClick={() => setIsMicMuted(!isMicMuted)}
                 className={`p-3 rounded-xl transition cursor-pointer ${isMicMuted ? "bg-red-600 text-white" : "bg-slate-800 hover:bg-slate-700 text-slate-200"}`}
