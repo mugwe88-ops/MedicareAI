@@ -106,19 +106,42 @@ function DoctorDashboardContent() {
   const [isRecordingVoice, setIsRecordingVoice] = useState<boolean>(false);
   const [aiNotesText, setAiNotesText] = useState<string>("");
 
-  // Fetch logged-in doctor profile and their booked appointments dynamically from backend API
+  // Fetch logged-in doctor profile and appointments from Render/Neon Backend API
   useEffect(() => {
     async function fetchDashboardData() {
       try {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        
-        // Fetch appointments directly from your Render backend API
-        const res = await fetch("https://medicareai-1.onrender.com/api/appointments", {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json"
+        const headers = {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        };
+
+        // 1. Fetch authenticated doctor profile from backend
+        try {
+          const profileRes = await fetch("https://medicareai-1.onrender.com/api/auth/me", { headers });
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            if (profileData && profileData.user) {
+              const u = profileData.user;
+              const docName = u.name || "Dr. William";
+              const shortName = docName.includes('William') ? "Dr. William" : (docName.split(' ')[0] + (docName.split(' ')[1] ? ' ' + docName.split(' ')[1] : ''));
+              setDoctor({
+                id: u.id,
+                name: shortName,
+                fullName: docName.startsWith("Dr.") ? docName : `Dr. ${docName}, MD`,
+                specialty: u.specialization || "Consultant General Practitioner",
+                licenseStatus: "Verified MD",
+                avatar: u.profile_picture || "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=300",
+                lastSync: "Just now",
+              });
+            }
           }
-        });
+        } catch (profileErr) {
+          console.warn("Could not fetch profile from backend auth/me:", profileErr);
+        }
+
+        // 2. Fetch live appointments from Render backend API
+        const res = await fetch("https://medicareai-1.onrender.com/api/appointments", { headers });
 
         if (res.ok) {
           const apptData = await res.json();
