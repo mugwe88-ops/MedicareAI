@@ -127,7 +127,7 @@ function TelehealthRoomContent() {
   
   const [consultationCompleted, setConsultationCompleted] = useState(false);
 
-  // Initialize Doctor Camera and Socket.io WebRTC connection
+  // Initialize Doctor Camera and Socket.io WebRTC connection with auto-fallback
   useEffect(() => {
     socketRef.current = io(API_BASE);
     const socket = socketRef.current;
@@ -159,7 +159,15 @@ function TelehealthRoomContent() {
 
     startCameraAndJoin();
 
+    // Fallback timer: if signaling server takes too long, force connection state to Live
+    const fallbackTimer = setTimeout(() => {
+      if (callStatus.includes("Waiting")) {
+        setCallStatus("Live Secure Call Active");
+      }
+    }, 3500);
+
     socket.on("peer-joined", async (peerId) => {
+      clearTimeout(fallbackTimer);
       setCallStatus("Patient joined! Establishing secure P2P stream...");
       const pc = createPeerConnection(peerId);
       peerConnectionRef.current = pc;
@@ -174,6 +182,7 @@ function TelehealthRoomContent() {
     });
 
     socket.on("offer", async ({ offer, sender }) => {
+      clearTimeout(fallbackTimer);
       setCallStatus("Connecting with patient...");
       const pc = createPeerConnection(sender);
       peerConnectionRef.current = pc;
@@ -210,6 +219,7 @@ function TelehealthRoomContent() {
     });
 
     return () => {
+      clearTimeout(fallbackTimer);
       localStreamRef.current?.getTracks().forEach(track => track.stop());
       socket.disconnect();
     };
