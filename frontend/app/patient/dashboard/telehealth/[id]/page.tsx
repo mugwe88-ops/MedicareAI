@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import { Video, ArrowLeft, ShieldCheck, UserCheck, Mic, MicOff, Camera, CameraOff } from "lucide-react";
 
@@ -14,8 +14,12 @@ const ICE_SERVERS = {
 
 export default function SwiftMDTelehealthRoom() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const roomId = params?.id;
+  
+  const routeId = params?.id;
+  const queryApptId = searchParams.get("apptId");
+  const roomId = queryApptId || routeId; // Ensure we match the doctor's apptId session key
 
   const [appointment, setAppointment] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -53,17 +57,17 @@ export default function SwiftMDTelehealthRoom() {
       })
       .then((data) => {
         const currentApt = Array.isArray(data) 
-          ? data.find((apt: any) => String(apt.id) === String(roomId))
+          ? data.find((apt: any) => String(apt.id) === String(routeId) || String(apt.id) === String(queryApptId))
           : data;
         if (currentApt) {
           setAppointment(currentApt);
         } else {
-          setAppointment({ id: roomId, doctor_name: "Practitioner" });
+          setAppointment({ id: roomId, doctor_name: "Dr. William" });
         }
       })
       .catch((err) => {
         console.error("Room details fetch error:", err);
-        setAppointment({ id: roomId, doctor_name: "Practitioner" });
+        setAppointment({ id: roomId, doctor_name: "Dr. William" });
       });
 
     socketRef.current = io(API_BASE);
@@ -141,7 +145,7 @@ export default function SwiftMDTelehealthRoom() {
       localStreamRef.current?.getTracks().forEach((track) => track.stop());
       socket.disconnect();
     };
-  }, [roomId, router, API_BASE]);
+  }, [roomId, routeId, queryApptId, router, API_BASE]);
 
   const createPeerConnection = (peerId: string) => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -192,7 +196,7 @@ export default function SwiftMDTelehealthRoom() {
 
   return (
     <div className="space-y-8">
-      {/* Header Banner - Swift MD Uniformity */}
+      {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <button
@@ -203,7 +207,7 @@ export default function SwiftMDTelehealthRoom() {
           </button>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">Swift MD Telehealth</h2>
           <p className="text-slate-400 font-bold text-xs mt-1">
-            Doctor: <span className="text-slate-700">{appointment?.doctor_name || "Practitioner"}</span> | Status: <span className="text-blue-600">{callStatus}</span>
+            Doctor: <span className="text-slate-700">{appointment?.doctor_name || "Dr. William"}</span> | Status: <span className="text-blue-600">{callStatus}</span>
           </p>
         </div>
         <button
@@ -230,7 +234,7 @@ export default function SwiftMDTelehealthRoom() {
                 <Video size={20} />
               </div>
               <div>
-                <h3 className="font-black text-slate-900 text-base">Virtual Room #{roomId}</h3>
+                <h3 className="font-black text-slate-900 text-base">Virtual Room Session</h3>
                 <p className="text-[11px] font-semibold text-slate-400">Swift MD Secure Peer-to-Peer Medical Gateway</p>
               </div>
             </div>
@@ -253,27 +257,20 @@ export default function SwiftMDTelehealthRoom() {
               {callStatus}
             </div>
 
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 pointer-events-none z-0">
-              <div className="w-16 h-16 bg-slate-800/80 rounded-full flex items-center justify-center mx-auto text-slate-400 mb-3">
-                <UserCheck size={28} />
-              </div>
-              <h4 className="font-bold text-sm text-slate-300">Waiting for doctor to join session...</h4>
-              <p className="text-[11px] text-slate-400 mt-1 max-w-xs">The video stream will connect automatically once your practitioner enters the room.</p>
-            </div>
-
             <div className="absolute bottom-6 right-6 w-36 h-24 bg-slate-950 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl z-20 flex items-center justify-center">
               <video
                 ref={localVideoRef}
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transform -scale-x-100"
               />
               <span className="absolute bottom-1 left-2 bg-black/70 px-1.5 py-0.5 rounded text-[9px] text-white font-bold">
                 You (Patient)
               </span>
             </div>
 
+            {/* Video Control Bar */}
             <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 px-4 py-2.5 rounded-2xl shadow-xl z-30">
               <button
                 onClick={toggleMute}
