@@ -7,12 +7,6 @@ import {
   Search, Bell, ShieldCheck, TrendingUp, AlertTriangle, Stethoscope, Mic, 
   DollarSign, Sparkles, AlertCircle, Settings, RefreshCw, PlusCircle, ArrowUpRight, X, Filter
 } from "lucide-react";
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase Client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface WaitingPatient {
   id: string;
@@ -112,93 +106,63 @@ function DoctorDashboardContent() {
   const [isRecordingVoice, setIsRecordingVoice] = useState<boolean>(false);
   const [aiNotesText, setAiNotesText] = useState<string>("");
 
-  // Fetch logged-in doctor profile and their booked appointments dynamically from Supabase
+  // Fetch logged-in doctor profile and their booked appointments dynamically from backend API
   useEffect(() => {
-    async function fetchDoctorData() {
+    async function fetchDashboardData() {
       try {
-        // 1. Fetch Doctor Profile
-        let docQuery = supabase.from('doctors').select('*');
-        if (doctorIdParam) {
-          docQuery = docQuery.eq('id', doctorIdParam);
-        } else {
-          docQuery = docQuery.or('name.ilike.%William%,display_name.ilike.%William%').limit(1);
-        }
-
-        const { data: docData, error: docError } = await docQuery.maybeSingle();
-        let activeDocId = doctorIdParam;
-
-        if (docData && !docError) {
-          const docName = docData.display_name || docData.name || "Dr. William";
-          const shortName = docName.includes('William') ? "Dr. William" : (docName.split(' ')[0] + (docName.split(' ')[1] ? ' ' + docName.split(' ')[1] : ''));
-          setDoctor({
-            id: docData.id,
-            name: shortName,
-            fullName: docName,
-            specialty: docData.specialization || docData.department || "Consultant General Practitioner",
-            licenseStatus: "Verified MD",
-            avatar: docData.avatar_url || docData.image || "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=300",
-            lastSync: "Just now",
-          });
-          activeDocId = docData.id;
-        }
-
-        // 2. Fetch Live Appointments for this doctor directly from database
-        let apptQuery = supabase.from('appointments').select('*').order('created_at', { ascending: false });
-        if (activeDocId) {
-          apptQuery = apptQuery.eq('doctor_id', activeDocId);
-        }
-
-        const { data: apptData, error: apptError } = await apptQuery;
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
         
-        if (apptData && apptData.length > 0) {
-          const formattedAppointments = apptData.map((item: any, idx: number) => {
-            let rawName = item.patient_name || item.name || item.full_name;
-            if (!rawName || rawName === "Patient" || rawName.trim() === "" || rawName.toLowerCase() === "patient") {
-              rawName = "Valued Patient";
-            }
+        // Fetch appointments directly from your Render backend API
+        const res = await fetch("https://medicareai-1.onrender.com/api/appointments", {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        });
 
-            const avatars = [
-              "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150"
-            ];
-
-            return {
+        if (res.ok) {
+          const apptData = await res.json();
+          if (Array.isArray(apptData) && apptData.length > 0) {
+            const formattedAppointments = apptData.map((item: any, idx: number) => ({
               id: item.id,
-              time: item.appointment_time || item.time || "10:00 AM",
-              patientName: rawName,
-              avatar: avatars[idx % avatars.length],
-              type: (item.consultation_type || item.consultation_format || "Video") as any,
+              time: item.appointment_time || "10:00 AM",
+              patientName: item.patient_name || "Valued Patient",
+              avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
+              type: item.consultation_type || "Telehealth",
               status: item.status || "Pending",
               shaStatus: "Verified",
-              condition: item.reason || item.symptoms?.join(', ') || "Routine Consultation",
+              condition: item.reason || "Routine Consultation",
               refCode: `SMD-${1000 + (item.patient_id || idx + 1)}`,
               patientId: item.patient_id || item.id
-            };
-          });
+            }));
 
-          setSchedule(formattedAppointments);
-          setMetrics(prev => ({
-            ...prev,
-            totalPatientsToday: formattedAppointments.length,
-            nextVisitTime: formattedAppointments[0]?.time || "N/A"
-          }));
+            setSchedule(formattedAppointments);
+            setMetrics(prev => ({
+              ...prev,
+              totalPatientsToday: formattedAppointments.length,
+              nextVisitTime: formattedAppointments[0]?.time || "N/A"
+            }));
+          } else {
+            // Completely empty database result -> clear schedule instantly
+            setSchedule([]);
+            setMetrics(prev => ({
+              ...prev,
+              totalPatientsToday: 0,
+              nextVisitTime: "N/A"
+            }));
+          }
         } else {
-          // Empty state: completely clear schedule when database has no records
           setSchedule([]);
-          setMetrics(prev => ({
-            ...prev,
-            totalPatientsToday: 0,
-            nextVisitTime: "N/A"
-          }));
         }
       } catch (err) {
-        console.error("Error fetching doctor dashboard data:", err);
+        console.error("Error fetching live backend appointments:", err);
+        setSchedule([]);
       } finally {
         setLoadingSchedule(false);
       }
     }
 
-    fetchDoctorData();
+    fetchDashboardData();
   }, [doctorIdParam]);
 
   const handleVoiceToRx = () => {
