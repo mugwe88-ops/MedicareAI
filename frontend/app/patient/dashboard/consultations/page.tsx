@@ -1,4 +1,6 @@
-'use client';
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { 
@@ -84,11 +86,13 @@ function ConsultationHubContent() {
   useEffect(() => {
     async function fetchAppointmentsData() {
       try {
-        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const headers = {
-          "Authorization": `Bearer ${token}`,
+        const token = typeof window !== "undefined" ? (localStorage.getItem("token") || sessionStorage.getItem("token")) : null;
+        const headers: Record<string, string> = {
           "Content-Type": "application/json"
         };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
 
         const res = await fetch("https://medicareai-1.onrender.com/api/appointments", { headers });
         if (!res.ok) {
@@ -111,8 +115,9 @@ function ConsultationHubContent() {
           const docRes = await fetch("https://medicareai-1.onrender.com/api/doctors", { headers });
           if (docRes.ok) {
             const doctorsData = await docRes.json();
-            if (Array.isArray(doctorsData)) {
-              doctorsData.forEach((doc: any) => doctorsMap.set(String(doc.id), doc));
+            const doctorList = Array.isArray(doctorsData) ? doctorsData : doctorsData.doctors || doctorsData.data || [];
+            if (Array.isArray(doctorList)) {
+              doctorList.forEach((doc: any) => doctorsMap.set(String(doc.id), doc));
             }
           }
         } catch (e) {
@@ -122,9 +127,9 @@ function ConsultationHubContent() {
         const enrichedAppointments = rawAppointments.map((appt: any) => ({
           ...appt,
           doctors: doctorsMap.get(String(appt.doctor_id)) || {
-            display_name: appt.doctor_name || "Doctor Specialist",
-            specialization: "General Practice",
-            rating: "4.9"
+            name: appt.doctor_name || "Doctor Specialist",
+            specialty: "General Practice",
+            rating: 4.9
           }
         }));
 
@@ -168,13 +173,17 @@ function ConsultationHubContent() {
         return;
       }
 
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = typeof window !== "undefined" ? (localStorage.getItem("token") || sessionStorage.getItem("token")) : null;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${appointmentId}`, {
         method: 'PUT',
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
+        headers,
         body: JSON.stringify({ reason: symptomsInput })
       });
 
@@ -241,9 +250,9 @@ function ConsultationHubContent() {
   };
 
   // Resolve doctor display details dynamically from fetched appointment or fallback
-  const doctorName = latestAppointment?.doctors?.display_name || latestAppointment?.doctors?.name || latestAppointment?.doctor_name || searchParams.get('doctorName') || "Assigned Specialist";
-  const doctorSpecialty = latestAppointment?.doctors?.specialization || latestAppointment?.doctors?.department || "General Practice";
-  const doctorRating = latestAppointment?.doctors?.rating || "4.9";
+  const doctorName = latestAppointment?.doctors?.name || latestAppointment?.doctor_name || searchParams.get('doctorName') || "Assigned Specialist";
+  const doctorSpecialty = latestAppointment?.doctors?.specialty || latestAppointment?.doctors?.department || "General Practice";
+  const doctorRating = latestAppointment?.doctors?.rating || 4.9;
   const consultationType = latestAppointment?.consultation_format || latestAppointment?.consultation_type || "General Video Telehealth";
   const appointmentDateFormatted = latestAppointment?.date || latestAppointment?.appointment_date || latestAppointment?.start_time || "Today, 6:30 PM EAT";
 
@@ -353,8 +362,8 @@ function ConsultationHubContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {allAppointments.map((appt) => {
                     const docInfo = appt.doctors;
-                    const docN = docInfo?.display_name || docInfo?.name || appt.doctor_name || "Doctor Specialist";
-                    const docS = docInfo?.specialization || docInfo?.department || "General Practice";
+                    const docN = docInfo?.name || appt.doctor_name || "Doctor Specialist";
+                    const docS = docInfo?.specialty || docInfo?.department || "General Practice";
                     const isCurrentActive = latestAppointment?.id === appt.id;
 
                     return (
@@ -531,6 +540,43 @@ function ConsultationHubContent() {
           </div>
         )}
 
+        {/* TAB 2: CONSULTATION HISTORY / TIMELINE */}
+        {activeTab === 'history' && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm">
+              <h3 className="text-lg font-bold text-slate-900 mb-1">Past Consultation Records & E-Prescriptions</h3>
+              <p className="text-xs text-slate-500 mb-6">Review previous diagnoses, attached lab results, and secure doctor notes.</p>
+
+              <div className="space-y-4">
+                {consultationHistory.map((item) => (
+                  <div key={item.id} className="p-5 rounded-2xl border border-slate-200/80 hover:border-slate-300 transition bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+                          {item.id}
+                        </span>
+                        <span className="text-xs text-slate-400">• {item.date}</span>
+                      </div>
+                      <h4 className="font-bold text-slate-900 text-sm">{item.doctor} <span className="text-xs font-normal text-slate-500">({item.specialty})</span></h4>
+                      <p className="text-xs font-semibold text-slate-700">Diagnosis: {item.diagnosis}</p>
+                      <p className="text-xs text-slate-500">Rx: {item.prescription}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => alert(`Downloading medical report and e-prescription for ${item.id}`)}
+                        className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download PDF
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* MODAL / LIVE WEBCAM VIDEO ROOM */}
         {inCall && (
           <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col p-4 md:p-8 animate-fadeIn">
@@ -629,56 +675,10 @@ function ConsultationHubContent() {
               </button>
               <button 
                 onClick={() => setInCall(false)}
-                className="bg-red-600 hover:bg-red-700 text-white px-5 py-3.5 md:px-6 md:py-4 rounded-2xl font-black text-xs md:text-sm shadow-lg flex items-center gap-2 cursor-pointer"
+                className="px-6 py-3.5 md:py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs md:text-sm font-black shadow-lg shadow-red-900/50 flex items-center gap-2 cursor-pointer transition-all"
               >
-                <PhoneOff className="w-4 h-4" /> End Call
+                <PhoneOff className="w-5 h-5" /> End Call
               </button>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: CONSULTATION TIMELINE (CHRONOLOGICAL HEALTH HISTORY) */}
-        {activeTab === 'history' && (
-          <div className="space-y-6 animate-fadeIn max-w-4xl mx-auto">
-            <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm mb-6">
-              <h2 className="text-xl font-black text-slate-900 mb-1">Past Consultations & Medical History</h2>
-              <p className="text-xs text-slate-500">Chronological archive of all completed physician visits, diagnoses, and e-prescriptions.</p>
-            </div>
-
-            <div className="space-y-4">
-              {consultationHistory.map((item) => (
-                <div key={item.id} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                    <div>
-                      <span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
-                        {item.id}
-                      </span>
-                      <h3 className="text-base font-black text-slate-900 mt-2">{item.diagnosis}</h3>
-                    </div>
-                    <span className="text-xs font-semibold text-slate-400">{item.date}</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Attending Physician</span>
-                      <p className="font-bold text-slate-800">{item.doctor}</p>
-                      <p className="text-blue-600 text-[11px]">{item.specialty}</p>
-                    </div>
-
-                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Prescription Issued</span>
-                      <p className="font-bold text-slate-800">{item.prescription}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-xs text-slate-500 font-medium">Labs: {item.labs}</span>
-                    <button className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer">
-                      <Download className="w-3.5 h-3.5" /> Download Summary
-                    </button>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         )}
