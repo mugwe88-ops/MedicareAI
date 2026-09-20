@@ -59,17 +59,17 @@ function DoctorDashboardContent() {
   });
 
   // Metrics State
-  const [metrics] = useState({
-    totalPatientsToday: 12,
-    waitingNow: 4,
-    nextVisitTime: "2:30 PM",
-    todayEarningsMpesa: "KSh 18,000",
-    consultationsCompleted: "8/15",
-    avgConsultTime: "18 min",
-    missedAppointments: 2,
+  const [metrics, setMetrics] = useState({
+    totalPatientsToday: 0,
+    waitingNow: 0,
+    nextVisitTime: "N/A",
+    todayEarningsMpesa: "KSh 0",
+    consultationsCompleted: "0/0",
+    avgConsultTime: "15 min",
+    missedAppointments: 0,
   });
 
-  // Dynamic Today's Schedule State
+  // Dynamic Today's Schedule State (Fully DB-driven)
   const [schedule, setSchedule] = useState<any[]>([]);
   const [loadingSchedule, setLoadingSchedule] = useState(true);
 
@@ -116,7 +116,7 @@ function DoctorDashboardContent() {
   useEffect(() => {
     async function fetchDoctorData() {
       try {
-        // 1. Fetch Doctor Profile (Filter by Dr. William)
+        // 1. Fetch Doctor Profile
         let docQuery = supabase.from('doctors').select('*');
         if (doctorIdParam) {
           docQuery = docQuery.eq('id', doctorIdParam);
@@ -142,18 +142,19 @@ function DoctorDashboardContent() {
           activeDocId = docData.id;
         }
 
-        // 2. Fetch Appointments for this doctor from database
-        let apptQuery = supabase.from('appointments').select('*').order('date', { ascending: false });
+        // 2. Fetch Live Appointments for this doctor directly from database
+        let apptQuery = supabase.from('appointments').select('*').order('created_at', { ascending: false });
         if (activeDocId) {
           apptQuery = apptQuery.eq('doctor_id', activeDocId);
         }
 
         const { data: apptData, error: apptError } = await apptQuery;
+        
         if (apptData && apptData.length > 0) {
           const formattedAppointments = apptData.map((item: any, idx: number) => {
             let rawName = item.patient_name || item.name || item.full_name;
             if (!rawName || rawName === "Patient" || rawName.trim() === "" || rawName.toLowerCase() === "patient") {
-              rawName = "Willy";
+              rawName = "Valued Patient";
             }
 
             const avatars = [
@@ -163,33 +164,32 @@ function DoctorDashboardContent() {
 
             return {
               id: item.id,
-              time: item.start_time || item.time || "10:00 AM",
+              time: item.appointment_time || item.time || "10:00 AM",
               patientName: rawName,
               avatar: avatars[idx % avatars.length],
               type: (item.consultation_type || item.consultation_format || "Video") as any,
-              status: "Upcoming" as any,
-              shaStatus: "Verified" as any,
+              status: item.status || "Pending",
+              shaStatus: "Verified",
               condition: item.reason || item.symptoms?.join(', ') || "Routine Consultation",
-              refCode: item.ref_code || item.id.slice(0, 8),
+              refCode: `SMD-${1000 + (item.patient_id || idx + 1)}`,
               patientId: item.patient_id || item.id
             };
           });
+
           setSchedule(formattedAppointments);
+          setMetrics(prev => ({
+            ...prev,
+            totalPatientsToday: formattedAppointments.length,
+            nextVisitTime: formattedAppointments[0]?.time || "N/A"
+          }));
         } else {
-          setSchedule([
-            {
-              id: "P-101",
-              time: "10:15 AM",
-              patientName: "Willy",
-              avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
-              type: "Video",
-              status: "In Progress",
-              shaStatus: "Verified",
-              condition: "Routine Consultation",
-              refCode: "SMD-884252",
-              patientId: "willy-patient-id"
-            }
-          ]);
+          // Empty state: completely clear schedule when database has no records
+          setSchedule([]);
+          setMetrics(prev => ({
+            ...prev,
+            totalPatientsToday: 0,
+            nextVisitTime: "N/A"
+          }));
         }
       } catch (err) {
         console.error("Error fetching doctor dashboard data:", err);
@@ -610,133 +610,147 @@ function DoctorDashboardContent() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-              {schedule.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                  <td className="py-4 px-2 whitespace-nowrap">
-                    <div className="flex items-center gap-2 font-black text-slate-900">
-                      <Clock size={14} className="text-blue-600" />
-                      <span>{item.time}</span>
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-2 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
-                      <img src={item.avatar} alt={item.patientName} className="w-9 h-9 rounded-xl object-cover" />
-                      <div>
-                        <strong className="block text-slate-900 font-black">{item.patientName}</strong>
-                        <span className="text-[10px] text-slate-400 font-bold">{item.refCode || item.id}</span>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-2 whitespace-nowrap">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                        item.type === "Video" || item.type === "Telehealth"
-                          ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                          : item.type === "Follow-up"
-                          ? "bg-purple-50 text-purple-700 border border-purple-100"
-                          : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                      }`}
-                    >
-                      {item.type}
-                    </span>
-                  </td>
-
-                  <td className="py-4 px-2 max-w-xs truncate font-medium text-slate-800">
-                    {item.condition}
-                  </td>
-
-                  <td className="py-4 px-2 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                        item.shaStatus === "Verified"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-amber-50 text-amber-700 border border-amber-200"
-                      }`}
-                    >
-                      <ShieldCheck size={12} /> {item.shaStatus}
-                    </span>
-                  </td>
-
-                  <td className="py-4 px-2 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => router.push(`/doctors/telehealth/room?patientId=${item.patientId || item.id}&name=${encodeURIComponent(item.patientName)}&apptId=${item.id}`)}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl transition cursor-pointer"
-                      >
-                        Join
-                      </button>
-                      <button
-                        onClick={() => router.push(`/doctors/patients/records?id=${item.patientId || item.id}&name=${encodeURIComponent(item.patientName)}`)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer"
-                      >
-                        View Record
-                      </button>
-                    </div>
+              {schedule.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-8 text-slate-400 font-bold">
+                    No matching patient records found in queue.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                schedule.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                    <td className="py-4 px-2 whitespace-nowrap">
+                      <div className="flex items-center gap-2 font-black text-slate-900">
+                        <Clock size={14} className="text-blue-600" />
+                        <span>{item.time}</span>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-2 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <img src={item.avatar} alt={item.patientName} className="w-9 h-9 rounded-xl object-cover" />
+                        <div>
+                          <strong className="block text-slate-900 font-black">{item.patientName}</strong>
+                          <span className="text-[10px] text-slate-400 font-bold">{item.refCode || item.id}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-2 whitespace-nowrap">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                          item.type === "Video" || item.type === "Telehealth"
+                            ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                            : item.type === "Follow-up"
+                            ? "bg-purple-50 text-purple-700 border border-purple-100"
+                            : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                        }`}
+                      >
+                        {item.type}
+                      </span>
+                    </td>
+
+                    <td className="py-4 px-2 max-w-xs truncate font-medium text-slate-800">
+                      {item.condition}
+                    </td>
+
+                    <td className="py-4 px-2 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
+                          item.shaStatus === "Verified"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-amber-50 text-amber-700 border border-amber-200"
+                        }`}
+                      >
+                        <ShieldCheck size={12} /> {item.shaStatus}
+                      </span>
+                    </td>
+
+                    <td className="py-4 px-2 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => router.push(`/doctors/telehealth/room?patientId=${item.patientId}&name=${encodeURIComponent(item.patientName)}&roomId=${item.id}`)}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl transition cursor-pointer flex items-center gap-1"
+                        >
+                          <Video size={13} /> Join
+                        </button>
+                        <button
+                          onClick={() => router.push(`/doctors/records?patientId=${item.patientId}`)}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition cursor-pointer"
+                        >
+                          View Record
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* AI CONSULTATION ASSISTANT MODAL */}
+      {/* AI ASSISTANT MODAL */}
       {aiNoteActive && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 border border-slate-100">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2 text-indigo-700 font-black text-sm">
-                <Sparkles size={18} className="text-indigo-600" />
-                <span>AI Clinical Assistant & Voice Prescriber</span>
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Sparkles size={18} />
+                </span>
+                <h3 className="text-base font-black text-slate-900">AI Voice Assistant & Scribe</h3>
               </div>
-              <button onClick={() => setAiNoteActive(false)} className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer">
+              <button
+                onClick={() => setAiNoteActive(false)}
+                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 text-xs text-indigo-950 space-y-2">
-                <strong className="block font-black text-sm">Voice Dictation Mode</strong>
-                <p className="text-[11px] font-medium text-slate-600">
-                  Click the microphone button to dictate consultation notes or prescriptions.
-                </p>
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-slate-500">
+                Click microphone to dictate clinical notes or generate prescriptions automatically via AI voice recognition.
+              </p>
 
-                <div className="flex items-center justify-center py-4">
-                  <button
-                    onClick={handleVoiceToRx}
-                    className={`p-5 rounded-full transition-all cursor-pointer ${
-                      isRecordingVoice
-                        ? "bg-rose-600 text-white animate-pulse ring-8 ring-rose-100"
-                        : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/30"
-                    }`}
-                  >
-                    <Mic size={28} />
-                  </button>
-                </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 min-h-[120px] text-xs font-medium text-slate-800">
+                {aiNotesText || (isRecordingVoice ? "Listening to clinical dictation..." : "Tap the mic below to start recording voice notes...")}
               </div>
+            </div>
 
-              <textarea
-                value={aiNotesText}
-                onChange={(e) => setAiNotesText(e.target.value)}
-                placeholder="Dictated notes will appear here..."
-                rows={4}
-                className="w-full p-3 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
-              />
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={handleVoiceToRx}
+                className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 cursor-pointer ${
+                  isRecordingVoice ? "bg-rose-600 text-white animate-pulse" : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                }`}
+              >
+                <Mic size={16} />
+                <span>{isRecordingVoice ? "Listening..." : "Start Dictation"}</span>
+              </button>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setAiNoteActive(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black rounded-2xl transition cursor-pointer"
                 >
-                  Done
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setAiNoteActive(false);
+                  }}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-2xl transition cursor-pointer shadow-md"
+                >
+                  Save Notes
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }
