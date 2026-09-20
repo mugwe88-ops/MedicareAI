@@ -25,7 +25,8 @@ import {
   CheckCircle2,
   RefreshCw,
   Camera,
-  Stethoscope
+  Stethoscope,
+  ArrowRightLeft
 } from "lucide-react";
 
 // Mock database for patients
@@ -88,6 +89,7 @@ function TelehealthRoomContent() {
   const [loading, setLoading] = useState(true);
   const [callStatus, setCallStatus] = useState<"Connecting" | "Live" | "Ended">("Connecting");
   const [timerSeconds, setTimerSeconds] = useState(0);
+  const [swapView, setSwapView] = useState(false); // Swap doctor & patient main view
 
   // Media controls state
   const [isMicMuted, setIsMicMuted] = useState(false);
@@ -96,8 +98,9 @@ function TelehealthRoomContent() {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Video refs for real webcam stream
+  // Video refs
   const doctorVideoRef = useRef<HTMLVideoElement | null>(null);
+  const mainVideoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
   // SOAP notes state
@@ -110,7 +113,7 @@ function TelehealthRoomContent() {
   
   const [consultationCompleted, setConsultationCompleted] = useState(false);
 
-  // Initialize Doctor Camera WebRTC stream & bind reliably
+  // Initialize Doctor Camera WebRTC stream
   useEffect(() => {
     let currentStream: MediaStream | null = null;
 
@@ -119,9 +122,14 @@ function TelehealthRoomContent() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         mediaStreamRef.current = stream;
         currentStream = stream;
+        
         if (doctorVideoRef.current) {
           doctorVideoRef.current.srcObject = stream;
           await doctorVideoRef.current.play().catch(() => {});
+        }
+        if (mainVideoRef.current && swapView) {
+          mainVideoRef.current.srcObject = stream;
+          await mainVideoRef.current.play().catch(() => {});
         }
         setCameraError(null);
       } catch (err) {
@@ -133,7 +141,7 @@ function TelehealthRoomContent() {
     startCamera();
 
     const loadTimer = setTimeout(() => setLoading(false), 400);
-    const connectTimer = setTimeout(() => setCallStatus("Live"), 1200);
+    const connectTimer = setTimeout(() => setCallStatus("Live"), 1000);
 
     return () => {
       clearTimeout(loadTimer);
@@ -142,31 +150,34 @@ function TelehealthRoomContent() {
         currentStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [swapView]);
 
-  // Ensure video ref attaches when video is toggled back on
-  const handleVideoRefCallback = (node: HTMLVideoElement | null) => {
+  const handleDoctorVideoRef = (node: HTMLVideoElement | null) => {
     doctorVideoRef.current = node;
-    if (node && mediaStreamRef.current) {
+    if (node && mediaStreamRef.current && !swapView) {
       node.srcObject = mediaStreamRef.current;
       node.play().catch(() => {});
     }
   };
 
-  // Handle turning video on/off dynamically
+  const handleMainVideoRef = (node: HTMLVideoElement | null) => {
+    mainVideoRef.current = node;
+    if (node && mediaStreamRef.current && swapView) {
+      node.srcObject = mediaStreamRef.current;
+      node.play().catch(() => {});
+    }
+  };
+
+  // Handle video toggle
   useEffect(() => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getVideoTracks().forEach(track => {
         track.enabled = !isVideoOff;
       });
-      if (!isVideoOff && doctorVideoRef.current && doctorVideoRef.current.srcObject !== mediaStreamRef.current) {
-        doctorVideoRef.current.srcObject = mediaStreamRef.current;
-        doctorVideoRef.current.play().catch(() => {});
-      }
     }
   }, [isVideoOff]);
 
-  // Handle muting mic dynamically
+  // Handle audio toggle
   useEffect(() => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getAudioTracks().forEach(track => {
@@ -175,7 +186,7 @@ function TelehealthRoomContent() {
     }
   }, [isMicMuted]);
 
-  // Call duration timer
+  // Call timer
   useEffect(() => {
     if (callStatus === "Live") {
       const interval = setInterval(() => setTimerSeconds((prev) => prev + 1), 1000);
@@ -202,7 +213,7 @@ function TelehealthRoomContent() {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs font-bold text-slate-400">Initializing Secure Telehealth Room & Camera...</p>
+          <p className="text-xs font-bold text-slate-400">Connecting P2P Peer Channel with {patient.name}...</p>
         </div>
       </div>
     );
@@ -262,11 +273,16 @@ function TelehealthRoomContent() {
           
           {/* VIDEO CONSULTATION AREA */}
           <div className={`relative w-full h-[380px] md:h-[440px] bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center ${isFullScreen ? "fixed inset-0 z-50 h-screen w-screen rounded-none" : ""}`}>
-            {callStatus === "Connecting" ? (
-              <div className="flex flex-col items-center gap-3 text-slate-400">
-                <RefreshCw size={36} className="animate-spin text-blue-500" />
-                <p className="text-xs font-bold tracking-wider uppercase text-blue-400">Connecting to {patient.name}'s secure feed...</p>
-              </div>
+            
+            {/* MAIN FEED */}
+            {swapView ? (
+              <video
+                ref={handleMainVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover transform -scale-x-100 bg-slate-950"
+              />
             ) : (
               <div className="absolute inset-0">
                 <img
@@ -275,40 +291,56 @@ function TelehealthRoomContent() {
                   className="w-full h-full object-cover opacity-95"
                 />
                 <div className="absolute bottom-4 left-4 bg-slate-950/80 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-800 text-xs font-bold text-white flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" /> {patient.name} (Live HD P2P Feed)
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" /> {patient.name} (Live P2P Connected)
                 </div>
               </div>
             )}
 
-            {/* Doctor Live WebCam PiP View (Top Right) */}
-            <div className="absolute top-4 right-4 w-40 h-28 md:w-52 md:h-36 bg-slate-950 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center">
-              {isVideoOff ? (
+            {/* PiP FEED (Top Right) */}
+            <div className="absolute top-4 right-4 w-40 h-28 md:w-52 md:h-36 bg-slate-950 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center group">
+              {swapView ? (
+                <div className="relative w-full h-full">
+                  <img
+                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=600"
+                    alt="Patient Thumbnail"
+                    className="w-full h-full object-cover"
+                  />
+                  <span className="absolute bottom-2 left-2 bg-slate-900/90 px-2 py-0.5 rounded text-[10px] font-bold text-slate-300">
+                    {patient.name}
+                  </span>
+                </div>
+              ) : isVideoOff ? (
                 <div className="flex flex-col items-center justify-center text-slate-500 gap-1 h-full w-full bg-slate-900">
                   <Camera size={22} />
                   <span className="text-[10px] font-bold">Camera Off</span>
                 </div>
-              ) : cameraError ? (
-                <div className="flex flex-col items-center justify-center text-red-400 text-[10px] p-2 text-center bg-slate-900">
-                  <AlertTriangle size={16} />
-                  <span>{cameraError}</span>
-                </div>
               ) : (
                 <video
-                  ref={handleVideoRefCallback}
+                  ref={handleDoctorVideoRef}
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover transform -scale-x-100 bg-slate-900"
+                  className="w-full h-full object-cover transform -scale-x-100"
                 />
               )}
-              <span className="absolute bottom-2 left-2 bg-slate-900/90 px-2 py-0.5 rounded text-[10px] font-bold text-slate-300">
-                Dr. William (You)
+              
+              {/* Swap Button Overlay */}
+              <button
+                onClick={() => setSwapView(!swapView)}
+                className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1 cursor-pointer"
+                title="Swap Video View"
+              >
+                <ArrowRightLeft size={16} /> Swap View
+              </button>
+
+              <span className="absolute bottom-2 left-2 bg-slate-900/90 px-2 py-0.5 rounded text-[10px] font-bold text-slate-300 pointer-events-none">
+                {swapView ? patient.name : "Dr. William (You)"}
               </span>
             </div>
 
             {/* Connection Quality Indicator */}
             <div className="absolute top-4 left-4 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
-              <Activity size={13} /> HD 1080p • 18ms (Encrypted AES-256)
+              <Activity size={13} /> HD 1080p • 18ms (Secure P2P)
             </div>
 
             {/* Video Control Bar */}
