@@ -56,8 +56,8 @@ const io = new Server(httpServer, {
       if (!origin) return callback(null, true);
       const isAllowed =
         allowedOrigins.includes(origin) ||
-        (process.env.NODE_ENV !== "production" && origin.endsWith(".github.dev")) ||
-        origin.includes("localhost");
+        origin.endsWith(".vercel.app") ||
+        (process.env.NODE_ENV !== "production" && (origin.endsWith(".github.dev") || origin.includes("localhost")));
       if (isAllowed) {
         callback(null, true);
       } else {
@@ -85,8 +85,8 @@ app.use(
 
       const isAllowed = 
         allowedOrigins.includes(origin) || 
-        (process.env.NODE_ENV !== "production" && origin.endsWith('.github.dev')) || 
-        origin.includes('localhost');
+        origin.endsWith(".vercel.app") ||
+        (process.env.NODE_ENV !== "production" && (origin.endsWith('.github.dev') || origin.includes('localhost')));
 
       if (isAllowed) {
         callback(null, true);
@@ -171,7 +171,10 @@ app.use((req, res, next) => {
 io.on("connection", (socket) => {
   console.log("⚡ Telehealth Socket connected:", socket.id);
 
-  socket.on("join-room", ({ roomId }) => {
+  socket.on("join-room", (data) => {
+    const roomId = typeof data === "object" && data !== null ? data.roomId : data;
+    if (!roomId) return;
+
     socket.join(roomId);
 
     const room = io.sockets.adapter.rooms.get(roomId);
@@ -183,19 +186,31 @@ io.on("connection", (socket) => {
       socket.emit("room-ready");
     }
 
-    socket.to(roomId).emit("user-joined");
+    socket.to(roomId).emit("peer-joined", socket.id);
   });
 
-  socket.on("offer", ({ roomId, offer }) => {
-    socket.to(roomId).emit("offer", { offer });
+  socket.on("offer", ({ target, offer, roomId }) => {
+    if (target) {
+      io.to(target).emit("offer", { offer, sender: socket.id });
+    } else if (roomId) {
+      socket.to(roomId).emit("offer", { offer, sender: socket.id });
+    }
   });
 
-  socket.on("answer", ({ roomId, answer }) => {
-    socket.to(roomId).emit("answer", { answer });
+  socket.on("answer", ({ target, answer, roomId }) => {
+    if (target) {
+      io.to(target).emit("answer", { answer, sender: socket.id });
+    } else if (roomId) {
+      socket.to(roomId).emit("answer", { answer, sender: socket.id });
+    }
   });
 
-  socket.on("ice-candidate", ({ roomId, candidate }) => {
-    socket.to(roomId).emit("ice-candidate", { candidate });
+  socket.on("ice-candidate", ({ target, candidate, roomId }) => {
+    if (target) {
+      io.to(target).emit("ice-candidate", { candidate, sender: socket.id });
+    } else if (roomId) {
+      socket.to(roomId).emit("ice-candidate", { candidate, sender: socket.id });
+    }
   });
 
   socket.on("disconnect", () => {
@@ -405,7 +420,6 @@ app.post("/api/doctors/:id/availability", verifyToken, async (req, res) => {
 // Express route for /api/doctors/me
 app.get("/api/doctors/me", verifyToken, async (req, res) => {
   try {
-    // Extract ID safely from decoded JWT payload
     const userId = req.user?.id || req.user?.userId || req.user?.doctorId;
 
     console.log("Fetching profile for authenticated user ID:", userId);
@@ -414,8 +428,7 @@ app.get("/api/doctors/me", verifyToken, async (req, res) => {
       return res.status(401).json({ message: "Invalid or missing user ID in token payload." });
     }
 
-    // Query doctor by either primary key (id) OR foreign key (user_id)
-    const result = await db.query(
+    const result = await pool.query(
       "SELECT * FROM doctors WHERE id::text = $1 OR user_id::text = $1", 
       [String(userId)]
     );
@@ -426,7 +439,6 @@ app.get("/api/doctors/me", verifyToken, async (req, res) => {
 
     return res.status(200).json({ doctor: result.rows[0] });
   } catch (error) {
-    // This log will print the exact database error in your Render dashboard logs
     console.error("Database query crash in /api/doctors/me:", error);
     return res.status(500).json({ 
       message: "Internal server error while fetching doctor profile.",
@@ -487,7 +499,6 @@ app.post("/api/ai/symptom-checker", async (req, res) => {
 });
 
 // GET All Active Doctors
-// GET All Active Doctors (with enhanced profile fields)
 app.get("/api/doctors", async (req, res) => {
   try {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -528,7 +539,7 @@ app.get("/api/doctors", async (req, res) => {
   }
 });
 
-// GET All Active Doctors List Alias (with matching enhanced fields)
+// GET All Active Doctors List Alias
 app.get("/api/doctors-list", async (req, res) => {
   try {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -646,7 +657,7 @@ app.put("/api/doctor/availability", verifyToken, async (req, res) => {
   }
 });
 
-// Update Doctor Professional Profile (Picture, Experience, Hospital, etc.)
+// Update Doctor Professional Profile
 app.put("/api/doctor/profile", verifyToken, async (req, res) => {
   const doctorId = parseInt(req.user?.id || req.user?.userId || req.user?.user_id, 10);
   const { profile_picture, experience_years, hospital, specialization, city } = req.body;
@@ -682,41 +693,6 @@ app.put("/api/doctor/profile", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Error updating doctor profile:", err);
     return res.status(500).json({ error: "Server error updating profile", details: err.message });
-  }
-});
-
-// GET All Active Doctors List Alias
-app.get("/api/doctors-list", async (req, res) => {
-  try {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    
-    const { specialization } = req.query;
-
-    let query = `
-      SELECT 
-        id, 
-        name, 
-        COALESCE(NULLIF(TRIM(specialization), ''), 'General Medicine') AS specialization, 
-        city, 
-        status 
-      FROM users 
-      WHERE LOWER(TRIM(role)) = 'doctor'
-    `;
-    let values = [];
-
-    if (specialization) {
-      const cleanSpec = specialization.trim();
-      query += ` AND (LOWER(TRIM(specialization)) = LOWER($1) OR LOWER(specialization) LIKE LOWER($2))`;
-      values.push(cleanSpec, `%${cleanSpec}%`);
-    }
-
-    query += ` ORDER BY name ASC`;
-
-    const result = await pool.query(query, values);
-    return res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching doctors list:", err);
-    return res.status(500).json({ error: "Failed to fetch doctors list" });
   }
 });
 
@@ -801,7 +777,6 @@ app.get("/api/records", verifyToken, async (req, res) => {
     const patientAge = patientUser.age || "N/A";
     const patientNumber = `SMD-${1000 + patientUser.id}`;
 
-    // 1. Fetch Prescriptions
     const prescriptionsResult = await pool.query(
       `SELECT 
           p.id, 
@@ -822,7 +797,6 @@ app.get("/api/records", verifyToken, async (req, res) => {
       [patientId, patientUser.name]
     );
 
-    // 2. Fetch Clinical Notes
     const clinicalNotesResult = await pool.query(
       `SELECT 
           a.id, 
@@ -843,7 +817,6 @@ app.get("/api/records", verifyToken, async (req, res) => {
       [patientId, patientUser.name]
     );
 
-    // 3. Fetch Diagnostics / Lab Results
     const diagnosticsResult = await pool.query(
       `SELECT 
           dg.id, 
