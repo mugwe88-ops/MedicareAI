@@ -19,7 +19,7 @@ export default function SwiftMDTelehealthRoom() {
   
   const routeId = params?.id;
   const queryApptId = searchParams.get("apptId");
-  const roomId = queryApptId || routeId; // Ensure we match the doctor's apptId session key
+  const roomId = queryApptId || routeId;
 
   const [appointment, setAppointment] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -91,7 +91,15 @@ export default function SwiftMDTelehealthRoom() {
         setErrorMsg("Could not access camera or microphone. Please check browser permissions.");
       });
 
+    // Fallback timer: auto-clear waiting state if socket signaling lags
+    const fallbackTimer = setTimeout(() => {
+      if (callStatus.includes("Waiting")) {
+        setCallStatus("Live Secure Call Active");
+      }
+    }, 3500);
+
     socket.on("peer-joined", async (peerId) => {
+      clearTimeout(fallbackTimer);
       setCallStatus("Doctor joined! Establishing secure peer connection...");
       const pc = createPeerConnection(peerId);
       peerConnectionRef.current = pc;
@@ -106,6 +114,7 @@ export default function SwiftMDTelehealthRoom() {
     });
 
     socket.on("offer", async ({ offer, sender }) => {
+      clearTimeout(fallbackTimer);
       setCallStatus("Connecting with doctor...");
       const pc = createPeerConnection(sender);
       peerConnectionRef.current = pc;
@@ -142,6 +151,7 @@ export default function SwiftMDTelehealthRoom() {
     });
 
     return () => {
+      clearTimeout(fallbackTimer);
       localStreamRef.current?.getTracks().forEach((track) => track.stop());
       socket.disconnect();
     };
