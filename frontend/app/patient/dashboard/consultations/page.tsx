@@ -5,16 +5,10 @@ import {
   Video, Calendar, Clock, FileText, Shield, AlertTriangle, 
   CheckCircle2, Upload, MessageSquare, Mic, Camera, PhoneOff, 
   Download, ChevronRight, Activity, Heart, Thermometer, User, Award, ArrowLeft,
-  Home, Mail, UserCheck, ExternalLink
+  Home, Mail, UserCheck, ExternalLink, Sparkles as SparklesIcon
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase Client for client-side fetching
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function ConsultationHubPage() {
   return (
@@ -86,33 +80,43 @@ function ConsultationHubContent() {
     };
   }, [inCall, isVideoOff]);
 
-  // Fetch appointments ordered by date
+  // Fetch appointments from Render Backend API
   useEffect(() => {
     async function fetchAppointmentsData() {
       try {
-        const { data: rawAppointments, error: apptError } = await supabase
-          .from('appointments')
-          .select('*')
-          .order('date', { ascending: false });
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const headers = {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        };
 
-        if (apptError) {
-          console.error("Error fetching appointments:", apptError.message);
-          return;
-        }
-
-        if (!rawAppointments || rawAppointments.length === 0) {
+        const res = await fetch("https://medicareai-1.onrender.com/api/appointments", { headers });
+        if (!res.ok) {
+          console.error("Failed to fetch appointments from backend");
           setAllAppointments([]);
           setLoadingAppointment(false);
           return;
         }
 
-        const { data: doctorsData } = await supabase
-          .from('doctors')
-          .select('*');
+        const rawAppointments = await res.json();
+        if (!Array.isArray(rawAppointments) || rawAppointments.length === 0) {
+          setAllAppointments([]);
+          setLoadingAppointment(false);
+          return;
+        }
 
-        const doctorsMap = new Map();
-        if (doctorsData) {
-          doctorsData.forEach((doc: any) => doctorsMap.set(String(doc.id), doc));
+        // Fetch doctors directory as well for enrichment
+        let doctorsMap = new Map();
+        try {
+          const docRes = await fetch("https://medicareai-1.onrender.com/api/doctors", { headers });
+          if (docRes.ok) {
+            const doctorsData = await docRes.json();
+            if (Array.isArray(doctorsData)) {
+              doctorsData.forEach((doc: any) => doctorsMap.set(String(doc.id), doc));
+            }
+          }
+        } catch (e) {
+          console.warn("Could not load secondary doctors list:", e);
         }
 
         const enrichedAppointments = rawAppointments.map((appt: any) => ({
@@ -148,7 +152,7 @@ function ConsultationHubContent() {
     fetchAppointmentsData();
   }, [selectedDoctorId]);
 
-  // Handle saving pre-consultation questionnaire to Supabase
+  // Handle saving pre-consultation questionnaire to Backend API
   const handleSaveSymptoms = async () => {
     setIsSubmitting(true);
     try {
@@ -164,13 +168,18 @@ function ConsultationHubContent() {
         return;
       }
 
-      const { error } = await supabase
-        .from('appointments')
-        .update({ reason: symptomsInput })
-        .eq('id', appointmentId);
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ reason: symptomsInput })
+      });
 
-      if (error) {
-        throw error;
+      if (!res.ok) {
+        throw new Error("Failed to update appointment on backend server.");
       }
 
       alert(`Pre-consultation notes successfully saved and submitted to ${doctorName}!`);
@@ -321,7 +330,7 @@ function ConsultationHubContent() {
                 <div className="flex items-center gap-3">
                   <button 
                     onClick={() => setInCall(true)}
-                    className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3.5 rounded-2xl font-black text-sm shadow-lg shadow-emerald-900/30 transition-all flex items-center justify-center gap-2"
+                    className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3.5 rounded-2xl font-black text-sm shadow-lg shadow-emerald-900/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Video className="w-4 h-4" /> Join Waiting Room / Call
                   </button>
@@ -396,7 +405,7 @@ function ConsultationHubContent() {
                             }
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
-                          className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                          className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                             isCurrentActive 
                               ? 'bg-blue-600 text-white shadow-md' 
                               : 'bg-slate-900 hover:bg-slate-800 text-white'
@@ -510,7 +519,7 @@ function ConsultationHubContent() {
                       <button 
                         onClick={handleSaveSymptoms}
                         disabled={isSubmitting}
-                        className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-md shadow-blue-200 transition-all disabled:opacity-50"
+                        className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-md shadow-blue-200 transition-all disabled:opacity-50 cursor-pointer"
                       >
                         {isSubmitting ? 'Saving to Database...' : 'Save & Submit Details'}
                       </button>
@@ -540,7 +549,7 @@ function ConsultationHubContent() {
 
               <button 
                 onClick={() => alert("Emergency Alert Triggered! Hospital dispatch notified.")}
-                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-black shadow-lg shadow-red-900/50 flex items-center gap-1.5"
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-black shadow-lg shadow-red-900/50 flex items-center gap-1.5 cursor-pointer"
               >
                 <AlertTriangle className="w-3.5 h-3.5" /> Emergency
               </button>
@@ -576,7 +585,7 @@ function ConsultationHubContent() {
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
                       <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span className="text-white font-bold text-xs">You (William Weru)</span>
+                        <span className="text-white font-bold text-xs">You (Patient)</span>
                       </div>
                     </>
                   )}
@@ -608,19 +617,19 @@ function ConsultationHubContent() {
             <div className="flex items-center justify-center gap-4 py-2">
               <button 
                 onClick={() => setIsMuted(!isMuted)}
-                className={`p-3.5 md:p-4 rounded-2xl text-white font-bold transition-all ${isMuted ? 'bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
+                className={`p-3.5 md:p-4 rounded-2xl text-white font-bold transition-all cursor-pointer ${isMuted ? 'bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
               >
                 <Mic className="w-5 h-5" />
               </button>
               <button 
                 onClick={() => setIsVideoOff(!isVideoOff)}
-                className={`p-3.5 md:p-4 rounded-2xl text-white font-bold transition-all ${isVideoOff ? 'bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
+                className={`p-3.5 md:p-4 rounded-2xl text-white font-bold transition-all cursor-pointer ${isVideoOff ? 'bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
               >
                 <Camera className="w-5 h-5" />
               </button>
               <button 
                 onClick={() => setInCall(false)}
-                className="bg-red-600 hover:bg-red-700 text-white px-5 py-3.5 md:px-6 md:py-4 rounded-2xl font-black text-xs md:text-sm shadow-lg flex items-center gap-2"
+                className="bg-red-600 hover:bg-red-700 text-white px-5 py-3.5 md:px-6 md:py-4 rounded-2xl font-black text-xs md:text-sm shadow-lg flex items-center gap-2 cursor-pointer"
               >
                 <PhoneOff className="w-4 h-4" /> End Call
               </button>
@@ -632,58 +641,41 @@ function ConsultationHubContent() {
         {activeTab === 'history' && (
           <div className="space-y-6 animate-fadeIn max-w-4xl mx-auto">
             <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm mb-6">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Chronological Consultation Timeline</h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Your complete health history recorded session-by-session. Especially valuable for managing chronic conditions like hypertension across multiple doctor visits.
-              </p>
+              <h2 className="text-xl font-black text-slate-900 mb-1">Past Consultations & Medical History</h2>
+              <p className="text-xs text-slate-500">Chronological archive of all completed physician visits, diagnoses, and e-prescriptions.</p>
             </div>
 
-            <div className="space-y-6 relative before:absolute before:inset-0 before:left-8 before:w-0.5 before:bg-slate-200">
-              {consultationHistory.map((item, index) => (
-                <div key={index} className="relative flex items-start gap-4 md:gap-6 group">
-                  {/* Timeline Node Icon */}
-                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-blue-600 text-white font-bold flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-200 z-10">
-                    <FileText className="w-5 h-5 md:w-6 md:h-6" />
+            <div className="space-y-4">
+              {consultationHistory.map((item) => (
+                <div key={item.id} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
+                        {item.id}
+                      </span>
+                      <h3 className="text-base font-black text-slate-900 mt-2">{item.diagnosis}</h3>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-400">{item.date}</span>
                   </div>
 
-                  {/* Card Content */}
-                  <div className="flex-1 bg-white rounded-3xl p-5 md:p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition-all">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-4 border-b border-slate-100">
-                      <div>
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
-                          {item.id}
-                        </span>
-                        <h3 className="text-sm md:text-base font-black text-slate-900 mt-2">{item.diagnosis}</h3>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-400">{item.date}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Attending Physician</span>
+                      <p className="font-bold text-slate-800">{item.doctor}</p>
+                      <p className="text-blue-600 text-[11px]">{item.specialty}</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 text-xs">
-                      <div>
-                        <span className="text-slate-400 block font-medium mb-1">Attending Physician</span>
-                        <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5 text-blue-500" /> {item.doctor} ({item.specialty})
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block font-medium mb-1">Prescription Issued</span>
-                        <span className="font-bold text-slate-800">{item.prescription}</span>
-                      </div>
-                      <div className="md:col-span-2">
-                        <span className="text-slate-400 block font-medium mb-1">Lab Test Requests & Results</span>
-                        <span className="font-bold text-slate-800">{item.labs}</span>
-                      </div>
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Prescription Issued</span>
+                      <p className="font-bold text-slate-800">{item.prescription}</p>
                     </div>
+                  </div>
 
-                    <div className="border-t border-slate-100 pt-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                      <span className="text-xs text-slate-500">Follow-up scheduled: <strong className="text-slate-800">{item.followUp}</strong></span>
-                      <button 
-                        onClick={() => alert("Downloading official consultation PDF summary...")}
-                        className="text-blue-600 hover:text-blue-700 text-xs font-bold flex items-center gap-1 self-start md:self-auto"
-                      >
-                        <Download className="w-3.5 h-3.5" /> Download Summary PDF
-                      </button>
-                    </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-xs text-slate-500 font-medium">Labs: {item.labs}</span>
+                    <button className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer">
+                      <Download className="w-3.5 h-3.5" /> Download Summary
+                    </button>
                   </div>
                 </div>
               ))}
@@ -691,63 +683,6 @@ function ConsultationHubContent() {
           </div>
         )}
       </div>
-
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2 flex items-center justify-around z-40 md:hidden shadow-lg">
-        <button 
-          onClick={() => router.push("/patient/dashboard")}
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600 p-1"
-        >
-          <Home size={20} />
-          <span className="text-[10px] font-bold">Home</span>
-        </button>
-        <button 
-          onClick={() => router.push("/patient/dashboard/appointments/book")}
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600 p-1"
-        >
-          <Calendar size={20} />
-          <span className="text-[10px] font-bold">Book</span>
-        </button>
-        <button 
-          onClick={() => router.push("/patient/dashboard/consultations")}
-          className="flex flex-col items-center gap-1 text-blue-600 p-1 relative"
-        >
-          <div className="absolute -top-3 w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md shadow-blue-500/30">
-            <Video size={18} />
-          </div>
-          <span className="text-[10px] font-bold mt-6">Hub</span>
-        </button>
-        <button 
-          onClick={() => router.push("/patient/dashboard/medical-records")}
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600 p-1"
-        >
-          <FileText size={20} />
-          <span className="text-[10px] font-bold">Records</span>
-        </button>
-      </div>
     </div>
-  );
-}
-
-function SparklesIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-      <path d="M5 3v4" />
-      <path d="M19 17v4" />
-      <path d="M3 5h4" />
-      <path d="M17 19h4" />
-    </svg>
   );
 }
