@@ -53,8 +53,41 @@ export async function createPatientBookingAction(formData: BookingPayload) {
     }
 
     const generatedRefCode = formData.refCode || `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
+    const renderApiUrl = process.env.RENDER_API_URL;
 
-    const renderApiUrl = process.env.RENDER_API_URL || 'https://your-render-app.onrender.com';
+    // Fallback: If RENDER_API_URL is missing or placeholder, write directly to Supabase
+    if (!renderApiUrl || renderApiUrl.includes('your-render-app.onrender.com')) {
+      const { data: appointment, error: dbError } = await supabase
+        .from('appointments')
+        .insert({
+          doctor_id: formData.doctorId,
+          patient_id: activePatientId,
+          patient_name: formData.patientName,
+          appointment_date: formData.appointmentDate,
+          start_time: formData.startTime,
+          end_time: formData.endTime,
+          consultation_type: formData.consultationType,
+          body_system: formData.bodySystem || 'General',
+          symptoms: formData.symptoms || [],
+          pain_level: formData.painLevel || 0,
+          reason: formData.reason || '',
+          ref_code: generatedRefCode,
+          status: 'Confirmed',
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        console.error("Supabase Direct Booking Error:", dbError);
+        return { success: false, error: dbError.message };
+      }
+
+      revalidatePath('/patient/dashboard/appointments');
+      revalidatePath('/patient/dashboard/appointments/book');
+      revalidatePath('/patient/dashboard/consultations');
+
+      return { success: true, appointmentId: appointment.id };
+    }
 
     // Dispatch request to Render backend API
     const response = await fetch(`${renderApiUrl}/api/appointments`, {
@@ -80,12 +113,17 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       }),
     });
 
-    const result = await response.json();
-
+    // Guard against non-OK HTML or plain-text responses before calling .json()
     if (!response.ok) {
-      console.error("Render API Booking Error:", result);
-      return { success: false, error: result.message || result.error || 'Failed to create appointment via Render API.' };
+      const errorText = await response.text();
+      console.error("Render API Booking Error:", errorText);
+      return {
+        success: false,
+        error: `Render API returned status ${response.status}. Please check backend service configurations.`,
+      };
     }
+
+    const result = await response.json();
 
     revalidatePath('/patient/dashboard/appointments');
     revalidatePath('/patient/dashboard/appointments/book');
