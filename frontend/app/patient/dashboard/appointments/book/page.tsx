@@ -703,61 +703,85 @@ export default function BookAppointmentPage() {
                 rows={3}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Describe your symptoms or reason for consulting the doctor..."
-                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition resize-none"
+                placeholder="Describe your current medical condition or specific concerns..."
+                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition"
               />
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-slate-800/80">
+            <div className="flex items-center justify-between pt-2">
               <button
                 onClick={() => setStep(2)}
                 className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-800 transition flex items-center gap-1"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Back
               </button>
-              <button
-                disabled={isSubmitting}
-                onClick={handleFinalBooking}
-                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-bold text-xs shadow-lg transition flex items-center gap-1"
-              >
-                {isSubmitting ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Confirming...
-                  </>
-                ) : (
-                  <>
-                    Confirm & Book Appointment <ChevronRight className="w-3.5 h-3.5" />
-                  </>
-                )}
-              </button>
             </div>
           </div>
 
-          <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-4 h-fit">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-3">
-              Booking Summary
-            </h3>
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-slate-500 text-[10px] uppercase font-bold block">Doctor</span>
-                <span className="font-bold text-white">{getDoctorName(selectedDoctor)}</span>
+          <div className="md:col-span-5 space-y-4">
+            <div className="bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
+              <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800/80 pb-3">
+                <ShieldCheck className="w-4 h-4 text-blue-400" /> Summary & Confirmation
+              </h2>
+
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                  <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 shrink-0">
+                    <User className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Physician</span>
+                    <p className="font-bold text-white">{getDoctorName(selectedDoctor)}</p>
+                    <p className="text-[10px] text-blue-400">{getDoctorSpecialty(selectedDoctor)}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                  <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 shrink-0">
+                    <CalendarIcon className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Date & Time</span>
+                    <p className="font-bold text-white">{selectedDate}</p>
+                    <p className="text-[10px] text-emerald-400 font-bold">{selectedSlot.startTime} - {selectedSlot.endTime}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+                  <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 shrink-0">
+                    <Video className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Type</span>
+                    <p className="font-bold text-white">{consultationType} Consultation</p>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                  <span className="text-slate-400 font-medium">Estimated Fee</span>
+                  <span className="font-black text-emerald-400 text-sm">
+                    KES {(selectedDoctor as any).consultation_fee || 3500}
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className="text-slate-500 text-[10px] uppercase font-bold block">Date & Time</span>
-                <span className="font-bold text-white">
-                  {selectedDate} @ {selectedSlot.startTime} - {selectedSlot.endTime}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 text-[10px] uppercase font-bold block">Format</span>
-                <span className="font-bold text-blue-400">{consultationType}</span>
-              </div>
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-slate-400 font-semibold">Total Consultation Fee</span>
-                <span className="font-black text-emerald-400 text-sm">
-                  KES {(selectedDoctor as any).consultation_fee || 3500}
-                </span>
-              </div>
+
+              <button
+                disabled={isSubmitting}
+                onClick={handleFinalBooking}
+                className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-bold text-xs shadow-xl transition flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    Confirming Reservation...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    Confirm & Reserve Appointment
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
