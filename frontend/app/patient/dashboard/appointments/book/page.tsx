@@ -348,7 +348,6 @@ export default function BookAppointmentPage() {
     return matchesSearch && matchesSpec;
   });
 
-  // Fallback: If no explicit availability record is defined in DB for this date, provide default 09:00 AM - 05:00 PM hours
   const activeAvailability: DoctorAvailability = availabilities[selectedDate] || {
     id: 'default-avail',
     doctor_id: selectedDoctor?.id || '',
@@ -388,24 +387,22 @@ export default function BookAppointmentPage() {
     recognition.start();
   };
 
-const handleFinalBooking = async () => {
+  const handleFinalBooking = async () => {
     if (!selectedDoctor || !selectedSlot || !selectedDate) return;
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    // 1. Use getUser() which matches the rest of your component initialization
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {
       setIsSubmitting(false);
       setErrorMessage("Authentication session not detected. Please ensure you are logged in.");
-      return; // Stop here instead of kicking you to the login page
+      return;
     }
 
     const currentUserId = user.id;
     const refCode = `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // 2. Proceed with booking action
     const res = await createPatientBookingAction({
       doctorId: selectedDoctor.id,
       patientId: currentUserId,
@@ -716,98 +713,74 @@ const handleFinalBooking = async () => {
                 <button
                   type="button"
                   onClick={handleVoiceInput}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition flex items-center gap-1 ${
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition ${
                     isListening
-                      ? 'bg-rose-950 text-rose-300 border-rose-800 animate-pulse'
-                      : 'bg-slate-900 text-blue-400 border-slate-800 hover:bg-slate-800'
+                      ? 'bg-rose-950 text-rose-300 border-rose-500 animate-pulse'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                   }`}
                 >
-                  <Mic className="w-3 h-3" /> {isListening ? 'Listening...' : 'Dictate'}
+                  <Mic className="w-3 h-3" /> {isListening ? 'Listening...' : 'Voice Dictate'}
                 </button>
               </div>
               <textarea
                 rows={3}
+                placeholder="Briefly describe your symptoms or reason for consulting..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Describe your current medical condition or specific concerns..."
-                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition"
+                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition resize-none"
               />
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-between pt-4 border-t border-slate-800/80">
               <button
                 onClick={() => setStep(2)}
                 className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-800 transition flex items-center gap-1"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Back
               </button>
-            </div>
-          </div>
-
-          <div className="md:col-span-5 space-y-4">
-            <div className="bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-              <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800/80 pb-3">
-                <ShieldCheck className="w-4 h-4 text-blue-400" /> Summary & Confirmation
-              </h2>
-
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
-                  <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 shrink-0">
-                    <User className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Physician</span>
-                    <p className="font-bold text-white">{getDoctorName(selectedDoctor)}</p>
-                    <p className="text-[10px] text-blue-400">{getDoctorSpecialty(selectedDoctor)}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
-                  <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 shrink-0">
-                    <CalendarIcon className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Date & Time</span>
-                    <p className="font-bold text-white">{selectedDate}</p>
-                    <p className="text-[10px] text-emerald-400 font-bold">{selectedSlot.startTime} - {selectedSlot.endTime}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
-                  <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 shrink-0">
-                    <Video className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Type</span>
-                    <p className="font-bold text-white">{consultationType} Consultation</p>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                  <span className="text-slate-400 font-medium">Estimated Fee</span>
-                  <span className="font-black text-emerald-400 text-sm">
-                    KES {(selectedDoctor as any).consultation_fee || 3500}
-                  </span>
-                </div>
-              </div>
-
               <button
                 disabled={isSubmitting}
                 onClick={handleFinalBooking}
-                className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-bold text-xs shadow-xl transition flex items-center justify-center gap-2"
+                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-bold text-xs shadow-lg transition flex items-center gap-1.5"
               >
                 {isSubmitting ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                    Confirming Reservation...
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Booking...
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-4 h-4 text-white" />
-                    Confirm & Reserve Appointment
+                    Confirm Booking <Check className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
+            </div>
+          </div>
+
+          <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-5 h-fit">
+            <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" /> Booking Summary
+            </h2>
+            <div className="space-y-3 text-xs bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+              <div className="flex justify-between pb-2 border-b border-slate-800/80">
+                <span className="text-slate-500 font-semibold">Physician</span>
+                <span className="font-bold text-white">{getDoctorName(selectedDoctor)}</span>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-slate-800/80">
+                <span className="text-slate-500 font-semibold">Specialty</span>
+                <span className="font-bold text-blue-400">{getDoctorSpecialty(selectedDoctor)}</span>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-slate-800/80">
+                <span className="text-slate-500 font-semibold">Date & Time</span>
+                <span className="font-bold text-white">{selectedDate} @ {selectedSlot.startTime}</span>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-slate-800/80">
+                <span className="text-slate-500 font-semibold">Format</span>
+                <span className="font-bold text-emerald-400">{consultationType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-semibold">Consultation Fee</span>
+                <span className="font-black text-white">KES {(selectedDoctor as any).consultation_fee || 3500}</span>
+              </div>
             </div>
           </div>
         </div>
