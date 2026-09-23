@@ -627,7 +627,7 @@ function ConsultationHubContent() {
                         muted 
                         className="w-full h-full object-cover rounded-3xl"
                       />
-                      <div className="absolute bottom-3 left-3 bg-slate-900/80 px-3 py-1 rounded-lg text-[10px] text-white font-bold backdrop-blur-xs">
+                      <div className="absolute bottom-3 left-3 bg-slate-900/80 px-3 py-1 rounded-lg text-[10px] text-white font-medium backdrop-blur-xs">
                         You (Patient View)
                       </div>
                     </>
@@ -635,51 +635,49 @@ function ConsultationHubContent() {
                 </div>
               </div>
 
-              {/* AI Co-Pilot / Clinical Notes Sidebar during call */}
-              <div className="bg-slate-900 rounded-3xl p-5 border border-slate-800 flex flex-col justify-between">
+              {/* Sidebar AI Assistant & Notes */}
+              <div className="bg-slate-900 rounded-3xl border border-slate-800 p-4 text-white flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider mb-4 border-b border-slate-800 pb-3">
-                    <SparklesIcon className="w-4 h-4" /> Live AI Clinical Co-Pilot
+                  <div className="flex items-center gap-2 text-blue-400 font-bold text-xs mb-3 border-b border-slate-800 pb-2">
+                    <SparklesIcon className="w-4 h-4 text-blue-400" />
+                    <span>MedicareAI Scribe</span>
                   </div>
-
-                  <div className="space-y-3">
-                    <div className="text-[11px] text-slate-400 font-semibold">Real-time Encounter Highlights:</div>
+                  <div className="space-y-2">
                     {aiNotes.map((note, idx) => (
-                      <div key={idx} className="bg-slate-800/60 border border-slate-700/50 p-3 rounded-xl text-xs text-slate-200 flex items-start gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
-                        <span>{note}</span>
+                      <div key={idx} className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50 text-xs text-slate-300">
+                        • {note}
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-slate-800">
-                  <span className="text-[10px] text-slate-500">AI transcription active. Session notes will auto-sync to your health timeline upon completion.</span>
+                <div className="mt-4 pt-3 border-t border-slate-800 text-[10px] text-slate-400">
+                  Real-time clinical notes generated securely.
                 </div>
               </div>
             </div>
 
-            {/* Bottom Floating Control Bar */}
+            {/* Video Call Controls Bar */}
             <div className="pt-4 border-t border-slate-800 flex items-center justify-center gap-4">
               <button 
                 onClick={() => setIsMuted(!isMuted)}
-                className={`p-4 rounded-2xl font-bold transition-all ${isMuted ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}
+                className={`p-3.5 rounded-2xl text-white transition cursor-pointer ${isMuted ? 'bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
               >
                 {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
 
               <button 
                 onClick={() => setIsVideoOff(!isVideoOff)}
-                className={`p-4 rounded-2xl font-bold transition-all ${isVideoOff ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}
+                className={`p-3.5 rounded-2xl text-white transition cursor-pointer ${isVideoOff ? 'bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
               >
                 {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
               </button>
 
               <button 
                 onClick={() => setInCall(false)}
-                className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl shadow-red-900/50 flex items-center gap-2 cursor-pointer transition-all"
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 rounded-2xl font-bold text-xs shadow-lg shadow-red-900/50 flex items-center gap-2 cursor-pointer"
               >
-                <PhoneOff className="w-5 h-5" /> Leave Consultation Room
+                <PhoneOff className="w-4 h-4" /> End Call
               </button>
             </div>
           </div>
