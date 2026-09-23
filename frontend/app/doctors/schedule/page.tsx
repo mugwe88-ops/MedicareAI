@@ -11,14 +11,21 @@ import {
 
 const DEMO_DOCTOR_ID = "11111111-1111-1111-1111-111111111111";
 
-const statusColorMap: Record<AvailabilityStatus, { bg: string; border: string; text: string; dot: string }> = {
+const statusColorMap: Record<string, { bg: string; border: string; text: string; dot: string }> = {
   'Available': { bg: 'bg-emerald-950/40 hover:bg-emerald-900/50', border: 'border-emerald-800/60', text: 'text-emerald-400', dot: 'bg-emerald-500' },
+  'Available (Green)': { bg: 'bg-emerald-950/40 hover:bg-emerald-900/50', border: 'border-emerald-800/60', text: 'text-emerald-400', dot: 'bg-emerald-500' },
   'Few slots left': { bg: 'bg-teal-950/40 hover:bg-teal-900/50', border: 'border-teal-800/60', text: 'text-teal-400', dot: 'bg-teal-500' },
+  'Few slots left (Teal)': { bg: 'bg-teal-950/40 hover:bg-teal-900/50', border: 'border-teal-800/60', text: 'text-teal-400', dot: 'bg-teal-500' },
   'Nearly Full': { bg: 'bg-amber-950/40 hover:bg-amber-900/50', border: 'border-amber-800/60', text: 'text-amber-400', dot: 'bg-amber-500' },
+  'Nearly Full (Orange)': { bg: 'bg-amber-950/40 hover:bg-amber-900/50', border: 'border-amber-800/60', text: 'text-amber-400', dot: 'bg-amber-500' },
   'Fully Booked': { bg: 'bg-rose-950/40 hover:bg-rose-900/50', border: 'border-rose-800/60', text: 'text-rose-400', dot: 'bg-rose-500' },
+  'Fully Booked (Red)': { bg: 'bg-rose-950/40 hover:bg-rose-900/50', border: 'border-rose-800/60', text: 'text-rose-400', dot: 'bg-rose-500' },
   'Off Duty': { bg: 'bg-neutral-900/40 hover:bg-neutral-800/50', border: 'border-neutral-800/60', text: 'text-neutral-500', dot: 'bg-neutral-600' },
+  'Off Duty (Grey)': { bg: 'bg-neutral-900/40 hover:bg-neutral-800/50', border: 'border-neutral-800/60', text: 'text-neutral-500', dot: 'bg-neutral-600' },
   'Leave': { bg: 'bg-purple-950/40 hover:bg-purple-900/50', border: 'border-purple-800/60', text: 'text-purple-400', dot: 'bg-purple-500' },
+  'Leave (Purple)': { bg: 'bg-purple-950/40 hover:bg-purple-900/50', border: 'border-purple-800/60', text: 'text-purple-400', dot: 'bg-purple-500' },
   'Holiday': { bg: 'bg-sky-950/40 hover:bg-sky-900/50', border: 'border-sky-800/60', text: 'text-sky-400', dot: 'bg-sky-500' },
+  'Holiday (Blue)': { bg: 'bg-sky-950/40 hover:bg-sky-900/50', border: 'border-sky-800/60', text: 'text-sky-400', dot: 'bg-sky-500' },
 };
 
 export default function DoctorSchedulePage() {
