@@ -32,14 +32,22 @@ const SPECIALTIES = ['All', 'General Practice', 'Cardiology', 'Pediatrics', 'Neu
 const getDoctorName = (doc: any) => doc?.display_name || doc?.full_name || doc?.name || 'Dr. Medical Specialist';
 const getDoctorSpecialty = (doc: any) => doc?.specialization || doc?.specialty || 'General Practice';
 
-// Helper to normalize any date string into YYYY-MM-DD
+// Safely format local date into YYYY-MM-DD avoiding UTC offset issues
+function formatDateToYYYYMMDD(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Normalize database dates or day names
 function normalizeDateString(rawDate: any): string {
   if (!rawDate) return '';
   if (typeof rawDate === 'string') {
     return rawDate.split('T')[0].trim();
   }
   if (rawDate instanceof Date) {
-    return rawDate.toISOString().split('T')[0];
+    return formatDateToYYYYMMDD(rawDate);
   }
   return String(rawDate).split('T')[0].trim();
 }
@@ -254,7 +262,7 @@ export default function BookAppointmentPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatDateToYYYYMMDD(new Date());
     setTodayStr(today);
     setSelectedDate(today);
   }, []);
@@ -297,7 +305,6 @@ export default function BookAppointmentPage() {
     const doctorId = selectedDoctor.id;
 
     async function loadDoctorSchedule() {
-      // 1. Fetch all availability records for this doctor (removing strict gte filter to avoid date type comparison issues)
       const { data: rawAvail, error: availErr } = await supabase
         .from('doctor_availability')
         .select('*')
@@ -341,9 +348,19 @@ export default function BookAppointmentPage() {
     return matchesSearch && matchesSpec;
   });
 
-  const currentAvailability = availabilities[selectedDate] || null;
+  // Fallback: If no explicit availability record is defined in DB for this date, provide default 09:00 AM - 05:00 PM hours
+  const activeAvailability: DoctorAvailability = availabilities[selectedDate] || {
+    id: 'default-avail',
+    doctor_id: selectedDoctor?.id || '',
+    date: selectedDate,
+    start_time: '09:00',
+    end_time: '17:00',
+    slot_duration_minutes: 30,
+    is_available: true,
+  };
+
   const dayAppointments = appointments.filter((a) => normalizeDateString((a as any).appointment_date) === selectedDate);
-  const timeSlots = generateAvailableSlots(currentAvailability, dayAppointments);
+  const timeSlots = generateAvailableSlots(activeAvailability, dayAppointments);
 
   const toggleSymptom = (chip: string) => {
     setSelectedSymptoms((prev) => (prev.includes(chip) ? prev.filter((c) => c !== chip) : [...prev, chip]));
@@ -522,7 +539,7 @@ export default function BookAppointmentPage() {
                 {Array.from({ length: 14 }).map((_, i) => {
                   const dateObj = new Date();
                   dateObj.setDate(dateObj.getDate() + i);
-                  const dStr = normalizeDateString(dateObj);
+                  const dStr = formatDateToYYYYMMDD(dateObj);
                   const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
                   const formattedStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                   const hasSchedule = !!availabilities[dStr];
@@ -543,7 +560,7 @@ export default function BookAppointmentPage() {
                       <div className="flex items-center gap-2">
                         <span>{dayName}, {formattedStr}</span>
                         {hasSchedule && (
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Schedule Available" />
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Custom Schedule Set" />
                         )}
                       </div>
                       <span className="text-[10px] opacity-75">{dStr}</span>
