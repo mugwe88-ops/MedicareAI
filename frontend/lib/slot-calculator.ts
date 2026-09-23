@@ -1,57 +1,86 @@
-import { DoctorAvailability, Appointment } from '@/lib/supabase';
+import { DoctorAvailability, Appointment } from './supabase';
 
 export interface GeneratedTimeSlot {
-  startTime: string; // "08:00"
-  endTime: string;   // "08:30"
+  startTime: string;
+  endTime: string;
   isBooked: boolean;
 }
 
+// Convert 12h or 24h time strings to total minutes from midnight
+function parseTimeToMinutes(timeStr: string): number {
+  if (!timeStr) return 0;
+  const clean = timeStr.trim().toUpperCase();
+  
+  const isPM = clean.includes('PM');
+  const isAM = clean.includes('AM');
+  const timeWithoutPeriod = clean.replace(/(AM|PM)/g, '').trim();
+  
+  const parts = timeWithoutPeriod.split(':');
+  let hours = parseInt(parts[0], 10) || 0;
+  const minutes = parseInt(parts[1], 10) || 0;
+
+  if (isPM && hours < 12) hours += 12;
+  if (isAM && hours === 12) hours = 0;
+
+  return hours * 60 + minutes;
+}
+
+// Format total minutes back to "08:00 AM" string
+function formatMinutesTo12H(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+  const displayMinutes = minutes < 10 ? `0${minutes}` : minutes;
+  
+  return `${displayHours.toString().padStart(2, '0')}:${displayMinutes} ${period}`;
+}
+
 export function generateAvailableSlots(
-  availability: DoctorAvailability | null,
-  existingAppointments: Appointment[]
+  availability: DoctorAvailability | null | undefined,
+  existingAppointments: Appointment[] = []
 ): GeneratedTimeSlot[] {
   if (!availability) return [];
 
-  // Disable past dates, Off Duty, Leave, Holiday, or Fully Booked
-  if (['Off Duty', 'Leave', 'Holiday', 'Fully Booked'].includes(availability.status)) {
-    return [];
-  }
+  // Check availability status (support boolean flag or string status)
+  const isAvailable =
+    (availability as any).is_available !== false &&
+    (availability as any).status !== 'Off' &&
+    (availability as any).status !== 'Unavailable';
+
+  if (!isAvailable) return [];
+
+  const rawStart = (availability as any).start_time || (availability as any).startTime || '08:00 AM';
+  const rawEnd = (availability as any).end_time || (availability as any).endTime || '17:00';
+  const slotDuration = (availability as any).slot_duration || (availability as any).slotDuration || 30;
+  const bufferTime = (availability as any).buffer_time || (availability as any).bufferTime || 15;
+
+  const startMins = parseTimeToMinutes(rawStart);
+  const endMins = parseTimeToMinutes(rawEnd);
+
+  if (startMins >= endMins) return [];
 
   const slots: GeneratedTimeSlot[] = [];
-  const slotDuration = availability.slot_duration || 30;
-  const bufferMinutes = availability.buffer_minutes || 15;
+  let currentStart = startMins;
 
-  // Parse Start and End Times into total minutes from midnight
-  const [startHour, startMin] = availability.start_time.split(':').map(Number);
-  const [endHour, endMin] = availability.end_time.split(':').map(Number);
+  while (currentStart + slotDuration <= endMins) {
+    const currentEnd = currentStart + slotDuration;
+    const formattedStart = formatMinutesTo12H(currentStart);
+    const formattedEnd = formatMinutesTo12H(currentEnd);
 
-  let currentMinutes = startHour * 60 + startMin;
-  const endMinutes = endHour * 60 + endMin;
-
-  const bookedSet = new Set(
-    existingAppointments
-      .filter((a) => a.status === 'Scheduled')
-      .map((a) => a.start_time.slice(0, 5))
-  );
-
-  while (currentMinutes + slotDuration <= endMinutes) {
-    const slotStartH = Math.floor(currentMinutes / 60).toString().padStart(2, '0');
-    const slotStartM = (currentMinutes % 60).toString().padStart(2, '0');
-    const slotStartTimeStr = `${slotStartH}:${slotStartM}`;
-
-    const slotEndMinutes = currentMinutes + slotDuration;
-    const slotEndH = Math.floor(slotEndMinutes / 60).toString().padStart(2, '0');
-    const slotEndM = (slotEndMinutes % 60).toString().padStart(2, '0');
-    const slotEndTimeStr = `${slotEndH}:${slotEndM}`;
-
-    slots.push({
-      startTime: slotStartTimeStr,
-      endTime: slotEndTimeStr,
-      isBooked: bookedSet.has(slotStartTimeStr),
+    // Check against existing booked appointments
+    const isBooked = existingAppointments.some((appt) => {
+      const apptStart = (appt as any).start_time || (appt as any).startTime;
+      return apptStart && apptStart.trim() === formattedStart.trim();
     });
 
-    // Advance by slot duration + mandatory buffer time
-    currentMinutes += slotDuration + bufferMinutes;
+    slots.push({
+      startTime: formattedStart,
+      endTime: formattedEnd,
+      isBooked,
+    });
+
+    currentStart += slotDuration + bufferTime;
   }
 
   return slots;
