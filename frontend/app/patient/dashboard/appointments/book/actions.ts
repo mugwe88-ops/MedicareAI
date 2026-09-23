@@ -44,8 +44,9 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       }
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const activePatientId = user?.id || formData.patientId || '22222222-2222-2222-2222-222222222222';
+    // Get current authenticated user session or token
+    const { data: { session } } = await supabase.auth.getSession();
+    const activePatientId = session?.user?.id || formData.patientId || '22222222-2222-2222-2222-222222222222';
 
     if (!activePatientId) {
       return { success: false, error: 'User session not found. Please log in again.' };
@@ -53,39 +54,44 @@ export async function createPatientBookingAction(formData: BookingPayload) {
 
     const generatedRefCode = formData.refCode || `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // Direct, robust insertion into the appointments table
-    const { data: insertData, error: insertError } = await supabase
-      .from('appointments')
-      .insert([
-        {
-          doctor_id: formData.doctorId,
-          patient_id: activePatientId,
-          patient_name: formData.patientName,
-          appointment_date: formData.appointmentDate,
-          start_time: formData.startTime,
-          end_time: formData.endTime,
-          consultation_type: formData.consultationType,
-          body_system: formData.bodySystem || 'General',
-          symptoms: formData.symptoms || [],
-          pain_level: formData.painLevel || 0,
-          reason: formData.reason || '',
-          ref_code: generatedRefCode,
-          status: 'Confirmed',
-        },
-      ])
-      .select()
-      .single();
+    const renderApiUrl = process.env.RENDER_API_URL || 'https://your-render-app.onrender.com';
 
-    if (insertError) {
-      console.error("Booking Insertion Error:", insertError);
-      return { success: false, error: insertError.message };
+    // Dispatch request to Render backend API
+    const response = await fetch(`${renderApiUrl}/api/appointments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token && { Authorization: `Bearer ${session.access_token}` }),
+      },
+      body: JSON.stringify({
+        doctorId: formData.doctorId,
+        patientId: activePatientId,
+        patientName: formData.patientName,
+        appointmentDate: formData.appointmentDate,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        consultationType: formData.consultationType,
+        bodySystem: formData.bodySystem || 'General',
+        symptoms: formData.symptoms || [],
+        painLevel: formData.painLevel || 0,
+        reason: formData.reason || '',
+        refCode: generatedRefCode,
+        status: 'Confirmed',
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error("Render API Booking Error:", result);
+      return { success: false, error: result.message || result.error || 'Failed to create appointment via Render API.' };
     }
 
     revalidatePath('/patient/dashboard/appointments');
     revalidatePath('/patient/dashboard/appointments/book');
     revalidatePath('/patient/dashboard/consultations');
 
-    return { success: true, appointmentId: insertData.id };
+    return { success: true, appointmentId: result.id || result.appointmentId };
   } catch (err: any) {
     console.error("Server Action Exception:", err);
     return { success: false, error: err.message || 'An unexpected server error occurred.' };

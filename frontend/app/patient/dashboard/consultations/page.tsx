@@ -7,10 +7,16 @@ import {
   Video, Calendar, Clock, FileText, Shield, AlertTriangle, 
   CheckCircle2, Upload, MessageSquare, Mic, Camera, PhoneOff, 
   Download, ChevronRight, Activity, Heart, Thermometer, User, Award, ArrowLeft,
-  Home, Mail, UserCheck, ExternalLink, Sparkles as SparklesIcon
+  Home, Mail, UserCheck, ExternalLink, Sparkles as SparklesIcon, MicOff, VideoOff
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize direct Supabase client using client environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function ConsultationHubPage() {
   return (
@@ -82,51 +88,51 @@ function ConsultationHubContent() {
     };
   }, [inCall, isVideoOff]);
 
-  // Fetch appointments from Render Backend API
+  // Fetch appointments directly using Supabase Client
   useEffect(() => {
     async function fetchAppointmentsData() {
       try {
-        const token = typeof window !== "undefined" ? (localStorage.getItem("token") || sessionStorage.getItem("token")) : null;
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json"
-        };
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
+        setLoadingAppointment(true);
+
+        // Retrieve current active user session
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+        let query = supabase
+          .from('appointments')
+          .select(`
+            *,
+            doctors (
+              id,
+              name,
+              specialty,
+              department,
+              rating,
+              image_url
+            )
+          `)
+          .order('appointment_date', { ascending: true });
+
+        // Filter by patient ID if authenticated
+        if (user) {
+          query = query.eq('patient_id', user.id);
         }
 
-        const res = await fetch("https://medicareai-1.onrender.com/api/appointments", { headers });
-        if (!res.ok) {
-          console.error("Failed to fetch appointments from backend");
+        const { data: rawAppointments, error: apptError } = await query;
+
+        if (apptError) {
+          console.error("Supabase appointments query error:", apptError);
           setAllAppointments([]);
-          setLoadingAppointment(false);
           return;
         }
 
-        const rawAppointments = await res.json();
-        if (!Array.isArray(rawAppointments) || rawAppointments.length === 0) {
+        if (!rawAppointments || rawAppointments.length === 0) {
           setAllAppointments([]);
-          setLoadingAppointment(false);
           return;
-        }
-
-        // Fetch doctors directory as well for enrichment
-        let doctorsMap = new Map();
-        try {
-          const docRes = await fetch("https://medicareai-1.onrender.com/api/doctors", { headers });
-          if (docRes.ok) {
-            const doctorsData = await docRes.json();
-            const doctorList = Array.isArray(doctorsData) ? doctorsData : doctorsData.doctors || doctorsData.data || [];
-            if (Array.isArray(doctorList)) {
-              doctorList.forEach((doc: any) => doctorsMap.set(String(doc.id), doc));
-            }
-          }
-        } catch (e) {
-          console.warn("Could not load secondary doctors list:", e);
         }
 
         const enrichedAppointments = rawAppointments.map((appt: any) => ({
           ...appt,
-          doctors: doctorsMap.get(String(appt.doctor_id)) || {
+          doctors: appt.doctors || {
             name: appt.doctor_name || "Doctor Specialist",
             specialty: "General Practice",
             rating: 4.9
@@ -138,17 +144,17 @@ function ConsultationHubContent() {
         if (selectedDoctorId) {
           const matched = enrichedAppointments.find((a: any) => String(a.doctor_id) === String(selectedDoctorId));
           setLatestAppointment(matched || enrichedAppointments[0]);
-          if ((matched || enrichedAppointments[0]).reason || (matched || enrichedAppointments[0]).symptoms) {
+          if ((matched || enrichedAppointments[0])?.reason || (matched || enrichedAppointments[0])?.symptoms) {
             setSymptomsInput((matched || enrichedAppointments[0]).reason || (matched || enrichedAppointments[0]).symptoms);
           }
         } else {
           setLatestAppointment(enrichedAppointments[0]);
-          if (enrichedAppointments[0].reason || enrichedAppointments[0].symptoms) {
+          if (enrichedAppointments[0]?.reason || enrichedAppointments[0]?.symptoms) {
             setSymptomsInput(enrichedAppointments[0].reason || enrichedAppointments[0].symptoms);
           }
         }
       } catch (err) {
-        console.error("Error in fetchAppointmentsData:", err);
+        console.error("Error in fetchAppointmentsData via Supabase:", err);
       } finally {
         setLoadingAppointment(false);
       }
@@ -157,7 +163,7 @@ function ConsultationHubContent() {
     fetchAppointmentsData();
   }, [selectedDoctorId]);
 
-  // Handle saving pre-consultation questionnaire to Backend API
+  // Handle saving pre-consultation questionnaire directly via Supabase Client
   const handleSaveSymptoms = async () => {
     setIsSubmitting(true);
     try {
@@ -173,27 +179,18 @@ function ConsultationHubContent() {
         return;
       }
 
-      const token = typeof window !== "undefined" ? (localStorage.getItem("token") || sessionStorage.getItem("token")) : null;
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json"
-      };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+      const { error } = await supabase
+        .from('appointments')
+        .update({ reason: symptomsInput })
+        .eq('id', appointmentId);
 
-      const res = await fetch(`https://medicareai-1.onrender.com/api/appointments/${appointmentId}`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({ reason: symptomsInput })
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to update appointment on backend server.");
+      if (error) {
+        throw new Error(error.message);
       }
 
       alert(`Pre-consultation notes successfully saved and submitted to ${doctorName}!`);
     } catch (err: any) {
-      console.error("Error saving questionnaire:", err);
+      console.error("Error updating questionnaire in Supabase:", err);
       alert("Failed to save details: " + (err.message || "Unknown error"));
     } finally {
       setIsSubmitting(false);
@@ -265,7 +262,7 @@ function ConsultationHubContent() {
           <Link href="/patient/dashboard" className="p-1.5 rounded-xl bg-slate-100 text-slate-600">
             <ArrowLeft className="w-4 h-4" />
           </Link>
-          <span className="font-black text-sm text-slate-900 tracking-tight">Swift MD Hub</span>
+          <span className="font-black text-sm text-slate-900 tracking-tight">MedicareAI Hub</span>
         </div>
         <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
           WW
@@ -356,7 +353,9 @@ function ConsultationHubContent() {
                 </span>
               </div>
 
-              {allAppointments.length === 0 ? (
+              {loadingAppointment ? (
+                <p className="text-xs text-slate-500 py-4 animate-pulse">Loading appointments from Supabase database...</p>
+              ) : allAppointments.length === 0 ? (
                 <p className="text-xs text-slate-500 py-4">No appointments booked yet. Visit the Doctor Directory to schedule a session.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -378,7 +377,7 @@ function ConsultationHubContent() {
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                              Ref: {appt.ref_code || appt.id.slice(0, 8)}
+                              Ref: {appt.ref_code || (typeof appt.id === 'string' ? appt.id.slice(0, 8) : appt.id)}
                             </span>
                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                               isCurrentActive ? 'bg-blue-600 text-white' : 'bg-emerald-100 text-emerald-700'
@@ -626,58 +625,61 @@ function ConsultationHubContent() {
                         autoPlay 
                         playsInline 
                         muted 
-                        className="absolute inset-0 w-full h-full object-cover -scale-x-100"
+                        className="w-full h-full object-cover rounded-3xl"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
-                      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span className="text-white font-bold text-xs">You (Patient)</span>
+                      <div className="absolute bottom-3 left-3 bg-slate-900/80 px-3 py-1 rounded-lg text-[10px] text-white font-bold backdrop-blur-xs">
+                        You (Patient View)
                       </div>
                     </>
                   )}
                 </div>
               </div>
 
-              {/* AI Note Assistant Sidebar */}
-              <div className="bg-slate-900 rounded-3xl border border-slate-800 p-5 flex flex-col justify-between max-h-[250px] lg:max-h-none">
+              {/* AI Co-Pilot / Clinical Notes Sidebar during call */}
+              <div className="bg-slate-900 rounded-3xl p-5 border border-slate-800 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center gap-2 text-xs font-bold text-blue-400 uppercase tracking-wider mb-4">
-                    <SparklesIcon className="w-4 h-4 text-blue-400" /> Live AI Assistant
+                  <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider mb-4 border-b border-slate-800 pb-3">
+                    <SparklesIcon className="w-4 h-4" /> Live AI Clinical Co-Pilot
                   </div>
-                  <div className="space-y-2 overflow-y-auto max-h-[150px]">
+
+                  <div className="space-y-3">
+                    <div className="text-[11px] text-slate-400 font-semibold">Real-time Encounter Highlights:</div>
                     {aiNotes.map((note, idx) => (
-                      <div key={idx} className="bg-slate-800/80 p-2.5 rounded-2xl border border-slate-700/50 text-[11px] text-slate-300">
-                        • {note}
+                      <div key={idx} className="bg-slate-800/60 border border-slate-700/50 p-3 rounded-xl text-xs text-slate-200 flex items-start gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                        <span>{note}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-800 text-[10px] text-slate-400 hidden lg:block">
-                  AI transcribes key medical takeaways in real-time.
+                <div className="mt-4 pt-4 border-t border-slate-800">
+                  <span className="text-[10px] text-slate-500">AI transcription active. Session notes will auto-sync to your health timeline upon completion.</span>
                 </div>
               </div>
             </div>
 
-            {/* Call Control Toolbar */}
-            <div className="flex items-center justify-center gap-4 py-2">
+            {/* Bottom Floating Control Bar */}
+            <div className="pt-4 border-t border-slate-800 flex items-center justify-center gap-4">
               <button 
                 onClick={() => setIsMuted(!isMuted)}
-                className={`p-3.5 md:p-4 rounded-2xl text-white font-bold transition-all cursor-pointer ${isMuted ? 'bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
+                className={`p-4 rounded-2xl font-bold transition-all ${isMuted ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}
               >
-                <Mic className="w-5 h-5" />
+                {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
+
               <button 
                 onClick={() => setIsVideoOff(!isVideoOff)}
-                className={`p-3.5 md:p-4 rounded-2xl text-white font-bold transition-all cursor-pointer ${isVideoOff ? 'bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
+                className={`p-4 rounded-2xl font-bold transition-all ${isVideoOff ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}
               >
-                <Camera className="w-5 h-5" />
+                {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
               </button>
+
               <button 
                 onClick={() => setInCall(false)}
-                className="px-6 py-3.5 md:py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs md:text-sm font-black shadow-lg shadow-red-900/50 flex items-center gap-2 cursor-pointer transition-all"
+                className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl shadow-red-900/50 flex items-center gap-2 cursor-pointer transition-all"
               >
-                <PhoneOff className="w-5 h-5" /> End Call
+                <PhoneOff className="w-5 h-5" /> Leave Consultation Room
               </button>
             </div>
           </div>
