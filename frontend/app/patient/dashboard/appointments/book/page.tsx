@@ -393,20 +393,19 @@ const handleFinalBooking = async () => {
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    // 1. Explicitly fetch the active session/user
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // 1. Use getUser() which matches the rest of your component initialization
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session || !session.user) {
+    if (userError || !user) {
       setIsSubmitting(false);
-      setErrorMessage("Your session has expired or you are not logged in. Please log in again.");
-      router.push('/login');
-      return;
+      setErrorMessage("Authentication session not detected. Please ensure you are logged in.");
+      return; // Stop here instead of kicking you to the login page
     }
 
-    const currentUserId = session.user.id;
+    const currentUserId = user.id;
     const refCode = `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // 2. Pass the verified session user ID to your booking action
+    // 2. Proceed with booking action
     const res = await createPatientBookingAction({
       doctorId: selectedDoctor.id,
       patientId: currentUserId,
