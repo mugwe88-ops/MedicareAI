@@ -388,15 +388,25 @@ export default function BookAppointmentPage() {
     recognition.start();
   };
 
-  const handleFinalBooking = async () => {
+const handleFinalBooking = async () => {
     if (!selectedDoctor || !selectedSlot || !selectedDate) return;
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const currentUserId = user?.id || '22222222-2222-2222-2222-222222222222';
+    // 1. Explicitly fetch the active session/user
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session || !session.user) {
+      setIsSubmitting(false);
+      setErrorMessage("Your session has expired or you are not logged in. Please log in again.");
+      router.push('/login');
+      return;
+    }
+
+    const currentUserId = session.user.id;
     const refCode = `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
 
+    // 2. Pass the verified session user ID to your booking action
     const res = await createPatientBookingAction({
       doctorId: selectedDoctor.id,
       patientId: currentUserId,
