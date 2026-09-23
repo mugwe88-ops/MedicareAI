@@ -56,7 +56,6 @@ function BookingHero({ patientName = 'Patient', step }: { patientName?: string; 
             Book your medical consultation with top-tier physicians in under 2 minutes.
           </p>
         </div>
-
         <div className="flex items-center gap-2 bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80 shrink-0">
           {[
             { num: 1, label: 'Doctor' },
@@ -99,7 +98,6 @@ function FeaturedDoctors({
   onSelectDoctor: (doc: Doctor) => void;
 }) {
   if (!doctors || doctors.length === 0) return null;
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -108,7 +106,6 @@ function FeaturedDoctors({
         </h2>
         <span className="text-[10px] text-blue-400 font-bold">Top Verified Ratings</span>
       </div>
-
       <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-blue-600/30">
         {doctors.slice(0, 5).map((doc) => {
           const isSelected = selectedDoctorId === doc.id;
@@ -138,7 +135,6 @@ function FeaturedDoctors({
                   </div>
                 </div>
               </div>
-
               <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
                 <span className="text-emerald-400 font-bold flex items-center gap-1">
                   <Video className="w-3 h-3" /> Telehealth Ready
@@ -179,7 +175,6 @@ function DoctorCard({
         <div className="w-14 h-14 rounded-2xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-lg shrink-0 shadow-lg group-hover:scale-105 transition-transform">
           {docName.split(' ').map((n: string) => n[0]).join('')}
         </div>
-
         <div className="flex-1 space-y-1">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
@@ -196,7 +191,6 @@ function DoctorCard({
           </p>
         </div>
       </div>
-
       <div className="mt-3 flex items-center gap-2">
         <span className="px-2 py-0.5 rounded-md bg-emerald-950/50 border border-emerald-800/40 text-[9px] font-bold text-emerald-400 flex items-center gap-1">
           <Video className="w-3 h-3" /> Telehealth
@@ -205,13 +199,11 @@ function DoctorCard({
           <Building className="w-3 h-3" /> In-Clinic
         </span>
       </div>
-
       <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
         <div>
           <span className="text-[10px] text-slate-500 block uppercase font-bold">Consultation Fee</span>
           <span className="font-black text-white text-sm">KES {(doctor as any).consultation_fee || 3500}</span>
         </div>
-
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -244,7 +236,6 @@ function EmptyState({
         <h3 className="text-base font-bold text-white">{title}</h3>
         <p className="text-xs text-slate-400">{description}</p>
       </div>
-
       <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
         <button
           onClick={onClearFilters}
@@ -265,20 +256,17 @@ export default function BookAppointmentPage() {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('All');
-
   const [todayStr, setTodayStr] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [availabilities, setAvailabilities] = useState<Record<string, DoctorAvailability>>({});
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<GeneratedTimeSlot | null>(null);
   const [consultationType, setConsultationType] = useState<'Telehealth' | 'Physical'>('Telehealth');
-
   const [selectedBodySystem, setSelectedBodySystem] = useState<string>('General');
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [painLevel, setPainLevel] = useState<number>(3);
   const [reason, setReason] = useState<string>('');
   const [isListening, setIsListening] = useState<boolean>(false);
-
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -292,8 +280,6 @@ export default function BookAppointmentPage() {
   useEffect(() => {
     async function initData() {
       setIsLoading(true);
-
-      // Fetch logged-in patient name
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
@@ -312,11 +298,7 @@ export default function BookAppointmentPage() {
         }
       }
 
-      // Fetch doctors list
-      const { data, error } = await supabase
-        .from('doctors')
-        .select('*');
-
+      const { data, error } = await supabase.from('doctors').select('*');
       if (!error && data && data.length > 0) {
         setDoctors(data as Doctor[]);
         setSelectedDoctor(data[0] as Doctor);
@@ -330,7 +312,6 @@ export default function BookAppointmentPage() {
 
   useEffect(() => {
     if (!selectedDoctor || !todayStr) return;
-
     const doctorId = selectedDoctor.id;
 
     async function loadDoctorSchedule() {
@@ -346,7 +327,6 @@ export default function BookAppointmentPage() {
         });
         setAvailabilities(map);
       }
-
       if (apptRes.data) {
         setAppointments(apptRes.data as Appointment[]);
       }
@@ -409,15 +389,13 @@ export default function BookAppointmentPage() {
     recognition.start();
   };
 
-const handleFinalBooking = async () => {
+  const handleFinalBooking = async () => {
     if (!selectedDoctor || !selectedSlot || !selectedDate) return;
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    // Get the actual logged-in user ID dynamically
     const { data: { user } } = await supabase.auth.getUser();
     const currentUserId = user?.id || '22222222-2222-2222-2222-222222222222';
-
     const refCode = `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const res = await createPatientBookingAction({
@@ -446,11 +424,8 @@ const handleFinalBooking = async () => {
 
   return (
     <div className="min-h-screen bg-[#050914] text-slate-100 font-sans p-4 md:p-8 space-y-6 pb-24 selection:bg-blue-600 selection:text-white rounded-3xl">
-      
-      {/* 1. HERO SECTION */}
       <BookingHero patientName={patientName} step={step} />
 
-      {/* ERROR NOTICE */}
       {errorMessage && (
         <div className="p-4 rounded-2xl bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-semibold flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
@@ -458,7 +433,6 @@ const handleFinalBooking = async () => {
         </div>
       )}
 
-      {/* STEP 1: DOCTOR SEARCH & GRID */}
       {step === 1 && (
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row items-center gap-3">
@@ -480,7 +454,6 @@ const handleFinalBooking = async () => {
                 </button>
               )}
             </div>
-
             <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
               {SPECIALTIES.map((spec) => (
                 <button
@@ -541,7 +514,6 @@ const handleFinalBooking = async () => {
         </div>
       )}
 
-      {/* STEP 2: SCHEDULE & TIME SLOTS */}
       {step === 2 && selectedDoctor && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-5">
@@ -580,7 +552,6 @@ const handleFinalBooking = async () => {
                   const dStr = dateObj.toISOString().split('T')[0];
                   const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
                   const formattedStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
                   return (
                     <button
                       key={dStr}
@@ -611,7 +582,6 @@ const handleFinalBooking = async () => {
                 </h2>
                 <span className="text-[10px] text-slate-400 font-semibold">{selectedDate}</span>
               </div>
-
               {timeSlots.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-500 bg-slate-950/40 rounded-2xl border border-slate-800/80">
                   No available appointment slots on this date. Select another date above.
@@ -658,7 +628,6 @@ const handleFinalBooking = async () => {
         </div>
       )}
 
-      {/* STEP 3: CLINICAL INTAKE & CONFIRMATION */}
       {step === 3 && selectedDoctor && selectedSlot && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           <div className="md:col-span-7 bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-5">
@@ -763,7 +732,6 @@ const handleFinalBooking = async () => {
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Booking Overview
               </h3>
-
               <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-3">
                 <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-600/30 flex items-center justify-center font-bold text-blue-300 text-xs shrink-0">
@@ -774,7 +742,6 @@ const handleFinalBooking = async () => {
                     <p className="text-[10px] text-blue-400">{getDoctorSpecialty(selectedDoctor)}</p>
                   </div>
                 </div>
-
                 <div className="space-y-1.5 text-xs text-slate-300">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Date:</span>
@@ -810,7 +777,6 @@ const handleFinalBooking = async () => {
                   </>
                 )}
               </button>
-
               <button
                 onClick={() => setStep(2)}
                 className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 font-bold text-xs rounded-xl border border-slate-800 transition"
@@ -821,7 +787,6 @@ const handleFinalBooking = async () => {
           </div>
         </div>
       )}
-
     </div>
   );
 }
