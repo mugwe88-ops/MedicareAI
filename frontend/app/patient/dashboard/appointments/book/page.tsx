@@ -32,6 +32,18 @@ const SPECIALTIES = ['All', 'General Practice', 'Cardiology', 'Pediatrics', 'Neu
 const getDoctorName = (doc: any) => doc?.display_name || doc?.full_name || doc?.name || 'Dr. Medical Specialist';
 const getDoctorSpecialty = (doc: any) => doc?.specialization || doc?.specialty || 'General Practice';
 
+// Helper to normalize any date string into YYYY-MM-DD
+function normalizeDateString(rawDate: any): string {
+  if (!rawDate) return '';
+  if (typeof rawDate === 'string') {
+    return rawDate.split('T')[0].trim();
+  }
+  if (rawDate instanceof Date) {
+    return rawDate.toISOString().split('T')[0];
+  }
+  return String(rawDate).split('T')[0].trim();
+}
+
 function BookingHero({ patientName = 'Patient', step }: { patientName?: string; step: number }) {
   return (
     <div className="bg-gradient-to-r from-blue-950/90 via-[#0a1228] to-[#080d1a] border border-blue-800/40 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
@@ -218,36 +230,6 @@ function DoctorCard({
   );
 }
 
-function EmptyState({
-  title,
-  description,
-  onClearFilters,
-}: {
-  title: string;
-  description: string;
-  onClearFilters: () => void;
-}) {
-  return (
-    <div className="p-10 rounded-3xl bg-[#0d1424] border border-slate-800/80 text-center space-y-4 shadow-xl">
-      <div className="w-16 h-16 rounded-full bg-blue-950/60 border border-blue-800/40 flex items-center justify-center mx-auto text-blue-400">
-        <User className="w-8 h-8" />
-      </div>
-      <div className="max-w-md mx-auto space-y-1">
-        <h3 className="text-base font-bold text-white">{title}</h3>
-        <p className="text-xs text-slate-400">{description}</p>
-      </div>
-      <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-        <button
-          onClick={onClearFilters}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5"
-        >
-          <RefreshCw className="w-3.5 h-3.5" /> Reset Filters
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function BookAppointmentPage() {
   const router = useRouter();
   const [patientName, setPatientName] = useState<string>('Patient');
@@ -315,45 +297,38 @@ export default function BookAppointmentPage() {
     const doctorId = selectedDoctor.id;
 
     async function loadDoctorSchedule() {
-      const [availRes, apptRes] = await Promise.all([
-        supabase.from('doctor_availability').select('*').eq('doctor_id', doctorId).gte('date', todayStr),
-        supabase.from('appointments').select('*').eq('doctor_id', doctorId).gte('appointment_date', todayStr),
-      ]);
+      // 1. Fetch all availability records for this doctor (removing strict gte filter to avoid date type comparison issues)
+      const { data: rawAvail, error: availErr } = await supabase
+        .from('doctor_availability')
+        .select('*')
+        .eq('doctor_id', doctorId);
 
-      console.log('Fetched Doctor Availability:', availRes.data, 'Error:', availRes.error);
-      console.log('Fetched Appointments:', apptRes.data, 'Error:', apptRes.error);
+      const { data: rawAppts } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('doctor_id', doctorId);
 
-      if (availRes.data) {
+      if (availErr) {
+        console.error('Supabase fetch error for doctor_availability:', availErr);
+      }
+
+      if (rawAvail) {
         const map: Record<string, DoctorAvailability> = {};
-        availRes.data.forEach((item: DoctorAvailability) => {
-          const formattedDate = item.date ? item.date.split('T')[0] : '';
-          if (formattedDate) {
-            map[formattedDate] = item;
+        rawAvail.forEach((item: any) => {
+          const cleanDate = normalizeDateString(item.date || item.available_date || item.day);
+          if (cleanDate) {
+            map[cleanDate] = item;
           }
         });
         setAvailabilities(map);
       }
-      if (apptRes.data) {
-        setAppointments(apptRes.data as Appointment[]);
+
+      if (rawAppts) {
+        setAppointments(rawAppts as Appointment[]);
       }
     }
 
     loadDoctorSchedule();
-
-    const availChan = supabase
-      .channel(`avail-${doctorId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'doctor_availability', filter: `doctor_id=eq.${doctorId}` }, (payload) => {
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-          const row = payload.new as DoctorAvailability;
-          const cleanDate = row?.date ? row.date.split('T')[0] : '';
-          if (cleanDate) setAvailabilities((prev) => ({ ...prev, [cleanDate]: row }));
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(availChan);
-    };
   }, [selectedDoctor, todayStr]);
 
   const filteredDoctors = doctors.filter((doc) => {
@@ -367,7 +342,7 @@ export default function BookAppointmentPage() {
   });
 
   const currentAvailability = availabilities[selectedDate] || null;
-  const dayAppointments = appointments.filter((a) => a.appointment_date === selectedDate);
+  const dayAppointments = appointments.filter((a) => normalizeDateString((a as any).appointment_date) === selectedDate);
   const timeSlots = generateAvailableSlots(currentAvailability, dayAppointments);
 
   const toggleSymptom = (chip: string) => {
@@ -493,15 +468,6 @@ export default function BookAppointmentPage() {
                 <div key={i} className="p-5 rounded-3xl bg-[#0d1424] border border-slate-800 animate-pulse h-36" />
               ))}
             </div>
-          ) : filteredDoctors.length === 0 ? (
-            <EmptyState
-              title="We couldn't find an exact doctor match."
-              description="Make sure you have added doctors in your Supabase 'doctors' table, or try resetting your filters."
-              onClearFilters={() => {
-                setSearchQuery('');
-                setSpecialtyFilter('All');
-              }}
-            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredDoctors.map((doc) => (
@@ -556,9 +522,11 @@ export default function BookAppointmentPage() {
                 {Array.from({ length: 14 }).map((_, i) => {
                   const dateObj = new Date();
                   dateObj.setDate(dateObj.getDate() + i);
-                  const dStr = dateObj.toISOString().split('T')[0];
+                  const dStr = normalizeDateString(dateObj);
                   const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
                   const formattedStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  const hasSchedule = !!availabilities[dStr];
+
                   return (
                     <button
                       key={dStr}
@@ -572,7 +540,12 @@ export default function BookAppointmentPage() {
                           : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
                       }`}
                     >
-                      <span>{dayName}, {formattedStr}</span>
+                      <div className="flex items-center gap-2">
+                        <span>{dayName}, {formattedStr}</span>
+                        {hasSchedule && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Schedule Available" />
+                        )}
+                      </div>
                       <span className="text-[10px] opacity-75">{dStr}</span>
                     </button>
                   );
@@ -591,7 +564,7 @@ export default function BookAppointmentPage() {
               </div>
               {timeSlots.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-500 bg-slate-950/40 rounded-2xl border border-slate-800/80">
-                  No available appointment slots on this date. Select another date above.
+                  No available appointment slots on this date ({selectedDate}).
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
