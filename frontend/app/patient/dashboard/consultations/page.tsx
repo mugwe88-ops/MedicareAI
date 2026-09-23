@@ -119,6 +119,9 @@ function ConsultationHubContent() {
 
         const { data: rawAppointments, error: apptError } = await query;
 
+        // Log the raw response right after data fetching to verify if records are returned
+        console.log("Supabase raw appointments response:", { rawAppointments, apptError, user });
+
         if (apptError) {
           console.error("Supabase appointments query error:", apptError);
           setAllAppointments([]);
@@ -627,58 +630,53 @@ function ConsultationHubContent() {
                         muted 
                         className="w-full h-full object-cover rounded-3xl"
                       />
-                      <div className="absolute bottom-3 left-3 bg-slate-900/80 px-3 py-1 rounded-lg text-[10px] text-white font-medium backdrop-blur-xs">
-                        You (Patient View)
+                      <div className="absolute bottom-3 left-3 bg-slate-900/80 px-3 py-1 rounded-lg text-[10px] text-white font-medium backdrop-blur-sm">
+                        You (Patient)
                       </div>
                     </>
                   )}
                 </div>
               </div>
 
-              {/* Sidebar AI Assistant & Notes */}
-              <div className="bg-slate-900 rounded-3xl border border-slate-800 p-4 text-white flex flex-col justify-between">
+              {/* AI Assistant Sidebar */}
+              <div className="bg-slate-900 rounded-3xl border border-slate-800 p-4 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center gap-2 text-blue-400 font-bold text-xs mb-3 border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2 mb-3">
                     <SparklesIcon className="w-4 h-4 text-blue-400" />
-                    <span>MedicareAI Scribe</span>
+                    <h5 className="font-bold text-xs text-white uppercase tracking-wider">Live AI Scribe & Notes</h5>
                   </div>
-                  <div className="space-y-2">
+                  <ul className="space-y-2 text-xs text-slate-300">
                     {aiNotes.map((note, idx) => (
-                      <div key={idx} className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50 text-xs text-slate-300">
-                        • {note}
-                      </div>
+                      <li key={idx} className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50 flex items-start gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                        <span>{note}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-800 text-[10px] text-slate-400">
-                  Real-time clinical notes generated securely.
+                {/* Call Controls */}
+                <div className="flex items-center justify-center gap-3 pt-4 border-t border-slate-800">
+                  <button 
+                    onClick={() => setIsMuted(!isMuted)}
+                    className={`p-3 rounded-xl transition cursor-pointer ${isMuted ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                  >
+                    {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  </button>
+                  <button 
+                    onClick={() => setIsVideoOff(!isVideoOff)}
+                    className={`p-3 rounded-xl transition cursor-pointer ${isVideoOff ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                  >
+                    {isVideoOff ? <VideoOff className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+                  </button>
+                  <button 
+                    onClick={() => setInCall(false)}
+                    className="p-3 bg-red-600 hover:bg-red-700 text-white rounded-xl transition shadow-lg shadow-red-900/50 cursor-pointer"
+                  >
+                    <PhoneOff className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-            </div>
-
-            {/* Video Call Controls Bar */}
-            <div className="pt-4 border-t border-slate-800 flex items-center justify-center gap-4">
-              <button 
-                onClick={() => setIsMuted(!isMuted)}
-                className={`p-3.5 rounded-2xl text-white transition cursor-pointer ${isMuted ? 'bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
-              >
-                {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </button>
-
-              <button 
-                onClick={() => setIsVideoOff(!isVideoOff)}
-                className={`p-3.5 rounded-2xl text-white transition cursor-pointer ${isVideoOff ? 'bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
-              >
-                {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
-              </button>
-
-              <button 
-                onClick={() => setInCall(false)}
-                className="bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 rounded-2xl font-bold text-xs shadow-lg shadow-red-900/50 flex items-center gap-2 cursor-pointer"
-              >
-                <PhoneOff className="w-4 h-4" /> End Call
-              </button>
             </div>
           </div>
         )}

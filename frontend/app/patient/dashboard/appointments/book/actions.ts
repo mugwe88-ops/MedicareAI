@@ -44,18 +44,26 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       }
     );
 
-    // Get current authenticated user session or token
-    const { data: { session } } = await supabase.auth.getSession();
-    const activePatientId = session?.user?.id || formData.patientId || '22222222-2222-2222-2222-222222222222';
+    // Strictly fetch and verify authenticated user from Supabase Auth
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (!activePatientId) {
-      return { success: false, error: 'User session not found. Please log in again.' };
+    if (userError || !user) {
+      return { 
+        success: false, 
+        error: 'Authentication required. Please log in again to complete your booking.' 
+      };
     }
+
+    // Enforce patient_id strictly matching auth.users.id
+    const activePatientId = user.id;
+
+    // Fetch session access token for downstream authorization headers if needed
+    const { data: { session } } = await supabase.auth.getSession();
 
     const generatedRefCode = formData.refCode || `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
     const renderApiUrl = process.env.RENDER_API_URL;
 
-    // Fallback: If RENDER_API_URL is missing or placeholder, write directly to Supabase
+    // Direct Supabase Fallback: Write directly to database with verified auth.users ID
     if (!renderApiUrl || renderApiUrl.includes('your-render-app.onrender.com')) {
       const { data: appointment, error: dbError } = await supabase
         .from('appointments')
@@ -89,7 +97,7 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       return { success: true, appointmentId: appointment.id };
     }
 
-    // Dispatch request to Render backend API
+    // Dispatch request to external backend API with verified patient ID
     const response = await fetch(`${renderApiUrl}/api/appointments`, {
       method: 'POST',
       headers: {
@@ -113,7 +121,6 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       }),
     });
 
-    // Guard against non-OK HTML or plain-text responses before calling .json()
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Render API Booking Error:", errorText);
