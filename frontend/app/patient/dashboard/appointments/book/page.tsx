@@ -1,3 +1,5 @@
+// ./app/patient/booking/page.tsx
+
 'use client';
 
 export const dynamic = 'force-dynamic';
@@ -276,14 +278,8 @@ export default function BookAppointmentPage() {
     let isMounted = true;
 
     async function checkAuthAndFetchDoctors() {
-      console.log('[DEBUG] Route:', pathname);
-
-      // Check current session & user
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-
-      console.log('[DEBUG] getSession():', sessionData?.session);
-      console.log('[DEBUG] getUser():', userData?.user, 'User Error:', userErr);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: userData } = await supabase.auth.getUser();
 
       if (!isMounted) return;
 
@@ -293,7 +289,6 @@ export default function BookAppointmentPage() {
         setIsAuthenticated(true);
         setErrorMessage(null);
 
-        // Retrieve profile details
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name, name')
@@ -315,7 +310,6 @@ export default function BookAppointmentPage() {
 
       setIsAuthLoading(false);
 
-      // Always fetch public doctor records regardless of patient auth resolution timing
       setIsLoadingDoctors(true);
       const { data: doctorData, error: doctorErr } = await supabase.from('doctors').select('*');
       if (!doctorErr && doctorData && doctorData.length > 0) {
@@ -329,9 +323,7 @@ export default function BookAppointmentPage() {
 
     checkAuthAndFetchDoctors();
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[DEBUG] onAuthStateChange Event:', event, 'Session:', session);
       if (session?.user) {
         setIsAuthenticated(true);
         setErrorMessage(null);
@@ -348,7 +340,6 @@ export default function BookAppointmentPage() {
     };
   }, [pathname]);
 
-  // Load selected doctor availability and scheduled appointments
   useEffect(() => {
     if (!selectedDoctor || !todayStr) return;
     const doctorId = selectedDoctor.id;
@@ -401,10 +392,13 @@ export default function BookAppointmentPage() {
     id: 'default-avail',
     doctor_id: selectedDoctor?.id || '',
     date: selectedDate,
-    start_time: '09:00',
-    end_time: '17:00',
+    start_time: '08:00:00',
+    end_time: '17:00:00',
+    slot_duration: 30,
     slot_duration_minutes: 30,
-    is_available: true,
+    max_patients: 10,
+    booked_patients: 0,
+    clinic_location: 'Swift MD Central',
   };
 
   const dayAppointments = appointments.filter((a) => normalizeDateString((a as any).appointment_date) === selectedDate);
@@ -442,7 +436,7 @@ export default function BookAppointmentPage() {
     setErrorMessage(null);
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
+
     if (userError || !user) {
       setIsSubmitting(false);
       setErrorMessage('Authentication session not detected. Please ensure you are logged in.');
@@ -476,7 +470,6 @@ export default function BookAppointmentPage() {
     }
   };
 
-  // Render a subtle inline loader while verifying auth, preventing UI pop-in
   if (isAuthLoading) {
     return (
       <div className="min-h-screen bg-[#050914] flex flex-col items-center justify-center text-slate-300 p-8">
@@ -492,7 +485,6 @@ export default function BookAppointmentPage() {
     <div className="min-h-screen bg-[#050914] text-slate-100 font-sans p-4 md:p-8 space-y-6 pb-24 selection:bg-blue-600 selection:text-white rounded-3xl">
       <BookingHero patientName={patientName} step={step} />
 
-      {/* Show error banner ONLY when auth is confirmed missing */}
       {!isAuthenticated && errorMessage && (
         <div className="p-4 rounded-2xl bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-semibold flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -661,23 +653,31 @@ export default function BookAppointmentPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {timeSlots.map((slot) => (
-                    <button
-                      key={slot.startTime}
-                      disabled={slot.isBooked}
-                      onClick={() => setSelectedSlot(slot)}
-                      className={`p-3 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1 ${
-                        slot.isBooked
-                          ? 'bg-slate-950 text-slate-600 border-slate-900 line-through cursor-not-allowed'
-                          : selectedSlot?.startTime === slot.startTime
-                          ? 'bg-blue-600 text-white border-blue-400 shadow-lg ring-2 ring-blue-400/40'
-                          : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-blue-500/50'
-                      }`}
-                    >
-                      <span>{slot.startTime}</span>
-                      <span className="text-[9px] opacity-70">{slot.endTime}</span>
-                    </button>
-                  ))}
+                  {timeSlots.map((slot) => {
+                    const remainingSlots = (activeAvailability.max_patients ?? 0) - (activeAvailability.booked_patients ?? 0);
+
+                    return (
+                      <button
+                        key={slot.startTime}
+                        disabled={slot.isBooked}
+                        onClick={() => setSelectedSlot(slot)}
+                        className={`p-3 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1 ${
+                          slot.isBooked
+                            ? 'bg-slate-950 text-slate-600 border-slate-900 line-through cursor-not-allowed'
+                            : selectedSlot?.startTime === slot.startTime
+                            ? 'bg-blue-600 text-white border-blue-400 shadow-lg ring-2 ring-blue-400/40'
+                            : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-blue-500/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {slot.startTime} - {slot.endTime}
+                        </div>
+                        <p className="text-[10px] opacity-70">
+                          Remaining: {remainingSlots} slots
+                        </p>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
