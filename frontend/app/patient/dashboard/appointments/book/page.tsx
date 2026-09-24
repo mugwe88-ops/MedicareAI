@@ -10,8 +10,8 @@ import { createPatientBookingAction } from './actions';
 import {
   ShieldCheck, Clock, CheckCircle2, Search, Star, Building, Video,
   AlertTriangle, Calendar as CalendarIcon, ChevronRight, Check,
-  Activity, Heart, Brain, Baby, Stethoscope, ArrowLeft, RefreshCw,
-  Zap, X, Mic, Loader2
+  Activity, Heart, Brain, Baby, Stethoscope, ArrowLeft, User, RefreshCw,
+  Zap, X, Mic
 } from 'lucide-react';
 
 interface IWindow extends Window {
@@ -258,93 +258,53 @@ export default function BookAppointmentPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Restore state from sessionStorage
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const savedState = sessionStorage.getItem('appointment_booking_state');
-    if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState);
-        if (parsed.step) setStep(parsed.step);
-        if (parsed.selectedDoctor) setSelectedDoctor(parsed.selectedDoctor);
-        if (parsed.selectedDate) setSelectedDate(parsed.selectedDate);
-        if (parsed.selectedSlot) setSelectedSlot(parsed.selectedSlot);
-        if (parsed.consultationType) setConsultationType(parsed.consultationType);
-        if (parsed.selectedBodySystem) setSelectedBodySystem(parsed.selectedBodySystem);
-        if (parsed.selectedSymptoms) setSelectedSymptoms(parsed.selectedSymptoms);
-        if (parsed.painLevel) setPainLevel(parsed.painLevel);
-        if (parsed.reason) setReason(parsed.reason);
-      } catch (e) {
-        console.error('Failed to parse cached booking state', e);
-      }
-    }
-  }, []);
-
-  // Sync state to sessionStorage
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stateToSave = {
-      step,
-      selectedDoctor,
-      selectedDate,
-      selectedSlot,
-      consultationType,
-      selectedBodySystem,
-      selectedSymptoms,
-      painLevel,
-      reason,
-    };
-    sessionStorage.setItem('appointment_booking_state', JSON.stringify(stateToSave));
-  }, [step, selectedDoctor, selectedDate, selectedSlot, consultationType, selectedBodySystem, selectedSymptoms, painLevel, reason]);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
 
   useEffect(() => {
     const today = formatDateToYYYYMMDD(new Date());
     setTodayStr(today);
-    if (!selectedDate) {
-      setSelectedDate(today);
-    }
+    setSelectedDate(today);
   }, []);
 
-  // Auth & initial doctor load
   useEffect(() => {
     async function initData() {
       setIsLoading(true);
-      const { data: { user }, error: authErr } = await supabase.auth.getUser();
-      
-      if (authErr || !user) {
-        setErrorMessage("Please login to proceed with booking an appointment.");
-        setIsLoading(false);
-        return;
-      }
+      try {
+        const { data: { user }, error: authErr } = await supabase.auth.getUser();
+        if (authErr || !user) {
+          setIsAuthenticated(false);
+          setErrorMessage('Please login to proceed with booking an appointment.');
+        } else {
+          setIsAuthenticated(true);
+          setErrorMessage(null);
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, name')
+            .eq('id', user.id)
+            .single();
 
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, name')
-          .eq('id', user.id)
-          .single();
-
-        if (profile?.full_name) {
-          setPatientName(profile.full_name);
-        } else if (profile?.name) {
-          setPatientName(profile.name);
-        } else if (user.email) {
-          const prefix = user.email.split('@')[0];
-          setPatientName(prefix.charAt(0).toUpperCase() + prefix.slice(1));
+          if (profile?.full_name) {
+            setPatientName(profile.full_name);
+          } else if (profile?.name) {
+            setPatientName(profile.name);
+          } else if (user.email) {
+            const prefix = user.email.split('@')[0];
+            setPatientName(prefix.charAt(0).toUpperCase() + prefix.slice(1));
+          }
         }
-      }
 
-      const { data, error } = await supabase.from('doctors').select('*');
-      if (!error && data && data.length > 0) {
-        setDoctors(data as Doctor[]);
-        if (!selectedDoctor) {
+        const { data, error } = await supabase.from('doctors').select('*');
+        if (!error && data && data.length > 0) {
+          setDoctors(data as Doctor[]);
           setSelectedDoctor(data[0] as Doctor);
+        } else {
+          setDoctors([]);
         }
-      } else {
-        setDoctors([]);
+      } catch (err: any) {
+        console.error('Error during data initialization:', err);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
     initData();
   }, []);
@@ -441,75 +401,38 @@ export default function BookAppointmentPage() {
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    // 1. Validate Auth
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {
       setIsSubmitting(false);
-      setErrorMessage("Authentication session not detected. Please log in to complete your appointment.");
+      setErrorMessage('Authentication session not detected. Please ensure you are logged in.');
       return;
     }
 
     const currentUserId = user.id;
     const refCode = `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // Declare `res` in outer function scope to fix block-scoping syntax error
-    let res: { success: boolean; error?: string } | null = null;
-
-    // 2. Action submission
-    try {
-      res = await createPatientBookingAction({
-        doctorId: selectedDoctor.id,
-        patientId: currentUserId,
-        patientName: patientName,
-        appointmentDate: selectedDate,
-        startTime: selectedSlot.startTime,
-        endTime: selectedSlot.endTime,
-        consultationType,
-        bodySystem: selectedBodySystem,
-        symptoms: selectedSymptoms,
-        painLevel,
-        reason,
-        refCode,
-      });
-    } catch (err: any) {
-      console.error("Action execution unhandled, proceeding to fallback insertion:", err);
-    }
-
-    // 3. Supabase Direct Insertion Fallback
-    if (!res || !res.success) {
-      const { error: insertError } = await supabase.from('appointments').insert([
-        {
-          doctor_id: selectedDoctor.id,
-          patient_id: currentUserId,
-          patient_name: patientName,
-          appointment_date: selectedDate,
-          start_time: selectedSlot.startTime,
-          end_time: selectedSlot.endTime,
-          consultation_type: consultationType,
-          body_system: selectedBodySystem,
-          symptoms: selectedSymptoms,
-          pain_level: painLevel,
-          reason_for_visit: reason,
-          reference_code: refCode,
-          status: 'scheduled',
-        },
-      ]);
-
-      if (!insertError) {
-        res = { success: true };
-      } else {
-        setErrorMessage(insertError.message || res?.error || 'Failed to reserve appointment slot in Supabase.');
-        setIsSubmitting(false);
-        return;
-      }
-    }
+    const res = await createPatientBookingAction({
+      doctorId: selectedDoctor.id,
+      patientId: currentUserId,
+      patientName: patientName,
+      appointmentDate: selectedDate,
+      startTime: selectedSlot.startTime,
+      endTime: selectedSlot.endTime,
+      consultationType,
+      bodySystem: selectedBodySystem,
+      symptoms: selectedSymptoms,
+      painLevel,
+      reason,
+      refCode,
+    });
 
     setIsSubmitting(false);
 
-    if (res?.success) {
-      sessionStorage.removeItem('appointment_booking_state');
+    if (res.success) {
       router.push('/patient/dashboard/consultations');
+    } else {
+      setErrorMessage(res.error || 'Failed to reserve appointment slot.');
     }
   };
 
@@ -523,9 +446,14 @@ export default function BookAppointmentPage() {
             <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
             <span>{errorMessage}</span>
           </div>
-          <button onClick={() => setErrorMessage(null)} className="p-1 hover:text-white">
-            <X className="w-4 h-4" />
-          </button>
+          {!isAuthenticated && (
+            <button
+              onClick={() => router.push('/login')}
+              className="px-3 py-1.5 bg-rose-800 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition"
+            >
+              Sign In
+            </button>
+          )}
         </div>
       )}
 
@@ -805,18 +733,21 @@ export default function BookAppointmentPage() {
                   type="button"
                   onClick={handleVoiceInput}
                   className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition ${
-                    isListening ? 'bg-rose-950 text-rose-300 border-rose-800 animate-pulse' : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
+                    isListening
+                      ? 'bg-rose-950 text-rose-400 border-rose-800 animate-pulse'
+                      : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white'
                   }`}
                 >
-                  <Mic className="w-3 h-3 text-blue-400" /> {isListening ? 'Listening...' : 'Dictate Voice'}
+                  <Mic className="w-3 h-3" />
+                  {isListening ? 'Listening...' : 'Dictate'}
                 </button>
               </div>
               <textarea
                 rows={3}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Briefly describe your symptoms or reason for visit..."
-                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition"
+                placeholder="Describe what you are experiencing..."
+                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition resize-none"
               />
             </div>
 
@@ -830,47 +761,53 @@ export default function BookAppointmentPage() {
               <button
                 disabled={isSubmitting}
                 onClick={handleFinalBooking}
-                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs shadow-lg transition flex items-center gap-1.5"
+                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-bold text-xs shadow-lg transition flex items-center gap-2"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" /> Saving Appointment...
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Confirming...
                   </>
                 ) : (
                   <>
-                    Confirm & Reserve <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Confirm & Reserve <Check className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
             </div>
           </div>
 
-          <div className="md:col-span-5 space-y-4">
-            <div className="bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-4">
-              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800/80 pb-3">
-                Booking Summary
-              </h3>
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Physician:</span>
-                  <span className="font-bold text-white">{getDoctorName(selectedDoctor)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Specialty:</span>
-                  <span className="font-semibold text-blue-400">{getDoctorSpecialty(selectedDoctor)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Format:</span>
-                  <span className="font-semibold text-emerald-400">{consultationType}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Date:</span>
-                  <span className="font-bold text-white">{selectedDate}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Time Slot:</span>
-                  <span className="font-bold text-amber-400">{selectedSlot.startTime} - {selectedSlot.endTime}</span>
-                </div>
+          <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-4 h-fit">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800/80 pb-3">
+              Appointment Summary
+            </h3>
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Doctor</span>
+                <span className="font-bold text-white">{getDoctorName(selectedDoctor)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Specialty</span>
+                <span className="font-bold text-blue-400">{getDoctorSpecialty(selectedDoctor)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Format</span>
+                <span className="font-bold text-white">{consultationType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Date</span>
+                <span className="font-bold text-white">{selectedDate}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Time Slot</span>
+                <span className="font-bold text-white">
+                  {selectedSlot.startTime} - {selectedSlot.endTime}
+                </span>
+              </div>
+              <div className="flex justify-between pt-3 border-t border-slate-800/80">
+                <span className="text-slate-400 font-bold">Total Fee</span>
+                <span className="font-black text-emerald-400 text-sm">
+                  KES {(selectedDoctor as any).consultation_fee || 3500}
+                </span>
               </div>
             </div>
           </div>
