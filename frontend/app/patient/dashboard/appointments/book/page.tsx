@@ -3,15 +3,15 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { supabase, Doctor, DoctorAvailability, Appointment } from '@/lib/supabase';
 import { generateAvailableSlots, GeneratedTimeSlot } from '@/lib/slot-calculator';
 import { createPatientBookingAction } from './actions';
 import {
   ShieldCheck, Clock, CheckCircle2, Search, Star, Building, Video,
   AlertTriangle, Calendar as CalendarIcon, ChevronRight, Check,
-  Activity, Heart, Brain, Baby, Stethoscope, ArrowLeft, User, RefreshCw,
-  Zap, X, Mic
+  Activity, Heart, Brain, Baby, Stethoscope, ArrowLeft, RefreshCw,
+  Zap, X, Mic, Loader2
 } from 'lucide-react';
 
 interface IWindow extends Window {
@@ -238,6 +238,8 @@ function DoctorCard({
 
 export default function BookAppointmentPage() {
   const router = useRouter();
+  const pathname = usePathname();
+
   const [patientName, setPatientName] = useState<string>('Patient');
   const [step, setStep] = useState<number>(1);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -255,10 +257,13 @@ export default function BookAppointmentPage() {
   const [painLevel, setPainLevel] = useState<number>(3);
   const [reason, setReason] = useState<string>('');
   const [isListening, setIsListening] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // States for session handling & loading
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
     const today = formatDateToYYYYMMDD(new Date());
@@ -266,49 +271,84 @@ export default function BookAppointmentPage() {
     setSelectedDate(today);
   }, []);
 
+  // Sync and listen for authentication state updates
   useEffect(() => {
-    async function initData() {
-      setIsLoading(true);
-      try {
-        const { data: { user }, error: authErr } = await supabase.auth.getUser();
-        if (authErr || !user) {
-          setIsAuthenticated(false);
-          setErrorMessage('Please login to proceed with booking an appointment.');
-        } else {
-          setIsAuthenticated(true);
-          setErrorMessage(null);
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, name')
-            .eq('id', user.id)
-            .single();
+    let isMounted = true;
 
-          if (profile?.full_name) {
-            setPatientName(profile.full_name);
-          } else if (profile?.name) {
-            setPatientName(profile.name);
-          } else if (user.email) {
-            const prefix = user.email.split('@')[0];
-            setPatientName(prefix.charAt(0).toUpperCase() + prefix.slice(1));
-          }
-        }
+    async function checkAuthAndFetchDoctors() {
+      console.log('[DEBUG] Route:', pathname);
 
-        const { data, error } = await supabase.from('doctors').select('*');
-        if (!error && data && data.length > 0) {
-          setDoctors(data as Doctor[]);
-          setSelectedDoctor(data[0] as Doctor);
-        } else {
-          setDoctors([]);
+      // Check current session & user
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+
+      console.log('[DEBUG] getSession():', sessionData?.session);
+      console.log('[DEBUG] getUser():', userData?.user, 'User Error:', userErr);
+
+      if (!isMounted) return;
+
+      const activeUser = userData?.user || sessionData?.session?.user;
+
+      if (activeUser) {
+        setIsAuthenticated(true);
+        setErrorMessage(null);
+
+        // Retrieve profile details
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, name')
+          .eq('id', activeUser.id)
+          .single();
+
+        if (profile?.full_name) {
+          setPatientName(profile.full_name);
+        } else if (profile?.name) {
+          setPatientName(profile.name);
+        } else if (activeUser.email) {
+          const prefix = activeUser.email.split('@')[0];
+          setPatientName(prefix.charAt(0).toUpperCase() + prefix.slice(1));
         }
-      } catch (err: any) {
-        console.error('Error during data initialization:', err);
-      } finally {
-        setIsLoading(false);
+      } else {
+        setIsAuthenticated(false);
+        setErrorMessage('Please login to proceed with booking an appointment.');
       }
-    }
-    initData();
-  }, []);
 
+      setIsAuthLoading(false);
+
+      // Always fetch public doctor records regardless of patient auth resolution timing
+      setIsLoadingDoctors(true);
+      const { data: doctorData, error: doctorErr } = await supabase.from('doctors').select('*');
+      if (!doctorErr && doctorData && doctorData.length > 0) {
+        setDoctors(doctorData as Doctor[]);
+        setSelectedDoctor(doctorData[0] as Doctor);
+      } else {
+        setDoctors([]);
+      }
+      setIsLoadingDoctors(false);
+    }
+
+    checkAuthAndFetchDoctors();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[DEBUG] onAuthStateChange Event:', event, 'Session:', session);
+      if (session?.user) {
+        setIsAuthenticated(true);
+        setErrorMessage(null);
+      } else if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
+        setErrorMessage('Please login to proceed with booking an appointment.');
+      }
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [pathname]);
+
+  // Load selected doctor availability and scheduled appointments
   useEffect(() => {
     if (!selectedDoctor || !todayStr) return;
     const doctorId = selectedDoctor.id;
@@ -436,24 +476,35 @@ export default function BookAppointmentPage() {
     }
   };
 
+  // Render a subtle inline loader while verifying auth, preventing UI pop-in
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#050914] flex flex-col items-center justify-center text-slate-300 p-8">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-3" />
+        <p className="text-xs font-semibold tracking-wider uppercase text-slate-400">
+          Verifying Session & Syncing Doctors...
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#050914] text-slate-100 font-sans p-4 md:p-8 space-y-6 pb-24 selection:bg-blue-600 selection:text-white rounded-3xl">
       <BookingHero patientName={patientName} step={step} />
 
-      {errorMessage && (
+      {/* Show error banner ONLY when auth is confirmed missing */}
+      {!isAuthenticated && errorMessage && (
         <div className="p-4 rounded-2xl bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-semibold flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
             <span>{errorMessage}</span>
           </div>
-          {!isAuthenticated && (
-            <button
-              onClick={() => router.push('/login')}
-              className="px-3 py-1.5 bg-rose-800 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition"
-            >
-              Sign In
-            </button>
-          )}
+          <button
+            onClick={() => router.push('/login')}
+            className="px-3 py-1.5 bg-rose-800 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition"
+          >
+            Sign In
+          </button>
         </div>
       )}
 
@@ -504,7 +555,7 @@ export default function BookAppointmentPage() {
             }}
           />
 
-          {isLoading ? (
+          {isLoadingDoctors ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="p-5 rounded-3xl bg-[#0d1424] border border-slate-800 animate-pulse h-36" />
