@@ -1,5 +1,3 @@
-// ./app/patient/booking/page.tsx
-
 'use client';
 
 export const dynamic = 'force-dynamic';
@@ -260,7 +258,6 @@ export default function BookAppointmentPage() {
   const [reason, setReason] = useState<string>('');
   const [isListening, setIsListening] = useState<boolean>(false);
 
-  // States for session handling & loading
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [isLoadingDoctors, setIsLoadingDoctors] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -273,7 +270,6 @@ export default function BookAppointmentPage() {
     setSelectedDate(today);
   }, []);
 
-  // Sync and listen for authentication state updates
   useEffect(() => {
     let isMounted = true;
 
@@ -481,10 +477,10 @@ export default function BookAppointmentPage() {
     );
   }
 
-  // Safely calculate remaining slots with default fallbacks
-  const maxPatients = activeAvailability.max_patients ?? 10;
-  const bookedPatients = activeAvailability.booked_patients ?? 0;
-  const remainingSlots = Math.max(0, maxPatients - bookedPatients);
+  const remainingSlots = Math.max(
+    0,
+    (activeAvailability.max_patients ?? 10) - (activeAvailability.booked_patients ?? 0)
+  );
 
   return (
     <div className="min-h-screen bg-[#050914] text-slate-100 font-sans p-4 md:p-8 space-y-6 pb-24 selection:bg-blue-600 selection:text-white rounded-3xl">
@@ -658,34 +654,27 @@ export default function BookAppointmentPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {timeSlots.map((slot) => {
-                    // Safe access with fallbacks to avoid TypeScript type error
-                    const slotMax = (slot as any).max_patients ?? activeAvailability.max_patients ?? 10;
-                    const slotBooked = (slot as any).booked_patients ?? activeAvailability.booked_patients ?? 0;
-                    const slotsLeft = Math.max(0, slotMax - slotBooked);
-
-                    return (
-                      <button
-                        key={slot.startTime}
-                        disabled={slot.isBooked}
-                        onClick={() => setSelectedSlot(slot)}
-                        className={`p-3 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1 ${
-                          slot.isBooked
-                            ? 'bg-slate-950 text-slate-600 border-slate-900 line-through cursor-not-allowed'
-                            : selectedSlot?.startTime === slot.startTime
-                            ? 'bg-blue-600 text-white border-blue-400 shadow-lg ring-2 ring-blue-400/40'
-                            : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-blue-500/50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> {slot.startTime} - {slot.endTime}
-                        </div>
-                        <p className="text-[10px] opacity-70">
-                          Remaining: {slotsLeft} slots
-                        </p>
-                      </button>
-                    );
-                  })}
+                  {timeSlots.map((slot) => (
+                    <button
+                      key={slot.startTime}
+                      disabled={slot.isBooked}
+                      onClick={() => setSelectedSlot(slot)}
+                      className={`p-3 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center gap-1 ${
+                        slot.isBooked
+                          ? 'bg-slate-950 text-slate-600 border-slate-900 line-through cursor-not-allowed'
+                          : selectedSlot?.startTime === slot.startTime
+                          ? 'bg-blue-600 text-white border-blue-400 shadow-lg ring-2 ring-blue-400/40'
+                          : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-blue-500/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {slot.startTime} - {slot.endTime}
+                      </div>
+                      <p className="text-[10px] opacity-70">
+                        Remaining: {remainingSlots} slots
+                      </p>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
