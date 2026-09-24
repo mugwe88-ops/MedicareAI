@@ -481,6 +481,11 @@ export default function BookAppointmentPage() {
     );
   }
 
+  // Safely calculate remaining slots with default fallbacks
+  const maxPatients = activeAvailability.max_patients ?? 10;
+  const bookedPatients = activeAvailability.booked_patients ?? 0;
+  const remainingSlots = Math.max(0, maxPatients - bookedPatients);
+
   return (
     <div className="min-h-screen bg-[#050914] text-slate-100 font-sans p-4 md:p-8 space-y-6 pb-24 selection:bg-blue-600 selection:text-white rounded-3xl">
       <BookingHero patientName={patientName} step={step} />
@@ -654,7 +659,10 @@ export default function BookAppointmentPage() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {timeSlots.map((slot) => {
-                    const remainingSlots = (activeAvailability.max_patients ?? 0) - (activeAvailability.booked_patients ?? 0);
+                    // Safe access with fallbacks to avoid TypeScript type error
+                    const slotMax = (slot as any).max_patients ?? activeAvailability.max_patients ?? 10;
+                    const slotBooked = (slot as any).booked_patients ?? activeAvailability.booked_patients ?? 0;
+                    const slotsLeft = Math.max(0, slotMax - slotBooked);
 
                     return (
                       <button
@@ -673,7 +681,7 @@ export default function BookAppointmentPage() {
                           <Clock className="w-3 h-3" /> {slot.startTime} - {slot.endTime}
                         </div>
                         <p className="text-[10px] opacity-70">
-                          Remaining: {remainingSlots} slots
+                          Remaining: {slotsLeft} slots
                         </p>
                       </button>
                     );
