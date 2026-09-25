@@ -1,7 +1,5 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase, DoctorAvailability, Appointment } from '@/lib/supabase';
@@ -20,19 +18,28 @@ export default function DynamicPatientBookingPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<GeneratedTimeSlot | null>(null);
   const [consultationType, setConsultationType] = useState<'Physical' | 'Telehealth'>('Physical');
-  const [patientName, setPatientName] = useState<string>('Sarah Jenkins');
+  const [patientName, setPatientName] = useState<string>('');
+  const [patientId, setPatientId] = useState<string | null>(null);
   
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [bookingSuccess, setBookingSuccess] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Load Schedule and Setup Realtime Subscriptions for target doctorId
+  // Load User, Schedule, and Setup Realtime Subscriptions for target doctorId
   useEffect(() => {
     if (!doctorId) return;
 
-    async function loadDoctorData() {
+    async function loadInitialData() {
       setIsLoading(true);
+
+      // Fetch active authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setPatientId(user.id);
+        const userFullName = user.user_metadata?.full_name || user.email || 'Patient';
+        setPatientName(userFullName);
+      }
 
       const [availRes, apptRes] = await Promise.all([
         supabase
@@ -60,7 +67,7 @@ export default function DynamicPatientBookingPage() {
       setIsLoading(false);
     }
 
-    loadDoctorData();
+    loadInitialData();
 
     // 1. Realtime Availability Subscription (INSERT, UPDATE, DELETE)
     const availChannel = supabase
@@ -141,13 +148,24 @@ export default function DynamicPatientBookingPage() {
   // Handle Booking Submission
   const handleBookingSubmit = async () => {
     if (!selectedSlot || !selectedDate || !doctorId) return;
+    
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    // Call Atomic RPC with dynamic doctorId
+    // Re-verify patient session prior to atomic reservation
+    const { data: { user } } = await supabase.auth.getUser();
+    const activePatientId = user?.id || patientId;
+
+    if (!activePatientId) {
+      setErrorMessage('Authentication session expired. Please log in again.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Call Atomic RPC with dynamic doctorId and authenticated patient UUID
     const { data, error } = await supabase.rpc('book_appointment_atomic', {
       p_doctor_id: doctorId,
-      p_patient_id: '22222222-2222-2222-2222-222222222222', // Authenticated patient UUID
+      p_patient_id: activePatientId,
       p_patient_name: patientName,
       p_appointment_date: selectedDate,
       p_start_time: selectedSlot.startTime,
@@ -162,7 +180,7 @@ export default function DynamicPatientBookingPage() {
       return;
     }
 
-    // Optimistic / Local UI Update for immediate feedback
+    // Optimistic UI Update for immediate feedback
     setAvailabilities((prev) => {
       const existing = prev[selectedDate];
       if (!existing) return prev;
