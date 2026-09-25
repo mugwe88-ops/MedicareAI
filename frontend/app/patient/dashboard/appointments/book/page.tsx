@@ -422,12 +422,11 @@ export default function BookAppointmentPage() {
     recognition.start();
   };
 
-const handleFinalBooking = async () => {
+  const handleFinalBooking = async () => {
     if (!selectedDoctor || !selectedSlot || !selectedDate) return;
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    // 1. Dual session retrieval to guarantee token recovery on client submission
     const { data: sessionData } = await supabase.auth.getSession();
     let currentUserId = sessionData?.session?.user?.id;
 
@@ -436,7 +435,6 @@ const handleFinalBooking = async () => {
       currentUserId = userData?.user?.id;
     }
 
-    // 2. If still missing, check if user profile was loaded on mount
     if (!currentUserId) {
       setIsSubmitting(false);
       setErrorMessage('Authentication session not detected. Please log in again to complete your booking.');
@@ -731,11 +729,11 @@ const handleFinalBooking = async () => {
                       onClick={() => setSelectedBodySystem(sys.id)}
                       className={`p-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 ${
                         isSelected
-                          ? 'bg-blue-900/60 border-blue-500 text-blue-300'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                          ? 'bg-blue-900/60 border-blue-500 text-blue-300 shadow-md'
+                          : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
                       }`}
                     >
-                      <Icon className="w-4 h-4 shrink-0" />
+                      <Icon className={`w-4 h-4 ${isSelected ? 'text-blue-400' : 'text-slate-500'}`} />
                       <span className="truncate">{sys.label}</span>
                     </button>
                   );
@@ -749,17 +747,19 @@ const handleFinalBooking = async () => {
               </label>
               <div className="flex flex-wrap gap-2">
                 {activeSystemObj.chips.map((chip) => {
-                  const active = selectedSymptoms.includes(chip);
+                  const isChecked = selectedSymptoms.includes(chip);
                   return (
                     <button
                       key={chip}
+                      type="button"
                       onClick={() => toggleSymptom(chip)}
-                      className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${
-                        active
-                          ? 'bg-blue-600 text-white border-blue-400'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 ${
+                        isChecked
+                          ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                       }`}
                     >
+                      {isChecked && <Check className="w-3.5 h-3.5" />}
                       {chip}
                     </button>
                   );
@@ -768,92 +768,124 @@ const handleFinalBooking = async () => {
             </div>
 
             <div className="space-y-2">
-              <div className="flex justify-between items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                <span>Discomfort / Pain Index</span>
-                <span className="text-blue-400">{painLevel} / 10</span>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Self-Reported Pain Level
+                </label>
+                <span className="text-xs font-bold text-amber-400">{painLevel} / 10</span>
               </div>
               <input
                 type="range"
-                min={0}
-                max={10}
+                min="0"
+                max="10"
                 value={painLevel}
                 onChange={(e) => setPainLevel(Number(e.target.value))}
-                className="w-full accent-blue-500 cursor-pointer"
+                className="w-full accent-blue-500 bg-slate-950 h-2 rounded-lg cursor-pointer border border-slate-800"
               />
+              <div className="flex justify-between text-[10px] text-slate-500 font-semibold">
+                <span>0 - No Pain</span>
+                <span>5 - Moderate</span>
+                <span>10 - Severe</span>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Detailed Notes / Chief Complaint
+                  Chief Complaint / Reason for Visit
                 </label>
                 <button
                   type="button"
                   onClick={handleVoiceInput}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border transition ${
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border flex items-center gap-1 transition ${
                     isListening
-                      ? 'bg-rose-950 border-rose-600 text-rose-300 animate-pulse'
-                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                      ? 'bg-rose-950 border-rose-800 text-rose-400 animate-pulse'
+                      : 'bg-slate-900 border-slate-800 text-blue-400 hover:bg-slate-800'
                   }`}
                 >
-                  <Mic className="w-3 h-3" /> {isListening ? 'Listening...' : 'Voice Input'}
+                  <Mic className="w-3 h-3" />
+                  {isListening ? 'Listening...' : 'Voice Input'}
                 </button>
               </div>
               <textarea
                 rows={3}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Briefly describe your symptoms or reason for visit..."
-                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition"
+                placeholder="Describe your symptoms, duration, or specific medical concerns..."
+                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition resize-none placeholder:text-slate-600"
               />
             </div>
 
             <div className="flex items-center justify-between pt-4 border-t border-slate-800/80">
               <button
+                type="button"
                 onClick={() => setStep(2)}
                 className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-800 transition flex items-center gap-1"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Back
               </button>
-              <button
-                disabled={isSubmitting}
-                onClick={handleFinalBooking}
-                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-bold text-xs shadow-lg transition flex items-center gap-1"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Processing...
-                  </>
-                ) : (
-                  <>
-                    Confirm & Reserve <Check className="w-3.5 h-3.5" />
-                  </>
-                )}
-              </button>
             </div>
           </div>
 
-          <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-4 h-fit">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Booking Summary</h3>
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase font-bold block">Physician</span>
-                <span className="font-bold text-white">{getDoctorName(selectedDoctor)}</span>
-                <span className="text-[10px] text-blue-400 block">{getDoctorSpecialty(selectedDoctor)}</span>
+          <div className="md:col-span-5 space-y-4">
+            <div className="bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-5 shadow-xl">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800/80 pb-3 flex items-center justify-between">
+                <span>Appointment Summary</span>
+                <span className="px-2 py-0.5 rounded-md bg-blue-950 border border-blue-800/60 text-[10px] text-blue-400">
+                  {consultationType}
+                </span>
+              </h3>
+
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Selected Physician</span>
+                  <span className="font-bold text-white">{getDoctorName(selectedDoctor)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Specialty</span>
+                  <span className="font-semibold text-blue-400">{getDoctorSpecialty(selectedDoctor)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Date</span>
+                  <span className="font-bold text-white">{selectedDate}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Time Slot</span>
+                  <span className="font-bold text-emerald-400">
+                    {selectedSlot.startTime} - {selectedSlot.endTime}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800/60">
+                  <span className="text-slate-400">Consultation Fee</span>
+                  <span className="font-black text-amber-400 text-sm">
+                    KES {(selectedDoctor as any).consultation_fee || 3500}
+                  </span>
+                </div>
               </div>
-              <div className="border-t border-slate-900 pt-2">
-                <span className="text-[10px] text-slate-500 uppercase font-bold block">Schedule</span>
-                <span className="text-slate-200 font-semibold">{selectedDate}</span>
-                <span className="text-slate-400 block text-[11px]">{selectedSlot.startTime} - {selectedSlot.endTime}</span>
+
+              <div className="p-3 bg-blue-950/40 border border-blue-900/40 rounded-2xl flex items-start gap-2 text-[11px] text-blue-300">
+                <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                <p>
+                  Your clinical details are end-to-end encrypted and transmitted securely directly to the doctor's EHR intake queue.
+                </p>
               </div>
-              <div className="border-t border-slate-900 pt-2 flex justify-between items-center">
-                <span className="text-[10px] text-slate-500 uppercase font-bold">Type</span>
-                <span className="text-emerald-400 font-bold">{consultationType}</span>
-              </div>
-              <div className="border-t border-slate-900 pt-2 flex justify-between items-center">
-                <span className="text-[10px] text-slate-500 uppercase font-bold">Total Fee</span>
-                <span className="font-black text-white">KES {(selectedDoctor as any).consultation_fee || 3500}</span>
-              </div>
+
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleFinalBooking}
+                className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs shadow-xl shadow-blue-600/30 transition flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Confirming Reservation...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" /> Confirm & Book Appointment
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
