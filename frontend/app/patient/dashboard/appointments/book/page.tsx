@@ -422,45 +422,55 @@ export default function BookAppointmentPage() {
     recognition.start();
   };
 
-  const handleFinalBooking = async () => {
+const handleFinalBooking = async () => {
     if (!selectedDoctor || !selectedSlot || !selectedDate) return;
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    // Fallback authentication resolution to ensure token availability on submission
-    const { data: { session } } = await supabase.auth.getSession();
-    const activeUser = session?.user || (await supabase.auth.getUser()).data.user;
+    // 1. Dual session retrieval to guarantee token recovery on client submission
+    const { data: sessionData } = await supabase.auth.getSession();
+    let currentUserId = sessionData?.session?.user?.id;
 
-    if (!activeUser) {
+    if (!currentUserId) {
+      const { data: userData } = await supabase.auth.getUser();
+      currentUserId = userData?.user?.id;
+    }
+
+    // 2. If still missing, check if user profile was loaded on mount
+    if (!currentUserId) {
       setIsSubmitting(false);
-      setErrorMessage('Authentication session not detected. Please ensure you are logged in.');
+      setErrorMessage('Authentication session not detected. Please log in again to complete your booking.');
       return;
     }
 
-    const currentUserId = activeUser.id;
     const refCode = `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    const res = await createPatientBookingAction({
-      doctorId: selectedDoctor.id,
-      patientId: currentUserId,
-      patientName: patientName,
-      appointmentDate: selectedDate,
-      startTime: selectedSlot.startTime,
-      endTime: selectedSlot.endTime,
-      consultationType,
-      bodySystem: selectedBodySystem,
-      symptoms: selectedSymptoms,
-      painLevel,
-      reason,
-      refCode,
-    });
+    try {
+      const res = await createPatientBookingAction({
+        doctorId: selectedDoctor.id,
+        patientId: currentUserId,
+        patientName: patientName,
+        appointmentDate: selectedDate,
+        startTime: selectedSlot.startTime,
+        endTime: selectedSlot.endTime,
+        consultationType,
+        bodySystem: selectedBodySystem,
+        symptoms: selectedSymptoms,
+        painLevel,
+        reason,
+        refCode,
+      });
 
-    setIsSubmitting(false);
+      setIsSubmitting(false);
 
-    if (res.success) {
-      router.push('/patient/dashboard/consultations');
-    } else {
-      setErrorMessage(res.error || 'Failed to reserve appointment slot.');
+      if (res?.success) {
+        router.push('/patient/dashboard/consultations');
+      } else {
+        setErrorMessage(res?.error || 'Failed to reserve appointment slot.');
+      }
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setErrorMessage(err.message || 'An unexpected server error occurred during reservation.');
     }
   };
 
