@@ -240,6 +240,7 @@ export default function BookAppointmentPage() {
   const router = useRouter();
   const pathname = usePathname();
 
+  const [patientId, setPatientId] = useState<string>('');
   const [patientName, setPatientName] = useState<string>('Patient');
   const [step, setStep] = useState<number>(1);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -274,7 +275,6 @@ export default function BookAppointmentPage() {
     let isMounted = true;
 
     async function checkAuthAndFetchDoctors() {
-      // 1. Retrieve local storage user object
       let localUser: any = {};
       if (typeof window !== 'undefined') {
         try {
@@ -284,19 +284,18 @@ export default function BookAppointmentPage() {
         }
       }
 
-      // 2. Fallback check to Supabase active session
       const { data: { session } } = await supabase.auth.getSession();
       const activeUser = session?.user || (await supabase.auth.getUser()).data.user;
 
       if (!isMounted) return;
 
-      const hasUser = !!(localUser?.id || activeUser?.id);
+      const currentId = localUser?.id || activeUser?.id || '';
 
-      if (hasUser) {
+      if (currentId) {
         setIsAuthenticated(true);
         setErrorMessage(null);
+        setPatientId(currentId);
 
-        // Derive patient display name from localStorage or Supabase session/profile
         if (localUser?.full_name || localUser?.name) {
           setPatientName(localUser.full_name || localUser.name);
         } else if (activeUser) {
@@ -317,6 +316,7 @@ export default function BookAppointmentPage() {
         }
       } else {
         setIsAuthenticated(false);
+        setPatientId('');
       }
 
       setIsAuthLoading(false);
@@ -338,8 +338,10 @@ export default function BookAppointmentPage() {
       if (session?.user) {
         setIsAuthenticated(true);
         setErrorMessage(null);
+        setPatientId(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
+        setPatientId('');
       }
       setIsAuthLoading(false);
     });
@@ -445,9 +447,9 @@ export default function BookAppointmentPage() {
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    let currentUserId = '';
+    let currentUserId = patientId;
 
-    if (typeof window !== 'undefined') {
+    if (!currentUserId && typeof window !== 'undefined') {
       try {
         const localUser = JSON.parse(localStorage.getItem('user') || '{}');
         if (localUser?.id) {
@@ -742,15 +744,17 @@ export default function BookAppointmentPage() {
 
       {step === 3 && selectedDoctor && selectedSlot && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          <div className="md:col-span-7 bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-6">
+          <div className="md:col-span-7 bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-5">
+            <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <FileText className="w-4 h-4 text-blue-400" /> Intake Information
+            </h2>
+
             <div>
-              <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-blue-400" /> Primary Body System
-              </h2>
+              <label className="text-xs font-bold text-slate-400 block mb-2">Primary Affected Body System</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {BODY_SYSTEMS.map((sys) => {
-                  const IconComp = sys.icon;
-                  const isSel = selectedBodySystem === sys.id;
+                  const Icon = sys.icon;
+                  const isSelected = selectedBodySystem === sys.id;
                   return (
                     <button
                       key={sys.id}
@@ -758,13 +762,13 @@ export default function BookAppointmentPage() {
                         setSelectedBodySystem(sys.id);
                         setSelectedSymptoms([]);
                       }}
-                      className={`p-3 rounded-2xl border text-left flex items-center gap-2.5 transition ${
-                        isSel
-                          ? 'bg-blue-950/80 border-blue-500 text-blue-300 shadow-md ring-1 ring-blue-500/50'
+                      className={`p-3 rounded-2xl border text-left flex items-center gap-2 transition ${
+                        isSelected
+                          ? 'bg-blue-950/80 border-blue-500 text-white'
                           : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      <IconComp className={`w-4 h-4 shrink-0 ${isSel ? 'text-blue-400' : 'text-slate-500'}`} />
+                      <Icon className={`w-4 h-4 ${isSelected ? 'text-blue-400' : 'text-slate-500'}`} />
                       <span className="text-xs font-bold truncate">{sys.label}</span>
                     </button>
                   );
@@ -773,24 +777,20 @@ export default function BookAppointmentPage() {
             </div>
 
             <div>
-              <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <Stethoscope className="w-4 h-4 text-blue-400" /> Specific Symptoms
-              </h2>
-              <p className="text-[10px] text-slate-400 mb-3">Select any symptoms you are currently experiencing.</p>
+              <label className="text-xs font-bold text-slate-400 block mb-2">Common Symptoms</label>
               <div className="flex flex-wrap gap-2">
                 {activeSystemObj.chips.map((chip) => {
-                  const isChecked = selectedSymptoms.includes(chip);
+                  const isSelected = selectedSymptoms.includes(chip);
                   return (
                     <button
                       key={chip}
                       onClick={() => toggleSymptom(chip)}
-                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
-                        isChecked
-                          ? 'bg-blue-600 border-blue-400 text-white shadow-md'
-                          : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200'
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition border ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-500'
+                          : 'bg-slate-950/80 text-slate-400 border-slate-800 hover:text-white'
                       }`}
                     >
-                      {isChecked && <Check className="w-3 h-3" />}
                       {chip}
                     </button>
                   );
@@ -800,12 +800,8 @@ export default function BookAppointmentPage() {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" /> Discomfort / Pain Level
-                </h2>
-                <span className="text-xs font-black text-amber-400 bg-amber-950/50 px-2.5 py-0.5 rounded-lg border border-amber-800/50">
-                  {painLevel} / 10
-                </span>
+                <label className="text-xs font-bold text-slate-400">Pain Level Indicator</label>
+                <span className="text-xs font-bold text-blue-400">{painLevel} / 10</span>
               </div>
               <input
                 type="range"
@@ -813,112 +809,94 @@ export default function BookAppointmentPage() {
                 max="10"
                 value={painLevel}
                 onChange={(e) => setPainLevel(Number(e.target.value))}
-                className="w-full accent-blue-500 cursor-pointer h-2 bg-slate-950 rounded-lg border border-slate-800"
+                className="w-full accent-blue-600 bg-slate-950 rounded-lg cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-slate-500 font-bold mt-1">
-                <span>1 - Mild Discomfort</span>
-                <span>5 - Moderate Pain</span>
-                <span>10 - Severe Pain</span>
-              </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-400" /> Reason for Consultation
-                </h2>
+                <label className="text-xs font-bold text-slate-400">Reason for Visit / Details</label>
                 <button
                   type="button"
                   onClick={handleVoiceInput}
-                  className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border flex items-center gap-1 transition ${
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition ${
                     isListening
-                      ? 'bg-rose-950 border-rose-600 text-rose-300 animate-pulse'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                      ? 'bg-rose-950 border-rose-800 text-rose-400 animate-pulse'
+                      : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
                   }`}
                 >
-                  <Mic className="w-3 h-3 text-blue-400" /> {isListening ? 'Listening...' : 'Dictate'}
+                  <Mic className="w-3 h-3 text-blue-400" />
+                  {isListening ? 'Listening...' : 'Voice Dictation'}
                 </button>
               </div>
               <textarea
                 rows={3}
+                placeholder="Describe your symptoms or reason for booking..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Briefly describe your symptoms or reason for visit..."
                 className="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition resize-none"
               />
             </div>
-          </div>
 
-          <div className="md:col-span-5 space-y-4">
-            <div className="bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-4">
-              <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800/80 pb-3">
-                Booking Summary
-              </h2>
-
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-xs shrink-0">
-                    {getDoctorName(selectedDoctor).split(' ').map((n: string) => n[0]).join('')}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-white">{getDoctorName(selectedDoctor)}</h4>
-                    <p className="text-[10px] text-blue-400">{getDoctorSpecialty(selectedDoctor)}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-slate-800/80 text-slate-300">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 text-[10px] uppercase font-bold">Patient</span>
-                    <span className="font-semibold flex items-center gap-1">
-                      <User className="w-3 h-3 text-blue-400" /> {patientName}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 text-[10px] uppercase font-bold">Format</span>
-                    <span className="font-semibold">{consultationType}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 text-[10px] uppercase font-bold">Date</span>
-                    <span className="font-semibold">{selectedDate}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 text-[10px] uppercase font-bold">Time Slot</span>
-                    <span className="font-semibold text-blue-400">
-                      {selectedSlot.startTime} - {selectedSlot.endTime}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-                    <span className="text-slate-500 text-[10px] uppercase font-bold">Consultation Fee</span>
-                    <span className="font-black text-white text-sm">
-                      KES {(selectedDoctor as any).consultation_fee || 3500}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
+            <div className="flex items-center justify-between pt-4 border-t border-slate-800/80">
+              <button
+                onClick={() => setStep(2)}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-800 transition flex items-center gap-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
+              </button>
               <button
                 disabled={isSubmitting}
                 onClick={handleFinalBooking}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-50 text-white font-bold text-xs shadow-xl shadow-blue-950/50 transition flex items-center justify-center gap-2 mt-4"
+                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-bold text-xs shadow-lg shadow-emerald-950/50 transition flex items-center gap-1.5"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Processing Booking...
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Confirming...
                   </>
                 ) : (
                   <>
-                    Confirm & Reserve Appointment <ChevronRight className="w-4 h-4" />
+                    Confirm Booking <Check className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
             </div>
+          </div>
 
-            <button
-              onClick={() => setStep(2)}
-              className="w-full py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-800 transition flex items-center justify-center gap-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to Schedule
-            </button>
+          <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-5 space-y-4 h-fit">
+            <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <User className="w-4 h-4 text-blue-400" /> Appointment Summary
+            </h2>
+            <div className="space-y-3 text-xs bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-800/60">
+                <span className="text-slate-400">Doctor</span>
+                <span className="font-bold text-white">{getDoctorName(selectedDoctor)}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-800/60">
+                <span className="text-slate-400">Specialty</span>
+                <span className="font-semibold text-blue-400">{getDoctorSpecialty(selectedDoctor)}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-800/60">
+                <span className="text-slate-400">Date</span>
+                <span className="font-bold text-white">{selectedDate}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-800/60">
+                <span className="text-slate-400">Time</span>
+                <span className="font-bold text-emerald-400">
+                  {selectedSlot.startTime} - {selectedSlot.endTime}
+                </span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-800/60">
+                <span className="text-slate-400">Format</span>
+                <span className="font-bold text-white">{consultationType}</span>
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-slate-400 font-bold">Consultation Fee</span>
+                <span className="font-black text-white text-sm">
+                  KES {(selectedDoctor as any).consultation_fee || 3500}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}
