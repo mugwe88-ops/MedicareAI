@@ -274,28 +274,46 @@ export default function BookAppointmentPage() {
     let isMounted = true;
 
     async function checkAuthAndFetchDoctors() {
+      // 1. Retrieve local storage user object
+      let localUser: any = {};
+      if (typeof window !== 'undefined') {
+        try {
+          localUser = JSON.parse(localStorage.getItem('user') || '{}');
+        } catch (e) {
+          console.error('Failed to parse user from localStorage:', e);
+        }
+      }
+
+      // 2. Fallback check to Supabase active session
       const { data: { session } } = await supabase.auth.getSession();
       const activeUser = session?.user || (await supabase.auth.getUser()).data.user;
 
       if (!isMounted) return;
 
-      if (activeUser) {
+      const hasUser = !!(localUser?.id || activeUser?.id);
+
+      if (hasUser) {
         setIsAuthenticated(true);
         setErrorMessage(null);
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, name')
-          .eq('id', activeUser.id)
-          .single();
+        // Derive patient display name from localStorage or Supabase session/profile
+        if (localUser?.full_name || localUser?.name) {
+          setPatientName(localUser.full_name || localUser.name);
+        } else if (activeUser) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, name')
+            .eq('id', activeUser.id)
+            .single();
 
-        if (profile?.full_name) {
-          setPatientName(profile.full_name);
-        } else if (profile?.name) {
-          setPatientName(profile.name);
-        } else if (activeUser.email) {
-          const prefix = activeUser.email.split('@')[0];
-          setPatientName(prefix.charAt(0).toUpperCase() + prefix.slice(1));
+          if (profile?.full_name) {
+            setPatientName(profile.full_name);
+          } else if (profile?.name) {
+            setPatientName(profile.name);
+          } else if (activeUser.email) {
+            const prefix = activeUser.email.split('@')[0];
+            setPatientName(prefix.charAt(0).toUpperCase() + prefix.slice(1));
+          }
         }
       } else {
         setIsAuthenticated(false);
@@ -427,12 +445,28 @@ export default function BookAppointmentPage() {
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    let currentUserId = sessionData?.session?.user?.id;
+    let currentUserId = '';
 
+    // Check localStorage first
+    if (typeof window !== 'undefined') {
+      try {
+        const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+        if (localUser?.id) {
+          currentUserId = localUser.id;
+        }
+      } catch (e) {
+        console.error('Error reading user id from localStorage:', e);
+      }
+    }
+
+    // Fallback to Supabase active user/session if not found in localStorage
     if (!currentUserId) {
-      const { data: userData } = await supabase.auth.getUser();
-      currentUserId = userData?.user?.id;
+      const { data: sessionData } = await supabase.auth.getSession();
+      currentUserId = sessionData?.session?.user?.id || '';
+      if (!currentUserId) {
+        const { data: userData } = await supabase.auth.getUser();
+        currentUserId = userData?.user?.id || '';
+      }
     }
 
     if (!currentUserId) {
@@ -729,11 +763,11 @@ export default function BookAppointmentPage() {
                       onClick={() => setSelectedBodySystem(sys.id)}
                       className={`p-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 ${
                         isSelected
-                          ? 'bg-blue-900/60 border-blue-500 text-blue-300 shadow-md'
-                          : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                          ? 'bg-blue-900/60 border-blue-500 text-blue-300'
+                          : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 ${isSelected ? 'text-blue-400' : 'text-slate-500'}`} />
+                      <Icon className="w-4 h-4 shrink-0" />
                       <span className="truncate">{sys.label}</span>
                     </button>
                   );
@@ -743,23 +777,21 @@ export default function BookAppointmentPage() {
 
             <div className="space-y-2">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Common Symptoms ({activeSystemObj.label})
+                Common Symptoms
               </label>
               <div className="flex flex-wrap gap-2">
                 {activeSystemObj.chips.map((chip) => {
-                  const isChecked = selectedSymptoms.includes(chip);
+                  const isChipSelected = selectedSymptoms.includes(chip);
                   return (
                     <button
                       key={chip}
-                      type="button"
                       onClick={() => toggleSymptom(chip)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 ${
-                        isChecked
-                          ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition ${
+                        isChipSelected
+                          ? 'bg-blue-600 text-white border-blue-500'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      {isChecked && <Check className="w-3.5 h-3.5" />}
                       {chip}
                     </button>
                   );
@@ -770,122 +802,103 @@ export default function BookAppointmentPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Self-Reported Pain Level
+                  Pain / Discomfort Level (1 - 10)
                 </label>
-                <span className="text-xs font-bold text-amber-400">{painLevel} / 10</span>
+                <span className="text-xs font-bold text-blue-400">{painLevel} / 10</span>
               </div>
               <input
                 type="range"
-                min="0"
+                min="1"
                 max="10"
                 value={painLevel}
                 onChange={(e) => setPainLevel(Number(e.target.value))}
-                className="w-full accent-blue-500 bg-slate-950 h-2 rounded-lg cursor-pointer border border-slate-800"
+                className="w-full h-2 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
-              <div className="flex justify-between text-[10px] text-slate-500 font-semibold">
-                <span>0 - No Pain</span>
-                <span>5 - Moderate</span>
-                <span>10 - Severe</span>
-              </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Chief Complaint / Reason for Visit
+                  Additional Notes / Medical Reason
                 </label>
                 <button
-                  type="button"
                   onClick={handleVoiceInput}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border flex items-center gap-1 transition ${
+                  className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md border transition ${
                     isListening
                       ? 'bg-rose-950 border-rose-800 text-rose-400 animate-pulse'
-                      : 'bg-slate-900 border-slate-800 text-blue-400 hover:bg-slate-800'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Mic className="w-3 h-3" />
-                  {isListening ? 'Listening...' : 'Voice Input'}
+                  <Mic className="w-3 h-3" /> {isListening ? 'Listening...' : 'Voice Dictate'}
                 </button>
               </div>
               <textarea
                 rows={3}
+                placeholder="Describe your current medical concerns or specific symptoms..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Describe your symptoms, duration, or specific medical concerns..."
-                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition resize-none placeholder:text-slate-600"
+                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 transition resize-none"
               />
             </div>
 
             <div className="flex items-center justify-between pt-4 border-t border-slate-800/80">
               <button
-                type="button"
                 onClick={() => setStep(2)}
                 className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-800 transition flex items-center gap-1"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Back
               </button>
-            </div>
-          </div>
-
-          <div className="md:col-span-5 space-y-4">
-            <div className="bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-5 shadow-xl">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800/80 pb-3 flex items-center justify-between">
-                <span>Appointment Summary</span>
-                <span className="px-2 py-0.5 rounded-md bg-blue-950 border border-blue-800/60 text-[10px] text-blue-400">
-                  {consultationType}
-                </span>
-              </h3>
-
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Selected Physician</span>
-                  <span className="font-bold text-white">{getDoctorName(selectedDoctor)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Specialty</span>
-                  <span className="font-semibold text-blue-400">{getDoctorSpecialty(selectedDoctor)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Date</span>
-                  <span className="font-bold text-white">{selectedDate}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Time Slot</span>
-                  <span className="font-bold text-emerald-400">
-                    {selectedSlot.startTime} - {selectedSlot.endTime}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800/60">
-                  <span className="text-slate-400">Consultation Fee</span>
-                  <span className="font-black text-amber-400 text-sm">
-                    KES {(selectedDoctor as any).consultation_fee || 3500}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-blue-950/40 border border-blue-900/40 rounded-2xl flex items-start gap-2 text-[11px] text-blue-300">
-                <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                <p>
-                  Your clinical details are end-to-end encrypted and transmitted securely directly to the doctor's EHR intake queue.
-                </p>
-              </div>
-
               <button
-                type="button"
                 disabled={isSubmitting}
                 onClick={handleFinalBooking}
-                className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs shadow-xl shadow-blue-600/30 transition flex items-center justify-center gap-2"
+                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-bold text-xs shadow-lg transition flex items-center gap-2"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Confirming Reservation...
+                    <Loader2 className="w-4 h-4 animate-spin" /> Confirming...
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-4 h-4" /> Confirm & Book Appointment
+                    Complete Booking <CheckCircle2 className="w-4 h-4" />
                   </>
                 )}
               </button>
+            </div>
+          </div>
+
+          <div className="md:col-span-5 bg-[#0d1424] border border-slate-800 rounded-3xl p-6 space-y-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Booking Summary
+            </h3>
+            <div className="space-y-3 bg-slate-950 p-4 rounded-2xl border border-slate-800/80 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Doctor</span>
+                <span className="font-bold text-white">{getDoctorName(selectedDoctor)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Specialty</span>
+                <span className="font-semibold text-blue-400">{getDoctorSpecialty(selectedDoctor)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Format</span>
+                <span className="font-bold text-white">{consultationType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Date</span>
+                <span className="font-bold text-white">{selectedDate}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Time Slot</span>
+                <span className="font-bold text-emerald-400">
+                  {selectedSlot.startTime} - {selectedSlot.endTime}
+                </span>
+              </div>
+              <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-sm">
+                <span className="font-bold text-slate-300">Total Fee</span>
+                <span className="font-black text-white">
+                  KES {(selectedDoctor as any).consultation_fee || 3500}
+                </span>
+              </div>
             </div>
           </div>
         </div>

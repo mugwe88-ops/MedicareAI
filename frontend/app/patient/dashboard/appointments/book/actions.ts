@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 
 export interface BookingPayload {
   doctorId: string;
-  patientId?: string;
+  patientId?: string; // Optional patientId payload key
   patientName: string;
   appointmentDate: string;
   startTime: string;
@@ -44,18 +44,18 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       }
     );
 
-    // 1. Fetch authenticated user from Supabase Auth via Cookies
+    // 1. Fetch authenticated user from Supabase Auth
     let activePatientId: string | null = null;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (user) {
+    if (user?.id) {
       activePatientId = user.id;
     } else if (formData.patientId) {
-      // Fallback: Use explicitly provided patient ID if available
+      // 2. Fallback to client-provided patientId if auth user is null
       activePatientId = formData.patientId;
     }
 
-    // Strictly enforce auth presence
+    // Strictly enforce presence of a valid patient ID
     if (!activePatientId) {
       console.error("Auth Failure:", userError);
       return { 
