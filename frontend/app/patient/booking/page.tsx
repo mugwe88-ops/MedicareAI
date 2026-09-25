@@ -1,10 +1,8 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useState, useEffect } from "react";
 import { supabase, DoctorAvailability } from "@/lib/supabase";
-import { Calendar as CalendarIcon, Clock, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Clock, CheckCircle2 } from "lucide-react";
 
 const DEMO_DOCTOR_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -43,9 +41,11 @@ export default function PatientBookingPage() {
         },
         (payload) => {
           const updated = payload.new as DoctorAvailability;
-          setAvailability((prev) =>
-            prev.map((item) => (item.date === updated.date ? updated : item))
-          );
+          if (updated && updated.date) {
+            setAvailability((prev) =>
+              prev.map((item) => (item.date === updated.date ? updated : item))
+            );
+          }
         }
       )
       .subscribe();
@@ -58,9 +58,18 @@ export default function PatientBookingPage() {
   const handleBookSlot = async () => {
     if (!selectedSlot) return;
 
+    // Retrieve active authenticated user session
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      setBookingStatus("Authentication session not detected. Please log in again.");
+      return;
+    }
+
     // Call stored procedure to prevent double booking race conditions
     const { data, error } = await supabase.rpc("book_appointment_slot", {
       target_doctor_id: DEMO_DOCTOR_ID,
+      target_patient_id: user.id,
       target_date: selectedSlot.date,
     });
 
@@ -89,6 +98,11 @@ export default function PatientBookingPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {availability.map((slot) => {
             const isSelectable = slot.status === "Available" || slot.status === "Nearly Full";
+
+            // Safe subtraction fallback handling TypeScript nullability checks
+            const maxPatients = slot.max_patients ?? 0;
+            const bookedPatients = slot.booked_patients ?? 0;
+            const remainingSlots = maxPatients - bookedPatients;
 
             return (
               <button
@@ -119,7 +133,7 @@ export default function PatientBookingPage() {
                   <p className="flex items-center gap-1">
                     <Clock className="w-3 h-3" /> {slot.start_time} - {slot.end_time}
                   </p>
-                  <p>Remaining: {slot.max_patients - slot.booked_patients} slots</p>
+                  <p>Remaining: {remainingSlots} slots</p>
                 </div>
               </button>
             );
