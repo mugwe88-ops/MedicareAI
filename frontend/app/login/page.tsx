@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase'; // Updated SSR-aware client
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -15,8 +16,18 @@ export default function LoginPage() {
     setError('');
 
     try {
+      // 1. Authenticate with Supabase to set HTTP cookies for Server Actions
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        throw new Error(authError.message);
+      }
+
+      // 2. Sync with external Render API backend if needed
       const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://medicareai-1.onrender.com';
-      
       const res = await fetch(`${BACKEND_BASE}/api/auth/login`, {
         method: 'POST',
         headers: {
@@ -28,23 +39,19 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Invalid credentials');
+        throw new Error(data.error || 'Invalid credentials from backend service.');
       }
 
-      // Save credentials cleanly to browser memory
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // 3. Save local storage items for legacy client-side component checks
+      localStorage.setItem('token', data.token || authData.session?.access_token);
+      localStorage.setItem('user', JSON.stringify(data.user || authData.user));
 
-      // Normalizing the string role to prevent capitalization mismatch bugs
-      const userRole = data.user?.role?.toLowerCase() || 'patient';
+      const userRole = (data.user?.role || authData.user?.user_metadata?.role || 'patient').toLowerCase();
 
-      // ROUTING GATEWAY: Force clear window navigation to load clean layout files
+      // 4. Redirect based on role
       if (userRole === 'doctor') {
-        console.log('Redirecting to medical provider workspace structural route...');
         window.location.href = '/doctors/dashboard'; 
       } else {
-        console.log('Redirecting to patient clinic panel...');
-        // ✅ Fixed: Added leading slash to ensure correct absolute routing
         window.location.href = '/patient/dashboard';
       }
     } catch (err: any) {

@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 
 export interface BookingPayload {
   doctorId: string;
-  patientId: string;
+  patientId?: string;
   patientName: string;
   appointmentDate: string;
   startTime: string;
@@ -37,22 +37,22 @@ export async function createPatientBookingAction(formData: BookingPayload) {
                 cookieStore.set(name, value, options)
               );
             } catch {
-              // Server component write safety
+              // Safe block for Next.js Server Components / Actions
             }
           },
         },
       }
     );
 
-    // 1. Fetch authenticated user from Supabase Auth
+    // 1. Fetch authenticated user from Supabase Auth via Cookies
     let activePatientId: string | null = null;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (user) {
       activePatientId = user.id;
-    } else {
-      // Fallback: If cookie auth check fails, fallback to passed payload patientId if available
-      activePatientId = formData.patientId || null;
+    } else if (formData.patientId) {
+      // Fallback: Use explicitly provided patient ID if available
+      activePatientId = formData.patientId;
     }
 
     // Strictly enforce auth presence
@@ -64,13 +64,13 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       };
     }
 
-    // Fetch session access token for downstream authorization headers if needed
+    // Fetch session token for microservice headers
     const { data: { session } } = await supabase.auth.getSession();
 
     const generatedRefCode = formData.refCode || `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
     const renderApiUrl = process.env.RENDER_API_URL;
 
-    // Direct Supabase Fallback: Write directly to database with active user ID
+    // Direct Supabase Write Fallback
     if (!renderApiUrl || renderApiUrl.includes('your-render-app.onrender.com')) {
       const { data: appointment, error: dbError } = await supabase
         .from('appointments')
