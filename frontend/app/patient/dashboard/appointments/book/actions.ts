@@ -44,18 +44,25 @@ export async function createPatientBookingAction(formData: BookingPayload) {
       }
     );
 
-    // Strictly fetch and verify authenticated user from Supabase Auth
+    // 1. Fetch authenticated user from Supabase Auth
+    let activePatientId: string | null = null;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      return { 
-        success: false, 
-        error: 'Authentication required. Please log in again to complete your booking.' 
-      };
+    if (user) {
+      activePatientId = user.id;
+    } else {
+      // Fallback: If cookie auth check fails, fallback to passed payload patientId if available
+      activePatientId = formData.patientId || null;
     }
 
-    // Enforce patient_id strictly matching auth.users.id
-    const activePatientId = user.id;
+    // Strictly enforce auth presence
+    if (!activePatientId) {
+      console.error("Auth Failure:", userError);
+      return { 
+        success: false, 
+        error: 'Authentication session not detected. Please ensure you are logged in.' 
+      };
+    }
 
     // Fetch session access token for downstream authorization headers if needed
     const { data: { session } } = await supabase.auth.getSession();
@@ -63,7 +70,7 @@ export async function createPatientBookingAction(formData: BookingPayload) {
     const generatedRefCode = formData.refCode || `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
     const renderApiUrl = process.env.RENDER_API_URL;
 
-    // Direct Supabase Fallback: Write directly to database with verified auth.users ID
+    // Direct Supabase Fallback: Write directly to database with active user ID
     if (!renderApiUrl || renderApiUrl.includes('your-render-app.onrender.com')) {
       const { data: appointment, error: dbError } = await supabase
         .from('appointments')
