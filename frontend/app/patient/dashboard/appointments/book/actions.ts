@@ -50,17 +50,17 @@ export async function createPatientBookingAction(formData: BookingPayload) {
 
     if (user?.id) {
       activePatientId = user.id;
-    } else if (formData.patientId) {
-      // 2. Fallback to client-provided patientId if auth user is null
-      activePatientId = formData.patientId;
+    } else if (formData.patientId && typeof formData.patientId === 'string' && formData.patientId.trim() !== '') {
+      // 2. Validate client-provided patientId if auth user session is null
+      activePatientId = formData.patientId.trim();
     }
 
-    // Strictly enforce presence of a valid patient ID
+    // Server-side validation: Strictly enforce presence of a valid patient ID
     if (!activePatientId) {
-      console.error("Auth Failure:", userError);
+      console.error("Auth / Payload Failure: Missing valid patientId", userError);
       return { 
         success: false, 
-        error: 'Authentication session not detected. Please ensure you are logged in.' 
+        error: 'Authentication session or patient identification not detected. Please ensure you are logged in.' 
       };
     }
 
