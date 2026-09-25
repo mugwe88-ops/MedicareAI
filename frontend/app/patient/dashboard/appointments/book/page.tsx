@@ -274,7 +274,6 @@ export default function BookAppointmentPage() {
     let isMounted = true;
 
     async function checkAuthAndFetchDoctors() {
-      // 1. Fetch Session and User sequentially to ensure local persistence hydration
       const { data: { session } } = await supabase.auth.getSession();
       const activeUser = session?.user || (await supabase.auth.getUser()).data.user;
 
@@ -300,7 +299,6 @@ export default function BookAppointmentPage() {
         }
       } else {
         setIsAuthenticated(false);
-        setErrorMessage('Please login to proceed with booking an appointment.');
       }
 
       setIsAuthLoading(false);
@@ -324,7 +322,6 @@ export default function BookAppointmentPage() {
         setErrorMessage(null);
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
-        setErrorMessage('Please login to proceed with booking an appointment.');
       }
       setIsAuthLoading(false);
     });
@@ -430,15 +427,17 @@ export default function BookAppointmentPage() {
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Fallback authentication resolution to ensure token availability on submission
+    const { data: { session } } = await supabase.auth.getSession();
+    const activeUser = session?.user || (await supabase.auth.getUser()).data.user;
 
-    if (userError || !user) {
+    if (!activeUser) {
       setIsSubmitting(false);
       setErrorMessage('Authentication session not detected. Please ensure you are logged in.');
       return;
     }
 
-    const currentUserId = user.id;
+    const currentUserId = activeUser.id;
     const refCode = `SMD-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const res = await createPatientBookingAction({
@@ -487,18 +486,20 @@ export default function BookAppointmentPage() {
     <div className="min-h-screen bg-[#050914] text-slate-100 font-sans p-4 md:p-8 space-y-6 pb-24 selection:bg-blue-600 selection:text-white rounded-3xl">
       <BookingHero patientName={patientName} step={step} />
 
-      {!isAuthenticated && errorMessage && (
+      {errorMessage && (
         <div className="p-4 rounded-2xl bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-semibold flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
             <span>{errorMessage}</span>
           </div>
-          <button
-            onClick={() => router.push('/login')}
-            className="px-3 py-1.5 bg-rose-800 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition"
-          >
-            Sign In
-          </button>
+          {!isAuthenticated && (
+            <button
+              onClick={() => router.push('/login')}
+              className="px-3 py-1.5 bg-rose-800 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition"
+            >
+              Sign In
+            </button>
+          )}
         </div>
       )}
 
