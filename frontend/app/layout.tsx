@@ -3,6 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://medicare-ai-two.vercel.app"),
+  applicationName: "Swift MD",
   title: {
     default: "Swift MD | Telehealth & Remote Clinical Support Platform",
     template: "%s | Swift MD",
@@ -59,6 +60,14 @@ export const metadata: Metadata = {
   },
 };
 
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Swift MD",
+  alternateName: ["SwiftMD", "Swift MD Telehealth"],
+  url: "https://medicare-ai-two.vercel.app/",
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -66,7 +75,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteJsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }
